@@ -1,0 +1,1 @@
+export { PremiumPaywall } from './PremiumPaywall';
