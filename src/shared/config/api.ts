@@ -1,7 +1,7 @@
 export const API_CONFIG = {
   BASE_URL: __DEV__
-    ? 'http://192.168.1.8:8000/api' // Your local development server IP
-    : 'http://localhost:8000/api', // Production URL (update when you have one)
+    ? 'http://13.232.15.181:8000/api' // Your local development server IP
+    : 'http://13.232.15.181:8000/api', // Production URL (update when you have one)
   TIMEOUT: 10000,
   RETRY_ATTEMPTS: 2,
 };
