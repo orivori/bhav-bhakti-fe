@@ -17,7 +17,7 @@ import { mockWallpapers } from '@/data/mockWallpapers';
 import { WallpaperCategory } from '@/types/wallpaper';
 import { usePremiumStore } from '@/store/premiumStore';
 import { useTranslation } from '@/hooks/useTranslation';
-import { spiritualTheme } from '@/styles/spiritualTheme';
+import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 
 const { width } = Dimensions.get('window');
 
@@ -88,19 +88,19 @@ export default function WallpapersScreen() {
           <Ionicons
             name="search-outline"
             size={20}
-            color={spiritualTheme.colors.text.muted}
+            color={goldenTempleTheme.colors.text.muted}
             style={styles.searchIcon}
           />
           <TextInput
             style={styles.searchInput}
             placeholder="Search mantras, ringtones..."
-            placeholderTextColor={spiritualTheme.colors.text.muted}
+            placeholderTextColor={goldenTempleTheme.colors.text.muted}
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
           {searchQuery.length > 0 && (
             <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <Ionicons name="close-circle" size={20} color={spiritualTheme.colors.text.muted} />
+              <Ionicons name="close-circle" size={20} color={goldenTempleTheme.colors.text.muted} />
             </TouchableOpacity>
           )}
         </View>
@@ -108,7 +108,7 @@ export default function WallpapersScreen() {
           <Ionicons
             name="person-circle-outline"
             size={32}
-            color={spiritualTheme.colors.primary.DEFAULT}
+            color={goldenTempleTheme.colors.primary.DEFAULT}
           />
         </TouchableOpacity>
       </View>
@@ -150,7 +150,7 @@ export default function WallpapersScreen() {
           <Ionicons
             name="star"
             size={16}
-            color={showPremiumOnly ? spiritualTheme.colors.accent.DEFAULT : spiritualTheme.colors.text.muted}
+            color={showPremiumOnly ? goldenTempleTheme.colors.accent.DEFAULT : goldenTempleTheme.colors.text.muted}
           />
           <Text
             variant="caption"
@@ -168,7 +168,7 @@ export default function WallpapersScreen() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         {filteredWallpapers.length === 0 ? (
           <View style={styles.emptyState}>
-            <Ionicons name="images-outline" size={64} color={spiritualTheme.colors.text.muted} />
+            <Ionicons name="images-outline" size={64} color={goldenTempleTheme.colors.text.muted} />
             <Text variant="h4" weight="semibold" style={styles.emptyTitle}>
               {t('wallpapers.noWallpapersFound')}
             </Text>
@@ -187,7 +187,7 @@ export default function WallpapersScreen() {
                 <Image source={{ uri: wallpaper.thumbnailUrl }} style={styles.gridImage} />
                 {wallpaper.isPremium && (
                   <View style={styles.gridPremiumBadge}>
-                    <Ionicons name="star" size={12} color={spiritualTheme.colors.accent.DEFAULT} />
+                    <Ionicons name="star" size={12} color={goldenTempleTheme.colors.accent.DEFAULT} />
                   </View>
                 )}
                 <View style={styles.gridOverlay}>
@@ -222,38 +222,38 @@ export default function WallpapersScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: spiritualTheme.colors.backgrounds.primary,
+    backgroundColor: 'transparent',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: spiritualTheme.spacing.md,
-    paddingVertical: spiritualTheme.spacing.md,
-    backgroundColor: spiritualTheme.colors.backgrounds.card,
+    paddingHorizontal: goldenTempleTheme.spacing.md,
+    paddingVertical: goldenTempleTheme.spacing.md,
+    backgroundColor: 'transparent',
     borderBottomWidth: 1,
-    borderBottomColor: spiritualTheme.colors.border,
-    ...spiritualTheme.shadows.sm,
+    borderBottomColor: goldenTempleTheme.colors.border,
+    ...goldenTempleTheme.shadows.sm,
   },
   searchContainer: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: spiritualTheme.colors.backgrounds.muted,
-    paddingHorizontal: spiritualTheme.spacing.md,
-    paddingVertical: spiritualTheme.spacing.sm,
-    borderRadius: spiritualTheme.borderRadius.xl,
-    marginRight: spiritualTheme.spacing.md,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    paddingHorizontal: goldenTempleTheme.spacing.md,
+    paddingVertical: goldenTempleTheme.spacing.sm,
+    borderRadius: goldenTempleTheme.borderRadius.xl,
+    marginRight: goldenTempleTheme.spacing.md,
     borderWidth: 1,
-    borderColor: spiritualTheme.colors.border,
+    borderColor: goldenTempleTheme.colors.border,
   },
   searchIcon: {
-    marginRight: spiritualTheme.spacing.sm,
+    marginRight: goldenTempleTheme.spacing.sm,
   },
   searchInput: {
     flex: 1,
     fontSize: 16,
-    color: spiritualTheme.colors.text.primary,
+    color: goldenTempleTheme.colors.text.primary,
   },
   profileButton: {
     padding: 4,
@@ -262,9 +262,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 16,
-    backgroundColor: spiritualTheme.colors.backgrounds.card,
+    backgroundColor: 'transparent',
     borderBottomWidth: 1,
-    borderBottomColor: spiritualTheme.colors.border,
+    borderBottomColor: goldenTempleTheme.colors.border,
     gap: 12,
   },
   categoriesContent: {
@@ -275,17 +275,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: spiritualTheme.colors.backgrounds.muted,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     marginRight: 8,
   },
   categoryPillActive: {
-    backgroundColor: spiritualTheme.colors.primary.DEFAULT,
+    backgroundColor: goldenTempleTheme.colors.primary.DEFAULT,
   },
   categoryText: {
-    color: spiritualTheme.colors.text.secondary,
+    color: goldenTempleTheme.colors.text.secondary,
   },
   categoryTextActive: {
-    color: spiritualTheme.colors.primary.foreground,
+    color: goldenTempleTheme.colors.primary.foreground,
   },
   filterButton: {
     flexDirection: 'row',
@@ -293,18 +293,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: spiritualTheme.colors.backgrounds.muted,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     gap: 4,
     marginRight: 24,
   },
   filterButtonActive: {
-    backgroundColor: spiritualTheme.colors.accent[100],
+    backgroundColor: goldenTempleTheme.colors.accent[100],
   },
   filterButtonText: {
-    color: spiritualTheme.colors.text.secondary,
+    color: goldenTempleTheme.colors.text.secondary,
   },
   filterButtonTextActive: {
-    color: spiritualTheme.colors.accent[700],
+    color: goldenTempleTheme.colors.accent[700],
     fontWeight: '600',
   },
   scrollContent: {
@@ -319,12 +319,12 @@ const styles = StyleSheet.create({
   gridItem: {
     width: (width - 56) / 2,
     height: 280,
-    borderRadius: spiritualTheme.borderRadius.lg,
+    borderRadius: goldenTempleTheme.borderRadius.lg,
     overflow: 'hidden',
-    backgroundColor: spiritualTheme.colors.backgrounds.secondary,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
     borderWidth: 1,
-    borderColor: spiritualTheme.colors.border,
-    ...spiritualTheme.shadows.md,
+    borderColor: 'rgba(218, 165, 32, 0.3)',
+    ...goldenTempleTheme.shadows.md,
   },
   gridImage: {
     width: '100%',

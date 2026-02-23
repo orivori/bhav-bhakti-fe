@@ -1,5 +1,6 @@
 import React from 'react';
 import { TextInput, View, Text, StyleSheet, ViewStyle, TextStyle } from 'react-native';
+import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 
 interface InputProps {
   label?: string;
@@ -68,7 +69,7 @@ const Input: React.FC<InputProps> = ({
         <TextInput
           style={inputStyles}
           placeholder={placeholder}
-          placeholderTextColor="#9ca3af"
+          placeholderTextColor={goldenTempleTheme.colors.text.muted}
           value={value}
           onChangeText={onChangeText}
           editable={!disabled}
@@ -102,43 +103,44 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   label: {
-    color: '#374151',
+    color: goldenTempleTheme.colors.text.primary,
     fontWeight: '500',
-    marginBottom: 8,
+    marginBottom: goldenTempleTheme.spacing.sm,
     fontSize: 16,
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 8,
-    backgroundColor: '#ffffff',
+    borderWidth: 2,
+    borderColor: goldenTempleTheme.colors.border,
+    borderRadius: goldenTempleTheme.borderRadius.md,
+    backgroundColor: goldenTempleTheme.colors.inputBackground,
   },
   inputWrapperError: {
-    borderColor: '#ef4444',
+    borderColor: goldenTempleTheme.colors.error,
   },
   inputWrapperDisabled: {
-    backgroundColor: '#f3f4f6',
+    backgroundColor: goldenTempleTheme.colors.backgrounds.muted,
+    opacity: goldenTempleTheme.opacity.disabled,
   },
   input: {
     flex: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    color: '#111827',
+    paddingHorizontal: goldenTempleTheme.spacing.md,
+    paddingVertical: goldenTempleTheme.spacing.sm + 4,
+    color: goldenTempleTheme.colors.text.primary,
     fontSize: 16,
   },
   multilineInput: {
     textAlignVertical: 'top',
   },
   leftIconContainer: {
-    paddingLeft: 12,
+    paddingLeft: goldenTempleTheme.spacing.sm + 4,
   },
   rightIconContainer: {
-    paddingRight: 12,
+    paddingRight: goldenTempleTheme.spacing.sm + 4,
   },
   errorText: {
-    color: '#ef4444',
+    color: goldenTempleTheme.colors.error,
     fontSize: 14,
     marginTop: 4,
   },

@@ -33,7 +33,7 @@ export default function VerifyOTPScreen() {
 
   // Countdown timer for resend
   useEffect(() => {
-    let interval: NodeJS.Timeout;
+    let interval: ReturnType<typeof setInterval>;
 
     if (resendTimer > 0 && !canResend) {
       interval = setInterval(() => {
@@ -230,7 +230,7 @@ export default function VerifyOTPScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: 'transparent',
   },
   keyboardView: {
     flex: 1,

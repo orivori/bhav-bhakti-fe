@@ -1,9 +1,10 @@
 import React from 'react';
 import { Text as RNText, TextProps as RNTextProps, StyleSheet, TextStyle } from 'react-native';
+import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 
 interface TextProps extends RNTextProps {
   variant?: 'h1' | 'h2' | 'h3' | 'h4' |'h5' | 'body' | 'caption' | 'overline';
-  color?: 'primary' | 'secondary' | 'error' | 'success' | 'warning';
+  color?: 'primary' | 'secondary' | 'accent' | 'muted' | 'error' | 'success' | 'warning' | 'gold' | 'bronze';
   weight?: 'normal' | 'medium' | 'semibold' | 'bold';
   align?: 'left' | 'center' | 'right';
 }
@@ -28,11 +29,15 @@ const Text: React.FC<TextProps> = ({
   };
 
   const colorStyles: Record<string, TextStyle> = {
-    primary: { color: '#3b82f6' },
-    secondary: { color: '#6b7280' },
-    error: { color: '#ef4444' },
-    success: { color: '#10b981' },
-    warning: { color: '#f59e0b' },
+    primary: { color: goldenTempleTheme.colors.text.primary },
+    secondary: { color: goldenTempleTheme.colors.text.secondary },
+    accent: { color: goldenTempleTheme.colors.text.accent },
+    muted: { color: goldenTempleTheme.colors.text.muted },
+    error: { color: goldenTempleTheme.colors.error },
+    success: { color: goldenTempleTheme.colors.success },
+    warning: { color: goldenTempleTheme.colors.warning },
+    gold: { color: goldenTempleTheme.colors.primary.DEFAULT },
+    bronze: { color: goldenTempleTheme.colors.secondary.DEFAULT },
   };
 
   const weightStyles: Record<string, TextStyle> = {
@@ -66,7 +71,7 @@ const Text: React.FC<TextProps> = ({
 
 const styles = StyleSheet.create({
   defaultText: {
-    color: '#111827',
+    color: goldenTempleTheme.colors.text.primary,
   },
 });
 

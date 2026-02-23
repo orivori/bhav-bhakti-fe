@@ -1,34 +1,42 @@
 export interface FeedMedia {
-  id: string;
-  feedId: string;
-  type: 'image' | 'video' | 'image_audio';
+  id: number;
+  type: 'image' | 'video' | 'audio' | 'image_audio';
   mediaUrl: string;
-  audioUrl?: string;
-  thumbnailUrl?: string;
-  duration?: number; // seconds
+  audioUrl?: string | null;
+  thumbnailUrl?: string | null;
+  duration?: number | null; // seconds
   width?: number;
   height?: number;
-  metadata?: Record<string, any>;
-  createdAt: string;
-  updatedAt: string;
+  order: number;
+  metadata?: Record<string, any> | null;
 }
 
 export interface Feed {
-  id: string;
+  id: number;
+  userId: number;
   caption?: string;
   location?: string;
-  allowComments: boolean;
-  allowDownloads: boolean;
-  createdBy: string;
+  type: 'general' | 'mantra' | 'ringtone' | 'wallpaper';
+  mediaCount: number;
   likesCount: number;
+  commentsCount: number;
   downloadsCount: number;
   sharesCount: number;
   viewsCount: number;
-  isLiked?: boolean; // Set by API when user is authenticated
+  allowComments: boolean;
+  allowDownloads: boolean;
+  status: string;
   createdAt: string;
   updatedAt: string;
-  media: FeedMedia[];
+  user: {
+    id: number;
+    name: string;
+    profilePicture?: string | null;
+  };
   tags: string[];
+  media: FeedMedia[];
+  isLiked: boolean;
+  isDownloaded: boolean;
 }
 
 // API Response structure (what the server actually returns)
@@ -74,12 +82,13 @@ export interface FeedListResponse {
 }
 
 export interface CreateFeedRequest {
+  type?: 'general' | 'mantra' | 'ringtone' | 'wallpaper';
   caption?: string;
   location?: string;
   allowComments?: boolean;
   allowDownloads?: boolean;
   media: {
-    type: 'image' | 'video' | 'image_audio';
+    type: 'image' | 'video' | 'audio' | 'image_audio';
     mediaUrl: string;
     audioUrl?: string;
     thumbnailUrl?: string;

@@ -14,7 +14,7 @@ import * as MediaLibrary from 'expo-media-library';
 import { Text } from '@/components/atoms';
 import FeedMedia from '../FeedMedia/FeedMedia';
 import { Feed } from '@/types/feed';
-import { spiritualTheme } from '@/styles/spiritualTheme';
+import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { feedService } from '@/features/feed/services/feedService';
 import { useFeedStore } from '@/store/feedStore';
 
@@ -48,12 +48,12 @@ export default function FeedCard({
     setIsLiking(true);
     try {
       if (feed.isLiked) {
-        await feedService.unlikeFeed(feed.id);
+        await feedService.unlikeFeed(feed.id.toString());
       } else {
-        await feedService.likeFeed(feed.id);
+        await feedService.likeFeed(feed.id.toString());
       }
-      toggleLike(feed.id);
-      onLike?.(feed.id);
+      toggleLike(feed.id.toString());
+      onLike?.(feed.id.toString());
     } catch (error) {
       console.error('Error liking feed:', error);
       Alert.alert('Error', 'Failed to like the post. Please try again.');
@@ -64,8 +64,8 @@ export default function FeedCard({
 
   const handleShare = async () => {
     try {
-      await feedService.shareFeed(feed.id, { platform: 'native_share' });
-      incrementShare(feed.id);
+      await feedService.shareFeed(feed.id.toString(), { platform: 'native_share' });
+      incrementShare(feed.id.toString());
 
       const result = await Share.share({
         message: feed.caption
@@ -75,7 +75,7 @@ export default function FeedCard({
       });
 
       if (result.action === Share.sharedAction) {
-        onShare?.(feed.id);
+        onShare?.(feed.id.toString());
       }
     } catch (error) {
       console.error('Error sharing feed:', error);
@@ -111,9 +111,9 @@ export default function FeedCard({
         Alert.alert('Success', 'Media saved to your gallery!');
 
         // Track download
-        await feedService.downloadFeed(feed.id);
-        incrementDownload(feed.id);
-        onDownload?.(feed.id);
+        await feedService.downloadFeed(feed.id.toString());
+        incrementDownload(feed.id.toString());
+        onDownload?.(feed.id.toString());
       }
     } catch (error) {
       console.error('Error downloading media:', error);
@@ -126,8 +126,8 @@ export default function FeedCard({
   const handlePress = async () => {
     // Track view
     try {
-      await feedService.viewFeed(feed.id);
-      incrementView(feed.id);
+      await feedService.viewFeed(feed.id.toString());
+      incrementView(feed.id.toString());
     } catch (error) {
       console.error('Error tracking view:', error);
     }
@@ -223,7 +223,7 @@ export default function FeedCard({
               <Ionicons
                 name={feed.isLiked ? 'heart' : 'heart-outline'}
                 size={24}
-                color={feed.isLiked ? spiritualTheme.colors.templeRed : spiritualTheme.colors.text.secondary}
+                color={feed.isLiked ? goldenTempleTheme.colors.templeRed : goldenTempleTheme.colors.text.secondary}
               />
               {feed.likesCount > 0 && (
                 <Text variant="caption" style={styles.actionCount}>
@@ -236,7 +236,7 @@ export default function FeedCard({
               <Ionicons
                 name="share-outline"
                 size={22}
-                color={spiritualTheme.colors.text.secondary}
+                color={goldenTempleTheme.colors.text.secondary}
               />
               {feed.sharesCount > 0 && (
                 <Text variant="caption" style={styles.actionCount}>
@@ -254,7 +254,7 @@ export default function FeedCard({
                 <Ionicons
                   name="download-outline"
                   size={22}
-                  color={spiritualTheme.colors.text.secondary}
+                  color={goldenTempleTheme.colors.text.secondary}
                 />
                 {feed.downloadsCount > 0 && (
                   <Text variant="caption" style={styles.actionCount}>
@@ -271,7 +271,7 @@ export default function FeedCard({
               <Ionicons
                 name="eye-outline"
                 size={16}
-                color={spiritualTheme.colors.text.muted}
+                color={goldenTempleTheme.colors.text.muted}
               />
               <Text variant="caption" color="secondary">
                 {formatCount(feed.viewsCount)}
@@ -297,47 +297,47 @@ export default function FeedCard({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: spiritualTheme.colors.backgrounds.card,
-    marginBottom: spiritualTheme.spacing.md,
-    borderRadius: spiritualTheme.borderRadius.lg,
+    backgroundColor: goldenTempleTheme.colors.backgrounds.card,
+    marginBottom: goldenTempleTheme.spacing.md,
+    borderRadius: goldenTempleTheme.borderRadius.lg,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: spiritualTheme.colors.border,
-    ...spiritualTheme.shadows.md,
+    borderColor: goldenTempleTheme.colors.border,
+    ...goldenTempleTheme.shadows.md,
   },
   content: {
-    padding: spiritualTheme.spacing.md,
+    padding: goldenTempleTheme.spacing.md,
   },
   actionsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spiritualTheme.spacing.md,
+    marginBottom: goldenTempleTheme.spacing.md,
   },
   leftActions: {
     flexDirection: 'row',
-    gap: spiritualTheme.spacing.lg,
+    gap: goldenTempleTheme.spacing.lg,
   },
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spiritualTheme.spacing.xs,
+    gap: goldenTempleTheme.spacing.xs,
   },
   actionCount: {
-    color: spiritualTheme.colors.text.muted,
+    color: goldenTempleTheme.colors.text.muted,
     fontSize: 12,
   },
   viewCount: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spiritualTheme.spacing.xs,
+    gap: goldenTempleTheme.spacing.xs,
   },
   captionContainer: {
-    marginBottom: spiritualTheme.spacing.sm,
+    marginBottom: goldenTempleTheme.spacing.sm,
   },
   caption: {
     lineHeight: 20,
-    marginBottom: spiritualTheme.spacing.xs,
+    marginBottom: goldenTempleTheme.spacing.xs,
   },
   captionToggle: {
     fontWeight: '500',
@@ -345,19 +345,19 @@ const styles = StyleSheet.create({
   tagsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spiritualTheme.spacing.sm,
-    marginBottom: spiritualTheme.spacing.sm,
+    gap: goldenTempleTheme.spacing.sm,
+    marginBottom: goldenTempleTheme.spacing.sm,
   },
   tag: {
-    backgroundColor: spiritualTheme.colors.primary[100],
-    paddingHorizontal: spiritualTheme.spacing.sm,
-    paddingVertical: spiritualTheme.spacing.xs,
-    borderRadius: spiritualTheme.borderRadius.sm,
+    backgroundColor: goldenTempleTheme.colors.primary[100],
+    paddingHorizontal: goldenTempleTheme.spacing.sm,
+    paddingVertical: goldenTempleTheme.spacing.xs,
+    borderRadius: goldenTempleTheme.borderRadius.sm,
     borderWidth: 1,
-    borderColor: spiritualTheme.colors.primary[300],
+    borderColor: goldenTempleTheme.colors.primary[300],
   },
   tagText: {
-    color: spiritualTheme.colors.primary[700],
+    color: goldenTempleTheme.colors.primary[700],
     fontSize: 11,
     fontWeight: '600',
   },
@@ -369,7 +369,7 @@ const styles = StyleSheet.create({
   locationContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spiritualTheme.spacing.xs,
+    gap: goldenTempleTheme.spacing.xs,
   },
   location: {
     fontSize: 11,

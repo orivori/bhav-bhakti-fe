@@ -1,5 +1,6 @@
 import React from 'react';
 import { TouchableOpacity, Text, ActivityIndicator, View, StyleSheet, ViewStyle, TextStyle } from 'react-native';
+import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 
 interface ButtonProps {
   title: string;
@@ -25,9 +26,13 @@ const Button: React.FC<ButtonProps> = ({
   style,
 }) => {
   const variantStyles: Record<string, ViewStyle> = {
-    primary: { backgroundColor: '#3b82f6' },
-    secondary: { backgroundColor: '#6b7280' },
-    outline: { backgroundColor: 'transparent', borderWidth: 2, borderColor: '#3b82f6' },
+    primary: { backgroundColor: goldenTempleTheme.colors.primary.DEFAULT },
+    secondary: { backgroundColor: goldenTempleTheme.colors.secondary.DEFAULT },
+    outline: {
+      backgroundColor: 'transparent',
+      borderWidth: 2,
+      borderColor: goldenTempleTheme.colors.primary.DEFAULT
+    },
   };
 
   const sizeStyles: Record<string, ViewStyle> = {
@@ -37,9 +42,9 @@ const Button: React.FC<ButtonProps> = ({
   };
 
   const textVariantStyles: Record<string, TextStyle> = {
-    primary: { color: '#ffffff', fontWeight: '600' },
-    secondary: { color: '#ffffff', fontWeight: '600' },
-    outline: { color: '#3b82f6', fontWeight: '600' },
+    primary: { color: goldenTempleTheme.colors.primary.foreground, fontWeight: '600' },
+    secondary: { color: goldenTempleTheme.colors.secondary.foreground, fontWeight: '600' },
+    outline: { color: goldenTempleTheme.colors.primary.DEFAULT, fontWeight: '600' },
   };
 
   const textSizeStyles: Record<string, TextStyle> = {
@@ -72,7 +77,7 @@ const Button: React.FC<ButtonProps> = ({
       {loading ? (
         <ActivityIndicator
           size="small"
-          color={variant === 'outline' ? '#3b82f6' : '#ffffff'}
+          color={variant === 'outline' ? goldenTempleTheme.colors.primary.DEFAULT : goldenTempleTheme.colors.text.primary}
         />
       ) : (
         <>
@@ -86,7 +91,7 @@ const Button: React.FC<ButtonProps> = ({
 
 const styles = StyleSheet.create({
   baseButton: {
-    borderRadius: 8,
+    borderRadius: goldenTempleTheme.borderRadius.md,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

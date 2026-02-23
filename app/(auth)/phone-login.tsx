@@ -190,7 +190,7 @@ export default function PhoneLoginScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: 'transparent',
   },
   keyboardView: {
     flex: 1,

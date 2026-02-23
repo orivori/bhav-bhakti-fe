@@ -11,7 +11,7 @@ import {
 import { Text } from '@/components/atoms';
 import FeedCard from '../FeedCard/FeedCard';
 import { Feed, FeedFilters } from '@/types/feed';
-import { theme } from '@/styles/theme';
+import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { useFeedStore } from '@/store/feedStore';
 
 interface FeedListProps {
@@ -75,7 +75,7 @@ export default function FeedList({
     if (isLoadingMore) {
       return (
         <View style={styles.footerLoader}>
-          <ActivityIndicator size="small" color={theme.colors.primary[500]} />
+          <ActivityIndicator size="small" color={goldenTempleTheme.colors.primary.DEFAULT} />
           <Text variant="caption" color="secondary" style={styles.loadingText}>
             Loading more posts...
           </Text>
@@ -90,7 +90,7 @@ export default function FeedList({
     if (isLoading) {
       return (
         <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color={theme.colors.primary[500]} />
+          <ActivityIndicator size="large" color={goldenTempleTheme.colors.primary.DEFAULT} />
           <Text variant="body" color="secondary" style={styles.loadingText}>
             Loading amazing posts...
           </Text>
@@ -142,7 +142,7 @@ export default function FeedList({
     }
   }, [hasMore, isLoadingMore, isLoading, feeds.length, onLoadMore]);
 
-  const keyExtractor = useCallback((item: Feed) => item.id, []);
+  const keyExtractor = useCallback((item: Feed) => item.id.toString(), []);
 
   const getItemLayout = useCallback(
     (data: ArrayLike<Feed> | null | undefined, index: number) => ({
@@ -161,12 +161,13 @@ export default function FeedList({
       ListHeaderComponent={ListHeaderComponent}
       ListEmptyComponent={renderEmptyComponent}
       ListFooterComponent={renderFooter}
+      style={styles.flatListStyle}
       refreshControl={
         <RefreshControl
           refreshing={isRefreshing}
           onRefresh={onRefresh}
-          colors={[theme.colors.primary[500]]}
-          tintColor={theme.colors.primary[500]}
+          colors={[goldenTempleTheme.colors.primary.DEFAULT]}
+          tintColor={goldenTempleTheme.colors.primary.DEFAULT}
         />
       }
       onEndReached={handleEndReached}
@@ -191,36 +192,41 @@ export default function FeedList({
 }
 
 const styles = StyleSheet.create({
+  flatListStyle: {
+    backgroundColor: 'transparent', // Make FlatList transparent
+  },
   container: {
-    paddingHorizontal: theme.spacing.md,
-    paddingTop: theme.spacing.md,
+    paddingHorizontal: goldenTempleTheme.spacing.md,
+    paddingTop: goldenTempleTheme.spacing.md,
+    paddingBottom: 100, // Extra space for absolute positioned tab bar (height: 80 + padding)
   },
   emptyContainer: {
     flexGrow: 1,
+    paddingBottom: 100, // Space for absolute positioned tab bar
   },
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: theme.spacing['3xl'],
-    paddingHorizontal: theme.spacing.xl,
+    paddingVertical: goldenTempleTheme.spacing['3xl'],
+    paddingHorizontal: goldenTempleTheme.spacing.xl,
   },
   footerLoader: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: theme.spacing.lg,
-    gap: theme.spacing.sm,
+    paddingVertical: goldenTempleTheme.spacing.lg,
+    gap: goldenTempleTheme.spacing.sm,
   },
   footerSpacing: {
-    height: theme.spacing.xl,
+    height: goldenTempleTheme.spacing.xl,
   },
   loadingText: {
     textAlign: 'center',
-    marginTop: theme.spacing.sm,
+    marginTop: goldenTempleTheme.spacing.sm,
   },
   endMessage: {
-    paddingVertical: theme.spacing.lg,
+    paddingVertical: goldenTempleTheme.spacing.lg,
     alignItems: 'center',
   },
   endText: {
@@ -231,18 +237,18 @@ const styles = StyleSheet.create({
   emptyIcon: {
     width: 80,
     height: 80,
-    backgroundColor: theme.colors.gray[100],
+    backgroundColor: 'transparent',
     borderRadius: 40,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: theme.spacing.lg,
+    marginBottom: goldenTempleTheme.spacing.lg,
   },
   emptyEmoji: {
     fontSize: 32,
   },
   emptyTitle: {
     textAlign: 'center',
-    marginBottom: theme.spacing.sm,
+    marginBottom: goldenTempleTheme.spacing.sm,
   },
   emptySubtitle: {
     textAlign: 'center',
@@ -252,30 +258,30 @@ const styles = StyleSheet.create({
   errorIcon: {
     width: 80,
     height: 80,
-    backgroundColor: theme.colors.red[50],
+    backgroundColor: 'transparent',
     borderRadius: 40,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: theme.spacing.lg,
+    marginBottom: goldenTempleTheme.spacing.lg,
   },
   errorEmoji: {
     fontSize: 32,
   },
   errorTitle: {
     textAlign: 'center',
-    marginBottom: theme.spacing.sm,
-    color: theme.colors.gray[900],
+    marginBottom: goldenTempleTheme.spacing.sm,
+    color: goldenTempleTheme.colors.text.primary,
   },
   errorMessage: {
     textAlign: 'center',
     maxWidth: 280,
-    marginBottom: theme.spacing.lg,
+    marginBottom: goldenTempleTheme.spacing.lg,
   },
   retryButton: {
-    backgroundColor: theme.colors.primary[500],
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.md,
-    borderRadius: theme.borderRadius.md,
+    backgroundColor: 'transparent',
+    paddingHorizontal: goldenTempleTheme.spacing.lg,
+    paddingVertical: goldenTempleTheme.spacing.md,
+    borderRadius: goldenTempleTheme.borderRadius.md,
   },
   retryText: {
     color: '#fff',

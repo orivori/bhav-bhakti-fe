@@ -4,7 +4,7 @@ import { View, StyleSheet } from 'react-native';
 export default function AuthLayout() {
   return (
     <View style={styles.container}>
-      <Stack screenOptions={{ headerShown: false }}>
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: 'transparent' } }}>
         <Stack.Screen name="phone-login" />
         <Stack.Screen name="verify-otp" />
       </Stack>
@@ -15,6 +15,6 @@ export default function AuthLayout() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: 'transparent',
   },
 });

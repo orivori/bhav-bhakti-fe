@@ -17,7 +17,7 @@ import { Feed } from '@/types/feed';
 import { usePremiumStore } from '@/store/premiumStore';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useZodiacStore } from '@/store/zodiacStore';
-import { spiritualTheme } from '@/styles/spiritualTheme';
+import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 
 type ContentCategory = 'Mantras' | 'Ringtones' | 'Daily Status';
 
@@ -55,25 +55,25 @@ export default function HomeScreen() {
         return {
           name: 'Mantras',
           icon: 'musical-notes',
-          gradient: spiritualTheme.gradients.sunrise,
+          gradient: goldenTempleTheme.gradients.sunrise,
         };
       case 'Ringtones':
         return {
           name: 'Ringtones',
           icon: 'notifications',
-          gradient: spiritualTheme.gradients.meditation,
+          gradient: goldenTempleTheme.gradients.meditation,
         };
       case 'Daily Status':
         return {
           name: 'Daily Status',
           icon: 'image',
-          gradient: spiritualTheme.gradients.lotus,
+          gradient: goldenTempleTheme.gradients.lotus,
         };
       default:
         return {
           name: category,
           icon: 'help-circle',
-          gradient: spiritualTheme.gradients.divine,
+          gradient: goldenTempleTheme.gradients.divine,
         };
     }
   };
@@ -94,11 +94,47 @@ export default function HomeScreen() {
   };
 
   const handleFeedPress = (feed: Feed) => {
-    // Track view
-    viewFeed(feed.id);
+    console.log('🎵 Home: Feed pressed:', {
+      id: feed.id,
+      type: feed.type,
+      caption: feed.caption,
+      mediaCount: feed.media?.length || 0
+    });
 
-    // Navigate to feed detail (you can implement this later)
-    console.log('Feed pressed:', feed.id);
+    // Track view
+    viewFeed(feed.id.toString());
+
+    // Check if feed is a mantra with audio media
+    if (feed.type === 'mantra') {
+      console.log('🔍 Home: This is a mantra feed, checking for audio media');
+      const audioMedia = feed.media.find(media => media.type === 'audio');
+
+      if (audioMedia) {
+        console.log('✅ Home: Found audio media, navigating to audio player:', {
+          feedId: feed.id.toString(),
+          audioUrl: audioMedia.mediaUrl,
+          thumbnailUrl: audioMedia.thumbnailUrl
+        });
+
+        // Navigate to audio player with feed data
+        router.push({
+          pathname: '/(main)/audio-player',
+          params: {
+            feedId: feed.id.toString(),
+            title: feed.caption || 'Sacred Mantra',
+            audioUrl: audioMedia.mediaUrl,
+            thumbnailUrl: audioMedia.thumbnailUrl,
+            tags: feed.tags?.join(',') || '',
+          }
+        });
+        return;
+      } else {
+        console.log('❌ Home: No audio media found in mantra feed');
+      }
+    }
+
+    // For other feed types, you can add different navigation logic
+    console.log('ℹ️ Home: Non-mantra feed or no audio media found');
   };
 
   const renderHeader = () => (
@@ -109,18 +145,25 @@ export default function HomeScreen() {
           <Ionicons
             name="search-outline"
             size={20}
-            color={spiritualTheme.colors.text.muted}
+            color={goldenTempleTheme.colors.primary.DEFAULT}
             style={styles.searchIcon}
           />
           <Text style={styles.searchPlaceholder}>
-            Search for spiritual content...
+            Search mantras, ringtones...
           </Text>
+          <TouchableOpacity style={styles.microphoneButton}>
+            <Ionicons
+              name="mic-outline"
+              size={20}
+              color={goldenTempleTheme.colors.primary.DEFAULT}
+            />
+          </TouchableOpacity>
         </View>
         <TouchableOpacity style={styles.profileButton}>
           <Ionicons
-            name="person-circle-outline"
-            size={32}
-            color={spiritualTheme.colors.primary.DEFAULT}
+            name="person-circle"
+            size={28}
+            color={goldenTempleTheme.colors.primary.DEFAULT}
           />
         </TouchableOpacity>
       </View>
@@ -189,7 +232,7 @@ export default function HomeScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: 'transparent' }]}>
       <FeedList
         feeds={feeds}
         onLoadMore={loadMore}
@@ -213,7 +256,7 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: spiritualTheme.colors.backgrounds.primary,
+    backgroundColor: 'transparent', // Remove background to show image
   },
   content: {
     flex: 1,
@@ -222,84 +265,90 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: spiritualTheme.spacing.md,
-    paddingVertical: spiritualTheme.spacing.md,
-    backgroundColor: spiritualTheme.colors.backgrounds.card,
-    borderBottomWidth: 1,
-    borderBottomColor: spiritualTheme.colors.border,
-    ...spiritualTheme.shadows.sm,
+    paddingHorizontal: goldenTempleTheme.spacing.lg,
+    paddingVertical: goldenTempleTheme.spacing.md + 4,
+    backgroundColor: 'transparent',
+    marginTop: 10,
   },
   searchContainer: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: spiritualTheme.colors.backgrounds.muted,
-    paddingHorizontal: spiritualTheme.spacing.md,
-    paddingVertical: spiritualTheme.spacing.sm,
-    borderRadius: spiritualTheme.borderRadius.xl,
-    marginRight: spiritualTheme.spacing.md,
-    borderWidth: 1,
-    borderColor: spiritualTheme.colors.border,
+    backgroundColor: 'rgba(218, 165, 32, 0.15)', // Golden glass effect
+    paddingHorizontal: goldenTempleTheme.spacing.md,
+    paddingVertical: goldenTempleTheme.spacing.sm + 2,
+    borderRadius: 25, // More rounded for golden pill shape
+    marginRight: goldenTempleTheme.spacing.md,
+    borderWidth: 1.5,
+    borderColor: 'rgba(218, 165, 32, 0.4)', // Golden border
+    shadowColor: goldenTempleTheme.colors.primary.DEFAULT,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   searchIcon: {
-    marginRight: spiritualTheme.spacing.sm,
+    marginRight: goldenTempleTheme.spacing.sm,
   },
   searchPlaceholder: {
     flex: 1,
     fontSize: 16,
-    color: spiritualTheme.colors.text.muted,
+    color: goldenTempleTheme.colors.primary.DEFAULT,
+    fontWeight: '500',
+  },
+  microphoneButton: {
+    padding: 6,
+    borderRadius: 15,
+    backgroundColor: 'rgba(218, 165, 32, 0.2)',
   },
   profileButton: {
-    padding: 4,
+    padding: 6,
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: goldenTempleTheme.colors.primary.DEFAULT,
+    backgroundColor: 'rgba(218, 165, 32, 0.1)',
   },
   categoriesContainer: {
-    marginTop: spiritualTheme.spacing.md,
-    backgroundColor: spiritualTheme.colors.backgrounds.card,
-    paddingBottom: spiritualTheme.spacing.md,
+    marginTop: goldenTempleTheme.spacing.md,
+    backgroundColor: 'transparent', // Let background image show through
+    paddingBottom: goldenTempleTheme.spacing.md,
   },
   categoriesContent: {
-    paddingHorizontal: spiritualTheme.spacing.lg,
-    gap: spiritualTheme.spacing.sm,
+    paddingHorizontal: goldenTempleTheme.spacing.lg,
+    gap: goldenTempleTheme.spacing.sm,
   },
   categoryCard: {
     width: 120,
     height: 80,
-    borderRadius: spiritualTheme.borderRadius.xl,
-    padding: spiritualTheme.spacing.md,
-    marginRight: spiritualTheme.spacing.sm,
+    borderRadius: goldenTempleTheme.borderRadius.xl,
+    padding: goldenTempleTheme.spacing.md,
+    marginRight: goldenTempleTheme.spacing.sm,
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    ...spiritualTheme.shadows.lg,
+    ...goldenTempleTheme.shadows.lg,
   },
   categoryCardText: {
-    color: spiritualTheme.colors.text.inverse,
+    color: goldenTempleTheme.colors.text.inverse,
     fontSize: 14,
     fontWeight: '600',
   },
   horoscopeCard: {
-    marginHorizontal: spiritualTheme.spacing.md,
-    marginTop: spiritualTheme.spacing.md,
-    marginBottom: spiritualTheme.spacing.sm,
-    backgroundColor: spiritualTheme.colors.backgrounds.card,
-    borderRadius: spiritualTheme.borderRadius.xl,
-    padding: spiritualTheme.spacing.md,
-    borderWidth: 2,
-    borderColor: spiritualTheme.colors.primary[200],
-    shadowColor: spiritualTheme.colors.primary[500],
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 5,
+    marginHorizontal: goldenTempleTheme.spacing.md,
+    marginTop: goldenTempleTheme.spacing.md,
+    marginBottom: goldenTempleTheme.spacing.sm,
+    backgroundColor: 'transparent',
+    borderRadius: goldenTempleTheme.borderRadius.xl,
+    padding: goldenTempleTheme.spacing.md,
   },
   horoscopeContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spiritualTheme.spacing.sm,
+    gap: goldenTempleTheme.spacing.sm,
   },
   horoscopeIcon: {
     width: 48,
     height: 48,
-    backgroundColor: spiritualTheme.colors.primary[100],
+    backgroundColor: 'transparent',
     borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
@@ -313,15 +362,10 @@ const styles = StyleSheet.create({
   horoscopeTitle: {
     marginBottom: 4,
     fontSize: 16,
-    color: spiritualTheme.colors.text.primary,
+    color: goldenTempleTheme.colors.text.primary,
   },
   horoscopeSubtitle: {
     fontSize: 12,
-    color: spiritualTheme.colors.text.secondary,
-  },
-  feedContainer: {
-    flex: 1,
-    marginTop: spiritualTheme.spacing.sm,
-    backgroundColor: spiritualTheme.colors.backgrounds.primary,
+    color: goldenTempleTheme.colors.text.secondary,
   },
 });

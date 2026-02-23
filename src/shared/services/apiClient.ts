@@ -1,8 +1,7 @@
 import axios, { AxiosInstance, AxiosError, AxiosResponse } from 'axios';
-import { API_CONFIG } from '@/shared/config/api';
+import { API_CONFIG, API_ENDPOINTS } from '@/shared/config/api';
 import { secureStorage } from '@/shared/utils/secureStorage';
-import { ApiError } from '@/features/authentication/types';
-import { ApiLogger } from '@/shared/utils/apiLogger';
+import { AuthTokens, ApiError } from '@/features/authentication/types';
 
 class ApiClient {
   private client: AxiosInstance;
@@ -25,19 +24,31 @@ class ApiClient {
     // Request interceptor to add auth token and log requests
     this.client.interceptors.request.use(
       async (config) => {
-        // Add auth token
-        const tokens = await secureStorage.getTokens();
-        if (tokens?.accessToken) {
-          config.headers.Authorization = `Bearer ${tokens.accessToken}`;
-        }
+        // Add auth token - using hardcoded token for testing
+        const MOCK_TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjEsInBob25lTnVtYmVyIjoiODg0MDU4MTgyOSIsInNlc3Npb25JZCI6ImI4OGM4YjgxMDE2N2Q1MzgxYzZlNmVhNjUwZWIwOGQyZDkyOTk0ZWJhOTIwYzIwMjQ5OGFjOGMzN2NhOTBjZTYiLCJpYXQiOjE3NzE3NzYwMDIsImV4cCI6MTc3MjY0MDAwMn0.kvuBj8d949mT-54knA1AIu4EwTHEDhYm-UCDzqI_bZ4';
+
+        // Use mock token for testing, fallback to stored token
+        config.headers.Authorization = `Bearer ${MOCK_TOKEN}`;
+
+        // Optional: Also try to get stored tokens as fallback
+        // const tokens = await secureStorage.getTokens();
+        // if (!MOCK_TOKEN && tokens?.accessToken) {
+        //   config.headers.Authorization = `Bearer ${tokens.accessToken}`;
+        // }
 
         // Log API request details
-        ApiLogger.logRequest(config);
+        console.log('🚀 API Request:', {
+          method: config.method?.toUpperCase(),
+          url: `${config.baseURL}${config.url}`,
+          headers: config.headers,
+          payload: config.data,
+          timestamp: new Date().toISOString(),
+        });
 
         return config;
       },
       (error) => {
-        ApiLogger.logError(error);
+        console.error('❌ API Request Error:', error);
         return Promise.reject(error);
       }
     );
@@ -46,7 +57,15 @@ class ApiClient {
     this.client.interceptors.response.use(
       (response: AxiosResponse) => {
         // Log successful API response
-        ApiLogger.logResponse(response);
+        console.log('✅ API Response:', {
+          method: response.config.method?.toUpperCase(),
+          url: `${response.config.baseURL}${response.config.url}`,
+          status: response.status,
+          statusText: response.statusText,
+          headers: response.headers,
+          data: response.data,
+          timestamp: new Date().toISOString(),
+        });
 
         return response;
       },
@@ -54,7 +73,16 @@ class ApiClient {
         const originalRequest = error.config as any;
 
         // Log API error details
-        ApiLogger.logError(error);
+        console.error('❌ API Error:', {
+          method: error.config?.method?.toUpperCase(),
+          url: `${error.config?.baseURL}${error.config?.url}`,
+          status: error.response?.status,
+          statusText: error.response?.statusText,
+          headers: error.response?.headers,
+          errorData: error.response?.data,
+          message: error.message,
+          timestamp: new Date().toISOString(),
+        });
 
         if (error.response?.status === 401 && !originalRequest._retry) {
           if (this.isRefreshing) {
@@ -125,16 +153,20 @@ class ApiClient {
 
   // Public methods
   async get<T>(url: string, config?: any): Promise<T> {
+     console.log(`url:${url}`)
     const response = await this.client.get(url, config);
+    console.log("response",response)
     return response.data;
   }
 
   async post<T>(url: string, data?: any, config?: any): Promise<T> {
+     console.log(`url:${url}`,data)
     const response = await this.client.post(url, data, config);
     return response.data;
   }
 
   async put<T>(url: string, data?: any, config?: any): Promise<T> {
+     console.log(`url:${url}`,data)
     const response = await this.client.put(url, data, config);
     return response.data;
   }

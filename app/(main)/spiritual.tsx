@@ -308,25 +308,25 @@ export default function SpiritualScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f9fafb',
+    backgroundColor: 'transparent',
   },
   header: {
     paddingHorizontal: 24,
     paddingTop: 16,
     paddingBottom: 12,
-    backgroundColor: '#fff',
+    backgroundColor: 'transparent',
   },
   searchContainer: {
     paddingHorizontal: 24,
     paddingVertical: 16,
-    backgroundColor: '#fff',
+    backgroundColor: 'transparent',
     borderBottomWidth: 1,
     borderBottomColor: '#e5e7eb',
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f3f4f6',
+    backgroundColor: 'rgba(243, 244, 246, 0.5)',
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -339,7 +339,7 @@ const styles = StyleSheet.create({
   },
   filterSection: {
     paddingVertical: 12,
-    backgroundColor: '#fff',
+    backgroundColor: 'transparent',
     borderBottomWidth: 1,
     borderBottomColor: '#e5e7eb',
   },
@@ -355,7 +355,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: 'rgba(243, 244, 246, 0.5)',
     marginRight: 8,
   },
   filterPillActive: {
@@ -379,11 +379,11 @@ const styles = StyleSheet.create({
   },
   contentCard: {
     width: '100%',
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: 12,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: 'rgba(229, 231, 235, 0.3)',
     flexDirection: 'row',
   },
   thumbnail: {

@@ -9,7 +9,7 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { Text } from '@/components/atoms';
-import { spiritualTheme } from '@/styles/spiritualTheme';
+import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 
 export default function RingtonesScreen() {
   return (
@@ -37,28 +37,28 @@ export default function RingtonesScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: spiritualTheme.colors.backgrounds.primary,
+    backgroundColor: goldenTempleTheme.colors.backgrounds.primary,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: spiritualTheme.spacing.md,
-    paddingVertical: spiritualTheme.spacing.sm,
-    backgroundColor: spiritualTheme.colors.backgrounds.card,
+    paddingHorizontal: goldenTempleTheme.spacing.md,
+    paddingVertical: goldenTempleTheme.spacing.sm,
+    backgroundColor: goldenTempleTheme.colors.backgrounds.card,
     borderBottomWidth: 1,
-    borderBottomColor: spiritualTheme.colors.primary[200],
-    ...spiritualTheme.shadows.sm,
+    borderBottomColor: goldenTempleTheme.colors.primary[200],
+    ...goldenTempleTheme.shadows.sm,
   },
   backButton: {
-    padding: spiritualTheme.spacing.sm,
-    borderRadius: spiritualTheme.borderRadius.md,
-    backgroundColor: spiritualTheme.colors.primary[50],
+    padding: goldenTempleTheme.spacing.sm,
+    borderRadius: goldenTempleTheme.borderRadius.md,
+    backgroundColor: goldenTempleTheme.colors.primary[50],
   },
   title: {
     flex: 1,
     textAlign: 'center',
-    color: spiritualTheme.colors.text.primary,
+    color: goldenTempleTheme.colors.text.primary,
   },
   placeholder: {
     width: 40, // Same width as back button for centering
@@ -67,7 +67,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: spiritualTheme.spacing.lg,
-    backgroundColor: spiritualTheme.colors.backgrounds.primary,
+    padding: goldenTempleTheme.spacing.lg,
+    backgroundColor: goldenTempleTheme.colors.backgrounds.primary,
   },
 });
