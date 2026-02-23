@@ -7,6 +7,7 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
+      "node": "20.18.0",
       "ios": {
         "simulator": false,
         "buildConfiguration": "Release",
@@ -19,6 +20,10 @@
     },
     "preview": {
       "distribution": "internal",
+      "node": "20.18.0",
+      "env": {
+        "NPM_CONFIG_LEGACY_PEER_DEPS": "true"
+      },
       "ios": {
         "simulator": false
       },
