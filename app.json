@@ -32,7 +32,6 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.vivekpandit.bhavbhakti",
-      "usesCleartextTraffic": true,
       "permissions": [
         "READ_EXTERNAL_STORAGE",
         "WRITE_EXTERNAL_STORAGE",
@@ -75,7 +74,11 @@
       ]
     ],
     "extra": {
-      "router": {}
-    }
+      "router": {},
+      "eas": {
+        "projectId": "b829a0a4-75a5-4081-9cf7-68d5c987d199"
+      }
+    },
+    "owner": "vivekpandit"
   }
 }
