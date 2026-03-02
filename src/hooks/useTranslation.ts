@@ -1,12 +1,16 @@
 import { useI18nStore } from '@/shared/stores/i18nStore';
 import enTranslations from '@/locales/en.json';
 import hiTranslations from '@/locales/hi.json';
+import guTranslations from '@/locales/gu.json';
+import bnTranslations from '@/locales/bn.json';
 
 type TranslationKey = string;
 
 const translations = {
   en: enTranslations,
   hi: hiTranslations,
+  gu: guTranslations,
+  bn: bnTranslations,
 };
 
 export function useTranslation() {

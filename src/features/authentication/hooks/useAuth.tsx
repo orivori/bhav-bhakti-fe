@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useEffect } from 'react';
+import { router } from 'expo-router';
 import { useAuthStore } from '@/shared/stores/authStore';
 import { authService } from '../services/authService';
-import { SendOTPRequest, VerifyOTPRequest, ApiError } from '../types';
+import { SendOTPRequest, VerifyOTPRequest, ApiError, AuthTokens } from '../types';
 
 interface AuthContextType {
   // State
@@ -10,7 +11,7 @@ interface AuthContextType {
   isLoading: boolean;
 
   // Actions
-  sendOTP: (data: SendOTPRequest) => Promise<{ success: boolean; sessionId: string }>;
+  sendOTP: (data: SendOTPRequest) => Promise<{ success: boolean; sessionId: string; orderId: string }>;
   verifyOTP: (data: VerifyOTPRequest) => Promise<void>;
   logout: () => Promise<void>;
 }
@@ -37,10 +38,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(true);
       // Use mock service for development
       const response = await authService.sendOTP(data);
+      console.log("====>",response?.data)
 
       return {
         success: response.success,
-        sessionId: response.sessionId,
+        sessionId: '', // API doesn't return sessionId
+        orderId: response.data.orderId,
       };
     } catch (error) {
       const apiError = error as ApiError;
@@ -53,18 +56,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const verifyOTP = async (data: VerifyOTPRequest) => {
     try {
       setLoading(true);
-
-      // Use mock service for development
-      const response = await authService.verifyOTPMock(data);
+      console.log('🔄 Starting OTP verification...');
+      const response = await authService.verifyOTP(data);
+      console.log('📨 OTP verification response:', response);
 
       if (response.success) {
-        await login(response.user, response.tokens);
+        console.log('✅ OTP verification successful, processing login...');
+
+        // Convert token to tokens format expected by the store
+        const tokens: AuthTokens = {
+          accessToken: response.data.token,
+          refreshToken: '', // API doesn't provide refresh token
+          expiresAt: Date.now() + (24 * 60 * 60 * 1000), // 24 hours from now
+        };
+
+        console.log('👤 User to login:', response.data.user);
+        console.log('🔑 Tokens to save:', tokens);
+
+        await login(response.data.user, tokens);
+        console.log('🎉 Login completed successfully!');
+
+        // Force navigation to main after successful login
+        router.replace('/(main)');
+      } else {
+        console.log('❌ OTP verification failed:', response.message);
       }
     } catch (error) {
+      console.error('💥 OTP verification error:', error);
       const apiError = error as ApiError;
       throw new Error(apiError.message || 'Failed to verify OTP');
     } finally {
       setLoading(false);
+      console.log('🏁 OTP verification process finished');
     }
   };
 

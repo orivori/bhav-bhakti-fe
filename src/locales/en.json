@@ -91,6 +91,19 @@
     "playbackError": "Error",
     "failedToPlay": "Failed to play audio"
   },
+  "mantras": {
+    "title": "Mantras",
+    "findPerfectMantra": "Find your perfect mantra",
+    "previewExplorer": "Preview Explorer",
+    "exploreMostPopular": "Explore our most popular mantras",
+    "browseBycategory": "Browse by Category",
+    "allMantras": "All Mantras",
+    "selectedMantras": "Selected Mantras",
+    "noMantrasFound": "No mantras found",
+    "tryDifferentCategory": "Try a different category",
+    "sacredCollection": "Sacred mantras collection from various deities",
+    "all": "All"
+  },
   "profile": {
     "title": "Profile",
     "accountInfo": "Account Information",

@@ -19,6 +19,9 @@ interface FeedListProps {
   onLoadMore: () => void;
   onRefresh: () => void;
   onFeedPress?: (feed: Feed) => void;
+  onLike?: (feedId: string) => void;
+  onShare?: (feedId: string) => void;
+  onDownload?: (feedId: string) => void;
   hasMore: boolean;
   isLoading: boolean;
   isLoadingMore: boolean;
@@ -38,6 +41,9 @@ export default function FeedList({
   onLoadMore,
   onRefresh,
   onFeedPress,
+  onLike,
+  onShare,
+  onDownload,
   hasMore,
   isLoading,
   isLoadingMore,
@@ -57,9 +63,12 @@ export default function FeedList({
       key={feed.id}
       feed={feed}
       onPress={onFeedPress}
+      onLike={onLike}
+      onShare={onShare}
+      onDownload={onDownload}
       autoPlayVideo={autoPlayVideo && index === 0} // Auto-play only first video
     />
-  ), [onFeedPress, autoPlayVideo]);
+  ), [onFeedPress, onLike, onShare, onDownload, autoPlayVideo]);
 
   const renderFooter = useCallback(() => {
     if (!hasMore) {

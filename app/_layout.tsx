@@ -1,7 +1,7 @@
 import React from 'react';
 import { Stack } from 'expo-router';
-import { DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { ImageBackground, StyleSheet, View, Dimensions } from 'react-native';
+import { DefaultTheme, ThemeProvider as NavigationThemeProvider } from '@react-navigation/native';
+import { StyleSheet, View } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -22,18 +22,15 @@ const queryClient = new QueryClient({
   },
 });
 
-const { width, height } = Dimensions.get('window');
-
 const MyTheme = {
   ...DefaultTheme,
   colors: {
     ...DefaultTheme.colors,
-    background: 'transparent',
+    background: '#FFF8F0', // Warm cream/ivory background from your CSS
   },
 };
 
 export default function RootLayout() {
-  const [imageLoaded, setImageLoaded] = React.useState(false);
   // Enable screenshot protection globally (non-blocking)
   useScreenshotProtection();
 
@@ -42,42 +39,18 @@ export default function RootLayout() {
     SplashScreen.hideAsync();
   }, []);
 
-  const handleImageLoad = () => {
-    console.log('✅ Background image loaded successfully');
-    setImageLoaded(true);
-  };
-
-  const handleImageError = (error: any) => {
-    console.log('❌ Background image failed to load:', error);
-    console.log('Error details:', error.nativeEvent);
-    setImageLoaded(false);
-  };
-
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <ImageBackground
-          source={{
-            uri: 'https://bhav-bhakti.s3.ap-south-1.amazonaws.com/assets/app_background_v1.png',
-            cache: 'force-cache'
-          }}
-          style={styles.backgroundImage}
-          resizeMode="cover"
-          onLoad={handleImageLoad}
-          onError={handleImageError}
-          imageStyle={styles.imageStyle}
-        >
-          {!imageLoaded && (
-            <View style={styles.fallbackBackground} />
-          )}
-          <ThemeProvider value={MyTheme}>
-            <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: 'transparent' } }}>
+        <View style={styles.container}>
+          <NavigationThemeProvider value={MyTheme}>
+            <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#FFF8F0' } }}>
               <Stack.Screen name="(auth)" options={{ headerShown: false }} />
               <Stack.Screen name="(main)" options={{ headerShown: false }} />
             </Stack>
-          </ThemeProvider>
-        </ImageBackground>
-        <StatusBar style="light" translucent backgroundColor="transparent" />
+          </NavigationThemeProvider>
+        </View>
+        <StatusBar style="dark" translucent backgroundColor="transparent" />
         <PremiumPaywall />
       </AuthProvider>
     </QueryClientProvider>
@@ -85,19 +58,8 @@ export default function RootLayout() {
 }
 
 const styles = StyleSheet.create({
-  backgroundImage: {
+  container: {
     flex: 1,
-    width: width,
-    height: height,
-  },
-  imageStyle: {
-    opacity: 1, // Ensure full opacity
-    width: width,
-    height: height,
-    resizeMode: 'cover',
-  },
-  fallbackBackground: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'transparent',
+    backgroundColor: '#FFF8F0', // Warm cream/ivory background
   },
 });

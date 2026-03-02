@@ -36,11 +36,43 @@ export const secureStorage = {
   // User data management
   async saveUser(user: any): Promise<void> {
     try {
-      await SecureStore.setItemAsync(USER_KEY, JSON.stringify(user));
+      console.log('Saving user:', user);
+      console.log('User type:', typeof user);
+      console.log('User keys:', Object.keys(user || {}));
+
+      // Clean the user object to remove any non-serializable values
+      const cleanUser = this.cleanObjectForStorage(user);
+      const userString = JSON.stringify(cleanUser);
+
+      await SecureStore.setItemAsync(USER_KEY, userString);
     } catch (error) {
       console.error('Failed to save user:', error);
       throw new Error('Failed to save user data');
     }
+  },
+
+  // Helper function to clean objects for storage
+  cleanObjectForStorage(obj: any): any {
+    if (obj === null || obj === undefined) {
+      return obj;
+    }
+
+    if (typeof obj !== 'object') {
+      return obj;
+    }
+
+    if (Array.isArray(obj)) {
+      return obj.map(item => this.cleanObjectForStorage(item));
+    }
+
+    const cleaned: any = {};
+    for (const [key, value] of Object.entries(obj)) {
+      if (value !== undefined && typeof value !== 'function' && typeof value !== 'symbol') {
+        cleaned[key] = this.cleanObjectForStorage(value);
+      }
+    }
+
+    return cleaned;
   },
 
   async getUser(): Promise<any | null> {

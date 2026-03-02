@@ -91,6 +91,19 @@
     "playbackError": "त्रुटि",
     "failedToPlay": "ऑडियो चलाने में विफल"
   },
+  "mantras": {
+    "title": "मंत्र",
+    "findPerfectMantra": "अपना सही मंत्र खोजें",
+    "previewExplorer": "प्रीव्यू एक्सप्लोरर",
+    "exploreMostPopular": "सबसे लोकप्रिय मंत्रों का अन्वेषण करें",
+    "browseBycategory": "श्रेणी के अनुसार ब्राउज़ करें",
+    "allMantras": "सभी मंत्र",
+    "selectedMantras": "चयनित मंत्र",
+    "noMantrasFound": "कोई मंत्र नहीं मिला",
+    "tryDifferentCategory": "विभिन्न श्रेणी का प्रयास करें",
+    "sacredCollection": "विभिन्न देवी-देवताओं के पवित्र मंत्रों का संग्रह",
+    "all": "सभी"
+  },
   "profile": {
     "title": "प्रोफ़ाइल",
     "accountInfo": "खाता जानकारी",

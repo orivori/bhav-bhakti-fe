@@ -22,7 +22,6 @@ export function useFeed(options: UseFeedOptions = {}) {
     setError,
     setPagination,
     resetPagination,
-    toggleLike,
     incrementDownload,
     incrementShare,
     incrementView,
@@ -105,29 +104,14 @@ export function useFeed(options: UseFeedOptions = {}) {
         return await feedService.likeFeed(feedId);
       }
     },
-    onMutate: async ({ feedId }) => {
-      // Optimistic update
-      toggleLike(feedId);
-
+    onMutate: async ({ feedId, isLiked }) => {
       // Cancel any outgoing refetches
       await queryClient.cancelQueries({ queryKey });
 
       // Snapshot the previous value
       const previousData = queryClient.getQueryData(queryKey);
 
-      return { previousData };
-    },
-    onError: (err, { feedId }, context) => {
-      // Rollback optimistic update
-      toggleLike(feedId);
-
-      // Restore previous data on error
-      if (context?.previousData) {
-        queryClient.setQueryData(queryKey, context.previousData);
-      }
-    },
-    onSuccess: (data, { feedId }) => {
-      // Update query cache
+      // Optimistically update the query cache immediately
       queryClient.setQueryData(queryKey, (oldData: any) => {
         if (!oldData) return oldData;
 
@@ -136,23 +120,42 @@ export function useFeed(options: UseFeedOptions = {}) {
           pages: oldData.pages.map((page: any) => ({
             ...page,
             feeds: page.feeds.map((feed: Feed) => {
-              if (feed.id === feedId) {
-                // Check if it's a like response (has created property) or unlike response (has deleted property)
-                const isLikeResponse = 'created' in data;
-                const isUnlikeResponse = 'deleted' in data;
-
+              if (feed.id.toString() === feedId) {
                 return {
                   ...feed,
-                  isLiked: isLikeResponse
-                    ? (data as any).created
-                    : isUnlikeResponse
-                      ? !(data as any).deleted
-                      : feed.isLiked,
-                  likesCount: isLikeResponse && (data as any).created
-                    ? feed.likesCount + 1
-                    : isUnlikeResponse && (data as any).deleted
-                      ? feed.likesCount - 1
-                      : feed.likesCount,
+                  isLiked: !isLiked, // Toggle the current state
+                  likesCount: isLiked ? feed.likesCount - 1 : feed.likesCount + 1,
+                };
+              }
+              return feed;
+            }),
+          })),
+        };
+      });
+
+      return { previousData, feedId, wasLiked: isLiked };
+    },
+    onError: (err, variables, context) => {
+      // Restore previous data on error
+      if (context?.previousData) {
+        queryClient.setQueryData(queryKey, context.previousData);
+      }
+    },
+    onSuccess: (data, { feedId }) => {
+      // Verify the backend state matches our optimistic update
+      queryClient.setQueryData(queryKey, (oldData: any) => {
+        if (!oldData) return oldData;
+
+        return {
+          ...oldData,
+          pages: oldData.pages.map((page: any) => ({
+            ...page,
+            feeds: page.feeds.map((feed: Feed) => {
+              if (feed.id.toString() === feedId) {
+                // Ensure backend response matches our optimistic update
+                return {
+                  ...feed,
+                  isLiked: (data as any).isLiked,
                 };
               }
               return feed;
@@ -200,8 +203,16 @@ export function useFeed(options: UseFeedOptions = {}) {
   };
 
   const handleLike = (feedId: string) => {
-    const feed = feeds.find(f => f.id === feedId);
+    // Prevent multiple rapid clicks
+    if (likeMutation.isPending) return;
+
+    const feed = feeds.find(f => f.id.toString() === feedId);
     if (feed) {
+      console.log('🎯 Like button clicked:', {
+        feedId,
+        currentIsLiked: feed.isLiked,
+        willToggleTo: !feed.isLiked
+      });
       likeMutation.mutate({ feedId, isLiked: feed.isLiked || false });
     }
   };

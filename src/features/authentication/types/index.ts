@@ -26,21 +26,28 @@ export interface SendOTPRequest {
 export interface SendOTPResponse {
   success: boolean;
   message: string;
-  sessionId: string;
+  data: {
+    orderId: string;
+  };
 }
 
 export interface VerifyOTPRequest {
   phoneNumber: string;
   countryCode: string;
   otp: string;
-  sessionId: string;
+  sessionId?: string;
+  orderId: string;
 }
 
 export interface VerifyOTPResponse {
   success: boolean;
   message: string;
-  user: User;
-  tokens: AuthTokens;
+  data: {
+    user: User;
+    token: string;
+    sessionId: string;
+    isNewUser: boolean;
+  };
 }
 
 export interface AuthState {

@@ -4,6 +4,8 @@ import {
   ScrollView,
   TouchableOpacity,
   StyleSheet,
+  ImageBackground,
+  TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -18,13 +20,53 @@ import { usePremiumStore } from '@/store/premiumStore';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useZodiacStore } from '@/store/zodiacStore';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
+import { OmIcon, BellIcon, DiyaIcon } from '@/components/atoms/MenuIcons';
+import { useTranslation as useI18n } from '@/shared/i18n/useTranslation';
 
 type ContentCategory = 'Mantras' | 'Ringtones' | 'Daily Status';
+
+// Isolated Search Component to prevent keyboard disappearing
+const IsolatedSearchBar = ({ onSearchSubmit, currentLanguage }: {
+  onSearchSubmit: (query: string) => void;
+  currentLanguage: string;
+}) => {
+  const [localSearchText, setLocalSearchText] = React.useState('');
+
+  const handleSubmit = () => {
+    onSearchSubmit(localSearchText.trim());
+  };
+
+  return (
+    <View style={styles.searchContainer}>
+      <Ionicons
+        name="search-outline"
+        size={20}
+        color="#8B5A2B"
+        style={styles.searchIcon}
+      />
+      <TextInput
+        style={styles.searchInput}
+        placeholder={currentLanguage === 'hi' ? 'मंत्र, रिंगटोन खोजें...' : 'Search mantras, ringtones...'}
+        placeholderTextColor="#8B5A2B"
+        value={localSearchText}
+        onChangeText={setLocalSearchText}
+        returnKeyType="search"
+        onSubmitEditing={handleSubmit}
+        autoCapitalize="none"
+        autoCorrect={false}
+        selectionColor="#FF6B00"
+      />
+    </View>
+  );
+};
+
 
 export default function HomeScreen() {
   const { isPremium, setShowPaywall } = usePremiumStore();
   const { t, language } = useTranslation();
+  const { t: ti, currentLanguage } = useI18n();
   const { selectedZodiac, initializeZodiac } = useZodiacStore();
+  const [activeSearchQuery, setActiveSearchQuery] = React.useState('');
 
   // Initialize feed data
   const {
@@ -38,8 +80,13 @@ export default function HomeScreen() {
     refresh,
     retry,
     viewFeed,
+    likeFeed,
+    shareFeed,
+    downloadFeed,
   } = useFeed({
-    filters: {},
+    filters: {
+      search: activeSearchQuery.trim() || undefined,
+    },
     limit: 10,
   });
 
@@ -47,33 +94,41 @@ export default function HomeScreen() {
     initializeZodiac();
   }, []);
 
+  const handleSearchSubmit = (query: string) => {
+    setActiveSearchQuery(query);
+  };
+
   const categories: ContentCategory[] = ['Mantras', 'Ringtones', 'Daily Status'];
 
   const getCategoryInfo = (category: ContentCategory) => {
     switch (category) {
       case 'Mantras':
         return {
-          name: 'Mantras',
-          icon: 'musical-notes',
-          gradient: goldenTempleTheme.gradients.sunrise,
+          name: ti('mantras'),
+          icon: <OmIcon size={48} color="#ffffff" />,
+          gradient: ['#FF6B00', '#FF8533', '#FFA500'] as const, // Saffron/Orange gradient
+          imageUrl: 'https://images.unsplash.com/photo-1625670413987-0ae649494c61?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=400',
         };
       case 'Ringtones':
         return {
-          name: 'Ringtones',
-          icon: 'notifications',
-          gradient: goldenTempleTheme.gradients.meditation,
+          name: ti('ringtones'),
+          icon: <BellIcon size={48} color="#ffffff" />,
+          gradient: ['#C41E3A', '#D4526E', '#E08699'] as const, // Temple red gradient
+          imageUrl: 'https://images.unsplash.com/photo-1763809677179-f26bc3210791?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=400',
         };
       case 'Daily Status':
         return {
-          name: 'Daily Status',
-          icon: 'image',
-          gradient: goldenTempleTheme.gradients.lotus,
+          name: ti('dailyStatus'),
+          icon: <DiyaIcon size={48} color="#ffffff" />,
+          gradient: ['#D4AF37', '#E0C55B', '#ECDB80'] as const, // Gold gradient
+          imageUrl: 'https://images.unsplash.com/photo-1764775086606-9b23aa61352a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=400',
         };
       default:
         return {
           name: category,
-          icon: 'help-circle',
+          icon: <OmIcon size={48} color="#ffffff" />,
           gradient: goldenTempleTheme.gradients.divine,
+          imageUrl: '',
         };
     }
   };
@@ -141,24 +196,10 @@ export default function HomeScreen() {
     <View>
       {/* Header */}
       <View style={styles.header}>
-        <View style={styles.searchContainer}>
-          <Ionicons
-            name="search-outline"
-            size={20}
-            color={goldenTempleTheme.colors.primary.DEFAULT}
-            style={styles.searchIcon}
-          />
-          <Text style={styles.searchPlaceholder}>
-            Search mantras, ringtones...
-          </Text>
-          <TouchableOpacity style={styles.microphoneButton}>
-            <Ionicons
-              name="mic-outline"
-              size={20}
-              color={goldenTempleTheme.colors.primary.DEFAULT}
-            />
-          </TouchableOpacity>
-        </View>
+        <IsolatedSearchBar
+          onSearchSubmit={handleSearchSubmit}
+          currentLanguage={currentLanguage}
+        />
         <TouchableOpacity style={styles.profileButton}>
           <Ionicons
             name="person-circle"
@@ -181,6 +222,8 @@ export default function HomeScreen() {
             <TouchableOpacity
               key={category}
               onPress={() => handleCategoryPress(category)}
+              activeOpacity={0.9}
+              style={styles.categoryTouchable}
             >
               <LinearGradient
                 colors={categoryInfo.gradient}
@@ -188,46 +231,83 @@ export default function HomeScreen() {
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
               >
-                <Ionicons
-                  name={categoryInfo.icon as any}
-                  size={24}
-                  color="#fff"
-                />
+                {/* Background image overlay */}
+                {categoryInfo.imageUrl && (
+                  <ImageBackground
+                    source={{ uri: categoryInfo.imageUrl }}
+                    style={styles.categoryBackground}
+                    imageStyle={styles.categoryBackgroundImage}
+                  />
+                )}
+
+                {/* Decorative border */}
+                <View style={styles.decorativeBorder} />
+
+                {/* Icon */}
+                <View style={styles.iconContainer}>
+                  {categoryInfo.icon}
+                </View>
+
+                {/* Label */}
                 <Text
                   variant="body"
-                  weight="medium"
+                  weight="semibold"
                   style={styles.categoryCardText}
                 >
                   {categoryInfo.name}
                 </Text>
+
+                {/* Decorative corner elements */}
+                <View style={[styles.corner, styles.topLeft]} />
+                <View style={[styles.corner, styles.topRight]} />
+                <View style={[styles.corner, styles.bottomLeft]} />
+                <View style={[styles.corner, styles.bottomRight]} />
               </LinearGradient>
             </TouchableOpacity>
           );
         })}
       </ScrollView>
 
-      {/* Horoscope Card */}
-      <TouchableOpacity
-        style={styles.horoscopeCard}
-        onPress={() => router.push('/(main)/zodiac-selection')}
-      >
-        <View style={styles.horoscopeContent}>
-          <View style={styles.horoscopeIcon}>
-            <Text style={{ fontSize: 32 }}>✨</Text>
-          </View>
-          <View style={styles.horoscopeText}>
-            <Text variant="body" weight="semibold" style={styles.horoscopeTitle}>
-              {language === 'hi' ? 'आज का राशिफल' : 'Today\'s Horoscope'}
+      {/* Search Results Header */}
+      {activeSearchQuery.trim() && (
+        <View style={styles.searchResultsHeader}>
+          <Text style={styles.searchResultsText}>
+            {currentLanguage === 'hi'
+              ? `"${activeSearchQuery}" के लिए परिणाम`
+              : `Results for "${activeSearchQuery}"`}
+          </Text>
+          {feeds.length > 0 && (
+            <Text style={styles.searchResultsCount}>
+              {feeds.length} {feeds.length === 1 ? 'result' : 'results'}
             </Text>
-            <Text variant="caption" color="secondary">
-              {selectedZodiac
-                ? `${t('home.yourSign')}: ${selectedZodiac}`
-                : t('home.checkDailyPrediction')}
-            </Text>
-          </View>
-          <Ionicons name="chevron-forward" size={24} color="#6b7280" />
+          )}
         </View>
-      </TouchableOpacity>
+      )}
+
+      {/* Horoscope Card - hidden when searching */}
+      {!activeSearchQuery.trim() && (
+        <TouchableOpacity
+          style={styles.horoscopeCard}
+          onPress={() => router.push('/(main)/zodiac-selection')}
+        >
+          <View style={styles.horoscopeContent}>
+            <View style={styles.horoscopeIcon}>
+              <Text style={{ fontSize: 32 }}>✨</Text>
+            </View>
+            <View style={styles.horoscopeText}>
+              <Text variant="body" weight="semibold" style={styles.horoscopeTitle}>
+                {language === 'hi' ? 'आज का राशिफल' : 'Today\'s Horoscope'}
+              </Text>
+              <Text variant="caption" color="secondary">
+                {selectedZodiac
+                  ? `${t('home.yourSign')}: ${selectedZodiac}`
+                  : t('home.checkDailyPrediction')}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={24} color="#6b7280" />
+          </View>
+        </TouchableOpacity>
+      )}
     </View>
   );
 
@@ -238,6 +318,9 @@ export default function HomeScreen() {
         onLoadMore={loadMore}
         onRefresh={refresh}
         onFeedPress={handleFeedPress}
+        onLike={likeFeed}
+        onShare={shareFeed}
+        onDownload={downloadFeed}
         hasMore={hasMore}
         isLoading={isLoading}
         isLoadingMore={isLoadingMore}
@@ -274,32 +357,28 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(218, 165, 32, 0.15)', // Golden glass effect
-    paddingHorizontal: goldenTempleTheme.spacing.md,
-    paddingVertical: goldenTempleTheme.spacing.sm + 2,
-    borderRadius: 25, // More rounded for golden pill shape
-    marginRight: goldenTempleTheme.spacing.md,
-    borderWidth: 1.5,
-    borderColor: 'rgba(218, 165, 32, 0.4)', // Golden border
-    shadowColor: goldenTempleTheme.colors.primary.DEFAULT,
+    backgroundColor: '#F5E6D3',
+    borderRadius: 25,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginRight: 16,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 3,
+    elevation: 2,
   },
   searchIcon: {
-    marginRight: goldenTempleTheme.spacing.sm,
+    marginRight: 12,
   },
-  searchPlaceholder: {
+  searchInput: {
     flex: 1,
     fontSize: 16,
-    color: goldenTempleTheme.colors.primary.DEFAULT,
-    fontWeight: '500',
-  },
-  microphoneButton: {
-    padding: 6,
-    borderRadius: 15,
-    backgroundColor: 'rgba(218, 165, 32, 0.2)',
+    color: '#4A2C2A',
+    fontWeight: '400',
+    padding: 0, // Remove all padding
+    margin: 0, // Remove all margin
+    height: 20,
   },
   profileButton: {
     padding: 6,
@@ -319,18 +398,29 @@ const styles = StyleSheet.create({
   },
   categoryCard: {
     width: 120,
-    height: 80,
+    height: 140,
     borderRadius: goldenTempleTheme.borderRadius.xl,
-    padding: goldenTempleTheme.spacing.md,
-    marginRight: goldenTempleTheme.spacing.sm,
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    padding: goldenTempleTheme.spacing.lg,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 12,
     ...goldenTempleTheme.shadows.lg,
+    position: 'relative',
+    overflow: 'hidden',
   },
   categoryCardText: {
-    color: goldenTempleTheme.colors.text.inverse,
-    fontSize: 14,
+    color: '#ffffff',
+    fontSize: 16,
     fontWeight: '600',
+    textAlign: 'center',
+    lineHeight: 18,
+    letterSpacing: 0.5,
+    zIndex: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.7,
+    shadowRadius: 2,
+    elevation: 3,
   },
   horoscopeCard: {
     marginHorizontal: goldenTempleTheme.spacing.md,
@@ -366,6 +456,112 @@ const styles = StyleSheet.create({
   },
   horoscopeSubtitle: {
     fontSize: 12,
+    color: goldenTempleTheme.colors.text.secondary,
+  },
+
+  // Enhanced menu card styles
+  categoryTouchable: {
+    marginRight: goldenTempleTheme.spacing.sm,
+  },
+
+  categoryBackground: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    opacity: 0.4,
+  },
+
+  categoryBackgroundImage: {
+    borderRadius: goldenTempleTheme.borderRadius.xl,
+  },
+
+  decorativeBorder: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderRadius: goldenTempleTheme.borderRadius.xl,
+  },
+
+  iconContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+
+  corner: {
+    position: 'absolute',
+    width: 12,
+    height: 12,
+    borderColor: 'rgba(255, 255, 255, 0.4)',
+    borderWidth: 2,
+  },
+
+  topLeft: {
+    top: 8,
+    left: 8,
+    borderBottomWidth: 0,
+    borderRightWidth: 0,
+    borderTopLeftRadius: 8,
+  },
+
+  topRight: {
+    top: 8,
+    right: 8,
+    borderBottomWidth: 0,
+    borderLeftWidth: 0,
+    borderTopRightRadius: 8,
+  },
+
+  bottomLeft: {
+    bottom: 8,
+    left: 8,
+    borderTopWidth: 0,
+    borderRightWidth: 0,
+    borderBottomLeftRadius: 8,
+  },
+
+  bottomRight: {
+    bottom: 8,
+    right: 8,
+    borderTopWidth: 0,
+    borderLeftWidth: 0,
+    borderBottomRightRadius: 8,
+  },
+
+  // Search results styles
+  searchResultsHeader: {
+    paddingHorizontal: goldenTempleTheme.spacing.lg,
+    paddingVertical: goldenTempleTheme.spacing.sm,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 248, 240, 0.8)',
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: goldenTempleTheme.colors.border,
+  },
+
+  searchResultsText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: goldenTempleTheme.colors.text.primary,
+    flex: 1,
+  },
+
+  searchResultsCount: {
+    fontSize: 14,
+    fontWeight: '500',
     color: goldenTempleTheme.colors.text.secondary,
   },
 });

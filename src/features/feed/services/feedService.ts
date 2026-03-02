@@ -88,7 +88,7 @@ class FeedService {
    * Like a feed
    */
   async likeFeed(feedId: string): Promise<LikeFeedResponse> {
-    return await apiClient.post<LikeFeedResponse>(API_ENDPOINTS.FEED.LIKE(feedId));
+    return await apiClient.post<LikeFeedResponse>(API_ENDPOINTS.FEED.LIKE(feedId), {});
   }
 
   /**
@@ -102,7 +102,7 @@ class FeedService {
    * Track feed download
    */
   async downloadFeed(feedId: string): Promise<DownloadFeedResponse> {
-    return await apiClient.post<DownloadFeedResponse>(API_ENDPOINTS.FEED.DOWNLOAD(feedId));
+    return await apiClient.post<DownloadFeedResponse>(API_ENDPOINTS.FEED.DOWNLOAD(feedId), {});
   }
 
   /**
@@ -116,7 +116,7 @@ class FeedService {
    * Track feed view
    */
   async viewFeed(feedId: string): Promise<ViewFeedResponse> {
-    return await apiClient.post<ViewFeedResponse>(API_ENDPOINTS.FEED.VIEW(feedId));
+    return await apiClient.post<ViewFeedResponse>(API_ENDPOINTS.FEED.VIEW(feedId), {});
   }
 
   /**

@@ -8,10 +8,10 @@ import {
   Image,
   Animated,
   ActivityIndicator,
-  
   Alert,
   ScrollView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -21,6 +21,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { feedService } from '@/features/feed/services/feedService';
 import { Feed } from '@/types/feed';
+import { useTranslation } from '@/shared/i18n/useTranslation';
 
 const { width } = Dimensions.get('window');
 
@@ -30,6 +31,7 @@ const TARGET_COUNT_OPTIONS = [27, 54, 108, 216, 324, 540, 1008];
 export default function AudioPlayerScreen() {
   const params = useLocalSearchParams();
   const feedId = params.feedId?.toString();
+  const { t } = useTranslation();
 
   // Feed data state
   const [feedData, setFeedData] = useState<Feed | null>(null);
@@ -151,11 +153,11 @@ export default function AudioPlayerScreen() {
       const metadata = audioMedia?.metadata || {};
 
       return {
-        title: feedData.caption || 'Sacred Mantra',
-        description: metadata.description || 'A powerful sacred mantra that brings peace, transformation, and spiritual awakening. Chant with devotion and focus on the divine vibrations.',
+        title: feedData.caption || t('sacredMantra'),
+        description: metadata.description || t('mantraDescription'),
         tags: feedData.tags,
-        deity: metadata.deity || 'Divine',
-        objective: metadata.objective || 'Inner Peace & Spiritual Growth',
+        deity: metadata.deity || t('unknownDeity'),
+        objective: metadata.objective || t('spiritualGrowth'),
         audioUrl: audioMedia?.mediaUrl || audioMedia?.audioUrl,
         thumbnailUrl: audioMedia?.thumbnailUrl,
         feedId: feedData.id.toString(),
@@ -164,11 +166,11 @@ export default function AudioPlayerScreen() {
 
     // Fallback to params if feed data not loaded
     return {
-      title: params.title || 'Sacred Mantra',
-      description: 'A powerful sacred mantra that brings peace, transformation, and spiritual awakening. Chant with devotion and focus on the divine vibrations.',
-      tags: params.tags ? params.tags.toString().split(',') : ['Sacred', 'Mantra', 'Peace'],
-      deity: 'Divine',
-      objective: 'Inner Peace',
+      title: params.title || t('sacredMantra'),
+      description: t('mantraDescription'),
+      tags: params.tags ? params.tags.toString().split(',') : [t('mantras')],
+      deity: t('unknownDeity'),
+      objective: t('spiritualGrowth'),
       audioUrl: params.audioUrl,
       thumbnailUrl: params.thumbnailUrl,
       feedId: params.feedId,
@@ -441,8 +443,8 @@ export default function AudioPlayerScreen() {
         } catch (urlError) {
           console.error('❌ Audio Player: URL accessibility test failed:', urlError);
           Alert.alert(
-            'Audio Not Available',
-            'The audio file cannot be accessed. Please check your internet connection or try again later.'
+            t('audioNotAvailableTitle'),
+            t('audioConnectionError')
           );
           return;
         }
@@ -620,11 +622,11 @@ export default function AudioPlayerScreen() {
                   // Show celebration
                   setTimeout(() => {
                     Alert.alert(
-                      '🎉 Congratulations!',
-                      `You've completed ${currentTarget} mantra chants! May you be blessed with divine peace and prosperity.`,
+                      t('congratulations'),
+                      t('mantraChantCompleted').replace('{count}', currentTarget.toString()),
                       [
-                        { text: 'Continue', style: 'default' },
-                        { text: 'Reset Counter', onPress: handleResetCounter, style: 'destructive' },
+                        { text: t('continue'), style: 'default' },
+                        { text: t('resetCounter'), onPress: handleResetCounter, style: 'destructive' },
                       ]
                     );
                   }, 500);
@@ -707,7 +709,7 @@ export default function AudioPlayerScreen() {
         });
       } else {
         console.log('❌ Audio Player: No audio URL provided');
-        Alert.alert('Error', 'No audio URL available for this mantra.');
+        Alert.alert(t('audioPlaybackError'), t('noAudioUrlError'));
       }
     } catch (error: any) {
       console.error('❌ Audio Player: Error playing audio:', error);
@@ -728,9 +730,9 @@ export default function AudioPlayerScreen() {
         errorMessage = 'Audio failed to load properly. Please try again.';
       }
 
-      Alert.alert('Audio Playback Error', errorMessage, [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Retry', onPress: () => togglePlayback() }
+      Alert.alert(t('audioPlaybackError'), errorMessage, [
+        { text: t('cancel'), style: 'cancel' },
+        { text: t('retry'), onPress: () => togglePlayback() }
       ]);
     } finally {
       setIsAudioLoading(false);
@@ -753,11 +755,11 @@ export default function AudioPlayerScreen() {
       if (newCount === targetCount) {
         setTimeout(() => {
           Alert.alert(
-            '🎉 Congratulations!',
-            `You've completed ${targetCount} mantra chants! May you be blessed with divine peace and prosperity.`,
+            t('congratulations'),
+            t('mantraChantCompleted').replace('{count}', targetCount.toString()),
             [
-              { text: 'Continue', style: 'default' },
-              { text: 'Reset Counter', onPress: handleResetCounter, style: 'destructive' },
+              { text: t('continue'), style: 'default' },
+              { text: t('resetCounter'), onPress: handleResetCounter, style: 'destructive' },
             ]
           );
         }, 500);
@@ -823,12 +825,12 @@ export default function AudioPlayerScreen() {
 
   const handleResetCounter = async () => {
     Alert.alert(
-      'Reset Counter',
-      'Are you sure you want to reset your chant counter to 0?',
+      t('resetCounter'),
+      t('resetCounterConfirm'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('cancel'), style: 'cancel' },
         {
-          text: 'Reset',
+          text: t('reset'),
           style: 'destructive',
           onPress: async () => {
             console.log('🔄 Resetting counter to 0');
@@ -964,23 +966,27 @@ export default function AudioPlayerScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      {/* Floating Back Button */}
-      <TouchableOpacity
-        style={styles.floatingBackButton}
-        onPress={() => router.back()}
-        activeOpacity={0.7}
-      >
-        <View style={styles.backButtonContainer}>
+    <SafeAreaView style={styles.container}>
+      {/* Header with Back Button */}
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => router.back()}
+          activeOpacity={0.7}
+        >
           <Ionicons name="arrow-back" size={24} color={goldenTempleTheme.colors.text.primary} />
-        </View>
-      </TouchableOpacity>
+          <Text style={styles.backButtonText}>{t('back')}</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Separator Line */}
+      <View style={styles.separator} />
 
       {/* Loading State */}
       {isFeedLoading && (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={goldenTempleTheme.colors.primary.DEFAULT} />
-          <Text style={styles.loadingText}>Loading mantra details...</Text>
+          <Text style={styles.loadingText}>{t('loadingMantraDetails')}</Text>
         </View>
       )}
 
@@ -990,7 +996,7 @@ export default function AudioPlayerScreen() {
           <Ionicons name="alert-circle" size={50} color={goldenTempleTheme.colors.error} />
           <Text style={styles.errorText}>{feedError}</Text>
           <TouchableOpacity onPress={fetchFeedData} style={styles.retryButton}>
-            <Text style={styles.retryButtonText}>Retry</Text>
+            <Text style={styles.retryButtonText}>{t('retryButtonText')}</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -1022,11 +1028,11 @@ export default function AudioPlayerScreen() {
             {/* Info Row */}
             <View style={styles.infoRow}>
               <View style={styles.infoItem}>
-                <Text style={styles.infoLabel}>Deity</Text>
+                <Text style={styles.infoLabel}>{t('deity')}</Text>
                 <Text style={styles.infoValue}>{mantraData.deity}</Text>
               </View>
               <View style={styles.infoItem}>
-                <Text style={styles.infoLabel}>Objective</Text>
+                <Text style={styles.infoLabel}>{t('objective')}</Text>
                 <Text style={styles.infoValue}>{mantraData.objective}</Text>
               </View>
             </View>
@@ -1069,10 +1075,10 @@ export default function AudioPlayerScreen() {
             {/* Target Selection */}
             <View style={styles.targetSection}>
               <View style={styles.targetHeader}>
-                <Text style={styles.targetLabel}>Target:</Text>
+                <Text style={styles.targetLabel}>{t('target')}</Text>
                 {isAutoLooping && (
                   <View style={styles.autoLoopIndicator}>
-                    <Text style={styles.autoLoopText}>Auto-Loop Active</Text>
+                    <Text style={styles.autoLoopText}>{t('autoLoopActive')}</Text>
                   </View>
                 )}
               </View>
@@ -1100,7 +1106,7 @@ export default function AudioPlayerScreen() {
                   onPress={() => setShowTargetSelector(true)}
                   style={styles.moreTargetsButton}
                 >
-                  <Text style={styles.moreTargetsText}>More</Text>
+                  <Text style={styles.moreTargetsText}>{t('more')}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -1136,11 +1142,11 @@ export default function AudioPlayerScreen() {
               {/* Content */}
               <View style={styles.lyricsContent}>
                 <View style={styles.lyricsHeader}>
-                  <Text style={styles.lyricsTitle}>Mantra Lyrics</Text>
+                  <Text style={styles.lyricsTitle}>{t('mantraLyrics')}</Text>
                   {sound && duration > 0 && (
                     <View style={styles.audioStatusIndicator}>
                       <View style={styles.audioStatusDot} />
-                      <Text style={styles.audioStatusText}>Ready</Text>
+                      <Text style={styles.audioStatusText}>{t('ready')}</Text>
                     </View>
                   )}
                 </View>
@@ -1339,39 +1345,45 @@ export default function AudioPlayerScreen() {
                   onPress={() => setShowTargetSelector(false)}
                   style={styles.targetSelectorCancel}
                 >
-                  <Text style={styles.targetSelectorCancelText}>Cancel</Text>
+                  <Text style={styles.targetSelectorCancelText}>{t('cancel')}</Text>
                 </TouchableOpacity>
               </View>
             </View>
           )}
         </ScrollView>
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: 'transparent',
+    backgroundColor: goldenTempleTheme.colors.backgrounds.primary,
   },
-  // Floating Back Button
-  floatingBackButton: {
-    position: 'absolute',
-    top: 60, // Account for status bar
-    left: 20,
-    zIndex: 1000,
-  },
-  backButtonContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    borderWidth: 2,
-    borderColor: 'rgba(218, 165, 32, 0.6)',
+  // Header with Back Button
+  header: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    ...goldenTempleTheme.shadows.md,
+    paddingHorizontal: goldenTempleTheme.spacing.lg,
+    paddingVertical: goldenTempleTheme.spacing.md,
+    backgroundColor: goldenTempleTheme.colors.backgrounds.primary,
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: goldenTempleTheme.spacing.sm,
+  },
+  backButtonText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: goldenTempleTheme.colors.text.primary,
+    marginLeft: 4,
+  },
+  separator: {
+    height: 1,
+    backgroundColor: goldenTempleTheme.colors.border,
+    marginHorizontal: goldenTempleTheme.spacing.lg,
   },
   stickyHeader: {
     position: 'absolute',
@@ -1387,11 +1399,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
     zIndex: 1000,
   },
-  backButton: {
-    padding: 8,
-    borderRadius: 20,
-    backgroundColor: 'transparent',
-  },
   headerSpacer: {
     flex: 1,
   },
@@ -1405,7 +1412,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingTop: goldenTempleTheme.spacing.md,
     paddingBottom: 40,
   },
   // Mantra Info Card

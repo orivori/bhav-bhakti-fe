@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, ScrollView, TouchableOpacity, Alert, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { View, ScrollView, TouchableOpacity, Alert, StyleSheet, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -7,11 +7,21 @@ import { Button, Text } from '@/components/atoms';
 import { useAuth } from '@/features/authentication/hooks/useAuth';
 import { usePremiumStore } from '@/store/premiumStore';
 import { useTranslation } from '@/hooks/useTranslation';
+import { useI18nStore } from '@/shared/stores/i18nStore';
 
 export default function ProfileScreen() {
   const { user, logout } = useAuth();
   const { isPremium, setShowPaywall } = usePremiumStore();
-  const { t, language, toggleLanguage } = useTranslation();
+  const { t, language } = useTranslation();
+  const { setLanguage, getLanguageLabel } = useI18nStore();
+  const [showLanguageModal, setShowLanguageModal] = useState(false);
+
+  const languages = [
+    { code: 'hi', name: 'हिंदी' },
+    { code: 'en', name: 'English' },
+    { code: 'gu', name: 'ગુજરાતી' },
+    { code: 'bn', name: 'বাংলা' },
+  ];
 
   const handleLogout = () => {
     Alert.alert(t('profile.logout'), t('profile.confirmLogout'), [
@@ -75,8 +85,8 @@ export default function ProfileScreen() {
       id: 3,
       title: t('profile.language'),
       icon: 'language-outline',
-      description: language === 'en' ? 'English' : 'हिंदी',
-      onPress: toggleLanguage,
+      description: getLanguageLabel(language),
+      onPress: () => setShowLanguageModal(true),
     },
     {
       id: 4,
@@ -289,6 +299,60 @@ export default function ProfileScreen() {
 
         <View style={styles.bottomSpacing} />
       </ScrollView>
+
+      {/* Language Selection Modal */}
+      <Modal
+        visible={showLanguageModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowLanguageModal(false)}
+      >
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity
+              onPress={() => setShowLanguageModal(false)}
+              style={styles.modalCloseButton}
+            >
+              <Ionicons name="close" size={24} color="#6b7280" />
+            </TouchableOpacity>
+            <Text variant="h4" weight="bold" style={styles.modalTitle}>
+              {t('profile.language')}
+            </Text>
+            <View style={styles.modalSpacer} />
+          </View>
+
+          <View style={styles.languageList}>
+            {languages.map((lang) => (
+              <TouchableOpacity
+                key={lang.code}
+                style={[
+                  styles.languageOption,
+                  language === lang.code && styles.languageOptionSelected
+                ]}
+                onPress={() => {
+                  setLanguage(lang.code as any);
+                  setShowLanguageModal(false);
+                  // Language will automatically update throughout the app due to Zustand store
+                }}
+              >
+                <Text
+                  variant="body"
+                  weight={language === lang.code ? "semibold" : "medium"}
+                  style={[
+                    styles.languageOptionText,
+                    language === lang.code && styles.languageOptionTextSelected
+                  ]}
+                >
+                  {lang.name}
+                </Text>
+                {language === lang.code && (
+                  <Ionicons name="checkmark" size={20} color="#3b82f6" />
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -448,5 +512,62 @@ const styles = StyleSheet.create({
   },
   bottomSpacing: {
     height: 24,
+  },
+  // Language Modal Styles
+  modalContainer: {
+    flex: 1,
+    backgroundColor: '#f9fafb',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+    backgroundColor: '#fff',
+  },
+  modalCloseButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#f3f4f6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalTitle: {
+    flex: 1,
+    textAlign: 'center',
+    color: '#1f2937',
+  },
+  modalSpacer: {
+    width: 40,
+  },
+  languageList: {
+    padding: 20,
+  },
+  languageOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  languageOptionSelected: {
+    backgroundColor: '#eff6ff',
+    borderColor: '#3b82f6',
+  },
+  languageOptionText: {
+    fontSize: 16,
+    color: '#374151',
+  },
+  languageOptionTextSelected: {
+    color: '#3b82f6',
   },
 });

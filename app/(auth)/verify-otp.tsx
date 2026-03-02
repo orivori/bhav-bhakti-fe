@@ -17,10 +17,11 @@ import { useAuth } from '@/features/authentication/hooks/useAuth';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function VerifyOTPScreen() {
-  const { phoneNumber, countryCode, sessionId } = useLocalSearchParams<{
+  const { phoneNumber, countryCode, sessionId, orderId } = useLocalSearchParams<{
     phoneNumber: string;
     countryCode: string;
-    sessionId: string;
+    sessionId?: string;
+    orderId: string;
   }>();
 
   const [otp, setOtp] = useState('');
@@ -72,7 +73,8 @@ export default function VerifyOTPScreen() {
         phoneNumber: phoneNumber!,
         countryCode: countryCode!,
         otp,
-        sessionId: sessionId!,
+        ...(sessionId && { sessionId }),
+        orderId: orderId!,
       });
 
       // Navigation will be handled by the root layout based on auth state

@@ -1,89 +1,90 @@
 export const goldenTempleTheme = {
   colors: {
-    // Core temple theme colors - Warm Golden Temple Theme
-    background: 'transparent',         // Transparent to show global background image
-    foreground: '#F5E6D3',         // Warm light text like old parchment
+    // Core temple theme colors - Traditional Hindu Temple Theme
+    background: '#FFF8F0',         // Warm cream/ivory background
+    foreground: '#4A2C2A',         // Deep brown text
 
-    card: '#3D2415',              // Darker brown for cards
-    cardForeground: '#F5E6D3',
+    card: '#FFFBF5',              // Lighter cream for cards
+    cardForeground: '#4A2C2A',
 
-    popover: '#3D2415',
-    popoverForeground: '#F5E6D3',
+    popover: '#FFFBF5',
+    popoverForeground: '#4A2C2A',
 
-    // Primary golden colors (main temple gold)
+    // Primary saffron colors (Saffron/Deep orange)
     primary: {
-      50: '#FFF8E7',
-      100: '#FFEED4',
-      200: '#FFD98E',
-      300: '#FFC947',
-      400: '#FFB800',
-      500: '#DAA520',  // Main temple gold
-      600: '#B8860B',
-      700: '#996F00',
-      800: '#7D5800',
-      900: '#664600',
-      DEFAULT: '#DAA520',
-      foreground: '#2C1810',
+      50: '#FFF7ED',
+      100: '#FFEDD5',
+      200: '#FED7AA',
+      300: '#FDBA74',
+      400: '#FB923C',
+      500: '#FF6B00',  // Saffron/Deep orange
+      600: '#EA580C',
+      700: '#C2410C',
+      800: '#9A3412',
+      900: '#7C2D12',
+      DEFAULT: '#FF6B00',
+      foreground: '#ffffff',
     },
 
-    // Secondary bronze/copper colors
+    // Secondary temple red/maroon colors
     secondary: {
-      50: '#FAF0E6',
-      100: '#F5DEB3',
-      200: '#DEB887',
-      300: '#CD853F',
-      400: '#BC7A3C',
-      500: '#A0522D',  // Rich bronze/copper
-      600: '#8B4513',
-      700: '#654321',
-      800: '#4A2C17',
-      900: '#3D2415',
-      DEFAULT: '#A0522D',
-      foreground: '#F5E6D3',
+      50: '#FDF2F2',
+      100: '#FDE8E8',
+      200: '#FBD5D5',
+      300: '#F8B4B4',
+      400: '#F87171',
+      500: '#C41E3A',  // Temple red/maroon
+      600: '#B91C1C',
+      700: '#991B1B',
+      800: '#7F1D1D',
+      900: '#450A0A',
+      DEFAULT: '#C41E3A',
+      foreground: '#ffffff',
     },
 
-    // Muted warm tones
+    // Muted light beige tones
     muted: {
-      50: '#F9F7F4',
-      100: '#F0EAE2',
-      200: '#E3D5C7',
-      300: '#D4C4B0',
-      400: '#C4AD93',
-      500: '#8B7355',  // Muted warm brown
+      50: '#FDFCFB',
+      100: '#F9F6F1',
+      200: '#F5E6D3',  // Light beige
+      300: '#E8D5B7',
+      400: '#D4C4B0',
+      500: '#8B6F47',  // Muted brown
       600: '#6B5B47',
       700: '#4F453A',
       800: '#3D2415',
       900: '#2C1810',
-      DEFAULT: '#8B7355',
-      foreground: '#F5E6D3',
+      DEFAULT: '#F5E6D3',
+      foreground: '#8B6F47',
     },
 
-    // Accent bright gold
+    // Accent rich gold
     accent: {
-      50: '#FFFACD',
-      100: '#FFF8DC',
-      200: '#FFE135',
-      300: '#FFD700',
-      400: '#FFC107',
-      500: '#FFD700',  // Bright gold accent
-      600: '#F57C00',
-      700: '#E65100',
-      800: '#BF360C',
-      900: '#8D2F00',
-      DEFAULT: '#FFD700',
-      foreground: '#2C1810',
+      50: '#FFFBEB',
+      100: '#FEF3C7',
+      200: '#FDE68A',
+      300: '#FCD34D',
+      400: '#FBBF24',
+      500: '#D4AF37',  // Rich gold
+      600: '#B7950B',
+      700: '#92400E',
+      800: '#78350F',
+      900: '#451A03',
+      DEFAULT: '#D4AF37',
+      foreground: '#4A2C2A',
     },
 
-    // Traditional warm temple colors
+    // Traditional Hindu temple colors from CSS
     saffron: '#FF9933',        // Traditional saffron
-    templeGold: '#DAA520',     // Temple gold
-    templeRed: '#B22222',      // Temple red (warmer than original)
+    templeGold: '#D4AF37',     // Rich gold (holy gold)
+    templeRed: '#C41E3A',      // Temple red/maroon
+    warmOrange: '#FF6B00',     // Saffron/Deep orange
+    deepMaroon: '#800020',     // Deep maroon
+    sacredCream: '#FFF8F0',    // Sacred cream
     warmCopper: '#B87333',     // Warm copper
     richBronze: '#CD7F32',     // Rich bronze
-    antiqueBrass: '#CD7F32',   // Antique brass
     peacockBlue: '#4682B4',    // Steel blue (warmer than bright blue)
     emerald: '#228B22',        // Forest green
-    royalPurple: '#8B008B',    // Dark magenta
 
     // Semantic colors with warm tones
     destructive: {
@@ -96,29 +97,29 @@ export const goldenTempleTheme = {
     error: '#B22222',
     info: '#4682B4',
 
-    // Border and input colors - warm golden theme
-    border: 'rgba(218, 165, 32, 0.4)', // Golden border with transparency
+    // Border and input colors - Hindu temple theme
+    border: 'rgba(180, 140, 80, 0.3)', // Golden brown border
     input: 'transparent',
-    inputBackground: 'rgba(139, 115, 85, 0.3)', // Semi-transparent warm brown
-    switchBackground: '#D4C4B0',
-    ring: '#DAA520', // Golden ring
+    inputBackground: 'rgba(245, 230, 211, 0.7)', // Warm beige input
+    switchBackground: '#D4C5B0',
+    ring: '#FF6B00', // Saffron ring
 
     // Background variations
     backgrounds: {
-      primary: 'transparent',       // Transparent to show global background image
-      secondary: '#3D2415',     // Medium brown
-      card: '#4A3828',          // Card background - lighter brown
-      muted: '#8B7355',         // Muted warm brown
-      overlay: 'rgba(44, 24, 16, 0.95)', // Dark warm overlay
+      primary: '#FFF8F0',       // Warm cream/ivory background
+      secondary: '#FFFBF5',     // Lighter cream for cards
+      card: '#FFFBF5',          // Card background - lighter cream
+      muted: '#F5E6D3',         // Light beige
+      overlay: 'rgba(74, 44, 42, 0.95)', // Dark brown overlay
     },
 
     // Text colors
     text: {
-      primary: '#F5E6D3',       // Warm light text
-      secondary: '#D4C4B0',     // Muted warm text
-      accent: '#DAA520',        // Golden accent text
-      inverse: '#2C1810',       // Dark text on light bg
-      muted: '#C4AD93',         // Muted text
+      primary: '#4A2C2A',       // Deep brown text
+      secondary: '#8B6F47',     // Muted brown
+      accent: '#D4AF37',        // Rich gold accent text
+      inverse: '#FFFFFF',       // White text on dark bg
+      muted: '#8B6F47',         // Muted brown text
     }
   },
 

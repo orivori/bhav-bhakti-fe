@@ -24,22 +24,15 @@ class ApiClient {
     // Request interceptor to add auth token and log requests
     this.client.interceptors.request.use(
       async (config) => {
-        // Add auth token - using hardcoded token for testing
-        const MOCK_TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjEsInBob25lTnVtYmVyIjoiODg0MDU4MTgyOSIsInNlc3Npb25JZCI6ImI4OGM4YjgxMDE2N2Q1MzgxYzZlNmVhNjUwZWIwOGQyZDkyOTk0ZWJhOTIwYzIwMjQ5OGFjOGMzN2NhOTBjZTYiLCJpYXQiOjE3NzE3NzYwMDIsImV4cCI6MTc3MjY0MDAwMn0.kvuBj8d949mT-54knA1AIu4EwTHEDhYm-UCDzqI_bZ4';
-
-        // Use mock token for testing, fallback to stored token
-        config.headers.Authorization = `Bearer ${MOCK_TOKEN}`;
-
         // Optional: Also try to get stored tokens as fallback
-        // const tokens = await secureStorage.getTokens();
-        // if (!MOCK_TOKEN && tokens?.accessToken) {
-        //   config.headers.Authorization = `Bearer ${tokens.accessToken}`;
-        // }
-
-        // Log API request details
+        const tokens = await secureStorage.getTokens();
+        console.log("tokens===>",tokens)
+        if ( tokens?.accessToken) {
+          config.headers.Authorization = `Bearer ${tokens.accessToken}`;
+        }
         console.log('🚀 API Request:', {
           method: config.method?.toUpperCase(),
-          url: `${config.baseURL}${config.url}`,
+          url: `URL===>${config.baseURL}${config.url}`,
           headers: config.headers,
           payload: config.data,
           timestamp: new Date().toISOString(),

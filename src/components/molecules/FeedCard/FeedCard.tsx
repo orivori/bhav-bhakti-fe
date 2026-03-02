@@ -42,23 +42,34 @@ export default function FeedCard({
   const [showFullCaption, setShowFullCaption] = useState(false);
   const { toggleLike, incrementDownload, incrementShare, incrementView } = useFeedStore();
 
-  const handleLike = async () => {
-    if (isLiking) return;
+  const handleLike = () => {
+    console.log('❤️ Heart button pressed for feed:', feed.id, 'isLiked:', feed.isLiked);
 
-    setIsLiking(true);
-    try {
-      if (feed.isLiked) {
-        await feedService.unlikeFeed(feed.id.toString());
-      } else {
-        await feedService.likeFeed(feed.id.toString());
-      }
-      toggleLike(feed.id.toString());
-      onLike?.(feed.id.toString());
-    } catch (error) {
-      console.error('Error liking feed:', error);
-      Alert.alert('Error', 'Failed to like the post. Please try again.');
-    } finally {
-      setIsLiking(false);
+    if (onLike) {
+      // Use the parent's like handler (from useFeed hook) - this should be instant
+      onLike(feed.id.toString());
+    } else {
+      // Fallback to direct API calls if no onLike prop provided
+      if (isLiking) return;
+      setIsLiking(true);
+
+      const performLike = async () => {
+        try {
+          if (feed.isLiked) {
+            await feedService.unlikeFeed(feed.id.toString());
+          } else {
+            await feedService.likeFeed(feed.id.toString());
+          }
+          toggleLike(feed.id.toString());
+        } catch (error) {
+          console.error('Error liking feed:', error);
+          Alert.alert('Error', 'Failed to like the post. Please try again.');
+        } finally {
+          setIsLiking(false);
+        }
+      };
+
+      performLike();
     }
   };
 
@@ -218,7 +229,7 @@ export default function FeedCard({
             <TouchableOpacity
               style={styles.actionButton}
               onPress={handleLike}
-              disabled={isLiking}
+              activeOpacity={0.7}
             >
               <Ionicons
                 name={feed.isLiked ? 'heart' : 'heart-outline'}

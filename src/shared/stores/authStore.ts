@@ -21,8 +21,15 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   // Actions
   login: async (user: User, tokens: AuthTokens) => {
     try {
+      console.log('🔐 Starting login process...');
+      console.log('👤 User to save:', user);
+      console.log('🔑 Tokens to save:', tokens);
+
       await secureStorage.saveUser(user);
+      console.log('✅ User saved to secure storage');
+
       await secureStorage.saveTokens(tokens);
+      console.log('✅ Tokens saved to secure storage');
 
       set({
         user,
@@ -30,8 +37,11 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         isAuthenticated: true,
         isLoading: false,
       });
+
+      console.log('✅ Auth state updated - user is now authenticated!');
+      console.log('🎯 isAuthenticated:', true);
     } catch (error) {
-      console.error('Login error:', error);
+      console.error('💥 Login error:', error);
       throw error;
     }
   },

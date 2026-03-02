@@ -96,7 +96,8 @@ export default function PhoneLoginScreen() {
           params: {
             phoneNumber: data.phoneNumber,
             countryCode: selectedCountry.callingCode,
-            sessionId: response.sessionId,
+            ...(response.sessionId && { sessionId: response.sessionId }),
+            orderId: response.orderId,
           },
         });
       }
