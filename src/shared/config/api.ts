@@ -1,7 +1,7 @@
 export const API_CONFIG = {
   BASE_URL: __DEV__
-    ? 'http://13.232.15.181:8000/api' // Your local development server IP
-    : 'http://13.232.15.181:8000/api', // Production URL (update when you have one)
+    ? 'https://api.orivori.com/api' // Your local development server IP
+    : 'https://api.orivori.com/api', // Production URL with HTTPS
   TIMEOUT: 10000,
   RETRY_ATTEMPTS: 2,
 };

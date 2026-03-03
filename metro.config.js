@@ -37,8 +37,18 @@ config.transformer = {
     toplevel: false,
     compress: {
       reduce_funcs: false,
+      drop_console: true, // Remove console logs
+      drop_debugger: true, // Remove debugger statements
+      unused: true, // Remove unused code
     },
   },
 };
+
+// Enable bundle splitting for better optimization
+config.resolver.platforms = ['native', 'android', 'ios'];
+
+// Optimize asset resolution
+config.resolver.assetExts.push('lottie');
+config.transformer.assetPlugins = ['expo-asset/tools/hashAssetFiles'];
 
 module.exports = config;
