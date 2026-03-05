@@ -413,7 +413,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     textAlign: 'center',
-    lineHeight: 18,
+    lineHeight: 26, // Increased from 18 to 26 for Hindi matra support
     letterSpacing: 0.5,
     zIndex: 10,
     shadowColor: '#000',
@@ -557,6 +557,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: goldenTempleTheme.colors.text.primary,
     flex: 1,
+    lineHeight: 24, // Added line height for better Hindi text rendering
   },
 
   searchResultsCount: {

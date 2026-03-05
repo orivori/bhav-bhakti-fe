@@ -21,7 +21,8 @@
         "NSPhotoLibraryUsageDescription": "This app needs access to your photo library to save wallpapers.",
         "NSPhotoLibraryAddUsageDescription": "This app needs permission to save wallpapers to your photo library.",
         "NSMicrophoneUsageDescription": "This app uses the microphone for audio playback controls.",
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "UIAppFonts": []
       }
     },
     "android": {
@@ -32,6 +33,7 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.vivekpandit.bhavbhakti",
+      "softwareKeyboardLayoutMode": "pan",
       "permissions": [
         "READ_EXTERNAL_STORAGE",
         "WRITE_EXTERNAL_STORAGE",

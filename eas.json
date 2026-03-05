@@ -37,8 +37,7 @@
         "simulator": false
       },
       "android": {
-        "buildType": "app-bundle",
-        "buildConfiguration": "Release"
+        "buildType": "app-bundle"
       }
     },
     "preview-small": {
