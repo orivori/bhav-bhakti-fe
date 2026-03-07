@@ -33,11 +33,25 @@
       }
     },
     "production": {
+      "node": "20.18.0",
+      "env": {
+        "NODE_ENV": "production",
+        "EXPO_OPTIMIZE": "true",
+        "NPM_CONFIG_LEGACY_PEER_DEPS": "true",
+        "NPM_CONFIG_FORCE": "true",
+        "NPM_CONFIG_AUDIT": "false"
+      },
+      "cache": {
+        "disabled": true
+      },
       "ios": {
-        "simulator": false
+        "simulator": false,
+        "buildConfiguration": "Release"
       },
       "android": {
-        "buildType": "app-bundle"
+        "buildType": "app-bundle",
+        "gradleCommand": ":app:bundleRelease",
+        "image": "latest"
       }
     },
     "preview-small": {
@@ -45,6 +59,39 @@
       "android": {
         "buildType": "app-bundle",
         "gradleCommand": ":app:bundleRelease"
+      }
+    },
+    "android-optimized": {
+      "node": "20.18.0",
+      "env": {
+        "NODE_ENV": "production",
+        "EXPO_OPTIMIZE": "true",
+        "NPM_CONFIG_LEGACY_PEER_DEPS": "true",
+        "NPM_CONFIG_FORCE": "true",
+        "NPM_CONFIG_AUDIT": "false"
+      },
+      "cache": {
+        "disabled": true
+      },
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleRelease",
+        "image": "latest"
+      }
+    },
+    "android-yarn": {
+      "node": "20.18.0",
+      "env": {
+        "NODE_ENV": "production",
+        "EXPO_OPTIMIZE": "true"
+      },
+      "cache": {
+        "disabled": true
+      },
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleRelease",
+        "image": "latest"
       }
     }
   },
