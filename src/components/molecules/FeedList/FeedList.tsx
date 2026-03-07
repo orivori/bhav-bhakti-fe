@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { Text } from '@/components/atoms';
 import FeedCard from '../FeedCard/FeedCard';
+import RingtoneFeedCard from '../RingtoneFeedCard/RingtoneFeedCard';
 import { Feed, FeedFilters } from '@/types/feed';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { useFeedStore } from '@/store/feedStore';
@@ -58,17 +59,32 @@ export default function FeedList({
   ListHeaderComponent,
 }: FeedListProps) {
 
-  const renderFeedItem = useCallback(({ item: feed, index }: ListRenderItemInfo<Feed>) => (
-    <FeedCard
-      key={feed.id}
-      feed={feed}
-      onPress={onFeedPress}
-      onLike={onLike}
-      onShare={onShare}
-      onDownload={onDownload}
-      autoPlayVideo={autoPlayVideo && index === 0} // Auto-play only first video
-    />
-  ), [onFeedPress, onLike, onShare, onDownload, autoPlayVideo]);
+  const renderFeedItem = useCallback(({ item: feed, index }: ListRenderItemInfo<Feed>) => {
+    // Use RingtoneFeedCard for ringtone feeds, regular FeedCard for others
+    if (feed.type === 'ringtone') {
+      return (
+        <RingtoneFeedCard
+          key={feed.id}
+          feed={feed}
+          onLike={onLike}
+          onShare={onShare}
+          onDownload={onDownload}
+        />
+      );
+    }
+
+    return (
+      <FeedCard
+        key={feed.id}
+        feed={feed}
+        onPress={onFeedPress}
+        onLike={onLike}
+        onShare={onShare}
+        onDownload={onDownload}
+        autoPlayVideo={autoPlayVideo && index === 0} // Auto-play only first video
+      />
+    );
+  }, [onFeedPress, onLike, onShare, onDownload, autoPlayVideo]);
 
   const renderFooter = useCallback(() => {
     if (!hasMore) {

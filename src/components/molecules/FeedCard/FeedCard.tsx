@@ -9,7 +9,7 @@ import {
   Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as MediaLibrary from 'expo-media-library';
 import { Text } from '@/components/atoms';
 import FeedMedia from '../FeedMedia/FeedMedia';
@@ -233,8 +233,8 @@ export default function FeedCard({
             >
               <Ionicons
                 name={feed.isLiked ? 'heart' : 'heart-outline'}
-                size={24}
-                color={feed.isLiked ? goldenTempleTheme.colors.templeRed : goldenTempleTheme.colors.text.secondary}
+                size={26}
+                color={feed.isLiked ? '#FF4444' : '#6B7280'}
               />
               {feed.likesCount > 0 && (
                 <Text variant="caption" style={styles.actionCount}>
@@ -246,8 +246,8 @@ export default function FeedCard({
             <TouchableOpacity style={styles.actionButton} onPress={handleShare}>
               <Ionicons
                 name="share-outline"
-                size={22}
-                color={goldenTempleTheme.colors.text.secondary}
+                size={24}
+                color="#6B7280"
               />
               {feed.sharesCount > 0 && (
                 <Text variant="caption" style={styles.actionCount}>
@@ -264,8 +264,8 @@ export default function FeedCard({
               >
                 <Ionicons
                   name="download-outline"
-                  size={22}
-                  color={goldenTempleTheme.colors.text.secondary}
+                  size={24}
+                  color="#6B7280"
                 />
                 {feed.downloadsCount > 0 && (
                   <Text variant="caption" style={styles.actionCount}>
@@ -281,10 +281,10 @@ export default function FeedCard({
             <View style={styles.viewCount}>
               <Ionicons
                 name="eye-outline"
-                size={16}
-                color={goldenTempleTheme.colors.text.muted}
+                size={18}
+                color="#8E8E93"
               />
-              <Text variant="caption" color="secondary">
+              <Text style={styles.viewCountText}>
                 {formatCount(feed.viewsCount)}
               </Text>
             </View>
@@ -308,40 +308,61 @@ export default function FeedCard({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: goldenTempleTheme.colors.backgrounds.card,
-    marginBottom: goldenTempleTheme.spacing.md,
-    borderRadius: goldenTempleTheme.borderRadius.lg,
+    backgroundColor: '#FFFFFF',
+    marginBottom: 20,
+    marginHorizontal: 4,
+    borderRadius: 16,
     overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: goldenTempleTheme.colors.border,
-    ...goldenTempleTheme.shadows.md,
+    borderWidth: 0,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 10,
   },
   content: {
-    padding: goldenTempleTheme.spacing.md,
+    padding: 18,
+    paddingTop: 16,
   },
   actionsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: goldenTempleTheme.spacing.md,
+    marginBottom: 0,
+    paddingTop: 4,
   },
   leftActions: {
     flexDirection: 'row',
-    gap: goldenTempleTheme.spacing.lg,
+    gap: 24,
+    alignItems: 'center',
   },
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: goldenTempleTheme.spacing.xs,
+    gap: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
   },
   actionCount: {
-    color: goldenTempleTheme.colors.text.muted,
-    fontSize: 12,
+    color: '#6B7280',
+    fontSize: 14,
+    fontWeight: '600',
+    letterSpacing: 0.1,
   },
   viewCount: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: goldenTempleTheme.spacing.xs,
+    gap: 6,
+    backgroundColor: '#F8F9FA',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  viewCountText: {
+    color: '#8E8E93',
+    fontSize: 13,
+    fontWeight: '500',
+    letterSpacing: 0.1,
   },
   captionContainer: {
     marginBottom: goldenTempleTheme.spacing.sm,

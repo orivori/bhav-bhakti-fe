@@ -35,16 +35,6 @@ export default function MainLayout() {
         }}
       />
       <Tabs.Screen
-        name="wallpapers"
-        options={{
-          title: 'Browse',
-          headerShown: false,
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="images-outline" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
         name="profile"
         options={{
           title: 'Profile',
@@ -52,6 +42,13 @@ export default function MainLayout() {
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="person-outline" size={size} color={color} />
           ),
+        }}
+      />
+      <Tabs.Screen
+        name="wallpapers"
+        options={{
+          href: null, // Hide from tabs but keep for navigation
+          headerShown: false,
         }}
       />
       <Tabs.Screen

@@ -10,14 +10,17 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
 import { Text } from '@/components/atoms';
 import RingtoneFeedCard from '@/components/molecules/RingtoneFeedCard/RingtoneFeedCard';
 import { Feed } from '@/types/feed';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { useRingtones } from '@/features/feed/hooks/useRingtones';
 
-export default function RingtonesPage() {
+interface RingtonesScreenProps {
+  onBack?: () => void;
+}
+
+export default function RingtonesScreen({ onBack }: RingtonesScreenProps) {
   const {
     ringtones,
     isLoading,
@@ -32,10 +35,6 @@ export default function RingtonesPage() {
     handleShare,
     handleDownload,
   } = useRingtones();
-
-  const handleBack = useCallback(() => {
-    router.back();
-  }, []);
 
   const renderRingtone = useCallback(({ item: ringtone }: ListRenderItemInfo<Feed>) => (
     <RingtoneFeedCard
@@ -78,7 +77,7 @@ export default function RingtonesPage() {
         <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color={goldenTempleTheme.colors.primary.DEFAULT} />
           <Text variant="body" style={styles.loadingText}>
-            Loading sacred ringtones...
+            Loading ringtones...
           </Text>
         </View>
       );
@@ -124,13 +123,15 @@ export default function RingtonesPage() {
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={handleBack}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="arrow-back" size={24} color="#1A1A1A" />
-        </TouchableOpacity>
+        {onBack && (
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={onBack}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="arrow-back" size={24} color="#1A1A1A" />
+          </TouchableOpacity>
+        )}
         <Text variant="h3" style={styles.headerTitle}>
           Sacred Ringtones
         </Text>
