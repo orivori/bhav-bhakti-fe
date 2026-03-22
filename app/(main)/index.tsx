@@ -6,6 +6,8 @@ import {
   StyleSheet,
   ImageBackground,
   TextInput,
+  Animated,
+  Pressable,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -16,12 +18,11 @@ import { Text } from '@/components/atoms';
 import FeedList from '@/components/molecules/FeedList';
 import { useFeed } from '@/features/feed/hooks';
 import { Feed } from '@/types/feed';
-import { usePremiumStore } from '@/store/premiumStore';
-import { useTranslation } from '@/hooks/useTranslation';
-import { useZodiacStore } from '@/store/zodiacStore';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
-import { OmIcon, BellIcon, DiyaIcon } from '@/components/atoms/MenuIcons';
 import { useTranslation as useI18n } from '@/shared/i18n/useTranslation';
+import { OmIcon, BellIcon, DiyaIcon } from '@/components/atoms/MenuIcons';
+import { useTabBarHeight } from '@/hooks/useTabBarHeight';
+import * as Haptics from 'expo-haptics';
 
 type ContentCategory = 'Mantras' | 'Ringtones' | 'Daily Status';
 
@@ -62,11 +63,96 @@ const IsolatedSearchBar = ({ onSearchSubmit, currentLanguage }: {
 
 
 export default function HomeScreen() {
-  const { isPremium, setShowPaywall } = usePremiumStore();
-  const { t, language } = useTranslation();
+  const { contentPadding } = useTabBarHeight();
   const { t: ti, currentLanguage } = useI18n();
-  const { selectedZodiac, initializeZodiac } = useZodiacStore();
-  const [activeSearchQuery, setActiveSearchQuery] = React.useState('');
+
+  // Animated Category Button Component
+  const AnimatedCategoryButton = ({
+    category,
+    categoryInfo,
+    onPress
+  }: {
+    category: ContentCategory;
+    categoryInfo: any;
+    onPress: () => void;
+  }) => {
+    const scaleAnim = React.useRef(new Animated.Value(1)).current;
+    const opacityAnim = React.useRef(new Animated.Value(1)).current;
+
+    const handlePressIn = () => {
+      // Scale down and reduce opacity when pressed
+      Animated.parallel([
+        Animated.spring(scaleAnim, {
+          toValue: 0.95,
+          useNativeDriver: true,
+          tension: 300,
+          friction: 10,
+        }),
+        Animated.timing(opacityAnim, {
+          toValue: 0.7,
+          duration: 100,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    };
+
+    const handlePressOut = () => {
+      // Scale back up and restore opacity when released
+      Animated.parallel([
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          useNativeDriver: true,
+          tension: 300,
+          friction: 10,
+        }),
+        Animated.timing(opacityAnim, {
+          toValue: 1,
+          duration: 150,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    };
+
+    return (
+      <TouchableOpacity
+        onPress={onPress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        activeOpacity={1} // Disable default opacity change
+        style={styles.categoryGridItem}
+      >
+        <Animated.View
+          style={[
+            {
+              transform: [{ scale: scaleAnim }],
+              opacity: opacityAnim,
+            }
+          ]}
+        >
+          <LinearGradient
+            colors={categoryInfo.gradient}
+            style={styles.categoryGridCard}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          >
+            {/* Icon */}
+            <View style={styles.iconContainer}>
+              {categoryInfo.icon}
+            </View>
+
+            {/* Label */}
+            <Text
+              variant="body"
+              weight="semibold"
+              style={styles.categoryCardText}
+            >
+              {categoryInfo.name}
+            </Text>
+          </LinearGradient>
+        </Animated.View>
+      </TouchableOpacity>
+    );
+  };
 
   // Initialize feed data
   const {
@@ -84,18 +170,18 @@ export default function HomeScreen() {
     shareFeed,
     downloadFeed,
   } = useFeed({
-    filters: {
-      search: activeSearchQuery.trim() || undefined,
-    },
     limit: 10,
   });
 
-  React.useEffect(() => {
-    initializeZodiac();
-  }, []);
 
   const handleSearchSubmit = (query: string) => {
-    setActiveSearchQuery(query);
+    if (query.trim()) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      router.push({
+        pathname: '/(main)/search-results',
+        params: { query: query.trim() }
+      });
+    }
   };
 
   const categories: ContentCategory[] = ['Mantras', 'Ringtones', 'Daily Status'];
@@ -134,6 +220,9 @@ export default function HomeScreen() {
   };
 
   const handleCategoryPress = (category: ContentCategory) => {
+    // Add haptic feedback for button press
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
     // Navigate to category screen
     switch (category) {
       case 'Mantras':
@@ -149,6 +238,9 @@ export default function HomeScreen() {
   };
 
   const handleFeedPress = (feed: Feed) => {
+    // Add haptic feedback for feed press
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
     console.log('🎵 Home: Feed pressed:', {
       id: feed.id,
       type: feed.type,
@@ -194,97 +286,70 @@ export default function HomeScreen() {
 
   const renderHeader = () => (
     <View>
-      {/* Header */}
-      <View style={styles.header}>
+      {/* App Title Header with Profile */}
+      <View style={styles.appHeader}>
+        <View style={styles.profileSection}>
+          <View style={styles.profileAvatar}>
+            <Ionicons name="person" size={24} color="#ffffff" />
+          </View>
+          <View style={styles.titleSection}>
+            <Text style={styles.appTitle}>Bhav Bhakti</Text>
+            <Text style={styles.appSubtitle}>Your Spiritual Companion</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Search Bar */}
+      <View style={styles.searchSection}>
         <IsolatedSearchBar
           onSearchSubmit={handleSearchSubmit}
           currentLanguage={currentLanguage}
         />
-        <TouchableOpacity style={styles.profileButton}>
-          <Ionicons
-            name="person-circle"
-            size={28}
-            color={goldenTempleTheme.colors.primary.DEFAULT}
-          />
-        </TouchableOpacity>
       </View>
 
-      {/* Category Cards */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.categoriesContainer}
-        contentContainerStyle={styles.categoriesContent}
-      >
+      {/* Category Cards Grid */}
+      <View style={styles.categoriesGrid}>
         {categories.map((category) => {
           const categoryInfo = getCategoryInfo(category);
           return (
-            <TouchableOpacity
+            <AnimatedCategoryButton
               key={category}
+              category={category}
+              categoryInfo={categoryInfo}
               onPress={() => handleCategoryPress(category)}
-              activeOpacity={0.9}
-              style={styles.categoryTouchable}
-            >
-              <LinearGradient
-                colors={categoryInfo.gradient}
-                style={styles.categoryCard}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-              >
-                {/* Background image overlay */}
-                {categoryInfo.imageUrl && (
-                  <ImageBackground
-                    source={{ uri: categoryInfo.imageUrl }}
-                    style={styles.categoryBackground}
-                    imageStyle={styles.categoryBackgroundImage}
-                  />
-                )}
-
-                {/* Decorative border */}
-                <View style={styles.decorativeBorder} />
-
-                {/* Icon */}
-                <View style={styles.iconContainer}>
-                  {categoryInfo.icon}
-                </View>
-
-                {/* Label */}
-                <Text
-                  variant="body"
-                  weight="semibold"
-                  style={styles.categoryCardText}
-                >
-                  {categoryInfo.name}
-                </Text>
-
-                {/* Decorative corner elements */}
-                <View style={[styles.corner, styles.topLeft]} />
-                <View style={[styles.corner, styles.topRight]} />
-                <View style={[styles.corner, styles.bottomLeft]} />
-                <View style={[styles.corner, styles.bottomRight]} />
-              </LinearGradient>
-            </TouchableOpacity>
+            />
           );
         })}
-      </ScrollView>
+      </View>
 
-      {/* Search Results Header */}
-      {activeSearchQuery.trim() && (
-        <View style={styles.searchResultsHeader}>
-          <Text style={styles.searchResultsText}>
-            {currentLanguage === 'hi'
-              ? `"${activeSearchQuery}" के लिए परिणाम`
-              : `Results for "${activeSearchQuery}"`}
+      {/* Recommended Section Header */}
+      {feeds.length > 0 && (
+        <View style={styles.recommendedHeader}>
+          <Text style={styles.recommendedTitle}>
+            {currentLanguage === 'hi' ? 'आपके लिए सुझाया गया' : 'Recommended for You'}
           </Text>
-          {feeds.length > 0 && (
-            <Text style={styles.searchResultsCount}>
-              {feeds.length} {feeds.length === 1 ? 'result' : 'results'}
+          <Pressable
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              // Add navigation logic here if needed
+            }}
+            style={({ pressed }) => [
+              styles.seeAllButton,
+              {
+                opacity: pressed ? 0.7 : 1,
+                transform: [{ scale: pressed ? 0.95 : 1 }]
+              }
+            ]}
+          >
+            <Text style={styles.seeAllText}>
+              {currentLanguage === 'hi' ? 'सभी देखें' : 'See All'}
             </Text>
-          )}
+          </Pressable>
         </View>
       )}
 
-      {/* Horoscope Card - hidden when searching */}
+      {/* Horoscope Card - commented out as requested */}
+      {/*
       {!activeSearchQuery.trim() && (
         <TouchableOpacity
           style={styles.horoscopeCard}
@@ -308,11 +373,12 @@ export default function HomeScreen() {
           </View>
         </TouchableOpacity>
       )}
+      */}
     </View>
   );
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: 'transparent' }]}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <FeedList
         feeds={feeds}
         onLoadMore={loadMore}
@@ -331,6 +397,9 @@ export default function HomeScreen() {
         onRetry={retry}
         autoPlayVideo={true}
         ListHeaderComponent={renderHeader}
+        contentContainerStyle={{
+          paddingBottom: contentPadding
+        }}
       />
     </SafeAreaView>
   );
@@ -339,19 +408,51 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: 'transparent', // Remove background to show image
+    backgroundColor: '#FFF8F0', // Cream background like the design
   },
   content: {
     flex: 1,
   },
-  header: {
+
+  // App title header styles
+  appHeader: {
+    paddingHorizontal: goldenTempleTheme.spacing.lg,
+    paddingTop: goldenTempleTheme.spacing.md,
+    paddingBottom: goldenTempleTheme.spacing.sm,
+  },
+  profileSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: goldenTempleTheme.spacing.md,
+  },
+  profileAvatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: goldenTempleTheme.colors.primary.DEFAULT,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...goldenTempleTheme.shadows.md,
+  },
+  titleSection: {
+    flex: 1,
+  },
+  appTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: goldenTempleTheme.colors.text.primary,
+    marginBottom: 2,
+  },
+  appSubtitle: {
+    fontSize: 14,
+    color: goldenTempleTheme.colors.text.secondary,
+    fontWeight: '400',
+  },
+
+  // Search section styles
+  searchSection: {
     paddingHorizontal: goldenTempleTheme.spacing.lg,
-    paddingVertical: goldenTempleTheme.spacing.md + 4,
-    backgroundColor: 'transparent',
-    marginTop: 10,
+    paddingVertical: goldenTempleTheme.spacing.md,
   },
   searchContainer: {
     flex: 1,
@@ -361,12 +462,35 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    marginRight: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 2,
+  },
+
+  // Recommended section styles
+  recommendedHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: goldenTempleTheme.spacing.lg,
+    marginBottom: goldenTempleTheme.spacing.md,
+  },
+  recommendedTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: goldenTempleTheme.colors.text.primary,
+  },
+  seeAllButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  seeAllText: {
+    fontSize: 14,
+    color: goldenTempleTheme.colors.primary.DEFAULT,
+    fontWeight: '500',
   },
   searchIcon: {
     marginRight: 12,
@@ -380,42 +504,33 @@ const styles = StyleSheet.create({
     margin: 0, // Remove all margin
     height: 20,
   },
-  profileButton: {
-    padding: 6,
-    borderRadius: 20,
-    borderWidth: 2,
-    borderColor: goldenTempleTheme.colors.primary.DEFAULT,
-    backgroundColor: 'rgba(218, 165, 32, 0.1)',
-  },
-  categoriesContainer: {
-    marginTop: goldenTempleTheme.spacing.md,
-    backgroundColor: 'transparent', // Let background image show through
-    paddingBottom: goldenTempleTheme.spacing.md,
-  },
-  categoriesContent: {
+  // Categories grid styles
+  categoriesGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     paddingHorizontal: goldenTempleTheme.spacing.lg,
+    marginBottom: goldenTempleTheme.spacing.lg,
     gap: goldenTempleTheme.spacing.sm,
   },
-  categoryCard: {
-    width: 120,
-    height: 140,
+  categoryGridItem: {
+    flex: 1,
+  },
+  categoryGridCard: {
+    height: 120,
     borderRadius: goldenTempleTheme.borderRadius.xl,
-    padding: goldenTempleTheme.spacing.lg,
+    padding: goldenTempleTheme.spacing.md,
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 12,
+    gap: 8,
     ...goldenTempleTheme.shadows.lg,
-    position: 'relative',
-    overflow: 'hidden',
   },
   categoryCardText: {
     color: '#ffffff',
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
     textAlign: 'center',
-    lineHeight: 26, // Increased from 18 to 26 for Hindi matra support
+    lineHeight: 20,
     letterSpacing: 0.5,
-    zIndex: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.7,
@@ -459,110 +574,10 @@ const styles = StyleSheet.create({
     color: goldenTempleTheme.colors.text.secondary,
   },
 
-  // Enhanced menu card styles
-  categoryTouchable: {
-    marginRight: goldenTempleTheme.spacing.sm,
-  },
-
-  categoryBackground: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    opacity: 0.4,
-  },
-
-  categoryBackgroundImage: {
-    borderRadius: goldenTempleTheme.borderRadius.xl,
-  },
-
-  decorativeBorder: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-    borderRadius: goldenTempleTheme.borderRadius.xl,
-  },
-
   iconContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 5,
+    marginBottom: 4,
   },
 
-  corner: {
-    position: 'absolute',
-    width: 12,
-    height: 12,
-    borderColor: 'rgba(255, 255, 255, 0.4)',
-    borderWidth: 2,
-  },
-
-  topLeft: {
-    top: 8,
-    left: 8,
-    borderBottomWidth: 0,
-    borderRightWidth: 0,
-    borderTopLeftRadius: 8,
-  },
-
-  topRight: {
-    top: 8,
-    right: 8,
-    borderBottomWidth: 0,
-    borderLeftWidth: 0,
-    borderTopRightRadius: 8,
-  },
-
-  bottomLeft: {
-    bottom: 8,
-    left: 8,
-    borderTopWidth: 0,
-    borderRightWidth: 0,
-    borderBottomLeftRadius: 8,
-  },
-
-  bottomRight: {
-    bottom: 8,
-    right: 8,
-    borderTopWidth: 0,
-    borderLeftWidth: 0,
-    borderBottomRightRadius: 8,
-  },
-
-  // Search results styles
-  searchResultsHeader: {
-    paddingHorizontal: goldenTempleTheme.spacing.lg,
-    paddingVertical: goldenTempleTheme.spacing.sm,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 248, 240, 0.8)',
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: goldenTempleTheme.colors.border,
-  },
-
-  searchResultsText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: goldenTempleTheme.colors.text.primary,
-    flex: 1,
-    lineHeight: 24, // Added line height for better Hindi text rendering
-  },
-
-  searchResultsCount: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: goldenTempleTheme.colors.text.secondary,
-  },
 });

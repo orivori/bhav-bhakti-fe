@@ -16,8 +16,10 @@ import RingtoneFeedCard from '@/components/molecules/RingtoneFeedCard/RingtoneFe
 import { Feed } from '@/types/feed';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { useRingtones } from '@/features/feed/hooks/useRingtones';
+import { useTabBarHeight } from '@/hooks/useTabBarHeight';
 
 export default function RingtonesPage() {
+  const { contentPadding } = useTabBarHeight();
   const {
     ringtones,
     isLoading,
@@ -145,7 +147,7 @@ export default function RingtonesPage() {
         ListEmptyComponent={renderEmptyComponent}
         ListFooterComponent={renderFooter}
         style={styles.list}
-        contentContainerStyle={[
+        contentContainerStyle={[{ paddingBottom: contentPadding },
           styles.listContent,
           ringtones.length === 0 && styles.emptyContainer,
         ]}
@@ -212,11 +214,11 @@ const styles = StyleSheet.create({
   listContent: {
     paddingHorizontal: 16,
     paddingTop: 16,
-    paddingBottom: 100,
+    
   },
   emptyContainer: {
     flexGrow: 1,
-    paddingBottom: 100,
+    
   },
   centerContainer: {
     flex: 1,

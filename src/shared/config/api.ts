@@ -46,4 +46,17 @@ export const API_ENDPOINTS = {
     TRENDING: '/v1/feed/trending',
     POPULAR_TAGS: '/v1/feed/tags/popular',
   },
+  CATEGORIES: {
+    LIST: '/v1/categories',
+    GET_BY_ID: (categoryId: number) => `/v1/categories/${categoryId}`,
+    FEEDS: (categoryId: number) => `/v1/categories/${categoryId}/feeds`,
+  },
+  QUIZ: {
+    GET_QUIZ: (type: string) => `/v1/quiz/${type}`,
+    START: (type: string) => `/v1/quiz/${type}/start`,
+    GET_QUESTION: (sessionId: string, questionNumber: number) => `/v1/quiz/question/${sessionId}/${questionNumber}`,
+    SUBMIT_ANSWER: '/v1/quiz/answer',
+    GET_RESULTS: (sessionId: string) => `/v1/quiz/results/${sessionId}`,
+    HISTORY: '/v1/quiz/history',
+  },
 } as const;

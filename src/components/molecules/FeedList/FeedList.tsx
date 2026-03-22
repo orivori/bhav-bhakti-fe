@@ -35,6 +35,7 @@ interface FeedListProps {
   autoPlayVideo?: boolean;
   estimatedItemSize?: number;
   ListHeaderComponent?: React.ComponentType<any> | React.ReactElement | null;
+  contentContainerStyle?: any;
 }
 
 export default function FeedList({
@@ -57,6 +58,7 @@ export default function FeedList({
   autoPlayVideo = false,
   estimatedItemSize = 600,
   ListHeaderComponent,
+  contentContainerStyle,
 }: FeedListProps) {
 
   const renderFeedItem = useCallback(({ item: feed, index }: ListRenderItemInfo<Feed>) => {
@@ -201,6 +203,7 @@ export default function FeedList({
       contentContainerStyle={[
         !ListHeaderComponent && styles.container,
         feeds.length === 0 && styles.emptyContainer,
+        contentContainerStyle,
       ]}
       removeClippedSubviews={true}
       maxToRenderPerBatch={10}
@@ -223,11 +226,9 @@ const styles = StyleSheet.create({
   container: {
     paddingHorizontal: goldenTempleTheme.spacing.md,
     paddingTop: goldenTempleTheme.spacing.md,
-    paddingBottom: 100, // Extra space for absolute positioned tab bar (height: 80 + padding)
   },
   emptyContainer: {
     flexGrow: 1,
-    paddingBottom: 100, // Space for absolute positioned tab bar
   },
   centerContainer: {
     flex: 1,

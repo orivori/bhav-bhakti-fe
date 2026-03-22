@@ -1,0 +1,208 @@
+import * as SMS from 'expo-sms';
+import * as Clipboard from 'expo-clipboard';
+import { Platform } from 'react-native';
+
+export class SMSDetectionService {
+  private static otpPattern = /\b(\d{4,6})\b/g;
+
+  /**
+   * Check if SMS permissions are available
+   */
+  static async checkSMSAvailability(): Promise<boolean> {
+    if (Platform.OS !== 'android') {
+      return false; // SMS auto-detection is mainly for Android
+    }
+
+    try {
+      const isAvailable = await SMS.isAvailableAsync();
+      return isAvailable;
+    } catch (error) {
+      console.warn('SMS availability check failed:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Extract OTP from SMS text using comprehensive patterns
+   */
+  static extractOTPFromText(text: string): string | null {
+    if (!text) return null;
+
+    // Clean the text - remove extra spaces and normalize
+    const cleanText = text.replace(/\s+/g, ' ').trim();
+
+    // Enhanced OTP patterns (ordered by priority/specificity)
+    const patterns = [
+      // Bhav Bhakti specific patterns
+      /bhav\s*bhakti.*?(\d{6})/gi,
+      /your.*?bhav\s*bhakti.*?code.*?(\d{6})/gi,
+
+      // Common OTP service patterns
+      /OTP[:\s]*(\d{4,6})/gi, // OTP: 123456
+      /verification[:\s]*code[:\s]*(\d{4,6})/gi, // verification code: 123456
+      /your[:\s]*code[:\s]*(\d{4,6})/gi, // your code: 123456
+      /code[:\s]*(\d{4,6})/gi, // code: 123456
+      /(\d{4,6})[:\s]*is[:\s]*your.*?code/gi, // 123456 is your code
+      /(\d{4,6})[:\s]*is[:\s]*your.*?otp/gi, // 123456 is your otp
+
+      // Pattern with context words
+      /login.*?(\d{6})/gi, // login code 123456
+      /verify.*?(\d{6})/gi, // verify with 123456
+      /authentication.*?(\d{6})/gi, // authentication code 123456
+
+      // Standalone 6-digit codes (least priority as they can be false positives)
+      /\b(\d{6})\b/g, // 6-digit OTP
+      /\b(\d{4})\b/g, // 4-digit OTP
+    ];
+
+    for (const pattern of patterns) {
+      const matches = pattern.exec(cleanText);
+      if (matches && matches[1]) {
+        const digits = matches[1];
+        // Prefer 6-digit codes over 4-digit for most OTP services
+        if (digits.length === 6 || (digits.length === 4 && !cleanText.match(/\b(\d{6})\b/))) {
+          console.log(`📱 OTP extracted using pattern: ${pattern.source}`);
+          return digits;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Start comprehensive OTP detection (SMS + Clipboard monitoring)
+   */
+  static async startSMSListener(
+    onOTPReceived: (otp: string) => void
+  ): Promise<() => void> {
+    console.log('🔍 Starting comprehensive OTP detection...');
+
+    const cleanupFunctions: (() => void)[] = [];
+
+    // Start clipboard monitoring as fallback (works on both iOS and Android)
+    const clipboardCleanup = await this.startClipboardMonitoring(
+      (otp) => {
+        console.log('📋 OTP auto-detected from clipboard:', otp);
+        onOTPReceived(otp);
+      },
+      2000, // Check every 2 seconds
+      120000 // Monitor for 2 minutes
+    );
+    cleanupFunctions.push(clipboardCleanup);
+
+    // For Android, we would add native SMS listener here
+    if (Platform.OS === 'android') {
+      console.log('📱 Android SMS detection would be implemented here');
+      // TODO: Implement native SMS listener for production
+      // This would require:
+      // 1. READ_SMS permission
+      // 2. Native module to listen for SMS
+      // 3. Background processing capability
+    }
+
+    // For iOS, clipboard monitoring is the primary method
+    if (Platform.OS === 'ios') {
+      console.log('📱 iOS OTP detection using clipboard monitoring');
+      // iOS doesn't allow direct SMS reading, but apps can detect OTP codes
+      // copied to clipboard when user taps on SMS notifications
+    }
+
+    // Return combined cleanup function
+    return () => {
+      console.log('🔍 Stopping OTP detection services');
+      cleanupFunctions.forEach(cleanup => cleanup());
+    };
+  }
+
+  /**
+   * Request SMS permissions (Android only)
+   */
+  static async requestSMSPermissions(): Promise<boolean> {
+    if (Platform.OS !== 'android') {
+      return false;
+    }
+
+    try {
+      // This would normally request READ_SMS permission
+      // For Expo, we need to use expo-permissions or native modules
+      console.log('SMS permissions requested (placeholder implementation)');
+      return true;
+    } catch (error) {
+      console.warn('SMS permission request failed:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Auto-fill OTP from clipboard (iOS/Android)
+   * This is a fallback method for iOS and enhanced Android detection
+   */
+  static async checkClipboardForOTP(): Promise<string | null> {
+    try {
+      const clipboardText = await Clipboard.getStringAsync();
+      if (clipboardText) {
+        const extractedOTP = this.extractOTPFromText(clipboardText);
+        if (extractedOTP) {
+          console.log('OTP detected from clipboard:', extractedOTP);
+          return extractedOTP;
+        }
+      }
+      return null;
+    } catch (error) {
+      console.warn('Clipboard check failed:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Periodic clipboard monitoring for OTP detection
+   */
+  static async startClipboardMonitoring(
+    onOTPFound: (otp: string) => void,
+    intervalMs: number = 1000,
+    maxDuration: number = 60000 // 1 minute
+  ): Promise<() => void> {
+    let isMonitoring = true;
+    let lastClipboardContent = '';
+
+    const checkClipboard = async () => {
+      if (!isMonitoring) return;
+
+      try {
+        const currentContent = await Clipboard.getStringAsync();
+
+        // Only check if clipboard content changed
+        if (currentContent && currentContent !== lastClipboardContent) {
+          lastClipboardContent = currentContent;
+          const otp = this.extractOTPFromText(currentContent);
+
+          if (otp) {
+            console.log('📋 OTP detected from clipboard:', otp);
+            onOTPFound(otp);
+            isMonitoring = false; // Stop monitoring after finding OTP
+            return;
+          }
+        }
+      } catch (error) {
+        console.warn('Clipboard monitoring error:', error);
+      }
+    };
+
+    // Start monitoring
+    const interval = setInterval(checkClipboard, intervalMs);
+
+    // Stop monitoring after max duration
+    const timeout = setTimeout(() => {
+      isMonitoring = false;
+      clearInterval(interval);
+    }, maxDuration);
+
+    // Return cleanup function
+    return () => {
+      isMonitoring = false;
+      clearInterval(interval);
+      clearTimeout(timeout);
+    };
+  }
+}

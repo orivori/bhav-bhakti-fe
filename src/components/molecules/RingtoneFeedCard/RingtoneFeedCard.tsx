@@ -9,8 +9,10 @@ import {
   Share,
   Platform,
   Linking,
-} from 'react-native';
+  Dimensions} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+
+const { width } = Dimensions.get('window');
 import { Audio } from 'expo-av';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as MediaLibrary from 'expo-media-library';
@@ -425,6 +427,30 @@ export default function RingtoneFeedCard({
     }
   };
 
+  // Handle progress bar seeking
+  const handleSeek = async (event: any) => {
+    if (sound && duration > 0) {
+      try {
+        const { locationX } = event.nativeEvent;
+        const progressBarWidth = width - 80; // Account for card padding
+        const percentage = Math.max(0, Math.min(locationX / progressBarWidth, 1));
+        const seekPosition = duration * percentage;
+        
+        await sound.setPositionAsync(seekPosition);
+        setPlaybackPosition(seekPosition);
+      } catch (error) {
+        console.error('Error seeking:', error);
+      }
+    }
+  };
+
+  const formatTime = (millis: number): string => {
+    const totalSeconds = Math.floor(millis / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
+
 
   return (
     <View style={styles.container}>
@@ -474,6 +500,41 @@ export default function RingtoneFeedCard({
         </View>
       </View>
 
+
+      {/* Progress Bar */}
+      {(isPlaying || playbackPosition > 0) && (
+        <View style={styles.progressContainer}>
+          <TouchableOpacity
+            style={styles.progressBar}
+            onPress={handleSeek}
+            activeOpacity={0.8}
+          >
+            <View style={styles.progressTrack}>
+              <View
+                style={[
+                  styles.progressFill,
+                  { width: duration > 0 ? `${(playbackPosition / duration) * 100}%` : '0%' },
+                ]}
+              />
+              {duration > 0 && (
+                <View
+                  style={[
+                    styles.progressThumb,
+                    {
+                      left: `${(playbackPosition / duration) * 100}%`,
+                    }
+                  ]}
+                />
+              )}
+            </View>
+          </TouchableOpacity>
+          
+          <View style={styles.timeContainer}>
+            <Text style={styles.timeText}>{formatTime(playbackPosition)}</Text>
+            <Text style={styles.timeText}>{formatTime(duration)}</Text>
+          </View>
+        </View>
+      )}
       {/* Action Buttons */}
       <View style={styles.actionsContainer}>
         {/* Play Button */}
@@ -605,12 +666,12 @@ const styles = StyleSheet.create({
   defaultThumbnail: {
     width: 72,
     height: 72,
-    backgroundColor: '#FF8C42',
+    backgroundColor: '#FF5722', // Orange thumbnail,
     borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 0,
-    shadowColor: '#FF8C42',
+    shadowColor: '#FF5722',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -669,12 +730,12 @@ const styles = StyleSheet.create({
   playButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FF6B35',
+    backgroundColor: '#FF5722', // Orange play button,
     paddingHorizontal: 18,
     paddingVertical: 12,
     borderRadius: 24,
     gap: 6,
-    shadowColor: '#FF6B35',
+    shadowColor: '#FF5722',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -746,5 +807,52 @@ const styles = StyleSheet.create({
     color: '#1A1A1A',
     fontWeight: '600',
     fontSize: 13,
+  },
+  // Progress Bar Styles
+  progressContainer: {
+    marginBottom: 16,
+  },
+  progressBar: {
+    height: 8,
+    marginBottom: 8,
+    position: 'relative',
+  },
+  progressTrack: {
+    height: '100%',
+    backgroundColor: '#F5E6D3', // Light peach track
+    borderRadius: 4,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: '#FF5722', // Orange fill
+    borderRadius: 4,
+  },
+  progressThumb: {
+    position: 'absolute',
+    top: -4,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#FF5722',
+    marginLeft: -8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
+    borderWidth: 2,
+    borderColor: '#fff',
+  },
+  timeContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  timeText: {
+    fontSize: 12,
+    color: '#8E8E93',
+    fontWeight: '600',
   },
 });

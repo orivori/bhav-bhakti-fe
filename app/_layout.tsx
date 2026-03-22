@@ -8,6 +8,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '@/features/authentication/hooks/useAuth';
 import { PremiumPaywall } from '@/components/molecules/PremiumPaywall';
 import { useScreenshotProtection } from '@/hooks/useScreenshotProtection';
+import { ToastProvider } from '@/components/atoms/Toast';
+import { Audio } from 'expo-av';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -35,25 +38,49 @@ export default function RootLayout() {
   useScreenshotProtection();
 
   React.useEffect(() => {
+    // Initialize audio session for background playback
+    const initializeAudioSession = async () => {
+      try {
+        await Audio.setAudioModeAsync({
+          allowsRecordingIOS: false,
+          staysActiveInBackground: true, // Enable background audio
+          playsInSilentModeIOS: true,
+          shouldDuckAndroid: true,
+          playThroughEarpieceAndroid: false,
+          interruptionModeIOS: 2, // INTERRUPTION_MODE_IOS_DO_NOT_MIX
+          interruptionModeAndroid: 1, // INTERRUPTION_MODE_ANDROID_DO_NOT_MIX
+        });
+        console.log('✅ Global audio session initialized for background playback');
+      } catch (error) {
+        console.error('❌ Failed to initialize audio session:', error);
+      }
+    };
+
+    initializeAudioSession();
+
     // Hide splash screen immediately since we're not loading fonts
     SplashScreen.hideAsync();
   }, []);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <View style={styles.container}>
-          <NavigationThemeProvider value={MyTheme}>
-            <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#FFF8F0' } }}>
-              <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-              <Stack.Screen name="(main)" options={{ headerShown: false }} />
-            </Stack>
-          </NavigationThemeProvider>
-        </View>
-        <StatusBar style="dark" translucent backgroundColor="transparent" />
-        <PremiumPaywall />
-      </AuthProvider>
-    </QueryClientProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <QueryClientProvider client={queryClient}>
+        <ToastProvider>
+          <AuthProvider>
+            <View style={styles.container}>
+              <NavigationThemeProvider value={MyTheme}>
+                <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#FFF8F0' } }}>
+                  <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+                  <Stack.Screen name="(main)" options={{ headerShown: false }} />
+                </Stack>
+              </NavigationThemeProvider>
+            </View>
+            <StatusBar style="dark" translucent backgroundColor="transparent" />
+            <PremiumPaywall />
+          </AuthProvider>
+        </ToastProvider>
+      </QueryClientProvider>
+    </GestureHandlerRootView>
   );
 }
 

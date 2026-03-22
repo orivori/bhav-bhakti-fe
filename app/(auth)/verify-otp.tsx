@@ -15,6 +15,9 @@ import { Button, Text } from '@/components/atoms';
 import { OTPInput } from '@/components/molecules';
 import { useAuth } from '@/features/authentication/hooks/useAuth';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useToast } from '@/components/atoms/Toast';
+import { PhoneStorageService } from '@/utils/phoneStorage';
+import { SMSDetectionService } from '@/utils/smsDetection';
 
 export default function VerifyOTPScreen() {
   const { phoneNumber, countryCode, sessionId, orderId } = useLocalSearchParams<{
@@ -31,6 +34,16 @@ export default function VerifyOTPScreen() {
   const [canResend, setCanResend] = useState(false);
 
   const { verifyOTP, sendOTP } = useAuth();
+  const { showToast } = useToast();
+
+  // Show initial OTP sent toast when screen loads
+  useEffect(() => {
+    showToast({
+      type: 'success',
+      message: 'Verification Code Sent',
+      duration: 2000
+    });
+  }, []);
 
   // Countdown timer for resend
   useEffect(() => {
@@ -53,6 +66,35 @@ export default function VerifyOTPScreen() {
     };
   }, [resendTimer, canResend]);
 
+  // SMS Auto-detection
+  useEffect(() => {
+    let smsCleanup: (() => void) | null = null;
+    
+    const setupSMSDetection = async () => {
+      const isAvailable = await SMSDetectionService.checkSMSAvailability();
+      if (isAvailable) {
+        smsCleanup = await SMSDetectionService.startSMSListener((detectedOTP) => {
+          if (detectedOTP && detectedOTP.length === 6) {
+            setOtp(detectedOTP);
+            showToast({
+              type: 'success',
+              message: 'OTP auto-detected from SMS',
+              duration: 2000
+            });
+          }
+        });
+      }
+    };
+    
+    setupSMSDetection();
+    
+    return () => {
+      if (smsCleanup) {
+        smsCleanup();
+      }
+    };
+  }, []);
+
   // Auto-submit when OTP is complete
   useEffect(() => {
     if (otp.length === 6) {
@@ -62,7 +104,7 @@ export default function VerifyOTPScreen() {
 
   const handleVerifyOTP = async () => {
     if (otp.length !== 6) {
-      Alert.alert('Invalid OTP', 'Please enter a 6-digit verification code.');
+      showToast({ type: 'error', message: 'Please enter a 6-digit verification code.' });
       return;
     }
 
@@ -79,10 +121,11 @@ export default function VerifyOTPScreen() {
 
       // Navigation will be handled by the root layout based on auth state
     } catch (error) {
-      Alert.alert(
-        'Verification Failed',
-        error instanceof Error ? error.message : 'Invalid verification code. Please try again.'
-      );
+      showToast({
+        type: 'error',
+        title: 'Verification Failed',
+        message: error instanceof Error ? error.message : 'Invalid verification code. Please try again.'
+      });
       setOtp(''); // Clear OTP on error
     } finally {
       setIsLoading(false);
@@ -99,23 +142,25 @@ export default function VerifyOTPScreen() {
       });
 
       if (response.success) {
-        Alert.alert('Success', 'Verification code sent successfully!');
+        showToast({ type: 'success', message: 'Verification Code Sent', duration: 2000 });
         setCanResend(false);
         setResendTimer(60);
         setOtp(''); // Clear current OTP
       }
     } catch (error) {
-      Alert.alert(
-        'Error',
-        error instanceof Error ? error.message : 'Failed to resend OTP. Please try again.'
-      );
+      showToast({
+        type: 'error',
+        title: 'Error',
+        message: error instanceof Error ? error.message : 'Failed to resend OTP. Please try again.'
+      });
     } finally {
       setIsResending(false);
     }
   };
 
   const handleBack = () => {
-    router.back();
+    // Navigate back to phone login with pre-filled data
+    router.push({ pathname: '/(auth)/phone-login', params: { phoneNumber, countryCode } });
   };
 
   const formatPhoneNumber = () => {
@@ -193,13 +238,13 @@ export default function VerifyOTPScreen() {
                 <TouchableOpacity
                   onPress={handleResendOTP}
                   disabled={isResending}
-                  style={styles.resendButton}
+                  style={styles.resendButtonClickable}
                 >
                   <Text
                     variant="caption"
                     weight="semibold"
                     color="primary"
-                    style={isResending && styles.resendingText}
+                    style={[styles.resendButtonText, isResending && styles.resendingText]}
                   >
                     {isResending ? 'Sending...' : 'Resend Code'}
                   </Text>
@@ -290,6 +335,12 @@ const styles = StyleSheet.create({
   },
   resendButton: {
     padding: 8,
+  },
+  resendButtonClickable: {
+    padding: 8,
+  },
+  resendButtonText: {
+    textDecorationLine: 'underline',
   },
   resendingText: {
     opacity: 0.5,

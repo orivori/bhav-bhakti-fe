@@ -17,6 +17,9 @@ import { Button, Text } from '@/components/atoms';
 import { PhoneInput } from '@/components/molecules';
 import { useAuth } from '@/features/authentication/hooks/useAuth';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useToast } from '@/components/atoms/Toast';
+import { PhoneStorageService } from '@/utils/phoneStorage';
+import { useLocalSearchParams } from 'expo-router';
 
 // Form validation schema
 const phoneSchema = z.object({
@@ -40,6 +43,8 @@ const phoneSchema = z.object({
 type PhoneFormData = z.infer<typeof phoneSchema>;
 
 export default function PhoneLoginScreen() {
+  const { showToast } = useToast();
+  const params = useLocalSearchParams<{ phoneNumber?: string; countryCode?: string }>();
   const [selectedCountry, setSelectedCountry] = useState({
     code: 'IND',
     callingCode: '+91',
@@ -48,6 +53,7 @@ export default function PhoneLoginScreen() {
 
   const { sendOTP } = useAuth();
 
+  // Form setup - moved before useEffect that uses setValue
   const {
     control,
     handleSubmit,
@@ -63,6 +69,34 @@ export default function PhoneLoginScreen() {
 
   const phoneNumber = watch('phoneNumber');
 
+  // Initialize form with pre-filled data or saved data
+  React.useEffect(() => {
+    const initializePhoneData = async () => {
+      let initialPhoneData = null;
+      
+      // First check if data came from back navigation
+      if (params.phoneNumber && params.countryCode) {
+        initialPhoneData = {
+          phoneNumber: params.phoneNumber,
+          countryCode: params.countryCode
+        };
+      } else {
+        // Check saved phone data
+        initialPhoneData = await PhoneStorageService.getLastPhoneNumber();
+      }
+      
+      if (initialPhoneData) {
+        setValue('phoneNumber', initialPhoneData.phoneNumber);
+        setSelectedCountry({
+          code: initialPhoneData.countryCode === '+91'? 'IND' : 'USA',
+          callingCode: initialPhoneData.countryCode
+        });
+      }
+    };
+    
+    initializePhoneData();
+  }, [params.phoneNumber, params.countryCode]);
+
   const validatePhoneWithCountry = (phone: string) => {
     if (!phone) return false;
     try {
@@ -76,7 +110,7 @@ export default function PhoneLoginScreen() {
   const onSubmit = async (data: PhoneFormData) => {
     // Validate phone number with selected country
     if (!validatePhoneWithCountry(data.phoneNumber)) {
-      Alert.alert('Invalid Phone Number', 'Please enter a valid phone number for the selected country.');
+      showToast({ type: 'error', message: 'Please enter a valid phone number for the selected country.' });
       return;
     }
 
@@ -90,6 +124,15 @@ export default function PhoneLoginScreen() {
       console.log(response);
 
       if (response.success) {
+        // Save phone number for back navigation
+        await PhoneStorageService.savePhoneNumber(data.phoneNumber, selectedCountry.callingCode);
+        
+        // Show success toast
+        showToast({
+          type: 'success',
+          message: 'Verification Code Sent',
+          duration: 2000
+        });
         // Navigate to OTP verification screen with phone data
         router.push({
           pathname: '/(auth)/verify-otp',
@@ -102,10 +145,11 @@ export default function PhoneLoginScreen() {
         });
       }
     } catch (error) {
-      Alert.alert(
-        'Error',
-        error instanceof Error ? error.message : 'Failed to send OTP. Please try again.'
-      );
+      showToast({
+        type: 'error',
+        title: 'Error',
+        message: error instanceof Error ? error.message : 'Failed to send OTP. Please try again.'
+      });
     } finally {
       setIsLoading(false);
     }

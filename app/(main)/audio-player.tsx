@@ -22,6 +22,7 @@ import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { feedService } from '@/features/feed/services/feedService';
 import { Feed } from '@/types/feed';
 import { useTranslation } from '@/shared/i18n/useTranslation';
+import { useTabBarHeight } from '@/hooks/useTabBarHeight';
 
 const { width } = Dimensions.get('window');
 
@@ -32,6 +33,7 @@ export default function AudioPlayerScreen() {
   const params = useLocalSearchParams();
   const feedId = params.feedId?.toString();
   const { t } = useTranslation();
+  const { contentPadding } = useTabBarHeight();
 
   // Feed data state
   const [feedData, setFeedData] = useState<Feed | null>(null);
@@ -125,7 +127,6 @@ export default function AudioPlayerScreen() {
 
       const feed = await feedService.getFeedById(feedId);
       console.log('✅ Audio Player: Feed data received:', feed);
-      console.log('📱 Audio Player: Feed media:', feed?.media);
 
       setFeedData(feed);
 
@@ -143,6 +144,23 @@ export default function AudioPlayerScreen() {
     }
   };
 
+  // Helper function to get localized text from JSON field
+  const getLocalizedText = (jsonField: any, fallback: string): string => {
+    if (!jsonField) return fallback;
+
+    if (typeof jsonField === 'string') return jsonField;
+
+    if (typeof jsonField === 'object' && !Array.isArray(jsonField)) {
+      const keys = Object.keys(jsonField);
+      if (keys.length === 0) return fallback;
+
+      // Try current language first, then English, then Hindi, then first available
+      return jsonField['en'] || jsonField['hi'] || Object.values(jsonField)[0] || fallback;
+    }
+
+    return fallback;
+  };
+
   // Get mantra data from feed or fallback to params
   const getMantraData = () => {
     if (feedData && feedData.media && Array.isArray(feedData.media)) {
@@ -150,14 +168,23 @@ export default function AudioPlayerScreen() {
         media.type === 'audio' || media.type === 'image_audio'
       );
 
-      const metadata = audioMedia?.metadata || {};
+      // Get deity name from the deity relationship or fallback
+      const deityName = feedData.deity?.displayName
+        ? getLocalizedText(feedData.deity.displayName, feedData.deity.name || t('unknownDeity'))
+        : t('unknownDeity');
+
+      // Get description from feed's multilingual description field
+      const description = getLocalizedText(feedData.description, t('mantraDescription'));
+
+      // Get objective from feed's multilingual objective field
+      const objective = getLocalizedText(feedData.objective, t('spiritualGrowth'));
 
       return {
         title: feedData.caption || t('sacredMantra'),
-        description: metadata.description || t('mantraDescription'),
+        description,
         tags: feedData.tags,
-        deity: metadata.deity || t('unknownDeity'),
-        objective: metadata.objective || t('spiritualGrowth'),
+        deity: deityName,
+        objective,
         audioUrl: audioMedia?.mediaUrl || audioMedia?.audioUrl,
         thumbnailUrl: audioMedia?.thumbnailUrl,
         feedId: feedData.id.toString(),
@@ -167,10 +194,10 @@ export default function AudioPlayerScreen() {
     // Fallback to params if feed data not loaded
     return {
       title: params.title || t('sacredMantra'),
-      description: t('mantraDescription'),
+      description: params.description || t('mantraDescription'),
       tags: params.tags ? params.tags.toString().split(',') : [t('mantras')],
-      deity: t('unknownDeity'),
-      objective: t('spiritualGrowth'),
+      deity: params.deity || t('unknownDeity'),
+      objective: params.objective || t('spiritualGrowth'),
       audioUrl: params.audioUrl,
       thumbnailUrl: params.thumbnailUrl,
       feedId: params.feedId,
@@ -974,7 +1001,7 @@ export default function AudioPlayerScreen() {
           onPress={() => router.back()}
           activeOpacity={0.7}
         >
-          <Ionicons name="arrow-back" size={24} color={goldenTempleTheme.colors.text.primary} />
+          <Ionicons name="arrow-back" size={24} color={'#5D4E37'} />
           <Text style={styles.backButtonText}>{t('back')}</Text>
         </TouchableOpacity>
       </View>
@@ -1005,7 +1032,7 @@ export default function AudioPlayerScreen() {
       {!isFeedLoading && !feedError && (
         <ScrollView
           style={styles.scrollContainer}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: contentPadding }]}
           showsVerticalScrollIndicator={false}
           bounces={true}
         >
@@ -1214,7 +1241,7 @@ export default function AudioPlayerScreen() {
                 <Ionicons
                   name="repeat"
                   size={20}
-                  color={isLooping ? goldenTempleTheme.colors.primary.DEFAULT : goldenTempleTheme.colors.text.muted}
+                  color={isLooping ? '#FF5722' : '#8B7355'}
                 />
               </TouchableOpacity>
 
@@ -1222,7 +1249,7 @@ export default function AudioPlayerScreen() {
                 <Ionicons
                   name={volume > 0.5 ? "volume-high" : volume > 0 ? "volume-low" : "volume-mute"}
                   size={20}
-                  color={goldenTempleTheme.colors.text.primary}
+                  color={'#5D4E37'}
                 />
               </TouchableOpacity>
 
@@ -1268,7 +1295,7 @@ export default function AudioPlayerScreen() {
             {/* Primary Controls Row */}
             <View style={styles.primaryControls}>
               <TouchableOpacity onPress={skipBackward} style={styles.skipButton}>
-                <Ionicons name="play-skip-back" size={28} color={goldenTempleTheme.colors.text.primary} />
+                <Ionicons name="play-skip-back" size={28} color={'#5D4E37'} />
               </TouchableOpacity>
 
               <Animated.View
@@ -1283,7 +1310,7 @@ export default function AudioPlayerScreen() {
                   disabled={isAudioLoading}
                 >
                   <LinearGradient
-                    colors={['#FFD700', '#DAA520']}
+                    colors={['#FF5722', '#E64A19']}
                     style={styles.playButtonGradient}
                   >
                     {isAudioLoading ? (
@@ -1303,7 +1330,7 @@ export default function AudioPlayerScreen() {
               </Animated.View>
 
               <TouchableOpacity onPress={skipForward} style={styles.skipButton}>
-                <Ionicons name="play-skip-forward" size={28} color={goldenTempleTheme.colors.text.primary} />
+                <Ionicons name="play-skip-forward" size={28} color={'#5D4E37'} />
               </TouchableOpacity>
             </View>
 
@@ -1359,7 +1386,7 @@ export default function AudioPlayerScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: goldenTempleTheme.colors.backgrounds.primary,
+    backgroundColor: '#F5F1E8', // Light cream background
   },
   // Header with Back Button
   header: {
@@ -1367,7 +1394,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: goldenTempleTheme.spacing.lg,
     paddingVertical: goldenTempleTheme.spacing.md,
-    backgroundColor: goldenTempleTheme.colors.backgrounds.primary,
+    backgroundColor: '#F5F1E8',
   },
   backButton: {
     flexDirection: 'row',
@@ -1377,12 +1404,12 @@ const styles = StyleSheet.create({
   backButtonText: {
     fontSize: 16,
     fontWeight: '500',
-    color: goldenTempleTheme.colors.text.primary,
+    color: '#5D4E37', // Warm brown text
     marginLeft: 4,
   },
   separator: {
     height: 1,
-    backgroundColor: goldenTempleTheme.colors.border,
+    backgroundColor: 'rgba(205, 180, 140, 0.2)', // Light brown separator
     marginHorizontal: goldenTempleTheme.spacing.lg,
   },
   stickyHeader: {
@@ -1396,7 +1423,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 60, // Account for status bar
     paddingBottom: 15,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    backgroundColor: '#FFFFFF', // White controls
     zIndex: 1000,
   },
   headerSpacer: {
@@ -1413,31 +1440,32 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 20,
     paddingTop: goldenTempleTheme.spacing.md,
-    paddingBottom: 40,
   },
   // Mantra Info Card
   mantraCard: {
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    backgroundColor: '#FFFFFF', // Pure white card
     borderRadius: 20,
     padding: 20,
     marginBottom: 20,
-    borderWidth: 2,
-    borderColor: 'rgba(218, 165, 32, 0.6)',
-    ...goldenTempleTheme.shadows.lg,
+    shadowColor: 'rgba(0, 0, 0, 0.1)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
   },
   mantraTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: goldenTempleTheme.colors.text.primary,
+    color: '#5D4E37', // Dark brown text
     marginBottom: 12,
-    textAlign: 'center',
+    textAlign: 'left',
   },
   description: {
     fontSize: 16,
-    color: goldenTempleTheme.colors.text.secondary,
+    color: '#8B7355', // Medium brown text
     lineHeight: 24,
     marginBottom: 16,
-    textAlign: 'center',
+    textAlign: 'left',
   },
   tagsContainer: {
     flexDirection: 'row',
@@ -1455,7 +1483,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(218, 165, 32, 0.3)',
   },
   tagText: {
-    color: goldenTempleTheme.colors.primary.DEFAULT,
+    color: '#FF5722', // Orange selected
     fontSize: 12,
     fontWeight: '500',
   },
@@ -1469,24 +1497,29 @@ const styles = StyleSheet.create({
   },
   infoLabel: {
     fontSize: 12,
-    color: goldenTempleTheme.colors.text.muted,
+    color: '#8B7355',
     marginBottom: 4,
   },
   infoValue: {
     fontSize: 16,
     fontWeight: '600',
-    color: goldenTempleTheme.colors.text.primary,
+    color: '#5D4E37',
     textAlign: 'center',
   },
   // Counter Section
   counterSection: {
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
-    borderRadius: 20,
+    backgroundColor: '#FFFFFF', // White card
+    borderRadius: 24,
     padding: 24,
     marginBottom: 20,
-    borderWidth: 2,
-    borderColor: 'rgba(218, 165, 32, 0.7)',
+    borderWidth: 1,
+    borderColor: 'rgba(218, 165, 32, 0.25)',
     ...goldenTempleTheme.shadows.lg,
+    shadowColor: 'rgba(218, 165, 32, 0.4)',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 12,
   },
   counterContainer: {
     flexDirection: 'row',
@@ -1495,15 +1528,20 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   counterButton: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: 'rgba(218, 165, 32, 0.2)',
-    borderWidth: 2,
-    borderColor: 'rgba(218, 165, 32, 0.6)',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'rgba(218, 165, 32, 0.15)',
+    borderWidth: 0,
+    borderColor: 'rgba(218, 165, 32, 0.4)',
     alignItems: 'center',
     justifyContent: 'center',
     ...goldenTempleTheme.shadows.md,
+    shadowColor: 'rgba(218, 165, 32, 0.5)',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 6,
   },
   counterDisplay: {
     alignItems: 'center',
@@ -1522,7 +1560,7 @@ const styles = StyleSheet.create({
   },
   autoLoopStatus: {
     fontSize: 11,
-    color: goldenTempleTheme.colors.text.muted,
+    color: '#8B7355',
     textAlign: 'center',
     fontStyle: 'italic',
     marginTop: 8,
@@ -1531,20 +1569,25 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
-    borderWidth: 4,
-    borderColor: 'rgba(218, 165, 32, 0.6)',
+    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+    borderWidth: 3,
+    borderColor: 'rgba(218, 165, 32, 0.3)',
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
     overflow: 'hidden',
     ...goldenTempleTheme.shadows.md,
+    shadowColor: 'rgba(218, 165, 32, 0.4)',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
   progressFillCircle: {
     position: 'absolute',
     width: '100%',
     height: '50%',
-    backgroundColor: goldenTempleTheme.colors.primary.DEFAULT,
+    backgroundColor: '#FF5722', // Orange fill
     top: 0,
     left: 0,
     transformOrigin: '50% 100%',
@@ -1571,7 +1614,7 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: goldenTempleTheme.colors.primary.DEFAULT,
+    backgroundColor: '#FF5722', // Orange selected
     alignItems: 'center',
     justifyContent: 'center',
     ...goldenTempleTheme.shadows.sm,
@@ -1589,7 +1632,7 @@ const styles = StyleSheet.create({
   targetLabel: {
     fontSize: 16,
     fontWeight: '600',
-    color: goldenTempleTheme.colors.text.primary,
+    color: '#5D4E37',
   },
   autoLoopIndicator: {
     backgroundColor: 'rgba(0, 255, 0, 0.2)',
@@ -1613,13 +1656,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 16,
-    backgroundColor: 'rgba(218, 165, 32, 0.2)',
-    borderWidth: 2,
+    backgroundColor: '#F5E6D3', // Light peach
+    borderWidth: 0,
     borderColor: 'rgba(218, 165, 32, 0.5)',
     ...goldenTempleTheme.shadows.sm,
   },
   targetOptionChipSelected: {
-    backgroundColor: goldenTempleTheme.colors.primary.DEFAULT,
+    backgroundColor: '#FF5722',
     borderColor: goldenTempleTheme.colors.primary.DEFAULT,
   },
   targetOptionChipText: {
@@ -1640,7 +1683,7 @@ const styles = StyleSheet.create({
   },
   moreTargetsText: {
     fontSize: 12,
-    color: goldenTempleTheme.colors.text.muted,
+    color: '#8B7355',
   },
   // Lyrics Section - Large Video/Image Area
   lyricsSection: {
@@ -1769,7 +1812,7 @@ const styles = StyleSheet.create({
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#FFD700',
+    backgroundColor: '#edc77a',
     borderRadius: 3,
   },
   progressThumb: {
@@ -1800,10 +1843,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 20,
     paddingHorizontal: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    backgroundColor: '#FFFFFF',
     borderRadius: 24,
     paddingVertical: 20,
-    borderWidth: 2,
+    borderWidth: 0,
     borderColor: 'rgba(218, 165, 32, 0.6)',
     ...goldenTempleTheme.shadows.lg,
   },
@@ -1816,9 +1859,9 @@ const styles = StyleSheet.create({
   },
   secondaryControlButton: {
     padding: 10,
-    backgroundColor: 'rgba(218, 165, 32, 0.2)',
+    backgroundColor: '#F5E6D3',
     borderRadius: 16,
-    borderWidth: 2,
+    borderWidth: 0,
     borderColor: 'rgba(218, 165, 32, 0.5)',
     minWidth: 50,
     alignItems: 'center',
@@ -1827,7 +1870,7 @@ const styles = StyleSheet.create({
   speedText: {
     fontSize: 12,
     fontWeight: '600',
-    color: goldenTempleTheme.colors.text.primary,
+    color: '#5D4E37',
   },
   primaryControls: {
     flexDirection: 'row',
@@ -1838,9 +1881,9 @@ const styles = StyleSheet.create({
   },
   skipButton: {
     padding: 14,
-    backgroundColor: 'rgba(218, 165, 32, 0.2)',
+    backgroundColor: '#F5E6D3',
     borderRadius: 25,
-    borderWidth: 2,
+    borderWidth: 0,
     borderColor: 'rgba(218, 165, 32, 0.5)',
     ...goldenTempleTheme.shadows.sm,
   },
@@ -1867,24 +1910,24 @@ const styles = StyleSheet.create({
   },
   skipText: {
     fontSize: 10,
-    color: goldenTempleTheme.colors.text.muted,
+    color: '#8B7355',
     fontWeight: '500',
   },
   volumeContainer: {
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 16,
     marginBottom: 16,
     alignItems: 'center',
     width: '100%',
-    borderWidth: 2,
+    borderWidth: 0,
     borderColor: 'rgba(218, 165, 32, 0.6)',
     ...goldenTempleTheme.shadows.md,
   },
   volumeLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: goldenTempleTheme.colors.text.primary,
+    color: '#5D4E37',
     marginBottom: 8,
   },
   volumeSliderContainer: {
@@ -1897,13 +1940,13 @@ const styles = StyleSheet.create({
   },
   volumeTrack: {
     height: 4,
-    backgroundColor: 'rgba(218, 165, 32, 0.3)',
+    backgroundColor: '#F5E6D3',
     borderRadius: 2,
     position: 'relative',
   },
   volumeFill: {
     height: '100%',
-    backgroundColor: goldenTempleTheme.colors.primary.DEFAULT,
+    backgroundColor: '#FF5722',
     borderRadius: 2,
   },
   volumeThumb: {
@@ -1912,7 +1955,7 @@ const styles = StyleSheet.create({
     width: 16,
     height: 16,
     borderRadius: 8,
-    backgroundColor: goldenTempleTheme.colors.primary.DEFAULT,
+    backgroundColor: '#FF5722',
     marginLeft: -8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -1948,7 +1991,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   retryButton: {
-    backgroundColor: goldenTempleTheme.colors.primary.DEFAULT,
+    backgroundColor: '#FF5722',
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 20,

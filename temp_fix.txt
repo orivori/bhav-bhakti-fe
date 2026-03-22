@@ -1,0 +1,5 @@
+      showToast({ 
+        type: 'error',
+        title: 'Error',
+        message: error instanceof Error ? error.message : 'Failed to send OTP. Please try again.'
+      });

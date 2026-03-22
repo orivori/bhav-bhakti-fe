@@ -1,0 +1,167 @@
+Here are the updated styles for the audio player to match the cream color theme from your screenshot:
+
+// Main container and header
+container: {
+  flex: 1,
+  backgroundColor: '#F5F1E8', // Light cream background
+},
+
+header: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  paddingHorizontal: goldenTempleTheme.spacing.lg,
+  paddingVertical: goldenTempleTheme.spacing.md,
+  backgroundColor: '#F5F1E8',
+},
+
+backButton: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  gap: goldenTempleTheme.spacing.sm,
+},
+
+backButtonText: {
+  fontSize: 16,
+  fontWeight: '500',
+  color: '#5D4E37', // Warm brown text
+  marginLeft: 4,
+},
+
+separator: {
+  height: 1,
+  backgroundColor: 'rgba(205, 180, 140, 0.2)', // Light brown separator
+  marginHorizontal: goldenTempleTheme.spacing.lg,
+},
+
+// Mantra Info Card - white with soft shadows
+mantraCard: {
+  backgroundColor: '#FFFFFF', // Pure white card
+  borderRadius: 20,
+  padding: 20,
+  marginBottom: 20,
+  shadowColor: 'rgba(0, 0, 0, 0.1)',
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.1,
+  shadowRadius: 8,
+  elevation: 4,
+},
+
+mantraTitle: {
+  fontSize: 24,
+  fontWeight: 'bold',
+  color: '#5D4E37', // Dark brown text
+  marginBottom: 12,
+  textAlign: 'left',
+},
+
+description: {
+  fontSize: 16,
+  color: '#8B7355', // Medium brown text
+  lineHeight: 24,
+  marginBottom: 16,
+  textAlign: 'left',
+},
+
+// Tags with light orange background
+tag: {
+  backgroundColor: '#FDF2E9', // Very light orange
+  borderRadius: 16,
+  paddingHorizontal: 12,
+  paddingVertical: 6,
+},
+
+tagText: {
+  color: '#D2691E', // Orange text
+  fontSize: 12,
+  fontWeight: '500',
+},
+
+// Info boxes with light colored backgrounds
+infoValue: {
+  fontSize: 16,
+  fontWeight: '600',
+  color: '#5D4E37', // Dark brown
+  textAlign: 'center',
+},
+
+// Counter Section - white card
+counterSection: {
+  backgroundColor: '#FFFFFF', // White card
+  borderRadius: 20,
+  padding: 24,
+  marginBottom: 20,
+  shadowColor: 'rgba(0, 0, 0, 0.1)',
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.1,
+  shadowRadius: 8,
+  elevation: 4,
+},
+
+// Counter buttons with orange theme
+counterButton: {
+  width: 48,
+  height: 48,
+  borderRadius: 24,
+  backgroundColor: '#F5E6D3', // Light peach background
+  alignItems: 'center',
+  justifyContent: 'center',
+},
+
+incrementButton: {
+  width: 48,
+  height: 48,
+  borderRadius: 24,
+  backgroundColor: '#FF5722', // Orange button like in screenshot
+  alignItems: 'center',
+  justifyContent: 'center',
+},
+
+// Progress circle with orange theme
+progressCircle: {
+  width: 120,
+  height: 120,
+  borderRadius: 60,
+  backgroundColor: '#FFFFFF',
+  borderWidth: 3,
+  borderColor: '#F5E6D3',
+  alignItems: 'center',
+  justifyContent: 'center',
+  position: 'relative',
+  overflow: 'hidden',
+},
+
+progressFillCircle: {
+  position: 'absolute',
+  width: '100%',
+  height: '50%',
+  backgroundColor: '#FF5722', // Orange progress
+  top: 0,
+  left: 0,
+  transformOrigin: '50% 100%',
+  borderTopLeftRadius: 60,
+  borderTopRightRadius: 60,
+},
+
+// Target options with orange theme
+targetOptionChip: {
+  paddingHorizontal: 16,
+  paddingVertical: 8,
+  borderRadius: 16,
+  backgroundColor: '#F5E6D3', // Light peach
+  minWidth: 60,
+  alignItems: 'center',
+},
+
+targetOptionChipSelected: {
+  backgroundColor: '#FF5722', // Orange when selected
+},
+
+targetOptionChipText: {
+  fontSize: 14,
+  fontWeight: '600',
+  color: '#D2691E', // Orange text
+},
+
+targetOptionChipTextSelected: {
+  color: '#FFFFFF', // White text when selected
+},

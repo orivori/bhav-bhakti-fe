@@ -11,12 +11,39 @@ export interface FeedMedia {
   metadata?: Record<string, any> | null;
 }
 
+export interface Category {
+  id: number;
+  categoryName: string;
+  displayName: {
+    en: string;
+    hi: string;
+  };
+  icon?: string;
+  colors?: string[];
+}
+
+export interface Deity {
+  id: number;
+  name: string;
+  displayName: Record<string, string>;
+  icon?: string;
+  colors?: string[];
+  isActive: boolean;
+  sortOrder: number;
+}
+
 export interface Feed {
   id: number;
   userId: number;
   caption?: string;
   location?: string;
   type: 'general' | 'mantra' | 'ringtone' | 'wallpaper';
+  categoryId?: number | null;
+  category?: Category | null;
+  deityId?: number | null;
+  deity?: Deity | null;
+  description?: Record<string, string> | null;
+  objective?: Record<string, string> | null;
   mediaCount: number;
   likesCount: number;
   commentsCount: number;
@@ -101,7 +128,8 @@ export interface CreateFeedRequest {
 }
 
 export interface FeedFilters {
-  type?: 'image' | 'video';
+  type?: 'general' | 'mantra' | 'ringtone' | 'wallpaper';
+  categoryId?: number;
   tags?: string[];
   search?: string;
   sortBy?: 'createdAt' | 'likesCount' | 'downloadsCount' | 'sharesCount' | 'viewsCount';

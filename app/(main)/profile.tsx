@@ -8,12 +8,14 @@ import { useAuth } from '@/features/authentication/hooks/useAuth';
 import { usePremiumStore } from '@/store/premiumStore';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useI18nStore } from '@/shared/stores/i18nStore';
+import { useTabBarHeight } from '@/hooks/useTabBarHeight';
 
 export default function ProfileScreen() {
   const { user, logout } = useAuth();
   const { isPremium, setShowPaywall } = usePremiumStore();
   const { t, language } = useTranslation();
   const { setLanguage, getLanguageLabel } = useI18nStore();
+  const { contentPadding } = useTabBarHeight();
   const [showLanguageModal, setShowLanguageModal] = useState(false);
 
   const languages = [
@@ -137,7 +139,7 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: contentPadding }}>
         {/* Header */}
         <View style={styles.header}>
           <Text variant="h3" weight="bold">
@@ -297,7 +299,6 @@ export default function ProfileScreen() {
           />
         </View>
 
-        <View style={styles.bottomSpacing} />
       </ScrollView>
 
       {/* Language Selection Modal */}
@@ -509,9 +510,6 @@ const styles = StyleSheet.create({
   logoutContainer: {
     marginHorizontal: 24,
     marginTop: 32,
-  },
-  bottomSpacing: {
-    height: 24,
   },
   // Language Modal Styles
   modalContainer: {

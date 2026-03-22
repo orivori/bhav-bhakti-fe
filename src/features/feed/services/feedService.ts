@@ -32,6 +32,9 @@ class FeedService {
 
     // Add filter params
     if (params.type) queryParams.append('type', params.type);
+    if (params.categoryId) {
+      queryParams.append('categoryId', params.categoryId.toString());
+    }
     if (params.search) queryParams.append('search', params.search);
     if (params.sortBy) queryParams.append('sortBy', params.sortBy);
     if (params.sortOrder) queryParams.append('sortOrder', params.sortOrder);

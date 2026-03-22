@@ -1,22 +1,29 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 
 export default function MainLayout() {
+  const insets = useSafeAreaInsets();
+
   return (
     <Tabs
-      sceneContainerStyle={{ backgroundColor: 'transparent' }}
       screenOptions={{
-        tabBarActiveTintColor: goldenTempleTheme.colors.primary.DEFAULT, // Vibrant temple gold
-        tabBarInactiveTintColor: goldenTempleTheme.colors.text.primary, // Light text for visibility
+        tabBarActiveTintColor: '#FF5722', // Orange accent to match cream theme
+        tabBarInactiveTintColor: '#8B7355', // Medium brown for inactive items
         tabBarStyle: {
-          backgroundColor: 'rgba(44, 24, 16, 0.85)', // Semi-transparent warm brown
+          backgroundColor: '#FFFFFF', // Fully opaque white background
           borderTopWidth: 1,
-          borderTopColor: 'rgba(218, 165, 32, 0.3)', // Golden border
-          paddingBottom: 8,
-          paddingTop: 8,
-          height: 80,
+          borderTopColor: 'rgba(139, 115, 85, 0.2)', // Light brown border
+          paddingBottom: Math.max(insets.bottom, 8), // Safe area padding
+          paddingTop: 12,
+          height: Math.max(80 + insets.bottom, 88), // Dynamic height with safe area
           position: 'absolute',
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 8,
+          elevation: 10,
         },
         headerStyle: {
           backgroundColor: 'transparent',
@@ -31,6 +38,36 @@ export default function MainLayout() {
           headerShown: false,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="home-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="mantras"
+        options={{
+          title: 'Mantras',
+          headerShown: false,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="musical-notes-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="ringtones"
+        options={{
+          title: 'Ringtones',
+          headerShown: false,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="notifications-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="daily-status"
+        options={{
+          title: 'Status',
+          headerShown: false,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="images-outline" size={size} color={color} />
           ),
         }}
       />
@@ -67,6 +104,7 @@ export default function MainLayout() {
         name="zodiac-selection"
         options={{
           href: null, // Hide from tabs
+           headerShown: false,
         }}
       />
       <Tabs.Screen
@@ -77,26 +115,20 @@ export default function MainLayout() {
         }}
       />
       <Tabs.Screen
-        name="mantras"
+        name="search-results"
         options={{
           href: null, // Hide from tabs
           headerShown: false,
         }}
       />
       <Tabs.Screen
-        name="ringtones"
+        name="mantra-quiz"
         options={{
-          href: null, // Hide from tabs
+          href: null, // Hide from tabs - only accessible from mantras page
           headerShown: false,
         }}
       />
-      <Tabs.Screen
-        name="daily-status"
-        options={{
-          href: null, // Hide from tabs
-          headerShown: false,
-        }}
-      />
+
     </Tabs>
   );
 }

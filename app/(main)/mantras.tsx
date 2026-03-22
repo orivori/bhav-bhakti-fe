@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import {
   View,
   StyleSheet,
@@ -7,7 +7,6 @@ import {
   Image,
   FlatList,
   RefreshControl,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -17,61 +16,27 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Text } from '@/components/atoms';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { useFeed } from '@/features/feed/hooks/useFeed';
+import { useMantraCategories } from '@/features/feed/hooks/useCategories';
 import { useTranslation } from '@/hooks/useTranslation';
-import type { Feed } from '@/types/feed';
+import { useTabBarHeight } from '@/hooks/useTabBarHeight';
+import type { Feed, Category } from '@/types/feed';
 
-const MANTRA_CATEGORIES = [
-  {
-    id: 'ganesh',
-    title: { en: 'Ganesh Mantras', hi: 'गणेश मंत्र' },
-    subtitle: { en: 'Remove obstacles', hi: 'विघ्न हरण' },
-    colors: ['#ff6b35', '#f7931e'],
-    icon: '🐘',
-  },
-  {
-    id: 'shiva',
-    title: { en: 'Shiva Mantras', hi: 'शिव मंत्र' },
-    subtitle: { en: 'Inner peace', hi: 'आंतरिक शांति' },
-    colors: ['#4a90e2', '#357abd'],
-    icon: '🔱',
-  },
-  {
-    id: 'durga',
-    title: { en: 'Durga Mantras', hi: 'दुर्गा मंत्र' },
-    subtitle: { en: 'Divine strength', hi: 'दिव्य शक्ति' },
-    colors: ['#d4af37', '#b8860b'],
-    icon: '🗿',
-  },
-  {
-    id: 'lakshmi',
-    title: { en: 'Lakshmi Mantras', hi: 'लक्ष्मी मंत्र' },
-    subtitle: { en: 'Prosperity', hi: 'समृद्धि' },
-    colors: ['#e91e63', '#ad1457'],
-    icon: '🪷',
-  },
-  {
-    id: 'hanuman',
-    title: { en: 'Hanuman Mantras', hi: 'हनुमान मंत्र' },
-    subtitle: { en: 'Courage & strength', hi: 'साहस और शक्ति' },
-    colors: ['#ff9800', '#f57c00'],
-    icon: '💪',
-  },
-  {
-    id: 'universal',
-    title: { en: 'Universal Mantras', hi: 'सार्वभौमिक मंत्र' },
-    subtitle: { en: 'Healing & peace', hi: 'उपचार और शांति' },
-    colors: ['#4caf50', '#388e3c'],
-    icon: '🕉️',
-  },
-];
 
 export default function MantrasScreen() {
   const { t, language } = useTranslation();
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const { contentPadding } = useTabBarHeight();
+  const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
+
+  // Fetch mantra categories
+  const {
+    data: categories = [],
+    isLoading: categoriesLoading,
+    error: categoriesError
+  } = useMantraCategories();
 
   // Filter for mantra-type feeds
   const feedFilters = selectedCategory
-    ? { type: 'mantra' as const, tags: [selectedCategory] }
+    ? { type: 'mantra' as const, categoryId: selectedCategory }
     : { type: 'mantra' as const };
 
   const {
@@ -79,7 +44,6 @@ export default function MantrasScreen() {
     isLoading,
     isLoadingMore,
     isRefreshing,
-    hasMore,
     loadMore,
     refresh,
     likeFeed,
@@ -90,7 +54,7 @@ export default function MantrasScreen() {
     limit: 20
   });
 
-  const handleCategoryPress = useCallback((categoryId: string | null) => {
+  const handleCategoryPress = useCallback((categoryId: number | null) => {
     setSelectedCategory(categoryId);
   }, []);
 
@@ -178,24 +142,28 @@ export default function MantrasScreen() {
     </TouchableOpacity>
   ), [handleMantraPress, handleLikePress]);
 
-  const renderCategoryCard = useCallback(({ item: category }: { item: typeof MANTRA_CATEGORIES[0] }) => (
+  const renderCategoryCard = useCallback(({ item: category }: { item: Category }) => (
     <TouchableOpacity
       style={styles.categoryCard}
       onPress={() => handleCategoryPress(selectedCategory === category.id ? null : category.id)}
       activeOpacity={0.8}
     >
       <LinearGradient
-        colors={category.colors}
+        colors={(category.colors && category.colors.length >= 2) ?
+          [category.colors[0], category.colors[1]] :
+          ['#4caf50', '#388e3c']
+        }
         style={styles.categoryGradient}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
       >
-        <Text style={styles.categoryIcon}>{category.icon}</Text>
+        <Text style={styles.categoryIcon}>{category.icon || '🕉️'}</Text>
         <Text variant="body" weight="semibold" style={styles.categoryTitle}>
-          {category.title[language] || category.title.en}
+          {category.displayName[language as keyof typeof category.displayName] || category.displayName.en}
         </Text>
         <Text variant="caption" style={styles.categorySubtitle}>
-          {category.subtitle[language] || category.subtitle.en}
+          {/* Use a fallback subtitle since we don't have description in displayName */}
+          {language === 'hi' ? 'आध्यात्मिक शांति' : 'Spiritual peace'}
         </Text>
         {selectedCategory === category.id && (
           <View style={styles.selectedIndicator}>
@@ -210,13 +178,14 @@ export default function MantrasScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-            <Ionicons name="arrow-back" size={24} color={goldenTempleTheme.colors.text.primary} />
+          <TouchableOpacity
+            style={styles.backButtonRow}
+            onPress={() => router.back()}
+          >
+            <Ionicons name="arrow-back" size={20} color={goldenTempleTheme.colors.text.primary} />
+            <Text style={styles.backText}>Back</Text>
           </TouchableOpacity>
-          <Text variant="h4" weight="semibold" style={styles.title}>
-            {t('mantras.findPerfectMantra')}
-          </Text>
-          <View style={styles.placeholder} />
+          <Text style={styles.mainTitle}>Mantra Explorer</Text>
         </View>
         <View style={styles.errorContainer}>
           <Ionicons name="alert-circle" size={48} color={goldenTempleTheme.colors.secondary.DEFAULT} />
@@ -234,19 +203,18 @@ export default function MantrasScreen() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
-          style={styles.backButton}
+          style={styles.backButtonRow}
           onPress={() => router.back()}
         >
-          <Ionicons name="arrow-back" size={24} color={goldenTempleTheme.colors.text.primary} />
+          <Ionicons name="arrow-back" size={20} color={goldenTempleTheme.colors.text.primary} />
+          <Text style={styles.backText}>Back</Text>
         </TouchableOpacity>
-        <Text variant="h4" weight="semibold" style={styles.title}>
-          {t('mantras.findPerfectMantra')}
-        </Text>
-        <View style={styles.placeholder} />
+        <Text style={styles.mainTitle}>Mantra Explorer</Text>
       </View>
 
       <ScrollView
         style={styles.scrollView}
+        contentContainerStyle={{ paddingBottom: contentPadding }}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -256,34 +224,34 @@ export default function MantrasScreen() {
           />
         }
       >
-        {/* Preview Explorer Section */}
-        <View style={styles.section}>
-          <Text variant="h4" weight="bold" style={styles.sectionTitle}>
-            {t('mantras.previewExplorer')}
-          </Text>
-          <Text variant="caption" style={styles.sectionSubtitle}>
-            {t('mantras.exploreMostPopular')}
-          </Text>
-        </View>
-
         {/* Find Perfect Mantra Card */}
-        <View style={styles.section}>
-          <LinearGradient
-            colors={goldenTempleTheme.gradients.divine}
-            style={styles.promoCard}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
+        <View style={[styles.section, styles.firstSection]}>
+          <TouchableOpacity
+            onPress={() => {
+              console.log('🎯 Find Your Perfect Mantra clicked');
+              router.push('/mantra-quiz' as any);
+            }}
+            activeOpacity={0.8}
           >
-            <View style={styles.promoContent}>
-              <Text variant="h3" weight="bold" style={styles.promoTitle}>
-                {t('mantras.findPerfectMantra')}
-              </Text>
-              <Text variant="body" style={styles.promoDescription}>
-                {t('mantras.sacredCollection')}
-              </Text>
-            </View>
-            <Text style={styles.promoIcon}>🕉️</Text>
-          </LinearGradient>
+            <LinearGradient
+              colors={['#ff6b35', '#f7931e']}
+              style={styles.promoCard}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <View style={styles.promoIconContainer}>
+                <Ionicons name="star-outline" size={32} color="#ffffff" />
+              </View>
+              <View style={styles.promoContent}>
+                <Text variant="h3" weight="bold" style={styles.promoTitle}>
+                  Find Your Perfect Mantra
+                </Text>
+                <Text variant="body" style={styles.promoDescription}>
+                  Based on your birth date, name and spiritual goals
+                </Text>
+              </View>
+            </LinearGradient>
+          </TouchableOpacity>
         </View>
 
         {/* Browse by Category */}
@@ -304,15 +272,29 @@ export default function MantrasScreen() {
             )}
           </View>
 
-          <FlatList
-            data={MANTRA_CATEGORIES}
-            renderItem={renderCategoryCard}
-            keyExtractor={(item) => item.id}
-            numColumns={2}
-            columnWrapperStyle={styles.categoryRow}
-            scrollEnabled={false}
-            contentContainerStyle={styles.categoriesContainer}
-          />
+          {categoriesLoading ? (
+            <View style={styles.loadingContainer}>
+              <Text variant="body" color="secondary">
+                {t('common.loading')}
+              </Text>
+            </View>
+          ) : categoriesError ? (
+            <View style={styles.errorContainer}>
+              <Text variant="body" color="secondary">
+                {t('common.error')}
+              </Text>
+            </View>
+          ) : (
+            <FlatList
+              data={categories}
+              renderItem={renderCategoryCard}
+              keyExtractor={(item) => item.id.toString()}
+              numColumns={2}
+              columnWrapperStyle={styles.categoryRow}
+              scrollEnabled={false}
+              contentContainerStyle={styles.categoriesContainer}
+            />
+          )}
         </View>
 
         {/* All Mantras Section */}
@@ -372,28 +354,26 @@ const styles = StyleSheet.create({
     backgroundColor: goldenTempleTheme.colors.backgrounds.primary,
   },
   header: {
+    paddingHorizontal: goldenTempleTheme.spacing.md,
+    paddingVertical: goldenTempleTheme.spacing.md,
+    backgroundColor: goldenTempleTheme.colors.backgrounds.primary,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0, 0, 0, 0.1)',
+  },
+  backButtonRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: goldenTempleTheme.spacing.md,
-    paddingVertical: goldenTempleTheme.spacing.sm,
-    backgroundColor: goldenTempleTheme.colors.backgrounds.card,
-    borderBottomWidth: 1,
-    borderBottomColor: goldenTempleTheme.colors.primary[200],
-    ...goldenTempleTheme.shadows.sm,
+    marginBottom: goldenTempleTheme.spacing.sm,
   },
-  backButton: {
-    padding: goldenTempleTheme.spacing.sm,
-    borderRadius: goldenTempleTheme.borderRadius.md,
-    backgroundColor: goldenTempleTheme.colors.primary[50],
-  },
-  title: {
-    flex: 1,
-    textAlign: 'center',
+  backText: {
+    marginLeft: goldenTempleTheme.spacing.xs,
     color: goldenTempleTheme.colors.text.primary,
+    fontSize: 16,
   },
-  placeholder: {
-    width: 40,
+  mainTitle: {
+    color: goldenTempleTheme.colors.text.primary,
+    fontSize: 20,
+    fontWeight: '600',
   },
   scrollView: {
     flex: 1,
@@ -401,6 +381,9 @@ const styles = StyleSheet.create({
   section: {
     paddingHorizontal: goldenTempleTheme.spacing.md,
     marginBottom: goldenTempleTheme.spacing.lg,
+  },
+  firstSection: {
+    marginTop: goldenTempleTheme.spacing.lg,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -410,43 +393,58 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     color: goldenTempleTheme.colors.text.primary,
-    marginBottom: goldenTempleTheme.spacing.xs,
+    marginBottom: goldenTempleTheme.spacing.md,
+    fontSize: 18,
+    fontWeight: '600',
   },
   sectionSubtitle: {
     color: goldenTempleTheme.colors.text.secondary,
     marginBottom: goldenTempleTheme.spacing.md,
   },
   clearButton: {
-    backgroundColor: goldenTempleTheme.colors.primary[100],
-    paddingHorizontal: goldenTempleTheme.spacing.sm,
-    paddingVertical: goldenTempleTheme.spacing.xs,
-    borderRadius: goldenTempleTheme.borderRadius.sm,
+    backgroundColor: goldenTempleTheme.colors.primary.DEFAULT,
+    paddingHorizontal: goldenTempleTheme.spacing.md,
+    paddingVertical: goldenTempleTheme.spacing.sm,
+    borderRadius: 12,
+    shadowColor: goldenTempleTheme.colors.primary.DEFAULT,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   clearButtonText: {
-    color: goldenTempleTheme.colors.primary.DEFAULT,
+    color: '#ffffff',
     fontWeight: '600',
+    fontSize: 14,
   },
   promoCard: {
-    borderRadius: goldenTempleTheme.borderRadius.lg,
+    borderRadius: 16,
     padding: goldenTempleTheme.spacing.lg,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    ...goldenTempleTheme.shadows.md,
+  },
+  promoIconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: goldenTempleTheme.spacing.md,
   },
   promoContent: {
     flex: 1,
   },
   promoTitle: {
-    color: goldenTempleTheme.colors.text.primary,
+    color: '#ffffff',
     marginBottom: goldenTempleTheme.spacing.xs,
+    fontSize: 18,
+    fontWeight: '600',
   },
   promoDescription: {
-    color: goldenTempleTheme.colors.text.secondary,
-  },
-  promoIcon: {
-    fontSize: 48,
-    marginLeft: goldenTempleTheme.spacing.md,
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontSize: 14,
+    lineHeight: 20,
   },
   categoriesContainer: {
     gap: goldenTempleTheme.spacing.sm,
@@ -456,58 +454,70 @@ const styles = StyleSheet.create({
   },
   categoryCard: {
     width: '48%',
-    borderRadius: goldenTempleTheme.borderRadius.md,
+    borderRadius: 12,
     overflow: 'hidden',
-    ...goldenTempleTheme.shadows.sm,
   },
   categoryGradient: {
     padding: goldenTempleTheme.spacing.md,
     alignItems: 'center',
-    minHeight: 120,
+    minHeight: 100,
     justifyContent: 'center',
     position: 'relative',
   },
   categoryIcon: {
-    fontSize: 32,
+    fontSize: 24,
     marginBottom: goldenTempleTheme.spacing.xs,
   },
   categoryTitle: {
     color: '#ffffff',
     textAlign: 'center',
-    marginBottom: goldenTempleTheme.spacing.xs / 2,
+    fontSize: 14,
+    fontWeight: '600',
   },
   categorySubtitle: {
     color: 'rgba(255, 255, 255, 0.9)',
     textAlign: 'center',
+    fontSize: 12,
   },
   selectedIndicator: {
     position: 'absolute',
-    top: goldenTempleTheme.spacing.xs,
-    right: goldenTempleTheme.spacing.xs,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-    borderRadius: 12,
-    width: 24,
-    height: 24,
+    top: goldenTempleTheme.spacing.sm,
+    right: goldenTempleTheme.spacing.sm,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: 14,
+    width: 28,
+    height: 28,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: 'rgba(0, 0, 0, 0.2)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 4,
   },
   mantrasContainer: {
-    gap: goldenTempleTheme.spacing.sm,
+    gap: goldenTempleTheme.spacing.md,
   },
   mantraCard: {
     backgroundColor: goldenTempleTheme.colors.backgrounds.card,
-    borderRadius: goldenTempleTheme.borderRadius.md,
-    padding: goldenTempleTheme.spacing.md,
+    borderRadius: 16,
+    padding: goldenTempleTheme.spacing.lg,
     flexDirection: 'row',
     alignItems: 'center',
-    ...goldenTempleTheme.shadows.sm,
-    borderWidth: 1,
-    borderColor: 'rgba(212, 175, 55, 0.2)',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+    borderWidth: 0.5,
+    borderColor: 'rgba(212, 175, 55, 0.1)',
   },
   mantraImage: {
-    width: 60,
-    height: 60,
-    borderRadius: goldenTempleTheme.borderRadius.sm,
+    width: 64,
+    height: 64,
+    borderRadius: 12,
     backgroundColor: goldenTempleTheme.colors.muted.DEFAULT,
   },
   mantraContent: {
@@ -533,40 +543,52 @@ const styles = StyleSheet.create({
     color: goldenTempleTheme.colors.text.secondary,
   },
   playButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: goldenTempleTheme.colors.primary.DEFAULT,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: goldenTempleTheme.spacing.sm,
-    ...goldenTempleTheme.shadows.sm,
+    marginRight: goldenTempleTheme.spacing.md,
+    shadowColor: goldenTempleTheme.colors.primary.DEFAULT,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
   },
   likeButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'transparent',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: goldenTempleTheme.colors.backgrounds.card,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: goldenTempleTheme.colors.primary[200],
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   likeButtonActive: {
     backgroundColor: 'rgba(233, 30, 99, 0.1)',
     borderColor: '#e91e63',
+    shadowColor: '#e91e63',
+    shadowOpacity: 0.2,
   },
   loadingContainer: {
     alignItems: 'center',
-    paddingVertical: goldenTempleTheme.spacing.xl,
+    paddingVertical: goldenTempleTheme.spacing.xl * 2,
   },
   loadingMore: {
     alignItems: 'center',
-    paddingVertical: goldenTempleTheme.spacing.md,
+    paddingVertical: goldenTempleTheme.spacing.lg,
   },
   emptyContainer: {
     alignItems: 'center',
-    paddingVertical: goldenTempleTheme.spacing.xl,
+    paddingVertical: goldenTempleTheme.spacing.xl * 2,
+    paddingHorizontal: goldenTempleTheme.spacing.lg,
   },
   emptyText: {
     color: goldenTempleTheme.colors.text.primary,
