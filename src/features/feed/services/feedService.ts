@@ -63,7 +63,15 @@ class FeedService {
    * Get feed by ID
    */
   async getFeedById(feedId: string): Promise<Feed> {
-    return await apiClient.get<Feed>(API_ENDPOINTS.FEED.GET_BY_ID(feedId));
+    const response = await apiClient.get<any>(API_ENDPOINTS.FEED.GET_BY_ID(feedId));
+
+    // Handle nested API response structure {success: true, data: {feedData}}
+    if (response && typeof response === 'object' && 'data' in response) {
+      return response.data as Feed;
+    }
+
+    // Fallback to direct response
+    return response as Feed;
   }
 
   /**

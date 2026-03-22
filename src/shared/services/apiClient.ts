@@ -136,50 +136,24 @@ class ApiClient {
   async get<T>(url: string, config?: any): Promise<T> {
      console.log(`url:${url}`)
     const response = await this.client.get(url, config);
-    console.log("response", response)
-
-    // Extract nested data from API wrapper response
-    if (response.data && typeof response.data === 'object' && 'data' in response.data) {
-      console.log("✅ Extracting nested data from API wrapper")
-      return response.data.data;
-    }
-
-    // Fallback to original behavior
+    console.log("response",response)
     return response.data;
   }
 
   async post<T>(url: string, data?: any, config?: any): Promise<T> {
      console.log(`url:${url}`,data)
     const response = await this.client.post(url, data, config);
-
-    // Extract nested data from API wrapper response
-    if (response.data && typeof response.data === 'object' && 'data' in response.data) {
-      return response.data.data;
-    }
-
     return response.data;
   }
 
   async put<T>(url: string, data?: any, config?: any): Promise<T> {
      console.log(`url:${url}`,data)
     const response = await this.client.put(url, data, config);
-
-    // Extract nested data from API wrapper response
-    if (response.data && typeof response.data === 'object' && 'data' in response.data) {
-      return response.data.data;
-    }
-
     return response.data;
   }
 
   async delete<T>(url: string, config?: any): Promise<T> {
     const response = await this.client.delete(url, config);
-
-    // Extract nested data from API wrapper response
-    if (response.data && typeof response.data === 'object' && 'data' in response.data) {
-      return response.data.data;
-    }
-
     return response.data;
   }
 }
