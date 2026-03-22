@@ -195,7 +195,14 @@
     "health": "स्वास्थ्य",
     "finance": "वित्त",
     "family": "परिवार",
-    "viewDetailedReading": "विस्तृत पठन देखें"
+    "viewDetailedReading": "विस्तृत पठन देखें",
+    "todaysHoroscope": "आज का राशिफल",
+    "setupZodiacDesc": "व्यक्तिगत दैनिक भविष्यवाणी पाने के लिए अपनी राशि चुनें",
+    "loading": "आपका राशिफल लोड हो रहा है...",
+    "helpful": "उपयोगी",
+    "rateAccuracy": "यह भविष्यवाणी कितनी सटीक थी?",
+    "selectDate": "तारीख चुनें",
+    "chooseZodiacSign": "राशिफल देखने के लिए अपनी राशि चुनें"
   },
   "zodiacSigns": {
     "aries": "मेष",
@@ -210,6 +217,26 @@
     "capricorn": "मकर",
     "aquarius": "कुंभ",
     "pisces": "मीन"
+  },
+  "elements": {
+    "Fire": "अग्नि",
+    "Earth": "पृथ्वी",
+    "Air": "वायु",
+    "Water": "जल"
+  },
+  "rashiNames": {
+    "mesh": "मेष",
+    "vrishabh": "वृषभ",
+    "mithun": "मिथुन",
+    "kark": "कर्क",
+    "singh": "सिंह",
+    "kanya": "कन्या",
+    "tula": "तुला",
+    "vrishchik": "वृश्चिक",
+    "dhanu": "धनु",
+    "makar": "मकर",
+    "kumbh": "कुंभ",
+    "meen": "मीन"
   },
   "errors": {
     "failedToLoad": "लोड करने में विफल",

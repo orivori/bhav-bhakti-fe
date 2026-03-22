@@ -94,11 +94,13 @@ class HoroscopeService {
     if (language) params.language = language;
     if (date) params.date = date;
 
-    const response = await apiClient.get<{ data: DailyHoroscope }>(
+    const response = await apiClient.get<{ success: boolean; message: string; data: DailyHoroscope }>(
       API_ENDPOINTS.HOROSCOPE.BY_SIGN(sign),
       { params }
     );
-    return response.data.data;
+
+    // Return the actual horoscope data from the response
+    return response.data;
   }
 
   /**

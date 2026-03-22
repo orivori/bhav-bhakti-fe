@@ -207,6 +207,13 @@ export default function VerifyOTPScreen() {
               <Text variant="caption" color="secondary" align="center">
                 Please enter the code to continue
               </Text>
+
+              {/* Test OTP Message */}
+              <View style={styles.testOtpContainer}>
+                <Text variant="caption" weight="medium" style={styles.testOtpText}>
+                  For testing, use OTP: 123456
+                </Text>
+              </View>
             </View>
 
             {/* OTP Input */}
@@ -320,6 +327,19 @@ const styles = StyleSheet.create({
   },
   phoneNumber: {
     marginBottom: 16,
+  },
+  testOtpContainer: {
+    backgroundColor: '#e0f2fe',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: '#0284c7',
+  },
+  testOtpText: {
+    color: '#0369a1',
+    textAlign: 'center',
   },
   otpInput: {
     marginBottom: 32,

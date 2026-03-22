@@ -43,7 +43,12 @@ export default function ZodiacSelectionScreen() {
           >
             <Text style={styles.zodiacIcon}>{zodiac.icon}</Text>
             <Text variant="body" weight="semibold" style={styles.zodiacName}>
-              {language === 'hi' ? zodiac.name.hi : zodiac.name.en}
+              {zodiac.name[language as 'en' | 'hi'] || zodiac.name.en}
+            </Text>
+            <Text variant="caption" color="secondary" style={styles.zodiacRashi}>
+              {language === 'hi'
+                ? `तत्व: ${t(`elements.${zodiac.element}`)}`
+                : `Element: ${zodiac.element}`}
             </Text>
             <Text variant="caption" color="secondary" style={styles.zodiacDates}>
               {zodiac.dates}
@@ -111,6 +116,10 @@ const styles = StyleSheet.create({
   },
   zodiacDates: {
     textAlign: 'center',
+  },
+  zodiacRashi: {
+    textAlign: 'center',
+    marginTop: 2,
   },
   checkmark: {
     position: 'absolute',

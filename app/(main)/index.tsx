@@ -26,6 +26,47 @@ import * as Haptics from 'expo-haptics';
 
 type ContentCategory = 'Mantras' | 'Ringtones' | 'Daily Status';
 
+// Horoscope Card Component
+const HoroscopeCard = () => {
+  const { currentLanguage } = useI18n();
+
+  const handlePress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push('/(main)/horoscope');
+  };
+
+  return (
+    <TouchableOpacity
+      style={styles.horoscopeCard}
+      onPress={handlePress}
+    >
+      <LinearGradient
+        colors={['#8B5A2B', '#A0522D', '#D4AF37']}
+        style={styles.horoscopeGradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+      >
+        <View style={styles.horoscopeContent}>
+          <View style={styles.horoscopeIcon}>
+            <Text style={styles.horoscopeIconText}>✨</Text>
+          </View>
+          <View style={styles.horoscopeText}>
+            <Text variant="body" weight="semibold" style={styles.horoscopeTitle}>
+              {currentLanguage === 'hi' ? 'आज का राशिफल' : 'Today\'s Horoscope'}
+            </Text>
+            <Text variant="caption" style={styles.horoscopeSubtitle}>
+              {currentLanguage === 'hi' ? 'अपनी राशि चुनें और भविष्य जानें' : 'Select your zodiac sign and discover your future'}
+            </Text>
+          </View>
+          <View style={styles.horoscopeArrow}>
+            <Ionicons name="chevron-forward" size={24} color="#fff" />
+          </View>
+        </View>
+      </LinearGradient>
+    </TouchableOpacity>
+  );
+};
+
 // Isolated Search Component to prevent keyboard disappearing
 const IsolatedSearchBar = ({ onSearchSubmit, currentLanguage }: {
   onSearchSubmit: (query: string) => void;
@@ -348,32 +389,10 @@ export default function HomeScreen() {
         </View>
       )}
 
-      {/* Horoscope Card - commented out as requested */}
-      {/*
-      {!activeSearchQuery.trim() && (
-        <TouchableOpacity
-          style={styles.horoscopeCard}
-          onPress={() => router.push('/(main)/zodiac-selection')}
-        >
-          <View style={styles.horoscopeContent}>
-            <View style={styles.horoscopeIcon}>
-              <Text style={{ fontSize: 32 }}>✨</Text>
-            </View>
-            <View style={styles.horoscopeText}>
-              <Text variant="body" weight="semibold" style={styles.horoscopeTitle}>
-                {language === 'hi' ? 'आज का राशिफल' : 'Today\'s Horoscope'}
-              </Text>
-              <Text variant="caption" color="secondary">
-                {selectedZodiac
-                  ? `${t('home.yourSign')}: ${selectedZodiac}`
-                  : t('home.checkDailyPrediction')}
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={24} color="#6b7280" />
-          </View>
-        </TouchableOpacity>
+      {/* Horoscope Card */}
+      {feeds.length > 0 && (
+        <HoroscopeCard />
       )}
-      */}
     </View>
   );
 
@@ -538,40 +557,52 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   horoscopeCard: {
-    marginHorizontal: goldenTempleTheme.spacing.md,
+    marginHorizontal: goldenTempleTheme.spacing.lg,
     marginTop: goldenTempleTheme.spacing.md,
-    marginBottom: goldenTempleTheme.spacing.sm,
-    backgroundColor: 'transparent',
+    marginBottom: goldenTempleTheme.spacing.lg,
     borderRadius: goldenTempleTheme.borderRadius.xl,
-    padding: goldenTempleTheme.spacing.md,
+    overflow: 'hidden',
+    ...goldenTempleTheme.shadows.lg,
+  },
+  horoscopeGradient: {
+    padding: goldenTempleTheme.spacing.lg,
   },
   horoscopeContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: goldenTempleTheme.spacing.sm,
+    marginBottom: goldenTempleTheme.spacing.md,
   },
   horoscopeIcon: {
-    width: 48,
-    height: 48,
-    backgroundColor: 'transparent',
-    borderRadius: 24,
+    width: 50,
+    height: 50,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 25,
     alignItems: 'center',
     justifyContent: 'center',
+    marginRight: goldenTempleTheme.spacing.md,
   },
   horoscopeIconText: {
-    fontSize: 24,
+    fontSize: 28,
   },
   horoscopeText: {
     flex: 1,
   },
   horoscopeTitle: {
+    color: '#fff',
+    fontSize: 18,
     marginBottom: 4,
-    fontSize: 16,
-    color: goldenTempleTheme.colors.text.primary,
   },
   horoscopeSubtitle: {
-    fontSize: 12,
-    color: goldenTempleTheme.colors.text.secondary,
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: 14,
+  },
+  horoscopeArrow: {
+    width: 40,
+    height: 40,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   iconContainer: {

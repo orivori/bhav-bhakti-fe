@@ -120,7 +120,7 @@ export const useHoroscopeBySign = (sign: ZodiacSign, date?: string) => {
   const { language } = useI18nStore();
 
   return useQuery({
-    queryKey: horoscopeKeys.bySign(sign, language),
+    queryKey: [...horoscopeKeys.bySign(sign, language), date],
     queryFn: () => horoscopeService.getHoroscopeBySign(sign, language, date),
     enabled: !!sign,
     staleTime: 1000 * 60 * 30, // 30 minutes

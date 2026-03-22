@@ -108,6 +108,20 @@ export default function MainLayout() {
         }}
       />
       <Tabs.Screen
+        name="horoscope"
+        options={{
+          href: null, // Hide from tabs
+          headerShown: false,
+        }}
+      />
+      <Tabs.Screen
+        name="horoscope-detail"
+        options={{
+          href: null, // Hide from tabs
+          headerShown: false,
+        }}
+      />
+      <Tabs.Screen
         name="audio-player"
         options={{
           href: null, // Hide from tabs

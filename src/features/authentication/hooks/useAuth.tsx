@@ -99,10 +99,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // await authService.logout();
 
       await storeLogout();
+
+      // Redirect to login screen
+      router.replace('/(auth)/phone-login');
     } catch (error) {
       console.error('Logout error:', error);
       // Force logout even if API call fails
       await storeLogout();
+      // Ensure redirect happens even if there's an error
+      router.replace('/(auth)/phone-login');
     } finally {
       setLoading(false);
     }

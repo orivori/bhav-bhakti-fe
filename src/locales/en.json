@@ -224,7 +224,14 @@
     "zodiacCalculated": "Your zodiac has been calculated!",
     "premium": "Premium",
     "unlockPremium": "Unlock Premium Features",
-    "viewDetailedReading": "View Detailed Reading"
+    "viewDetailedReading": "View Detailed Reading",
+    "todaysHoroscope": "Today's Horoscope",
+    "setupZodiacDesc": "Select your zodiac sign to get personalized daily predictions",
+    "loading": "Loading your horoscope...",
+    "helpful": "Helpful",
+    "rateAccuracy": "How accurate was this prediction?",
+    "selectDate": "Select Date",
+    "chooseZodiacSign": "Choose your zodiac sign to view horoscope"
   },
   "zodiacSigns": {
     "aries": "Aries",
