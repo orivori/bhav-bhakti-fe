@@ -93,6 +93,28 @@
         "gradleCommand": ":app:assembleRelease",
         "image": "latest"
       }
+    },
+    "ultra-small": {
+      "node": "20.18.0",
+      "env": {
+        "NODE_ENV": "production",
+        "EXPO_OPTIMIZE": "true",
+        "EXPO_NO_HERMES": "false",
+        "EXPO_USE_HERMES": "true",
+        "NPM_CONFIG_LEGACY_PEER_DEPS": "true",
+        "NPM_CONFIG_AUDIT": "false",
+        "EXPO_DEBUG": "false",
+        "EXPO_MINIFY": "true"
+      },
+      "cache": {
+        "disabled": true
+      },
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleRelease --no-daemon",
+        "image": "latest",
+        "resourceClass": "default"
+      }
     }
   },
   "submit": {

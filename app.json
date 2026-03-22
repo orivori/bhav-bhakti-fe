@@ -17,9 +17,6 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.vivekpandit.bhavbhakti",
-      "backgroundModes": [
-        "audio"
-      ],
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "This app needs access to your photo library to save wallpapers.",
         "NSPhotoLibraryAddUsageDescription": "This app needs permission to save wallpapers to your photo library.",
@@ -40,6 +37,8 @@
       "predictiveBackGestureEnabled": false,
       "package": "com.vivekpandit.bhavbhakti",
       "softwareKeyboardLayoutMode": "pan",
+      "enableProguardInReleaseBuilds": true,
+      "enableSeparateBuildPerCPUArchitecture": false,
       "permissions": [
         "READ_EXTERNAL_STORAGE",
         "WRITE_EXTERNAL_STORAGE",
