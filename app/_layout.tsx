@@ -10,7 +10,7 @@ import { PremiumPaywall } from '@/components/molecules/PremiumPaywall';
 import { useScreenshotProtection } from '@/hooks/useScreenshotProtection';
 import { ToastProvider } from '@/components/atoms/Toast';
 import { Audio } from 'expo-av';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
+// Removed react-native-gesture-handler dependency for smaller bundle size
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -63,24 +63,22 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <QueryClientProvider client={queryClient}>
-        <ToastProvider>
-          <AuthProvider>
-            <View style={styles.container}>
-              <NavigationThemeProvider value={MyTheme}>
-                <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#FFF8F0' } }}>
-                  <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-                  <Stack.Screen name="(main)" options={{ headerShown: false }} />
-                </Stack>
-              </NavigationThemeProvider>
-            </View>
-            <StatusBar style="dark" translucent backgroundColor="transparent" />
-            <PremiumPaywall />
-          </AuthProvider>
-        </ToastProvider>
-      </QueryClientProvider>
-    </GestureHandlerRootView>
+    <QueryClientProvider client={queryClient}>
+      <ToastProvider>
+        <AuthProvider>
+          <View style={styles.container}>
+            <NavigationThemeProvider value={MyTheme}>
+              <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#FFF8F0' } }}>
+                <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+                <Stack.Screen name="(main)" options={{ headerShown: false }} />
+              </Stack>
+            </NavigationThemeProvider>
+          </View>
+          <StatusBar style="dark" translucent backgroundColor="transparent" />
+          <PremiumPaywall />
+        </AuthProvider>
+      </ToastProvider>
+    </QueryClientProvider>
   );
 }
 

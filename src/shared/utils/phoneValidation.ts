@@ -1,9 +1,21 @@
-import { isValidPhoneNumber, parsePhoneNumber } from 'libphonenumber-js';
+// Lightweight phone validation for Indian numbers
+const PHONE_PATTERNS = {
+  '+91': /^[6-9]\d{9}$/, // Indian mobile numbers
+  '+1': /^\d{10}$/, // US numbers
+  '+44': /^\d{10,11}$/, // UK numbers
+};
 
 export const validatePhoneNumber = (phoneNumber: string, countryCode: string): boolean => {
   try {
-    const fullNumber = `${countryCode}${phoneNumber}`;
-    return isValidPhoneNumber(fullNumber);
+    const cleanPhone = phoneNumber.replace(/\D/g, ''); // Remove non-digits
+    const pattern = PHONE_PATTERNS[countryCode as keyof typeof PHONE_PATTERNS];
+
+    if (!pattern) {
+      // Basic validation for other countries
+      return cleanPhone.length >= 6 && cleanPhone.length <= 15;
+    }
+
+    return pattern.test(cleanPhone);
   } catch {
     return false;
   }
@@ -11,9 +23,15 @@ export const validatePhoneNumber = (phoneNumber: string, countryCode: string): b
 
 export const formatPhoneNumber = (phoneNumber: string, countryCode: string): string => {
   try {
-    const fullNumber = `${countryCode}${phoneNumber}`;
-    const parsed = parsePhoneNumber(fullNumber);
-    return parsed?.formatInternational() || `${countryCode} ${phoneNumber}`;
+    const cleanPhone = phoneNumber.replace(/\D/g, '');
+
+    // Format Indian numbers as +91 XXXXX XXXXX
+    if (countryCode === '+91' && cleanPhone.length === 10) {
+      return `${countryCode} ${cleanPhone.slice(0, 5)} ${cleanPhone.slice(5)}`;
+    }
+
+    // Default formatting
+    return `${countryCode} ${cleanPhone}`;
   } catch {
     return `${countryCode} ${phoneNumber}`;
   }
@@ -21,12 +39,15 @@ export const formatPhoneNumber = (phoneNumber: string, countryCode: string): str
 
 export const extractPhoneNumber = (formattedNumber: string): { phoneNumber: string; countryCode: string } | null => {
   try {
-    const parsed = parsePhoneNumber(formattedNumber);
-    if (!parsed) return null;
+    const match = formattedNumber.match(/^(\+\d+)\s+(.+)$/);
+    if (!match) return null;
+
+    const [, countryCode, phoneNumber] = match;
+    const cleanPhone = phoneNumber.replace(/\D/g, '');
 
     return {
-      phoneNumber: parsed.nationalNumber,
-      countryCode: `+${parsed.countryCallingCode}`,
+      phoneNumber: cleanPhone,
+      countryCode,
     };
   } catch {
     return null;

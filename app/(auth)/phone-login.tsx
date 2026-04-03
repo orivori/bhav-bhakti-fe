@@ -9,9 +9,8 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { useForm, Controller } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { isValidPhoneNumber } from 'libphonenumber-js';
+// Removed zod dependency for smaller bundle size
+import { validatePhoneNumber } from '@/shared/utils/phoneValidation';
 
 import { Button, Text } from '@/components/atoms';
 import { PhoneInput } from '@/components/molecules';
@@ -21,26 +20,10 @@ import { useToast } from '@/components/atoms/Toast';
 import { PhoneStorageService } from '@/utils/phoneStorage';
 import { useLocalSearchParams } from 'expo-router';
 
-// Form validation schema
-const phoneSchema = z.object({
-  phoneNumber: z
-    .string()
-    .min(1, 'Phone number is required')
-    .refine(
-      (phone) => {
-        if (!phone) return false;
-        try {
-          // We'll validate with the selected country code later
-          return phone.length >= 6; // Basic length check
-        } catch {
-          return false;
-        }
-      },
-      { message: 'Please enter a valid phone number' }
-    ),
-});
-
-type PhoneFormData = z.infer<typeof phoneSchema>;
+// Form data type
+type PhoneFormData = {
+  phoneNumber: string;
+};
 
 export default function PhoneLoginScreen() {
   const { showToast } = useToast();
@@ -61,7 +44,6 @@ export default function PhoneLoginScreen() {
     setValue,
     watch,
   } = useForm<PhoneFormData>({
-    resolver: zodResolver(phoneSchema),
     defaultValues: {
       phoneNumber: '',
     },
@@ -100,8 +82,7 @@ export default function PhoneLoginScreen() {
   const validatePhoneWithCountry = (phone: string) => {
     if (!phone) return false;
     try {
-      const fullNumber = `${selectedCountry.callingCode}${phone}`;
-      return isValidPhoneNumber(fullNumber);
+      return validatePhoneNumber(phone, selectedCountry.callingCode);
     } catch {
       return false;
     }
@@ -184,6 +165,17 @@ export default function PhoneLoginScreen() {
               <Controller
                 control={control}
                 name="phoneNumber"
+                rules={{
+                  required: 'Phone number is required',
+                  minLength: {
+                    value: 6,
+                    message: 'Phone number must be at least 6 digits'
+                  },
+                  validate: (value) => {
+                    if (!value) return 'Phone number is required';
+                    return value.length >= 6 || 'Please enter a valid phone number';
+                  }
+                }}
                 render={({ field: { onChange, value } }) => (
                   <PhoneInput
                     label="Phone Number"

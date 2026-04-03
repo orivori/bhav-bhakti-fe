@@ -16,13 +16,7 @@ const { width } = Dimensions.get('window');
 import { Audio } from 'expo-av';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as MediaLibrary from 'expo-media-library';
-// Optional import - fallback if not installed
-let IntentLauncher: any = null;
-try {
-  IntentLauncher = require('expo-intent-launcher');
-} catch (e) {
-  console.log('expo-intent-launcher not available, using fallback');
-}
+// Removed expo-intent-launcher dependency for smaller bundle size
 import { Text } from '@/components/atoms';
 import { Feed } from '@/types/feed';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
@@ -343,14 +337,8 @@ export default function RingtoneFeedCard({
                   text: 'Open Sound Settings',
                   onPress: () => {
                     // Try to open Android sound settings
-                    if (IntentLauncher && IntentLauncher.startActivityAsync) {
-                      IntentLauncher.startActivityAsync('android.settings.SOUND_SETTINGS').catch(() => {
-                        Linking.openSettings();
-                      });
-                    } else {
-                      // Fallback to general settings if IntentLauncher not available
-                      Linking.openSettings();
-                    }
+                    // Open device settings
+                    Linking.openSettings();
                   },
                 },
                 { text: 'OK', style: 'default' },
@@ -367,13 +355,8 @@ export default function RingtoneFeedCard({
                 {
                   text: 'Open Sound Settings',
                   onPress: () => {
-                    if (IntentLauncher && IntentLauncher.startActivityAsync) {
-                      IntentLauncher.startActivityAsync('android.settings.SOUND_SETTINGS').catch(() => {
-                        Linking.openSettings();
-                      });
-                    } else {
-                      Linking.openSettings();
-                    }
+                    // Open device settings
+                    Linking.openSettings();
                   },
                 },
                 { text: 'OK', style: 'default' },

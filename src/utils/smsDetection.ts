@@ -1,25 +1,13 @@
-import * as SMS from 'expo-sms';
 import * as Clipboard from 'expo-clipboard';
-import { Platform } from 'react-native';
 
 export class SMSDetectionService {
-  private static otpPattern = /\b(\d{4,6})\b/g;
 
   /**
-   * Check if SMS permissions are available
+   * Check if clipboard OTP detection is available (always true)
    */
   static async checkSMSAvailability(): Promise<boolean> {
-    if (Platform.OS !== 'android') {
-      return false; // SMS auto-detection is mainly for Android
-    }
-
-    try {
-      const isAvailable = await SMS.isAvailableAsync();
-      return isAvailable;
-    } catch (error) {
-      console.warn('SMS availability check failed:', error);
-      return false;
-    }
+    // Simplified - we only use clipboard detection which is always available
+    return true;
   }
 
   /**
@@ -71,16 +59,14 @@ export class SMSDetectionService {
   }
 
   /**
-   * Start comprehensive OTP detection (SMS + Clipboard monitoring)
+   * Start OTP detection via clipboard monitoring
    */
   static async startSMSListener(
     onOTPReceived: (otp: string) => void
   ): Promise<() => void> {
-    console.log('🔍 Starting comprehensive OTP detection...');
+    console.log('🔍 Starting clipboard-based OTP detection...');
 
-    const cleanupFunctions: (() => void)[] = [];
-
-    // Start clipboard monitoring as fallback (works on both iOS and Android)
+    // Start clipboard monitoring (works on both iOS and Android)
     const clipboardCleanup = await this.startClipboardMonitoring(
       (otp) => {
         console.log('📋 OTP auto-detected from clipboard:', otp);
@@ -89,49 +75,22 @@ export class SMSDetectionService {
       2000, // Check every 2 seconds
       120000 // Monitor for 2 minutes
     );
-    cleanupFunctions.push(clipboardCleanup);
 
-    // For Android, we would add native SMS listener here
-    if (Platform.OS === 'android') {
-      console.log('📱 Android SMS detection would be implemented here');
-      // TODO: Implement native SMS listener for production
-      // This would require:
-      // 1. READ_SMS permission
-      // 2. Native module to listen for SMS
-      // 3. Background processing capability
-    }
+    console.log('📱 Using clipboard monitoring for OTP detection');
 
-    // For iOS, clipboard monitoring is the primary method
-    if (Platform.OS === 'ios') {
-      console.log('📱 iOS OTP detection using clipboard monitoring');
-      // iOS doesn't allow direct SMS reading, but apps can detect OTP codes
-      // copied to clipboard when user taps on SMS notifications
-    }
-
-    // Return combined cleanup function
+    // Return cleanup function
     return () => {
       console.log('🔍 Stopping OTP detection services');
-      cleanupFunctions.forEach(cleanup => cleanup());
+      clipboardCleanup();
     };
   }
 
   /**
-   * Request SMS permissions (Android only)
+   * Request clipboard permissions (always available)
    */
   static async requestSMSPermissions(): Promise<boolean> {
-    if (Platform.OS !== 'android') {
-      return false;
-    }
-
-    try {
-      // This would normally request READ_SMS permission
-      // For Expo, we need to use expo-permissions or native modules
-      console.log('SMS permissions requested (placeholder implementation)');
-      return true;
-    } catch (error) {
-      console.warn('SMS permission request failed:', error);
-      return false;
-    }
+    // Clipboard access doesn't require permissions
+    return true;
   }
 
   /**

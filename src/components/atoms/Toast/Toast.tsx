@@ -1,14 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Animated, PanResponder } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-  withTiming,
-  runOnJS,
-} from 'react-native-reanimated';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 
 export interface ToastProps {
   type?: 'success' | 'error' | 'info' | 'warning';
@@ -27,14 +19,25 @@ const Toast: React.FC<ToastProps> = ({
   onHide,
   visible,
 }) => {
-  const translateY = useSharedValue(-100);
-  const opacity = useSharedValue(0);
+  const translateY = React.useRef(new Animated.Value(-100)).current;
+  const opacity = React.useRef(new Animated.Value(0)).current;
 
   React.useEffect(() => {
     if (visible) {
       // Show toast
-      translateY.value = withSpring(0, { damping: 15, stiffness: 150 });
-      opacity.value = withTiming(1, { duration: 300 });
+      Animated.parallel([
+        Animated.spring(translateY, {
+          toValue: 0,
+          useNativeDriver: true,
+          damping: 15,
+          stiffness: 150,
+        }),
+        Animated.timing(opacity, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]).start();
 
       // Auto-hide
       if (duration > 0) {
@@ -50,37 +53,58 @@ const Toast: React.FC<ToastProps> = ({
   }, [visible, duration]);
 
   const hideToast = () => {
-    translateY.value = withTiming(-100, { duration: 300 });
-    opacity.value = withTiming(0, { duration: 300 }, () => {
+    Animated.parallel([
+      Animated.timing(translateY, {
+        toValue: -100,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.timing(opacity, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
       if (onHide) {
-        runOnJS(onHide)();
+        onHide();
       }
     });
   };
 
-  const gesture = Gesture.Pan()
-    .onStart(() => {
-      // Optional: Add haptic feedback here
-    })
-    .onUpdate((event) => {
-      if (event.translationY < 0) {
-        translateY.value = event.translationY;
-      }
-    })
-    .onEnd((event) => {
-      if (event.translationY < -50 || event.velocityY < -500) {
-        // Swipe up to dismiss
-        runOnJS(hideToast)();
-      } else {
-        // Spring back to position
-        translateY.value = withSpring(0);
-      }
-    });
+  const panResponder = React.useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (_, gestureState) => {
+          return Math.abs(gestureState.dy) > 10;
+        },
+        onPanResponderGrant: () => {
+          // Optional: Add haptic feedback here
+        },
+        onPanResponderMove: (_, gestureState) => {
+          if (gestureState.dy < 0) {
+            translateY.setValue(gestureState.dy);
+          }
+        },
+        onPanResponderRelease: (_, gestureState) => {
+          if (gestureState.dy < -50 || gestureState.vy < -0.5) {
+            // Swipe up to dismiss
+            hideToast();
+          } else {
+            // Spring back to position
+            Animated.spring(translateY, {
+              toValue: 0,
+              useNativeDriver: true,
+            }).start();
+          }
+        },
+      }),
+    [hideToast]
+  );
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: translateY.value }],
-    opacity: opacity.value,
-  }));
+  const animatedStyle = {
+    transform: [{ translateY }],
+    opacity,
+  };
 
   const getToastConfig = () => {
     switch (type) {
@@ -117,34 +141,33 @@ const Toast: React.FC<ToastProps> = ({
   if (!visible) return null;
 
   return (
-    <GestureDetector gesture={gesture}>
-      <Animated.View
-        style={[
-          styles.container,
-          { backgroundColor: config.backgroundColor },
-          animatedStyle,
-        ]}
-      >
-        <View style={styles.content}>
-          <Ionicons
-            name={config.icon as any}
-            size={24}
-            color={config.iconColor}
-            style={styles.icon}
-          />
-          <View style={styles.textContainer}>
-            {title && (
-              <Text style={styles.title} numberOfLines={1}>
-                {title}
-              </Text>
-            )}
-            <Text style={styles.message} numberOfLines={2}>
-              {message}
+    <Animated.View
+      style={[
+        styles.container,
+        { backgroundColor: config.backgroundColor },
+        animatedStyle,
+      ]}
+      {...panResponder.panHandlers}
+    >
+      <View style={styles.content}>
+        <Ionicons
+          name={config.icon as any}
+          size={24}
+          color={config.iconColor}
+          style={styles.icon}
+        />
+        <View style={styles.textContainer}>
+          {title && (
+            <Text style={styles.title} numberOfLines={1}>
+              {title}
             </Text>
-          </View>
+          )}
+          <Text style={styles.message} numberOfLines={2}>
+            {message}
+          </Text>
         </View>
-      </Animated.View>
-    </GestureDetector>
+      </View>
+    </Animated.View>
   );
 };
 
