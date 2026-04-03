@@ -160,14 +160,14 @@ export const useFeedStore = create<FeedState>()(
 
         const updateFeedInArray = (feedArray: Feed[]) =>
           feedArray.map(feed =>
-            feed.id === feedId ? { ...feed, ...updates } : feed
+            feed.id.toString() === feedId ? { ...feed, ...updates } : feed
           );
 
         set({
           feeds: updateFeedInArray(feeds),
           trendingFeeds: updateFeedInArray(trendingFeeds),
           likedFeeds: updateFeedInArray(likedFeeds),
-          currentFeed: get().currentFeed?.id === feedId
+          currentFeed: get().currentFeed?.id?.toString() === feedId
             ? { ...get().currentFeed!, ...updates }
             : get().currentFeed,
         });
@@ -176,10 +176,10 @@ export const useFeedStore = create<FeedState>()(
       removeFeed: (feedId) => {
         const { feeds, trendingFeeds, likedFeeds } = get();
         set({
-          feeds: feeds.filter(f => f.id !== feedId),
-          trendingFeeds: trendingFeeds.filter(f => f.id !== feedId),
-          likedFeeds: likedFeeds.filter(f => f.id !== feedId),
-          currentFeed: get().currentFeed?.id === feedId ? null : get().currentFeed,
+          feeds: feeds.filter(f => f.id.toString() !== feedId),
+          trendingFeeds: trendingFeeds.filter(f => f.id.toString() !== feedId),
+          likedFeeds: likedFeeds.filter(f => f.id.toString() !== feedId),
+          currentFeed: get().currentFeed?.id?.toString() === feedId ? null : get().currentFeed,
         });
       },
 
@@ -248,31 +248,39 @@ export const useFeedStore = create<FeedState>()(
 
       // User Interactions
       toggleLike: (feedId) => {
-        get().updateFeed(feedId, (feed) => {
-          const isLiked = feed.isLiked;
-          return {
-            isLiked: !isLiked,
-            likesCount: isLiked ? feed.likesCount - 1 : feed.likesCount + 1,
-          };
+        const { feeds, trendingFeeds, likedFeeds } = get();
+        const allFeeds = [...feeds, ...trendingFeeds, ...likedFeeds];
+        const feed = allFeeds.find(f => f.id.toString() === feedId);
+        if (!feed) return;
+        const isLiked = feed.isLiked;
+        get().updateFeed(feedId, {
+          isLiked: !isLiked,
+          likesCount: Math.max(0, isLiked ? feed.likesCount - 1 : feed.likesCount + 1),
         });
       },
 
       incrementDownload: (feedId) => {
-        get().updateFeed(feedId, (feed) => ({
-          downloadsCount: feed.downloadsCount + 1,
-        }));
+        const { feeds, trendingFeeds, likedFeeds } = get();
+        const allFeeds = [...feeds, ...trendingFeeds, ...likedFeeds];
+        const feed = allFeeds.find(f => f.id.toString() === feedId);
+        if (!feed) return;
+        get().updateFeed(feedId, { downloadsCount: feed.downloadsCount + 1 });
       },
 
       incrementShare: (feedId) => {
-        get().updateFeed(feedId, (feed) => ({
-          sharesCount: feed.sharesCount + 1,
-        }));
+        const { feeds, trendingFeeds, likedFeeds } = get();
+        const allFeeds = [...feeds, ...trendingFeeds, ...likedFeeds];
+        const feed = allFeeds.find(f => f.id.toString() === feedId);
+        if (!feed) return;
+        get().updateFeed(feedId, { sharesCount: feed.sharesCount + 1 });
       },
 
       incrementView: (feedId) => {
-        get().updateFeed(feedId, (feed) => ({
-          viewsCount: feed.viewsCount + 1,
-        }));
+        const { feeds, trendingFeeds, likedFeeds } = get();
+        const allFeeds = [...feeds, ...trendingFeeds, ...likedFeeds];
+        const feed = allFeeds.find(f => f.id.toString() === feedId);
+        if (!feed) return;
+        get().updateFeed(feedId, { viewsCount: feed.viewsCount + 1 });
       },
 
       // Reset

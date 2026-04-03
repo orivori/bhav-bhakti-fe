@@ -124,7 +124,7 @@ export function useFeed(options: UseFeedOptions = {}) {
                 return {
                   ...feed,
                   isLiked: !isLiked, // Toggle the current state
-                  likesCount: isLiked ? feed.likesCount - 1 : feed.likesCount + 1,
+                  likesCount: Math.max(0, isLiked ? feed.likesCount - 1 : feed.likesCount + 1),
                 };
               }
               return feed;
@@ -140,29 +140,6 @@ export function useFeed(options: UseFeedOptions = {}) {
       if (context?.previousData) {
         queryClient.setQueryData(queryKey, context.previousData);
       }
-    },
-    onSuccess: (data, { feedId }) => {
-      // Verify the backend state matches our optimistic update
-      queryClient.setQueryData(queryKey, (oldData: any) => {
-        if (!oldData) return oldData;
-
-        return {
-          ...oldData,
-          pages: oldData.pages.map((page: any) => ({
-            ...page,
-            feeds: page.feeds.map((feed: Feed) => {
-              if (feed.id.toString() === feedId) {
-                // Ensure backend response matches our optimistic update
-                return {
-                  ...feed,
-                  isLiked: (data as any).isLiked,
-                };
-              }
-              return feed;
-            }),
-          })),
-        };
-      });
     },
   });
 
@@ -203,9 +180,6 @@ export function useFeed(options: UseFeedOptions = {}) {
   };
 
   const handleLike = (feedId: string) => {
-    // Prevent multiple rapid clicks
-    if (likeMutation.isPending) return;
-
     const feed = feeds.find(f => f.id.toString() === feedId);
     if (feed) {
       console.log('🎯 Like button clicked:', {
