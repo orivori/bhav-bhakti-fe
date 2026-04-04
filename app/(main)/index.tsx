@@ -20,11 +20,11 @@ import { useFeed } from '@/features/feed/hooks';
 import { Feed } from '@/types/feed';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { useTranslation as useI18n } from '@/shared/i18n/useTranslation';
-import { OmIcon, BellIcon, DiyaIcon } from '@/components/atoms/MenuIcons';
+import { SvgUri } from 'react-native-svg';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
 import * as Haptics from 'expo-haptics';
 
-type ContentCategory = 'Mantras' | 'Ringtones' | 'Daily Status';
+type ContentCategory = 'Mantras' | 'Rashifal' | 'Status' | 'Ringtones';
 
 // Horoscope Card Component
 const HoroscopeCard = () => {
@@ -164,32 +164,30 @@ export default function HomeScreen() {
       >
         <Animated.View
           style={[
+            styles.categoryGridCard,
             {
               transform: [{ scale: scaleAnim }],
               opacity: opacityAnim,
             }
           ]}
         >
-          <LinearGradient
-            colors={categoryInfo.gradient}
-            style={styles.categoryGridCard}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-          >
-            {/* Icon */}
-            <View style={styles.iconContainer}>
-              {categoryInfo.icon}
-            </View>
+          {/* Icon */}
+          <View style={styles.iconContainer}>
+            <SvgUri
+              uri={categoryInfo.iconUrl}
+              width={56}
+              height={56}
+            />
+          </View>
 
-            {/* Label */}
-            <Text
-              variant="body"
-              weight="semibold"
-              style={styles.categoryCardText}
-            >
-              {categoryInfo.name}
-            </Text>
-          </LinearGradient>
+          {/* Label */}
+          <Text
+            variant="body"
+            weight="semibold"
+            style={styles.categoryCardText}
+          >
+            {categoryInfo.name}
+          </Text>
         </Animated.View>
       </TouchableOpacity>
     );
@@ -225,37 +223,39 @@ export default function HomeScreen() {
     }
   };
 
-  const categories: ContentCategory[] = ['Mantras', 'Ringtones', 'Daily Status'];
+  const categories: ContentCategory[] = ['Mantras', 'Rashifal', 'Status', 'Ringtones'];
 
   const getCategoryInfo = (category: ContentCategory) => {
     switch (category) {
       case 'Mantras':
         return {
-          name: ti('mantras'),
-          icon: <OmIcon size={48} color="#ffffff" />,
-          gradient: ['#FF6B00', '#FF8533', '#FFA500'] as const, // Saffron/Orange gradient
-          imageUrl: 'https://images.unsplash.com/photo-1625670413987-0ae649494c61?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=400',
+          name: currentLanguage === 'hi' ? 'मंत्र' : 'Mantra',
+          iconUrl: 'https://d12b36sm0rczqk.cloudfront.net/app-assets/mantras.svg',
+          gradient: ['#E8D5C4', '#F5E6D3'] as const, // Light cream gradient
+        };
+      case 'Rashifal':
+        return {
+          name: currentLanguage === 'hi' ? 'राशिफल' : 'Rashifal',
+          iconUrl: 'https://d12b36sm0rczqk.cloudfront.net/app-assets/rashifal.svg',
+          gradient: ['#E8D5C4', '#F5E6D3'] as const, // Light cream gradient
+        };
+      case 'Status':
+        return {
+          name: currentLanguage === 'hi' ? 'स्टेटस' : 'Status',
+          iconUrl: 'https://d12b36sm0rczqk.cloudfront.net/app-assets/status.svg',
+          gradient: ['#E8D5C4', '#F5E6D3'] as const, // Light cream gradient
         };
       case 'Ringtones':
         return {
-          name: ti('ringtones'),
-          icon: <BellIcon size={48} color="#ffffff" />,
-          gradient: ['#C41E3A', '#D4526E', '#E08699'] as const, // Temple red gradient
-          imageUrl: 'https://images.unsplash.com/photo-1763809677179-f26bc3210791?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=400',
-        };
-      case 'Daily Status':
-        return {
-          name: ti('dailyStatus'),
-          icon: <DiyaIcon size={48} color="#ffffff" />,
-          gradient: ['#D4AF37', '#E0C55B', '#ECDB80'] as const, // Gold gradient
-          imageUrl: 'https://images.unsplash.com/photo-1764775086606-9b23aa61352a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=400',
+          name: currentLanguage === 'hi' ? 'रिंगटोन' : 'Ringtone',
+          iconUrl: 'https://d12b36sm0rczqk.cloudfront.net/app-assets/ringtones.svg',
+          gradient: ['#E8D5C4', '#F5E6D3'] as const, // Light cream gradient
         };
       default:
         return {
           name: category,
-          icon: <OmIcon size={48} color="#ffffff" />,
-          gradient: goldenTempleTheme.gradients.divine,
-          imageUrl: '',
+          iconUrl: 'https://d12b36sm0rczqk.cloudfront.net/app-assets/mantras.svg',
+          gradient: ['#E8D5C4', '#F5E6D3'] as const,
         };
     }
   };
@@ -269,11 +269,14 @@ export default function HomeScreen() {
       case 'Mantras':
         router.push('/(main)/mantras');
         break;
+      case 'Rashifal':
+        router.push('/(main)/horoscope');
+        break;
+      case 'Status':
+        router.push('/(main)/daily-status');
+        break;
       case 'Ringtones':
         router.push('/(main)/ringtones');
-        break;
-      case 'Daily Status':
-        router.push('/(main)/daily-status');
         break;
     }
   };
@@ -346,6 +349,31 @@ export default function HomeScreen() {
           onSearchSubmit={handleSearchSubmit}
           currentLanguage={currentLanguage}
         />
+      </View>
+
+      {/* Choose where to start Header */}
+      <View style={styles.chooseStartHeader}>
+        <Text style={styles.chooseStartTitle}>
+          {currentLanguage === 'hi' ? 'कहां से शुरू करना है चुनें' : 'Choose where to start'}
+        </Text>
+        <Pressable
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            // Navigate to choose-start screen or show all categories
+            router.push('/(main)/choose-start');
+          }}
+          style={({ pressed }) => [
+            styles.seeAllButton,
+            {
+              opacity: pressed ? 0.7 : 1,
+              transform: [{ scale: pressed ? 0.95 : 1 }]
+            }
+          ]}
+        >
+          <Text style={styles.seeAllText}>
+            {currentLanguage === 'hi' ? 'सभी देखें' : 'See all'}
+          </Text>
+        </Pressable>
       </View>
 
       {/* Category Cards Grid */}
@@ -523,38 +551,43 @@ const styles = StyleSheet.create({
     margin: 0, // Remove all margin
     height: 20,
   },
+  // Choose where to start header styles
+  chooseStartHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: goldenTempleTheme.spacing.lg,
+    marginBottom: goldenTempleTheme.spacing.md,
+  },
+  chooseStartTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: goldenTempleTheme.colors.text.primary,
+  },
   // Categories grid styles
   categoriesGrid: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingHorizontal: goldenTempleTheme.spacing.lg,
     marginBottom: goldenTempleTheme.spacing.lg,
-    gap: goldenTempleTheme.spacing.sm,
+    gap: 0,
   },
   categoryGridItem: {
     flex: 1,
   },
   categoryGridCard: {
-    height: 120,
-    borderRadius: goldenTempleTheme.borderRadius.xl,
-    padding: goldenTempleTheme.spacing.md,
+    height: 100,
+    padding: 14,
     justifyContent: 'center',
     alignItems: 'center',
     gap: 8,
-    ...goldenTempleTheme.shadows.lg,
   },
   categoryCardText: {
-    color: '#ffffff',
-    fontSize: 14,
+    color: '#1E1E1E',
+    fontSize: 13,
     fontWeight: '600',
     textAlign: 'center',
-    lineHeight: 20,
-    letterSpacing: 0.5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.7,
-    shadowRadius: 2,
-    elevation: 3,
+    lineHeight: 18,
   },
   horoscopeCard: {
     marginHorizontal: goldenTempleTheme.spacing.lg,
@@ -608,7 +641,8 @@ const styles = StyleSheet.create({
   iconContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 4,
+    marginBottom: 6,
+    flex: 1,
   },
 
 });

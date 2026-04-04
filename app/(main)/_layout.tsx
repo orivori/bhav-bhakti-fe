@@ -9,7 +9,7 @@ export default function MainLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: '#FF5722', // Orange accent to match cream theme
+        tabBarActiveTintColor: '#C0392B', // Red accent color to match design
         tabBarInactiveTintColor: '#8B7355', // Medium brown for inactive items
         tabBarStyle: {
           backgroundColor: '#FFFFFF', // Fully opaque white background
@@ -24,6 +24,10 @@ export default function MainLayout() {
           shadowOpacity: 0.1,
           shadowRadius: 8,
           elevation: 10,
+        },
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: '500',
         },
         headerStyle: {
           backgroundColor: 'transparent',
@@ -44,20 +48,20 @@ export default function MainLayout() {
       <Tabs.Screen
         name="mantras"
         options={{
-          title: 'Mantras',
+          title: 'Mantra',
           headerShown: false,
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="musical-notes-outline" size={size} color={color} />
+            <Ionicons name="radio-outline" size={size} color={color} />
           ),
         }}
       />
       <Tabs.Screen
         name="ringtones"
         options={{
-          title: 'Ringtones',
+          title: 'Ringtone',
           headerShown: false,
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="notifications-outline" size={size} color={color} />
+            <Ionicons name="musical-notes-outline" size={size} color={color} />
           ),
         }}
       />
@@ -67,18 +71,25 @@ export default function MainLayout() {
           title: 'Status',
           headerShown: false,
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="images-outline" size={size} color={color} />
+            <Ionicons name="chatbubble-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="horoscope"
+        options={{
+          title: 'Rashifal',
+          headerShown: false,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="sunny-outline" size={size} color={color} />
           ),
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Profile',
+          href: null, // Hide from tabs but keep for navigation
           headerShown: false,
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person-outline" size={size} color={color} />
-          ),
         }}
       />
       <Tabs.Screen
@@ -108,13 +119,6 @@ export default function MainLayout() {
         }}
       />
       <Tabs.Screen
-        name="horoscope"
-        options={{
-          href: null, // Hide from tabs
-          headerShown: false,
-        }}
-      />
-      <Tabs.Screen
         name="horoscope-detail"
         options={{
           href: null, // Hide from tabs
@@ -139,6 +143,13 @@ export default function MainLayout() {
         name="mantra-quiz"
         options={{
           href: null, // Hide from tabs - only accessible from mantras page
+          headerShown: false,
+        }}
+      />
+      <Tabs.Screen
+        name="choose-start"
+        options={{
+          href: null, // Hide from tabs - only accessible via navigation
           headerShown: false,
         }}
       />
