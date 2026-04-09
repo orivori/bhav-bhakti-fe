@@ -1,7 +1,7 @@
 export interface Wallpaper {
   id: string;
   title: string;
-  description: string;
+  description: Record<string, string> | string;
   imageUrl: string;
   thumbnailUrl: string;
   category: WallpaperCategory;

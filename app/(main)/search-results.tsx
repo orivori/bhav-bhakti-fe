@@ -158,14 +158,14 @@ export default function SearchResultsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F1E8', // Cream background to match home screen
+    backgroundColor: '#fff6da', // Cream background to match home screen
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: goldenTempleTheme.spacing.lg,
     paddingVertical: goldenTempleTheme.spacing.md,
-    backgroundColor: '#F5F1E8',
+    backgroundColor: '#fff6da',
   },
   backButton: {
     flexDirection: 'row',

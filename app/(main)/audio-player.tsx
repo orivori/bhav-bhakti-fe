@@ -1386,7 +1386,7 @@ export default function AudioPlayerScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F1E8', // Light cream background
+    backgroundColor: '#fff6da', // Light cream background
   },
   // Header with Back Button
   header: {
@@ -1394,7 +1394,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: goldenTempleTheme.spacing.lg,
     paddingVertical: goldenTempleTheme.spacing.md,
-    backgroundColor: '#F5F1E8',
+    backgroundColor: '#fff6da',
   },
   backButton: {
     flexDirection: 'row',

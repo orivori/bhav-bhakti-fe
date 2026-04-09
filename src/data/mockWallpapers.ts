@@ -4,7 +4,10 @@ export const mockWallpapers: Wallpaper[] = [
   {
     id: '1',
     title: 'Lord Ganesha - Golden',
-    description: 'Beautiful golden Lord Ganesha with intricate details',
+    description: {
+      en: 'Beautiful golden Lord Ganesha with intricate details and divine aura',
+      hi: 'सुंदर सुनहरे भगवान गणेश जटिल विवरण और दिव्य आभा के साथ'
+    },
     imageUrl: 'https://picsum.photos/1080/1920?random=1',
     thumbnailUrl: 'https://picsum.photos/400/600?random=1',
     category: 'Gods',
@@ -18,7 +21,10 @@ export const mockWallpapers: Wallpaper[] = [
   {
     id: '2',
     title: 'Goddess Lakshmi - Lotus',
-    description: 'Serene Goddess Lakshmi sitting on lotus',
+    description: {
+      en: 'Serene Goddess Lakshmi sitting gracefully on lotus, blessing devotees with prosperity',
+      hi: 'कमल पर सुंदर रूप से बैठी शांत देवी लक्ष्मी, भक्तों को समृद्धि का आशीर्वाद देती हुई'
+    },
     imageUrl: 'https://picsum.photos/1080/1920?random=2',
     thumbnailUrl: 'https://picsum.photos/400/600?random=2',
     category: 'Goddesses',

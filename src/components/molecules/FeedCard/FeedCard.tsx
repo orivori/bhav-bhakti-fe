@@ -13,10 +13,12 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as MediaLibrary from 'expo-media-library';
 import { Text } from '@/components/atoms';
 import FeedMedia from '../FeedMedia/FeedMedia';
+import WallpaperFeedCard from '../WallpaperFeedCard/WallpaperFeedCard';
 import { Feed } from '@/types/feed';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { feedService } from '@/features/feed/services/feedService';
 import { useFeedStore } from '@/store/feedStore';
+import { useTranslation } from '@/hooks/useTranslation';
 
 interface FeedCardProps {
   feed: Feed;
@@ -39,8 +41,8 @@ export default function FeedCard({
 }: FeedCardProps) {
   const [isLiking, setIsLiking] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
-  const [showFullCaption, setShowFullCaption] = useState(false);
   const { toggleLike, incrementDownload, incrementShare, incrementView } = useFeedStore();
+  const { language } = useTranslation();
 
   const handleLike = () => {
     console.log('❤️ Heart button pressed for feed:', feed.id, 'isLiked:', feed.isLiked);
@@ -211,7 +213,75 @@ export default function FeedCard({
   //   );
   // };
 
-  return (
+  // Render mantra card design
+  const renderMantraCard = () => (
+    <View style={styles.mantraContainer}>
+      {/* Main Image with gap */}
+      <View style={styles.mantraImageContainer}>
+        <TouchableOpacity onPress={handlePress} activeOpacity={0.9}>
+          <FeedMedia
+            media={feed.media}
+            onMediaPress={handlePress}
+            autoPlay={false}
+            showControls={false}
+            showCenterPlayButton={false}
+            style={styles.mantraImage}
+          />
+        </TouchableOpacity>
+      </View>
+
+      {/* Content Section */}
+      <View style={styles.mantraContentContainer}>
+        {/* Title */}
+        <Text style={styles.mantraTitle} numberOfLines={1}>
+          {feed.caption || 'Sacred Mantra'}
+        </Text>
+
+        {/* Description */}
+        <Text style={styles.mantraDescription} numberOfLines={2}>
+          {feed.description?.[language] || feed.description?.en || 'A sacred mantra for spiritual peace'}
+        </Text>
+
+        {/* Action Buttons */}
+        <View style={styles.mantraActionsContainer}>
+          {/* Play Button */}
+          <TouchableOpacity
+            style={styles.mantraPlayButton}
+            onPress={handlePress}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="play" size={20} color="#FFFFFF" />
+            <Text style={styles.mantraPlayButtonText}>Play now</Text>
+          </TouchableOpacity>
+
+          {/* Like Button */}
+          <TouchableOpacity
+            style={[styles.mantraActionButton, feed.isLiked && styles.mantraActionButtonLiked]}
+            onPress={handleLike}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name={feed.isLiked ? 'heart' : 'heart-outline'}
+              size={24}
+              color={feed.isLiked ? '#C41E3A' : '#8B7355'}
+            />
+          </TouchableOpacity>
+
+          {/* Share Button */}
+          <TouchableOpacity
+            style={styles.mantraActionButton}
+            onPress={handleShare}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="share-outline" size={24} color="#8B7355" />
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
+  );
+
+  // Render regular feed card design
+  const renderRegularCard = () => (
     <View style={styles.container}>
       {/* Media */}
       <FeedMedia
@@ -304,6 +374,23 @@ export default function FeedCard({
       </View>
     </View>
   );
+
+  // Conditionally render based on feed type
+  if (feed.type === 'mantra') {
+    return renderMantraCard();
+  } else if (feed.type === 'wallpaper') {
+    return (
+      <WallpaperFeedCard
+        feed={feed}
+        onLike={onLike}
+        onShare={onShare}
+        onDownload={onDownload}
+        onPress={onPress}
+      />
+    );
+  } else {
+    return renderRegularCard();
+  }
 }
 
 const styles = StyleSheet.create({
@@ -405,5 +492,82 @@ const styles = StyleSheet.create({
   },
   location: {
     fontSize: 11,
+  },
+
+  // Mantra Card Styles
+  mantraContainer: {
+    backgroundColor: '#f7ebc4',
+    borderRadius: 16,
+    padding: 8,
+    marginHorizontal: 4,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#E8DDD1',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  mantraImageContainer: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginBottom: 8,
+  },
+  mantraImage: {
+    width: '100%',
+    height: 280,
+    backgroundColor: '#F5E6D3',
+  },
+  mantraContentContainer: {
+    padding: 12,
+  },
+  mantraTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#C41E3A',
+    marginBottom: 2,
+    lineHeight: 24,
+    paddingTop: 2,
+    includeFontPadding: false,
+  },
+  mantraDescription: {
+    fontSize: 14,
+    color: '#C41E3A',
+    lineHeight: 18,
+    marginBottom: 8,
+  },
+  mantraActionsContainer: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  mantraPlayButton: {
+    flex: 1,
+    backgroundColor: '#C41E3A',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 12,
+    gap: 8,
+  },
+  mantraPlayButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  mantraActionButton: {
+    width: 52,
+    height: 52,
+    backgroundColor: '#E8DDD1',
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mantraActionButtonLiked: {
+    backgroundColor: 'rgba(196, 30, 58, 0.1)',
   },
 });

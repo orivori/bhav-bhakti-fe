@@ -19,6 +19,7 @@ interface FeedMediaProps {
   onMediaPress?: (mediaIndex: number) => void;
   autoPlay?: boolean;
   showControls?: boolean;
+  showCenterPlayButton?: boolean;
   style?: any;
 }
 
@@ -30,6 +31,7 @@ export default function FeedMedia({
   onMediaPress,
   autoPlay = false,
   showControls = true,
+  showCenterPlayButton = true,
   style,
 }: FeedMediaProps) {
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
@@ -156,26 +158,28 @@ export default function FeedMedia({
                   </View>
                 )}
 
-                {/* Large Orange Play Button (center) */}
-                <View style={styles.mantraPlayOverlay}>
-                  <TouchableOpacity
-                    style={styles.mantraPlayButton}
-                    onPress={handleMediaPress}
-                    disabled={isLoading}
-                    activeOpacity={0.8}
-                  >
-                    {isLoading ? (
-                      <ActivityIndicator color="#fff" size="large" />
-                    ) : (
-                      <Ionicons
-                        name="play"
-                        size={32}
-                        color="#fff"
-                        style={{ marginLeft: 4 }}
-                      />
-                    )}
-                  </TouchableOpacity>
-                </View>
+                {/* Large Orange Play Button (center) - only show if enabled */}
+                {showCenterPlayButton && (
+                  <View style={styles.mantraPlayOverlay}>
+                    <TouchableOpacity
+                      style={styles.mantraPlayButton}
+                      onPress={handleMediaPress}
+                      disabled={isLoading}
+                      activeOpacity={0.8}
+                    >
+                      {isLoading ? (
+                        <ActivityIndicator color="#fff" size="large" />
+                      ) : (
+                        <Ionicons
+                          name="play"
+                          size={32}
+                          color="#fff"
+                          style={{ marginLeft: 4 }}
+                        />
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                )}
               </View>
             ) : (
               // Audio without thumbnail - show icon design

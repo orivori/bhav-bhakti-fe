@@ -367,7 +367,7 @@ export default function HoroscopeDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFF8F0',
+    backgroundColor: '#fff6da',
   },
   scrollView: {
     flex: 1,

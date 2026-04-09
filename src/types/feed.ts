@@ -35,6 +35,7 @@ export interface Deity {
 export interface Feed {
   id: number;
   userId: number;
+  title?: Record<string, string> | null;
   caption?: string;
   location?: string;
   type: 'general' | 'mantra' | 'ringtone' | 'wallpaper';

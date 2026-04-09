@@ -1,7 +1,7 @@
 export const goldenTempleTheme = {
   colors: {
     // Core temple theme colors - Traditional Hindu Temple Theme
-    background: '#FFF8F0',         // Warm cream/ivory background
+    background: '#fff6da',         // Warm cream/ivory background
     foreground: '#4A2C2A',         // Deep brown text
 
     card: '#FFFBF5',              // Lighter cream for cards
@@ -80,7 +80,7 @@ export const goldenTempleTheme = {
     templeRed: '#C41E3A',      // Temple red/maroon
     warmOrange: '#FF6B00',     // Saffron/Deep orange
     deepMaroon: '#800020',     // Deep maroon
-    sacredCream: '#FFF8F0',    // Sacred cream
+    sacredCream: '#fff6da',    // Sacred cream
     warmCopper: '#B87333',     // Warm copper
     richBronze: '#CD7F32',     // Rich bronze
     peacockBlue: '#4682B4',    // Steel blue (warmer than bright blue)
@@ -106,7 +106,7 @@ export const goldenTempleTheme = {
 
     // Background variations
     backgrounds: {
-      primary: '#FFF8F0',       // Warm cream/ivory background
+      primary: '#fff6da',       // Warm cream/ivory background
       secondary: '#FFFBF5',     // Lighter cream for cards
       card: '#FFFBF5',          // Card background - lighter cream
       muted: '#F5E6D3',         // Light beige

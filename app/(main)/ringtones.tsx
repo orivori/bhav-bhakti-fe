@@ -175,7 +175,7 @@ export default function RingtonesPage() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
+    backgroundColor: '#fff6da',
   },
   header: {
     flexDirection: 'row',

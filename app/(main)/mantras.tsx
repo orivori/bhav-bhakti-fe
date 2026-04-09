@@ -149,21 +149,13 @@ export default function MantrasScreen() {
       activeOpacity={0.8}
     >
       <LinearGradient
-        colors={(category.colors && category.colors.length >= 2) ?
-          [category.colors[0], category.colors[1]] :
-          ['#4caf50', '#388e3c']
-        }
+        colors={['#fff6da', '#f5ebc7']}
         style={styles.categoryGradient}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
       >
-        <Text style={styles.categoryIcon}>{category.icon || '🕉️'}</Text>
         <Text variant="body" weight="semibold" style={styles.categoryTitle}>
           {category.displayName[language as keyof typeof category.displayName] || category.displayName.en}
-        </Text>
-        <Text variant="caption" style={styles.categorySubtitle}>
-          {/* Use a fallback subtitle since we don't have description in displayName */}
-          {language === 'hi' ? 'आध्यात्मिक शांति' : 'Spiritual peace'}
         </Text>
         {selectedCategory === category.id && (
           <View style={styles.selectedIndicator}>
@@ -351,12 +343,12 @@ export default function MantrasScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: goldenTempleTheme.colors.backgrounds.primary,
+    backgroundColor: '#fff6da',
   },
   header: {
     paddingHorizontal: goldenTempleTheme.spacing.md,
     paddingVertical: goldenTempleTheme.spacing.md,
-    backgroundColor: goldenTempleTheme.colors.backgrounds.primary,
+    backgroundColor: '#fff6da',
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(0, 0, 0, 0.1)',
   },
@@ -456,28 +448,21 @@ const styles = StyleSheet.create({
     width: '48%',
     borderRadius: 12,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#E8DDD1',
   },
   categoryGradient: {
     padding: goldenTempleTheme.spacing.md,
     alignItems: 'center',
-    minHeight: 100,
+    minHeight: 80,
     justifyContent: 'center',
     position: 'relative',
   },
-  categoryIcon: {
-    fontSize: 24,
-    marginBottom: goldenTempleTheme.spacing.xs,
-  },
   categoryTitle: {
-    color: '#ffffff',
+    color: '#C41E3A',
     textAlign: 'center',
     fontSize: 14,
-    fontWeight: '600',
-  },
-  categorySubtitle: {
-    color: 'rgba(255, 255, 255, 0.9)',
-    textAlign: 'center',
-    fontSize: 12,
+    fontWeight: '700',
   },
   selectedIndicator: {
     position: 'absolute',

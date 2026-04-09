@@ -113,10 +113,10 @@ export default function DailyStatusScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFF8F0', // Same cream background as home screen
+    backgroundColor: '#fff6da', // Same cream background as home screen
   },
   headerSection: {
-    backgroundColor: '#FFF8F0',
+    backgroundColor: '#fff6da',
   },
   header: {
     flexDirection: 'row',

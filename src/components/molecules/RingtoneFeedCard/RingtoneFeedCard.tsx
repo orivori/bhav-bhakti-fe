@@ -437,8 +437,8 @@ export default function RingtoneFeedCard({
 
   return (
     <View style={styles.container}>
-      {/* Thumbnail and Content */}
-      <View style={styles.contentContainer}>
+      {/* Main Layout: Image on left, content on right */}
+      <View style={styles.mainLayout}>
         {/* Thumbnail */}
         <View style={styles.thumbnailContainer}>
           {audioMedia.thumbnailUrl ? (
@@ -451,162 +451,141 @@ export default function RingtoneFeedCard({
             <View style={styles.defaultThumbnail}>
               <Ionicons
                 name="musical-notes"
-                size={32}
-                color="#FFFFFF"
+                size={40}
+                color="#C41E3A"
               />
             </View>
           )}
         </View>
 
-        {/* Content */}
-        <View style={styles.content}>
+        {/* Right Content Area */}
+        <View style={styles.rightContent}>
           {/* Title */}
-          <Text variant="h4" style={styles.title} numberOfLines={1}>
+          <Text style={styles.title} numberOfLines={1}>
             {feed.caption || 'Untitled Ringtone'}
           </Text>
 
-          {/* Duration */}
-          <Text variant="caption" style={styles.duration}>
-            {formatDuration((audioMedia.duration || duration / 1000) || 0)}
-          </Text>
-
-          {/* Tags */}
-          {feed.tags && feed.tags.length > 0 && (
-            <View style={styles.tagsContainer}>
-              {feed.tags.slice(0, 3).map((tag, index) => (
-                <View key={index} style={styles.tag}>
-                  <Text style={styles.tagText}>{tag}</Text>
-                </View>
-              ))}
-            </View>
-          )}
-        </View>
-      </View>
-
-
-      {/* Progress Bar */}
-      {(isPlaying || playbackPosition > 0) && (
-        <View style={styles.progressContainer}>
-          <TouchableOpacity
-            style={styles.progressBar}
-            onPress={handleSeek}
-            activeOpacity={0.8}
-          >
-            <View style={styles.progressTrack}>
-              <View
-                style={[
-                  styles.progressFill,
-                  { width: duration > 0 ? `${(playbackPosition / duration) * 100}%` : '0%' },
-                ]}
-              />
-              {duration > 0 && (
-                <View
-                  style={[
-                    styles.progressThumb,
-                    {
-                      left: `${(playbackPosition / duration) * 100}%`,
-                    }
-                  ]}
+          {/* Play Controls Row */}
+          <View style={styles.playControlsContainer}>
+            {/* Play Button */}
+            <TouchableOpacity
+              style={styles.playButton}
+              onPress={handlePlayPause}
+              disabled={isLoading}
+              activeOpacity={0.8}
+            >
+              {isLoading ? (
+                <ActivityIndicator color="#C41E3A" size="small" />
+              ) : (
+                <Ionicons
+                  name={isPlaying ? 'pause' : 'play'}
+                  size={20}
+                  color="#C41E3A"
+                  style={{ marginLeft: isPlaying ? 0 : 2 }}
                 />
               )}
+            </TouchableOpacity>
+
+            {/* Progress Bar */}
+            <View style={styles.progressSection}>
+              <TouchableOpacity
+                style={styles.progressBar}
+                onPress={handleSeek}
+                activeOpacity={0.8}
+              >
+                <View style={styles.progressTrack}>
+                  <View
+                    style={[
+                      styles.progressFill,
+                      { width: duration > 0 ? `${(playbackPosition / duration) * 100}%` : '0%' },
+                    ]}
+                  />
+                  {duration > 0 && (
+                    <View
+                      style={[
+                        styles.progressThumb,
+                        {
+                          left: `${Math.max(0, Math.min((playbackPosition / duration) * 100, 100))}%`,
+                        }
+                      ]}
+                    />
+                  )}
+                </View>
+              </TouchableOpacity>
             </View>
-          </TouchableOpacity>
-          
-          <View style={styles.timeContainer}>
-            <Text style={styles.timeText}>{formatTime(playbackPosition)}</Text>
-            <Text style={styles.timeText}>{formatTime(duration)}</Text>
+
+            {/* Duration */}
+            <Text style={styles.duration}>
+              {formatTime(duration || (audioMedia.duration || 0) * 1000)} sec
+            </Text>
+          </View>
+
+          {/* Action Buttons Row */}
+          <View style={styles.actionsContainer}>
+            {/* Set as Ringtone Button */}
+            <TouchableOpacity
+              style={styles.ringtoneButton}
+              onPress={handleSetRingtone}
+              disabled={isSettingRingtone}
+              activeOpacity={0.8}
+            >
+              {isSettingRingtone ? (
+                <ActivityIndicator color="#fff" size="small" />
+              ) : (
+                <Ionicons
+                  name="notifications-outline"
+                  size={16}
+                  color="#fff"
+                />
+              )}
+              <Text style={styles.ringtoneButtonText}>
+                {isSettingRingtone ? 'Setting...' : 'Set as ringtone'}
+              </Text>
+            </TouchableOpacity>
+
+            {/* Share Button */}
+            <TouchableOpacity style={styles.shareButton} onPress={handleShare} activeOpacity={0.8}>
+              <Ionicons
+                name="share-outline"
+                size={20}
+                color="#C41E3A"
+              />
+            </TouchableOpacity>
+
+            {/* Like Button */}
+            <TouchableOpacity
+              style={styles.likeButton}
+              onPress={handleLike}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name={localIsLiked ? 'heart' : 'heart-outline'}
+                size={20}
+                color={localIsLiked ? '#FF4444' : '#8B7355'}
+              />
+            </TouchableOpacity>
+
+            {/* Download Button */}
+            {feed.allowDownloads && (
+              <TouchableOpacity
+                style={styles.downloadButton}
+                onPress={handleDownload}
+                disabled={isDownloading}
+                activeOpacity={0.7}
+              >
+                {isDownloading ? (
+                  <ActivityIndicator color="#8B7355" size="small" />
+                ) : (
+                  <Ionicons
+                    name="download-outline"
+                    size={20}
+                    color="#8B7355"
+                  />
+                )}
+              </TouchableOpacity>
+            )}
           </View>
         </View>
-      )}
-      {/* Action Buttons */}
-      <View style={styles.actionsContainer}>
-        {/* Play Button */}
-        <TouchableOpacity
-          style={styles.playButton}
-          onPress={handlePlayPause}
-          disabled={isLoading}
-          activeOpacity={0.8}
-        >
-          {isLoading ? (
-            <ActivityIndicator color="#fff" size="small" />
-          ) : (
-            <Ionicons
-              name={isPlaying ? 'pause' : 'play'}
-              size={18}
-              color="#fff"
-              style={{ marginLeft: isPlaying ? 0 : 2 }}
-            />
-          )}
-          <Text style={styles.playButtonText}>{isPlaying ? 'Pause' : 'Play'}</Text>
-        </TouchableOpacity>
-
-        {/* Like Button */}
-        <TouchableOpacity
-          style={styles.likeButton}
-          onPress={handleLike}
-          activeOpacity={0.7}
-        >
-          <Ionicons
-            name={localIsLiked ? 'heart' : 'heart-outline'}
-            size={22}
-            color={localIsLiked ? '#FF4444' : goldenTempleTheme.colors.text.secondary}
-          />
-          {localLikesCount > 0 && (
-            <Text style={styles.likeCount}>
-              {formatCount(localLikesCount)}
-            </Text>
-          )}
-        </TouchableOpacity>
-
-        {/* Download Button */}
-        {feed.allowDownloads && (
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={handleDownload}
-            disabled={isDownloading}
-          >
-            {isDownloading ? (
-              <ActivityIndicator color={goldenTempleTheme.colors.text.secondary} size="small" />
-            ) : (
-              <Ionicons
-                name="download-outline"
-                size={20}
-                color={goldenTempleTheme.colors.text.secondary}
-              />
-            )}
-          </TouchableOpacity>
-        )}
-
-        {/* Set as Ringtone Button - Android Only */}
-        {Platform.OS === 'android' && (
-          <TouchableOpacity
-            style={styles.ringtoneButton}
-            onPress={handleSetRingtone}
-            disabled={isSettingRingtone}
-          >
-            {isSettingRingtone ? (
-              <ActivityIndicator color="#fff" size="small" />
-            ) : (
-              <Ionicons
-                name="call"
-                size={18}
-                color="#fff"
-              />
-            )}
-            <Text style={styles.ringtoneButtonText}>
-              {isSettingRingtone ? 'Setting...' : 'Set Ringtone'}
-            </Text>
-          </TouchableOpacity>
-        )}
-
-        {/* Share Button */}
-        <TouchableOpacity style={styles.actionButton} onPress={handleShare}>
-          <Ionicons
-            name="share-outline"
-            size={20}
-            color={goldenTempleTheme.colors.text.secondary}
-          />
-        </TouchableOpacity>
       </View>
     </View>
   );
@@ -614,18 +593,18 @@ export default function RingtoneFeedCard({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#f7ebc4',
     borderRadius: 16,
-    padding: 18,
+    padding: 6,
     marginBottom: 16,
     marginHorizontal: 4,
-    borderWidth: 0,
-    ...goldenTempleTheme.shadows.lg,
+    borderWidth: 1,
+    borderColor: '#E8DDD1',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 8,
+    shadowRadius: 8,
+    elevation: 6,
   },
   contentContainer: {
     flexDirection: 'row',
@@ -633,32 +612,25 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   thumbnailContainer: {
-    marginRight: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 4,
+    marginRight: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   thumbnail: {
-    width: 72,
-    height: 72,
-    borderRadius: 16,
+    width: 80,
+    height: 80,
+    borderRadius: 12,
     borderWidth: 0,
   },
   defaultThumbnail: {
-    width: 72,
-    height: 72,
-    backgroundColor: '#FF5722', // Orange thumbnail,
-    borderRadius: 16,
+    width: 80,
+    height: 80,
+    backgroundColor: '#F5E6D3',
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 0,
-    shadowColor: '#FF5722',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
+    borderWidth: 1,
+    borderColor: '#E8DDD1',
   },
   content: {
     flex: 1,
@@ -666,17 +638,17 @@ const styles = StyleSheet.create({
   },
   title: {
     fontWeight: '700',
-    fontSize: 17,
-    marginBottom: 6,
-    color: '#1A1A1A',
+    fontSize: 18,
+    color: '#C41E3A',
     lineHeight: 22,
-    letterSpacing: -0.3,
+    includeFontPadding: false,
   },
   duration: {
-    color: '#8E8E93',
-    marginBottom: 8,
-    fontSize: 13,
+    color: '#8B7355',
+    fontSize: 14,
     fontWeight: '500',
+    minWidth: 60,
+    textAlign: 'right',
   },
   tagsContainer: {
     flexDirection: 'row',
@@ -705,26 +677,16 @@ const styles = StyleSheet.create({
   actionsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    flexWrap: 'wrap',
-    justifyContent: 'flex-start',
-    paddingTop: 4,
+    gap: 6,
+    marginTop: 4,
   },
   playButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FF5722', // Orange play button,
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-    borderRadius: 24,
-    gap: 6,
-    shadowColor: '#FF5722',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
-    minWidth: 90,
+    width: 32,
+    height: 32,
+    borderRadius: 6,
+    backgroundColor: 'transparent',
     justifyContent: 'center',
+    alignItems: 'center',
   },
   playButtonText: {
     color: '#fff',
@@ -749,42 +711,27 @@ const styles = StyleSheet.create({
   ringtoneButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#34C759',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
+    backgroundColor: '#C41E3A',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
     gap: 6,
-    borderWidth: 0,
-    shadowColor: '#34C759',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    elevation: 4,
-    minWidth: 110,
+    flex: 1,
     justifyContent: 'center',
   },
   ringtoneButtonText: {
     color: '#fff',
-    fontWeight: '700',
-    fontSize: 12,
-    letterSpacing: 0.2,
+    fontWeight: '600',
+    fontSize: 11,
+    letterSpacing: 0.1,
   },
   likeButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F8F9FA',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 20,
-    gap: 5,
-    borderWidth: 0,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-    minWidth: 65,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: '#E8DDD1',
     justifyContent: 'center',
+    alignItems: 'center',
   },
   likeCount: {
     color: '#1A1A1A',
@@ -802,29 +749,29 @@ const styles = StyleSheet.create({
   },
   progressTrack: {
     height: '100%',
-    backgroundColor: '#F5E6D3', // Light peach track
-    borderRadius: 4,
+    backgroundColor: '#E8DDD1',
+    borderRadius: 3,
     position: 'relative',
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#FF5722', // Orange fill
-    borderRadius: 4,
+    backgroundColor: '#C41E3A',
+    borderRadius: 3,
   },
   progressThumb: {
     position: 'absolute',
-    top: -4,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: '#FF5722',
-    marginLeft: -8,
+    top: -3,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#C41E3A',
+    marginLeft: -6,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 4,
+    shadowRadius: 2,
+    elevation: 2,
     borderWidth: 2,
     borderColor: '#fff',
   },
@@ -837,5 +784,42 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#8E8E93',
     fontWeight: '600',
+  },
+
+  // New styles for horizontal layout
+  mainLayout: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  rightContent: {
+    flex: 1,
+    justifyContent: 'space-between',
+    paddingLeft: 4,
+  },
+  playControlsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 8,
+    gap: 8,
+  },
+  progressSection: {
+    flex: 1,
+    height: 6,
+  },
+  shareButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: '#E8DDD1',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  downloadButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: '#E8DDD1',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

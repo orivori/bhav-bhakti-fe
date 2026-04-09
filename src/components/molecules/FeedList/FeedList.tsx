@@ -66,7 +66,6 @@ export default function FeedList({
     if (feed.type === 'ringtone') {
       return (
         <RingtoneFeedCard
-          key={feed.id}
           feed={feed}
           onLike={onLike}
           onShare={onShare}
@@ -77,7 +76,6 @@ export default function FeedList({
 
     return (
       <FeedCard
-        key={feed.id}
         feed={feed}
         onPress={onFeedPress}
         onLike={onLike}
@@ -169,7 +167,7 @@ export default function FeedList({
     }
   }, [hasMore, isLoadingMore, isLoading, feeds.length, onLoadMore]);
 
-  const keyExtractor = useCallback((item: Feed) => item.id.toString(), []);
+  const keyExtractor = useCallback((item: Feed, index: number) => `${item.type}-${item.id}-${index}`, []);
 
   const getItemLayout = useCallback(
     (data: ArrayLike<Feed> | null | undefined, index: number) => ({

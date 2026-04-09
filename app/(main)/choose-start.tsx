@@ -202,7 +202,7 @@ export default function ChooseStartScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFF8F0', // Cream background matching your app
+    backgroundColor: '#fff6da', // Cream background matching your app
   },
   scrollView: {
     flex: 1,

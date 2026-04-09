@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SvgUri } from 'react-native-svg';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 
 export default function MainLayout() {
@@ -9,25 +9,26 @@ export default function MainLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: '#C0392B', // Red accent color to match design
-        tabBarInactiveTintColor: '#8B7355', // Medium brown for inactive items
+        tabBarActiveTintColor: '#D4824A', // Orange color to match design
+        tabBarInactiveTintColor: '#666666', // Darker gray for inactive items
         tabBarStyle: {
-          backgroundColor: '#FFFFFF', // Fully opaque white background
+          backgroundColor: '#fff6da', // Cream background to match app theme
           borderTopWidth: 1,
-          borderTopColor: 'rgba(139, 115, 85, 0.2)', // Light brown border
+          borderTopColor: 'rgba(139, 115, 85, 0.3)', // Light border
           paddingBottom: Math.max(insets.bottom, 8), // Safe area padding
-          paddingTop: 12,
-          height: Math.max(80 + insets.bottom, 88), // Dynamic height with safe area
+          paddingTop: 8,
+          height: Math.max(75 + insets.bottom, 83), // Slightly reduced height
           position: 'absolute',
           shadowColor: '#000',
-          shadowOffset: { width: 0, height: -2 },
-          shadowOpacity: 0.1,
+          shadowOffset: { width: 0, height: -4 },
+          shadowOpacity: 0.15,
           shadowRadius: 8,
-          elevation: 10,
+          elevation: 12,
         },
         tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: '500',
+          fontSize: 12,
+          fontWeight: '600',
+          marginTop: 2,
         },
         headerStyle: {
           backgroundColor: 'transparent',
@@ -40,8 +41,13 @@ export default function MainLayout() {
         options={{
           title: 'Home',
           headerShown: false,
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home-outline" size={size} color={color} />
+          tabBarIcon: ({ size, focused }) => (
+            <SvgUri
+              uri="https://d12b36sm0rczqk.cloudfront.net/app-assets/icons/home_icon.svg"
+              width={size}
+              height={size}
+              fill={focused ? '#D4824A' : '#666666'}
+            />
           ),
         }}
       />
@@ -50,8 +56,13 @@ export default function MainLayout() {
         options={{
           title: 'Mantra',
           headerShown: false,
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="radio-outline" size={size} color={color} />
+          tabBarIcon: ({ size, focused }) => (
+            <SvgUri
+              uri="https://d12b36sm0rczqk.cloudfront.net/app-assets/icons/mantra_icon.svg"
+              width={size}
+              height={size}
+              fill={focused ? '#D4824A' : '#666666'}
+            />
           ),
         }}
       />
@@ -60,8 +71,13 @@ export default function MainLayout() {
         options={{
           title: 'Ringtone',
           headerShown: false,
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="musical-notes-outline" size={size} color={color} />
+          tabBarIcon: ({ size, focused }) => (
+            <SvgUri
+              uri="https://d12b36sm0rczqk.cloudfront.net/app-assets/icons/ringtone_icon.svg"
+              width={size}
+              height={size}
+              fill={focused ? '#D4824A' : '#666666'}
+            />
           ),
         }}
       />
@@ -70,8 +86,13 @@ export default function MainLayout() {
         options={{
           title: 'Status',
           headerShown: false,
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="chatbubble-outline" size={size} color={color} />
+          tabBarIcon: ({ size, focused }) => (
+            <SvgUri
+              uri="https://d12b36sm0rczqk.cloudfront.net/app-assets/icons/status_icon.svg"
+              width={size}
+              height={size}
+              fill={focused ? '#D4824A' : '#666666'}
+            />
           ),
         }}
       />
@@ -80,8 +101,13 @@ export default function MainLayout() {
         options={{
           title: 'Rashifal',
           headerShown: false,
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="sunny-outline" size={size} color={color} />
+          tabBarIcon: ({ size, focused }) => (
+            <SvgUri
+              uri="https://d12b36sm0rczqk.cloudfront.net/app-assets/icons/sun_icon.svg"
+              width={size}
+              height={size}
+              fill={focused ? '#D4824A' : '#666666'}
+            />
           ),
         }}
       />

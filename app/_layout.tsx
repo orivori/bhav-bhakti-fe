@@ -29,7 +29,7 @@ const MyTheme = {
   ...DefaultTheme,
   colors: {
     ...DefaultTheme.colors,
-    background: '#FFF8F0', // Warm cream/ivory background from your CSS
+    background: '#fff6da', // Warm cream/ivory background from your CSS
   },
 };
 
@@ -68,7 +68,7 @@ export default function RootLayout() {
         <AuthProvider>
           <View style={styles.container}>
             <NavigationThemeProvider value={MyTheme}>
-              <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#FFF8F0' } }}>
+              <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#fff6da' } }}>
                 <Stack.Screen name="(auth)" options={{ headerShown: false }} />
                 <Stack.Screen name="(main)" options={{ headerShown: false }} />
               </Stack>
@@ -85,6 +85,6 @@ export default function RootLayout() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFF8F0', // Warm cream/ivory background
+    backgroundColor: '#fff6da', // Warm cream/ivory background
   },
 });

@@ -26,46 +26,6 @@ import * as Haptics from 'expo-haptics';
 
 type ContentCategory = 'Mantras' | 'Rashifal' | 'Status' | 'Ringtones';
 
-// Horoscope Card Component
-const HoroscopeCard = () => {
-  const { currentLanguage } = useI18n();
-
-  const handlePress = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.push('/(main)/horoscope');
-  };
-
-  return (
-    <TouchableOpacity
-      style={styles.horoscopeCard}
-      onPress={handlePress}
-    >
-      <LinearGradient
-        colors={['#8B5A2B', '#A0522D', '#D4AF37']}
-        style={styles.horoscopeGradient}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-      >
-        <View style={styles.horoscopeContent}>
-          <View style={styles.horoscopeIcon}>
-            <Text style={styles.horoscopeIconText}>✨</Text>
-          </View>
-          <View style={styles.horoscopeText}>
-            <Text variant="body" weight="semibold" style={styles.horoscopeTitle}>
-              {currentLanguage === 'hi' ? 'आज का राशिफल' : 'Today\'s Horoscope'}
-            </Text>
-            <Text variant="caption" style={styles.horoscopeSubtitle}>
-              {currentLanguage === 'hi' ? 'अपनी राशि चुनें और भविष्य जानें' : 'Select your zodiac sign and discover your future'}
-            </Text>
-          </View>
-          <View style={styles.horoscopeArrow}>
-            <Ionicons name="chevron-forward" size={24} color="#fff" />
-          </View>
-        </View>
-      </LinearGradient>
-    </TouchableOpacity>
-  );
-};
 
 // Isolated Search Component to prevent keyboard disappearing
 const IsolatedSearchBar = ({ onSearchSubmit, currentLanguage }: {
@@ -83,21 +43,28 @@ const IsolatedSearchBar = ({ onSearchSubmit, currentLanguage }: {
       <Ionicons
         name="search-outline"
         size={20}
-        color="#8B5A2B"
+        color="#333333"
         style={styles.searchIcon}
       />
       <TextInput
         style={styles.searchInput}
-        placeholder={currentLanguage === 'hi' ? 'मंत्र, रिंगटोन खोजें...' : 'Search mantras, ringtones...'}
-        placeholderTextColor="#8B5A2B"
+        placeholder={currentLanguage === 'hi' ? 'आरती, भजन या चालीसा खोजें...' : 'Search for Aarti, Bhajan, or Chalisa...'}
+        placeholderTextColor="#8B7355"
         value={localSearchText}
         onChangeText={setLocalSearchText}
         returnKeyType="search"
         onSubmitEditing={handleSubmit}
         autoCapitalize="none"
         autoCorrect={false}
-        selectionColor="#FF6B00"
+        selectionColor="#D4824A"
       />
+      <TouchableOpacity style={styles.micButton}>
+        <Ionicons
+          name="mic"
+          size={18}
+          color="#D4824A"
+        />
+      </TouchableOpacity>
     </View>
   );
 };
@@ -332,15 +299,19 @@ export default function HomeScreen() {
     <View>
       {/* App Title Header with Profile */}
       <View style={styles.appHeader}>
-        <View style={styles.profileSection}>
-          <View style={styles.profileAvatar}>
-            <Ionicons name="person" size={24} color="#ffffff" />
-          </View>
-          <View style={styles.titleSection}>
-            <Text style={styles.appTitle}>Bhav Bhakti</Text>
-            <Text style={styles.appSubtitle}>Your Spiritual Companion</Text>
-          </View>
+        <View style={styles.titleContainer}>
+          <Text style={styles.appTitle}>Bhav Bhakti</Text>
         </View>
+        <TouchableOpacity
+          style={styles.profileAvatar}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            router.push('/(main)/profile');
+          }}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="person" size={24} color="#ffffff" />
+        </TouchableOpacity>
       </View>
 
       {/* Search Bar */}
@@ -391,6 +362,54 @@ export default function HomeScreen() {
         })}
       </View>
 
+      {/* Today's Horoscope Section */}
+      <View style={styles.horoscopeSectionContainer}>
+        <Text style={styles.horoscopeSectionTitle}>
+          {currentLanguage === 'hi' ? 'आज का राशिफल' : "Today's Horoscope"}
+        </Text>
+
+        <TouchableOpacity
+          style={styles.todayHoroscopeCard}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            router.push('/(main)/horoscope');
+          }}
+          activeOpacity={0.7}
+        >
+          <View style={styles.horoscopeCardContent}>
+            <View style={styles.sunIconContainer}>
+              <Ionicons name="sunny" size={32} color="#C41E3A" />
+            </View>
+
+            <View style={styles.horoscopeTextContainer}>
+              <Text style={styles.horoscopeDateText}>
+                {(() => {
+                  const today = new Date();
+                  const options: Intl.DateTimeFormatOptions = {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                  };
+
+                  if (currentLanguage === 'hi') {
+                    return `आज, ${today.toLocaleDateString('hi-IN', options)}`;
+                  } else {
+                    return `Today, ${today.toLocaleDateString('en-US', options)}`;
+                  }
+                })()}
+              </Text>
+              <Text style={styles.horoscopeSubText} numberOfLines={1}>
+                {currentLanguage === 'hi' ? 'आज के लिए अपना राशिफल जानें' : 'Know your rashifal for today'}
+              </Text>
+            </View>
+
+            <View style={styles.arrowContainer}>
+              <Ionicons name="chevron-forward" size={24} color="#C41E3A" />
+            </View>
+          </View>
+        </TouchableOpacity>
+      </View>
+
       {/* Recommended Section Header */}
       {feeds.length > 0 && (
         <View style={styles.recommendedHeader}>
@@ -417,10 +436,6 @@ export default function HomeScreen() {
         </View>
       )}
 
-      {/* Horoscope Card */}
-      {feeds.length > 0 && (
-        <HoroscopeCard />
-      )}
     </View>
   );
 
@@ -455,7 +470,7 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFF8F0', // Cream background like the design
+    backgroundColor: '#fff6da', // Cream background like the design
   },
   content: {
     flex: 1,
@@ -463,57 +478,57 @@ const styles = StyleSheet.create({
 
   // App title header styles
   appHeader: {
-    paddingHorizontal: goldenTempleTheme.spacing.lg,
-    paddingTop: goldenTempleTheme.spacing.md,
-    paddingBottom: goldenTempleTheme.spacing.sm,
-  },
-  profileSection: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: goldenTempleTheme.spacing.md,
+    paddingHorizontal: goldenTempleTheme.spacing.lg,
+    paddingTop: goldenTempleTheme.spacing.lg,
+    paddingBottom: 4,
+    minHeight: 60,
+  },
+  titleContainer: {
+    height: 48,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
   },
   profileAvatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: goldenTempleTheme.colors.primary.DEFAULT,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#D4824A',
     justifyContent: 'center',
     alignItems: 'center',
-    ...goldenTempleTheme.shadows.md,
-  },
-  titleSection: {
-    flex: 1,
   },
   appTitle: {
-    fontSize: 20,
+    fontSize: 28,
     fontWeight: '700',
-    color: goldenTempleTheme.colors.text.primary,
-    marginBottom: 2,
-  },
-  appSubtitle: {
-    fontSize: 14,
-    color: goldenTempleTheme.colors.text.secondary,
-    fontWeight: '400',
+    color: '#000000',
+    lineHeight: 28,
+    includeFontPadding: false,
   },
 
   // Search section styles
   searchSection: {
-    paddingHorizontal: goldenTempleTheme.spacing.lg,
-    paddingVertical: goldenTempleTheme.spacing.md,
+    paddingVertical: goldenTempleTheme.spacing.sm,
   },
   searchContainer: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F5E6D3',
-    borderRadius: 25,
+    backgroundColor: '#f7ebc4',
+    borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
+    marginHorizontal: goldenTempleTheme.spacing.lg,
+    borderWidth: 1,
+    borderColor: '#D4C4A8',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowRadius: 8,
+    elevation: 4,
   },
 
   // Recommended section styles
@@ -545,11 +560,15 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 16,
-    color: '#4A2C2A',
+    color: '#333333',
     fontWeight: '400',
-    padding: 0, // Remove all padding
-    margin: 0, // Remove all margin
+    padding: 0,
+    margin: 0,
     height: 20,
+  },
+  micButton: {
+    marginLeft: 8,
+    padding: 2,
   },
   // Choose where to start header styles
   chooseStartHeader: {
@@ -569,7 +588,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingHorizontal: goldenTempleTheme.spacing.lg,
-    marginBottom: goldenTempleTheme.spacing.lg,
+    marginBottom: goldenTempleTheme.spacing.sm,
     gap: 0,
   },
   categoryGridItem: {
@@ -589,54 +608,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 18,
   },
-  horoscopeCard: {
-    marginHorizontal: goldenTempleTheme.spacing.lg,
-    marginTop: goldenTempleTheme.spacing.md,
-    marginBottom: goldenTempleTheme.spacing.lg,
-    borderRadius: goldenTempleTheme.borderRadius.xl,
-    overflow: 'hidden',
-    ...goldenTempleTheme.shadows.lg,
-  },
-  horoscopeGradient: {
-    padding: goldenTempleTheme.spacing.lg,
-  },
-  horoscopeContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: goldenTempleTheme.spacing.md,
-  },
-  horoscopeIcon: {
-    width: 50,
-    height: 50,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: 25,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: goldenTempleTheme.spacing.md,
-  },
-  horoscopeIconText: {
-    fontSize: 28,
-  },
-  horoscopeText: {
-    flex: 1,
-  },
-  horoscopeTitle: {
-    color: '#fff',
-    fontSize: 18,
-    marginBottom: 4,
-  },
-  horoscopeSubtitle: {
-    color: 'rgba(255, 255, 255, 0.8)',
-    fontSize: 14,
-  },
-  horoscopeArrow: {
-    width: 40,
-    height: 40,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
 
   iconContainer: {
     alignItems: 'center',
@@ -645,4 +616,65 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
+  // Today's Horoscope Section Styles
+  horoscopeSectionContainer: {
+    paddingHorizontal: goldenTempleTheme.spacing.lg,
+    marginTop: 0,
+    marginBottom: goldenTempleTheme.spacing.lg,
+  },
+  horoscopeSectionTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#C41E3A',
+    marginBottom: goldenTempleTheme.spacing.md,
+  },
+  todayHoroscopeCard: {
+    backgroundColor: '#f7ebc4',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#D4C4A8',
+    paddingVertical: goldenTempleTheme.spacing.sm,
+    paddingHorizontal: goldenTempleTheme.spacing.lg,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  horoscopeCardContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  sunIconContainer: {
+    width: 56,
+    height: 56,
+    backgroundColor: 'rgba(196, 30, 58, 0.1)',
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: goldenTempleTheme.spacing.md,
+  },
+  horoscopeTextContainer: {
+    flex: 1,
+  },
+  horoscopeDateText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#C41E3A',
+    marginBottom: 4,
+  },
+  horoscopeSubText: {
+    fontSize: 12,
+    color: '#C41E3A',
+    fontWeight: '400',
+  },
+  arrowContainer: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });
