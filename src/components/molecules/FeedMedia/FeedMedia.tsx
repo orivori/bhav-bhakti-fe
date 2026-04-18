@@ -39,7 +39,8 @@ export default function FeedMedia({
   const [isPlaying, setIsPlaying] = useState(false);
   const [sound, setSound] = useState<Audio.Sound | null>(null);
 
-  const currentMedia = media[currentMediaIndex];
+  // Safety check for media array
+  const currentMedia = media && media.length > 0 ? media[currentMediaIndex] : null;
 
   const handleNextMedia = () => {
     if (currentMediaIndex < media.length - 1) {
@@ -71,6 +72,11 @@ export default function FeedMedia({
 
   const handlePlayAudio = async () => {
     try {
+      // Safety check for currentMedia
+      if (!currentMedia) {
+        return;
+      }
+
       if (sound) {
         await sound.unloadAsync();
         setSound(null);
@@ -105,6 +111,15 @@ export default function FeedMedia({
   };
 
   const renderMedia = () => {
+    // Safety check for currentMedia
+    if (!currentMedia) {
+      return (
+        <View style={[styles.media, { backgroundColor: '#f0f0f0', justifyContent: 'center', alignItems: 'center' }]}>
+          <Text>No media available</Text>
+        </View>
+      );
+    }
+
     switch (currentMedia.type) {
       case 'image':
         return (
@@ -294,7 +309,7 @@ export default function FeedMedia({
       )}
 
       {/* Duration Badge for Videos */}
-      {currentMedia.type === 'video' && currentMedia.duration && (
+      {currentMedia && currentMedia.type === 'video' && currentMedia.duration && (
         <View style={styles.durationBadge}>
           <Text variant="caption" style={styles.durationText}>
             {Math.floor(currentMedia.duration / 60)}:

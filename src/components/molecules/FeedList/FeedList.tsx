@@ -56,7 +56,7 @@ export default function FeedList({
   showRetry = true,
   onRetry,
   autoPlayVideo = false,
-  estimatedItemSize = 600,
+  estimatedItemSize = 300,
   ListHeaderComponent,
   contentContainerStyle,
 }: FeedListProps) {
@@ -65,24 +65,28 @@ export default function FeedList({
     // Use RingtoneFeedCard for ringtone feeds, regular FeedCard for others
     if (feed.type === 'ringtone') {
       return (
-        <RingtoneFeedCard
-          feed={feed}
-          onLike={onLike}
-          onShare={onShare}
-          onDownload={onDownload}
-        />
+        <View style={styles.itemWrapper}>
+          <RingtoneFeedCard
+            feed={feed}
+            onLike={onLike}
+            onShare={onShare}
+            onDownload={onDownload}
+          />
+        </View>
       );
     }
 
     return (
-      <FeedCard
-        feed={feed}
-        onPress={onFeedPress}
-        onLike={onLike}
-        onShare={onShare}
-        onDownload={onDownload}
-        autoPlayVideo={autoPlayVideo && index === 0} // Auto-play only first video
-      />
+      <View style={styles.itemWrapper}>
+        <FeedCard
+          feed={feed}
+          onPress={onFeedPress}
+          onLike={onLike}
+          onShare={onShare}
+          onDownload={onDownload}
+          autoPlayVideo={autoPlayVideo && index === 0} // Auto-play only first video
+        />
+      </View>
     );
   }, [onFeedPress, onLike, onShare, onDownload, autoPlayVideo]);
 
@@ -167,16 +171,7 @@ export default function FeedList({
     }
   }, [hasMore, isLoadingMore, isLoading, feeds.length, onLoadMore]);
 
-  const keyExtractor = useCallback((item: Feed, index: number) => `${item.type}-${item.id}-${index}`, []);
-
-  const getItemLayout = useCallback(
-    (data: ArrayLike<Feed> | null | undefined, index: number) => ({
-      length: estimatedItemSize,
-      offset: estimatedItemSize * index,
-      index,
-    }),
-    [estimatedItemSize]
-  );
+  const keyExtractor = useCallback((item: Feed) => `${item.type}-${item.id}`, []);
 
   return (
     <FlatList
@@ -196,23 +191,18 @@ export default function FeedList({
         />
       }
       onEndReached={handleEndReached}
-      onEndReachedThreshold={0.7}
+      onEndReachedThreshold={0.5}
       showsVerticalScrollIndicator={false}
       contentContainerStyle={[
         !ListHeaderComponent && styles.container,
         feeds.length === 0 && styles.emptyContainer,
         contentContainerStyle,
       ]}
-      removeClippedSubviews={true}
-      maxToRenderPerBatch={10}
-      windowSize={10}
-      initialNumToRender={5}
-      updateCellsBatchingPeriod={16}
-      getItemLayout={getItemLayout}
-      maintainVisibleContentPosition={{
-        minIndexForVisible: 0,
-        autoscrollToTopThreshold: 10,
-      }}
+      removeClippedSubviews={false}
+      maxToRenderPerBatch={3}
+      windowSize={5}
+      initialNumToRender={3}
+      updateCellsBatchingPeriod={50}
     />
   );
 }
@@ -220,6 +210,9 @@ export default function FeedList({
 const styles = StyleSheet.create({
   flatListStyle: {
     backgroundColor: 'transparent', // Make FlatList transparent
+  },
+  itemWrapper: {
+    paddingHorizontal: goldenTempleTheme.spacing.md,
   },
   container: {
     paddingHorizontal: goldenTempleTheme.spacing.md,

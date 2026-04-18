@@ -9,11 +9,14 @@ import {
   Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { SvgUri, Svg, Path } from 'react-native-svg';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as MediaLibrary from 'expo-media-library';
 import { Text } from '@/components/atoms';
 import FeedMedia from '../FeedMedia/FeedMedia';
 import WallpaperFeedCard from '../WallpaperFeedCard/WallpaperFeedCard';
+import HorizontalMantraCard from '../HorizontalMantraCard';
 import { Feed } from '@/types/feed';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { feedService } from '@/features/feed/services/feedService';
@@ -28,6 +31,26 @@ interface FeedCardProps {
   onPress?: (feed: Feed) => void;
   autoPlayVideo?: boolean;
 }
+
+// Custom Heart Icon Component
+const HeartIcon = ({ width, height, fill, stroke, strokeWidth }: {
+  width: number;
+  height: number;
+  fill: string;
+  stroke: string;
+  strokeWidth: number;
+}) => (
+  <Svg width={width} height={height} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"
+      fill={fill}
+      stroke={stroke}
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
 
 const { width } = Dimensions.get('window');
 
@@ -213,8 +236,17 @@ export default function FeedCard({
   //   );
   // };
 
-  // Render mantra card design
+  // Render horizontal mantra card using reusable component
   const renderMantraCard = () => (
+    <HorizontalMantraCard
+      mantra={feed}
+      onPress={() => onPress?.(feed)}
+    />
+  );
+
+  // Render vertical video card design (renamed from mantra card)
+  const
+  renderVideoCardTemplate = () => (
     <View style={styles.mantraContainer}>
       {/* Main Image with gap */}
       <View style={styles.mantraImageContainer}>
@@ -244,14 +276,21 @@ export default function FeedCard({
 
         {/* Action Buttons */}
         <View style={styles.mantraActionsContainer}>
-          {/* Play Button */}
+          {/* Set as Ringtone Button for Video Card */}
           <TouchableOpacity
-            style={styles.mantraPlayButton}
+            style={styles.mantraPlayButtonContainer}
             onPress={handlePress}
             activeOpacity={0.8}
           >
-            <Ionicons name="play" size={20} color="#FFFFFF" />
-            <Text style={styles.mantraPlayButtonText}>Play now</Text>
+            <LinearGradient
+              colors={['#E76A4A', '#CA3500']}
+              style={styles.mantraPlayButton}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0, y: 1 }}
+            >
+              <Ionicons name="musical-note" size={20} color="#FFFFFF" />
+              <Text style={styles.mantraPlayButtonText}>Set as Ringtone</Text>
+            </LinearGradient>
           </TouchableOpacity>
 
           {/* Like Button */}
@@ -260,10 +299,12 @@ export default function FeedCard({
             onPress={handleLike}
             activeOpacity={0.7}
           >
-            <Ionicons
-              name={feed.isLiked ? 'heart' : 'heart-outline'}
-              size={24}
-              color={feed.isLiked ? '#C41E3A' : '#8B7355'}
+            <HeartIcon
+              width={24}
+              height={24}
+              fill={feed.isLiked ? '#E76A4A' : 'none'}
+              stroke={feed.isLiked ? '#E76A4A' : '#E76A4A'}
+              strokeWidth={feed.isLiked ? 0 : 2}
             />
           </TouchableOpacity>
 
@@ -273,7 +314,12 @@ export default function FeedCard({
             onPress={handleShare}
             activeOpacity={0.7}
           >
-            <Ionicons name="share-outline" size={24} color="#8B7355" />
+            <SvgUri
+              uri="https://d12b36sm0rczqk.cloudfront.net/app-assets/icons/share.svg"
+              width={24}
+              height={24}
+              fill="#8B7355"
+            />
           </TouchableOpacity>
         </View>
       </View>
@@ -294,57 +340,43 @@ export default function FeedCard({
       {/* Content */}
       <View style={styles.content}>
         {/* Action Buttons */}
-        <View style={styles.actionsContainer}>
-          <View style={styles.leftActions}>
+        <View style={styles.mantraActionsContainer}>
+          <TouchableOpacity
+            style={[styles.mantraActionButton, feed.isLiked && styles.mantraActionButtonLiked]}
+            onPress={handleLike}
+            activeOpacity={0.7}
+          >
+            <HeartIcon
+              width={24}
+              height={24}
+              fill={feed.isLiked ? '#E76A4A' : 'none'}
+              stroke={feed.isLiked ? '#E76A4A' : '#E76A4A'}
+              strokeWidth={feed.isLiked ? 0 : 2}
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.mantraActionButton} onPress={handleShare}>
+            <SvgUri
+              uri="https://d12b36sm0rczqk.cloudfront.net/app-assets/icons/share.svg"
+              width={24}
+              height={24}
+              fill="#8B7355"
+            />
+          </TouchableOpacity>
+
+          {feed.allowDownloads && (
             <TouchableOpacity
-              style={styles.actionButton}
-              onPress={handleLike}
-              activeOpacity={0.7}
+              style={styles.mantraActionButton}
+              onPress={handleDownload}
+              disabled={isDownloading}
             >
               <Ionicons
-                name={feed.isLiked ? 'heart' : 'heart-outline'}
-                size={26}
-                color={feed.isLiked ? '#FF4444' : '#6B7280'}
-              />
-              {feed.likesCount > 0 && (
-                <Text variant="caption" style={styles.actionCount}>
-                  {formatCount(feed.likesCount)}
-                </Text>
-              )}
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.actionButton} onPress={handleShare}>
-              <Ionicons
-                name="share-outline"
+                name="download-outline"
                 size={24}
-                color="#6B7280"
+                color="#8B7355"
               />
-              {feed.sharesCount > 0 && (
-                <Text variant="caption" style={styles.actionCount}>
-                  {formatCount(feed.sharesCount)}
-                </Text>
-              )}
             </TouchableOpacity>
-
-            {feed.allowDownloads && (
-              <TouchableOpacity
-                style={styles.actionButton}
-                onPress={handleDownload}
-                disabled={isDownloading}
-              >
-                <Ionicons
-                  name="download-outline"
-                  size={24}
-                  color="#6B7280"
-                />
-                {feed.downloadsCount > 0 && (
-                  <Text variant="caption" style={styles.actionCount}>
-                    {formatCount(feed.downloadsCount)}
-                  </Text>
-                )}
-              </TouchableOpacity>
-            )}
-          </View>
+          )}
 
           {/* View Count */}
           {feed.viewsCount > 0 && (
@@ -378,6 +410,8 @@ export default function FeedCard({
   // Conditionally render based on feed type
   if (feed.type === 'mantra') {
     return renderMantraCard();
+  } else if (feed.type === 'video') {
+    return renderVideoCardTemplate();
   } else if (feed.type === 'wallpaper') {
     return (
       <WallpaperFeedCard
@@ -397,7 +431,6 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: '#FFFFFF',
     marginBottom: 20,
-    marginHorizontal: 4,
     borderRadius: 16,
     overflow: 'hidden',
     borderWidth: 0,
@@ -494,15 +527,15 @@ const styles = StyleSheet.create({
     fontSize: 11,
   },
 
-  // Mantra Card Styles
+  // Mantra Card Styles - Responsive
   mantraContainer: {
-    backgroundColor: '#f7ebc4',
-    borderRadius: 16,
+    width: '100%',
+    backgroundColor: '#F7EBC4',
+    borderRadius: 10,
+    borderWidth: 0.5,
+    borderColor: '#D4C4A8',
     padding: 8,
-    marginHorizontal: 4,
     marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#E8DDD1',
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -519,11 +552,11 @@ const styles = StyleSheet.create({
   },
   mantraImage: {
     width: '100%',
-    height: 280,
+    height: 435,
     backgroundColor: '#F5E6D3',
   },
   mantraContentContainer: {
-    padding: 12,
+    padding: 8,
   },
   mantraTitle: {
     fontSize: 20,
@@ -544,9 +577,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
   },
-  mantraPlayButton: {
+  mantraPlayButtonContainer: {
     flex: 1,
-    backgroundColor: '#C41E3A',
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  mantraPlayButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -562,12 +598,12 @@ const styles = StyleSheet.create({
   mantraActionButton: {
     width: 52,
     height: 52,
-    backgroundColor: '#E8DDD1',
+    backgroundColor: '#E76A4A4D',
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
   mantraActionButtonLiked: {
-    backgroundColor: 'rgba(196, 30, 58, 0.1)',
+    backgroundColor: '#E76A4A4D',
   },
 });

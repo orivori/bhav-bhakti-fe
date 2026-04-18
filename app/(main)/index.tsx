@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback, useMemo } from 'react';
 import {
   View,
   ScrollView,
@@ -69,98 +69,94 @@ const IsolatedSearchBar = ({ onSearchSubmit, currentLanguage }: {
   );
 };
 
+// Animated Category Button - defined OUTSIDE HomeScreen to prevent recreation on re-renders
+const AnimatedCategoryButton = ({
+  category,
+  categoryInfo,
+  onPress
+}: {
+  category: ContentCategory;
+  categoryInfo: any;
+  onPress: () => void;
+}) => {
+  const scaleAnim = React.useRef(new Animated.Value(1)).current;
+  const opacityAnim = React.useRef(new Animated.Value(1)).current;
+
+  const handlePressIn = () => {
+    Animated.parallel([
+      Animated.spring(scaleAnim, {
+        toValue: 0.95,
+        useNativeDriver: true,
+        tension: 300,
+        friction: 10,
+      }),
+      Animated.timing(opacityAnim, {
+        toValue: 0.7,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.parallel([
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        useNativeDriver: true,
+        tension: 300,
+        friction: 10,
+      }),
+      Animated.timing(opacityAnim, {
+        toValue: 1,
+        duration: 150,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      activeOpacity={1}
+      style={styles.categoryGridItem}
+    >
+      <Animated.View
+        style={[
+          styles.categoryGridCard,
+          {
+            transform: [{ scale: scaleAnim }],
+            opacity: opacityAnim,
+          }
+        ]}
+      >
+        {/* Icon */}
+        <View style={styles.iconContainer}>
+          <SvgUri
+            uri={categoryInfo.iconUrl}
+            width={56}
+            height={56}
+          />
+        </View>
+
+        {/* Label */}
+        <Text
+          variant="body"
+          weight="semibold"
+          style={styles.categoryCardText}
+        >
+          {categoryInfo.name}
+        </Text>
+      </Animated.View>
+    </TouchableOpacity>
+  );
+};
 
 export default function HomeScreen() {
   const { contentPadding } = useTabBarHeight();
   const { t: ti, currentLanguage } = useI18n();
 
-  // Animated Category Button Component
-  const AnimatedCategoryButton = ({
-    category,
-    categoryInfo,
-    onPress
-  }: {
-    category: ContentCategory;
-    categoryInfo: any;
-    onPress: () => void;
-  }) => {
-    const scaleAnim = React.useRef(new Animated.Value(1)).current;
-    const opacityAnim = React.useRef(new Animated.Value(1)).current;
-
-    const handlePressIn = () => {
-      // Scale down and reduce opacity when pressed
-      Animated.parallel([
-        Animated.spring(scaleAnim, {
-          toValue: 0.95,
-          useNativeDriver: true,
-          tension: 300,
-          friction: 10,
-        }),
-        Animated.timing(opacityAnim, {
-          toValue: 0.7,
-          duration: 100,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    };
-
-    const handlePressOut = () => {
-      // Scale back up and restore opacity when released
-      Animated.parallel([
-        Animated.spring(scaleAnim, {
-          toValue: 1,
-          useNativeDriver: true,
-          tension: 300,
-          friction: 10,
-        }),
-        Animated.timing(opacityAnim, {
-          toValue: 1,
-          duration: 150,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    };
-
-    return (
-      <TouchableOpacity
-        onPress={onPress}
-        onPressIn={handlePressIn}
-        onPressOut={handlePressOut}
-        activeOpacity={1} // Disable default opacity change
-        style={styles.categoryGridItem}
-      >
-        <Animated.View
-          style={[
-            styles.categoryGridCard,
-            {
-              transform: [{ scale: scaleAnim }],
-              opacity: opacityAnim,
-            }
-          ]}
-        >
-          {/* Icon */}
-          <View style={styles.iconContainer}>
-            <SvgUri
-              uri={categoryInfo.iconUrl}
-              width={56}
-              height={56}
-            />
-          </View>
-
-          {/* Label */}
-          <Text
-            variant="body"
-            weight="semibold"
-            style={styles.categoryCardText}
-          >
-            {categoryInfo.name}
-          </Text>
-        </Animated.View>
-      </TouchableOpacity>
-    );
-  };
-
-  // Initialize feed data
   const {
     feeds,
     isLoading,

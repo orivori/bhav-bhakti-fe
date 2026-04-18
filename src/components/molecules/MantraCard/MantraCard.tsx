@@ -222,13 +222,24 @@ const styles = StyleSheet.create({
   },
   playButton: {
     flex: 1,
-    backgroundColor: '#C41E3A',
+    backgroundColor: '#E76A4A',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 14,
     borderRadius: 12,
     gap: 8,
+    // Create gradient effect with shadow
+    shadowColor: '#CA3500',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.8,
+    shadowRadius: 0,
+    // Bottom border to simulate gradient
+    borderBottomWidth: 3,
+    borderBottomColor: '#CA3500',
   },
   playButtonText: {
     color: '#FFFFFF',

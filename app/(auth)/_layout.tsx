@@ -5,6 +5,7 @@ export default function AuthLayout() {
   return (
     <View style={styles.container}>
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: 'transparent' } }}>
+        <Stack.Screen name="language-onboarding" />
         <Stack.Screen name="phone-login" />
         <Stack.Screen name="verify-otp" />
       </Stack>

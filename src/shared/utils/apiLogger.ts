@@ -141,6 +141,5 @@ export class ApiLogger {
   // Method to change log level at runtime
   static setLogLevel(level: keyof ApiLogLevel) {
     // Note: This would require making CURRENT_LOG_LEVEL mutable
-    console.log(`API logging level changed to: ${level}`);
   }
 }

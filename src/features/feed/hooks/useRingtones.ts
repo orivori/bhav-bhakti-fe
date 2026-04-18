@@ -49,11 +49,8 @@ export function useRingtones(): UseRingtonesResult {
       };
 
       const response = await feedService.getFeeds(params);
-      console.log('✅ Feeds loaded, filtering for ringtones...');
-
       // Filter for ringtone feeds only
       const ringtoneFeeds = response.feeds.filter(feed => feed.type === 'ringtone');
-      console.log(`🎼 Found ${ringtoneFeeds.length} ringtones out of ${response.feeds.length} total feeds`);
 
       if (refresh || !cursor) {
         setRingtones(ringtoneFeeds);

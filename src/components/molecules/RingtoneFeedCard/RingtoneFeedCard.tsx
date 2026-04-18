@@ -9,19 +9,40 @@ import {
   Share,
   Platform,
   Linking,
-  Dimensions} from 'react-native';
+  Dimensions,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Svg, Path } from 'react-native-svg';
+import { SvgUri } from 'react-native-svg';
 
 const { width } = Dimensions.get('window');
 import { Audio } from 'expo-av';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as MediaLibrary from 'expo-media-library';
-// Removed expo-intent-launcher dependency for smaller bundle size
 import { Text } from '@/components/atoms';
 import { Feed } from '@/types/feed';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { feedService } from '@/features/feed/services/feedService';
 import { useFeedStore } from '@/store/feedStore';
+import { useTranslation } from '@/hooks/useTranslation';
+
+// Shared HeartIcon — same as FeedCard
+const HeartIcon = ({ width: w, height: h, fill, stroke, strokeWidth }: {
+  width: number; height: number; fill: string; stroke: string; strokeWidth: number;
+}) => (
+  <Svg width={w} height={h} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"
+      fill={fill}
+      stroke={stroke}
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
 
 interface RingtoneFeedCardProps {
   feed: Feed;
@@ -55,6 +76,7 @@ export default function RingtoneFeedCard({
   }, [feed.isLiked, feed.likesCount]);
 
   const { toggleLike, incrementDownload, incrementShare, incrementView } = useFeedStore();
+  const { language } = useTranslation();
 
   // Get the main audio media
   const audioMedia = feed.media.find(m => m.type === 'audio') || feed.media[0];
@@ -418,7 +440,7 @@ export default function RingtoneFeedCard({
         const progressBarWidth = width - 80; // Account for card padding
         const percentage = Math.max(0, Math.min(locationX / progressBarWidth, 1));
         const seekPosition = duration * percentage;
-        
+
         await sound.setPositionAsync(seekPosition);
         setPlaybackPosition(seekPosition);
       } catch (error) {
@@ -520,70 +542,64 @@ export default function RingtoneFeedCard({
             </Text>
           </View>
 
-          {/* Action Buttons Row */}
+          {/* Action Buttons Row — 2 buttons only */}
           <View style={styles.actionsContainer}>
-            {/* Set as Ringtone Button */}
+            {/* Set as Ringtone — gradient, i18n */}
             <TouchableOpacity
-              style={styles.ringtoneButton}
+              style={styles.ringtoneButtonContainer}
               onPress={handleSetRingtone}
               disabled={isSettingRingtone}
+              activeOpacity={0.85}
+            >
+              <LinearGradient
+                colors={['#E76A4A', '#CA3500']}
+                style={styles.ringtoneButton}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 0, y: 1 }}
+              >
+                {isSettingRingtone ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <Ionicons name="notifications-outline" size={14} color="#fff" />
+                )}
+                <Text style={styles.ringtoneButtonText}>
+                  {isSettingRingtone
+                    ? (language === 'hi' ? 'सेट हो रहा है...' : 'Setting...')
+                    : (language === 'hi' ? 'रिंगटोन के रूप में सेट करें' : 'Set as ringtone')}
+                </Text>
+              </LinearGradient>
+            </TouchableOpacity>
+
+            {/* Share — secondary style, i18n */}
+            <TouchableOpacity
+              style={styles.shareButton}
+              onPress={handleShare}
               activeOpacity={0.8}
             >
-              {isSettingRingtone ? (
-                <ActivityIndicator color="#fff" size="small" />
-              ) : (
-                <Ionicons
-                  name="notifications-outline"
-                  size={16}
-                  color="#fff"
-                />
-              )}
-              <Text style={styles.ringtoneButtonText}>
-                {isSettingRingtone ? 'Setting...' : 'Set as ringtone'}
+              <Ionicons name="paper-plane" size={14} color="#E76A4A" />
+              <Text style={styles.shareButtonText}>
+                {language === 'hi' ? 'साझा करें' : 'Share'}
               </Text>
             </TouchableOpacity>
 
-            {/* Share Button */}
-            <TouchableOpacity style={styles.shareButton} onPress={handleShare} activeOpacity={0.8}>
-              <Ionicons
-                name="share-outline"
-                size={20}
-                color="#C41E3A"
-              />
-            </TouchableOpacity>
-
-            {/* Like Button */}
-            <TouchableOpacity
-              style={styles.likeButton}
-              onPress={handleLike}
-              activeOpacity={0.7}
+            {/* Like — commented out */}
+            {/* <TouchableOpacity
+              style={[styles.actionButton, localIsLiked && styles.actionButtonLiked]}
+              onPress={handleLike} activeOpacity={0.7}
             >
-              <Ionicons
-                name={localIsLiked ? 'heart' : 'heart-outline'}
-                size={20}
-                color={localIsLiked ? '#FF4444' : '#8B7355'}
+              <HeartIcon width={24} height={24}
+                fill={localIsLiked ? '#E76A4A' : 'none'}
+                stroke="#E76A4A" strokeWidth={localIsLiked ? 0 : 2}
               />
-            </TouchableOpacity>
+            </TouchableOpacity> */}
 
-            {/* Download Button */}
-            {feed.allowDownloads && (
-              <TouchableOpacity
-                style={styles.downloadButton}
-                onPress={handleDownload}
-                disabled={isDownloading}
-                activeOpacity={0.7}
-              >
-                {isDownloading ? (
-                  <ActivityIndicator color="#8B7355" size="small" />
-                ) : (
-                  <Ionicons
-                    name="download-outline"
-                    size={20}
-                    color="#8B7355"
-                  />
-                )}
+            {/* Download — commented out */}
+            {/* {feed.allowDownloads && (
+              <TouchableOpacity style={styles.actionButton} onPress={handleDownload} disabled={isDownloading}>
+                {isDownloading ? <ActivityIndicator color="#8B7355" size="small" />
+                  : <Ionicons name="download-outline" size={20} color="#8B7355" />}
               </TouchableOpacity>
-            )}
+            )} */}
           </View>
         </View>
       </View>
@@ -597,7 +613,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 6,
     marginBottom: 16,
-    marginHorizontal: 4,
     borderWidth: 1,
     borderColor: '#E8DDD1',
     shadowColor: '#000',
@@ -677,7 +692,7 @@ const styles = StyleSheet.create({
   actionsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
     marginTop: 4,
   },
   playButton: {
@@ -694,50 +709,47 @@ const styles = StyleSheet.create({
     fontSize: 14,
     letterSpacing: 0.3,
   },
-  actionButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#F8F9FA',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 0,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 3,
+  // Ringtone button — gradient container + inner styles
+  ringtoneButtonContainer: {
+    flex: 2, // Make it wider (2/3 of available space)
+    borderRadius: 6,
+    overflow: 'hidden',
   },
   ringtoneButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#C41E3A',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
-    gap: 6,
-    flex: 1,
     justifyContent: 'center',
+    paddingVertical: 8,
+    borderRadius: 6,
+    gap: 6,
   },
   ringtoneButtonText: {
     color: '#fff',
     fontWeight: '600',
-    fontSize: 11,
-    letterSpacing: 0.1,
+    fontSize: 12,
+    letterSpacing: 0.2,
   },
-  likeButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: '#E8DDD1',
-    justifyContent: 'center',
+
+  // Share button — secondary style (i18n, icon + text)
+  shareButton: {
+    flex: 1, // Make it smaller (1/3 of available space)
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F5E0C0',
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+    gap: 6,
   },
-  likeCount: {
-    color: '#1A1A1A',
+  shareButtonText: {
+    color: '#E76A4A',
     fontWeight: '600',
-    fontSize: 13,
+    fontSize: 12,
+    letterSpacing: 0.2,
   },
+
+
   // Progress Bar Styles
   progressContainer: {
     marginBottom: 16,
@@ -786,7 +798,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 
-  // New styles for horizontal layout
+  // Horizontal layout
   mainLayout: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -806,14 +818,6 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 6,
   },
-  shareButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: '#E8DDD1',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   downloadButton: {
     width: 36,
     height: 36,
@@ -823,3 +827,4 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 });
+

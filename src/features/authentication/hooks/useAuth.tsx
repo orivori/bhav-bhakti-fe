@@ -38,7 +38,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(true);
       // Use mock service for development
       const response = await authService.sendOTP(data);
-      console.log("====>",response?.data)
 
       return {
         success: response.success,
@@ -56,13 +55,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const verifyOTP = async (data: VerifyOTPRequest) => {
     try {
       setLoading(true);
-      console.log('🔄 Starting OTP verification...');
       const response = await authService.verifyOTP(data);
-      console.log('📨 OTP verification response:', response);
 
       if (response.success) {
-        console.log('✅ OTP verification successful, processing login...');
-
         // Convert token to tokens format expected by the store
         const tokens: AuthTokens = {
           accessToken: response.data.token,
@@ -70,16 +65,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           expiresAt: Date.now() + (24 * 60 * 60 * 1000), // 24 hours from now
         };
 
-        console.log('👤 User to login:', response.data.user);
-        console.log('🔑 Tokens to save:', tokens);
-
         await login(response.data.user, tokens);
-        console.log('🎉 Login completed successfully!');
 
         // Force navigation to main after successful login
         router.replace('/(main)');
-      } else {
-        console.log('❌ OTP verification failed:', response.message);
       }
     } catch (error) {
       console.error('💥 OTP verification error:', error);
@@ -87,7 +76,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new Error(apiError.message || 'Failed to verify OTP');
     } finally {
       setLoading(false);
-      console.log('🏁 OTP verification process finished');
     }
   };
 

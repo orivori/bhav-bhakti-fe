@@ -5,17 +5,15 @@ import {
   TouchableOpacity,
   StyleSheet,
   Dimensions,
-  Image,
   Animated,
   ActivityIndicator,
   Alert,
-  ScrollView,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Audio } from 'expo-av';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
@@ -456,13 +454,7 @@ export default function AudioPlayerScreen() {
 
         // Test URL accessibility first
         try {
-          console.log('🔍 Audio Player: Testing URL accessibility...');
-          const response = await fetch(mantraData.audioUrl?.toString() || '', { method: 'HEAD' });
-          console.log('🔍 Audio Player: URL test response:', {
-            status: response.status,
-            ok: response.ok,
-            headers: Object.fromEntries(response.headers.entries())
-          });
+            const response = await fetch(mantraData.audioUrl?.toString() || '', { method: 'HEAD' });
 
           if (!response.ok) {
             throw new Error(`URL not accessible: ${response.status} ${response.statusText}`);

@@ -1,44 +1,76 @@
-import { useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  Image,
   FlatList,
   RefreshControl,
+  TextInput,
+  // Image, // Commented out for now
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
 
 import { Text } from '@/components/atoms';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { useFeed } from '@/features/feed/hooks/useFeed';
+import { useTrendingMantras } from '@/features/feed/hooks/useTrendingMantras';
+import { useDeities } from '@/features/feed/hooks/useDeities';
 import { useMantraCategories } from '@/features/feed/hooks/useCategories';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
+import { TrendingMantraCard } from '@/components/molecules/TrendingMantraCard';
+import { DeityCard } from '@/components/molecules/DeityCard';
+import HorizontalMantraCard from '@/components/molecules/HorizontalMantraCard';
 import type { Feed, Category } from '@/types/feed';
+import type { Deity } from '@/features/feed/hooks/useDeities';
 
 
 export default function MantrasScreen() {
-  const { t, language } = useTranslation();
+  const { language: currentLanguage } = useTranslation();
   const { contentPadding } = useTabBarHeight();
-  const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedDeity, setSelectedDeity] = useState<Deity | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
+  const [currentTrendingIndex, setCurrentTrendingIndex] = useState(0);
 
-  // Fetch mantra categories
+  // Fetch trending mantras (top 5)
   const {
-    data: categories = [],
+    data: trendingData,
+    isLoading: trendingLoading,
+    error: trendingError,
+  } = useTrendingMantras({ limit: 5 });
+  // Fetch deities
+  const {
+    data: deities = [],
+    isLoading: deitiesLoading,
+    error: deitiesError,
+  } = useDeities();
+
+  // Fetch mantra categories for filter buttons
+  const {
+    data: mantraCategories = [],
     isLoading: categoriesLoading,
-    error: categoriesError
+    error: categoriesError,
   } = useMantraCategories();
 
-  // Filter for mantra-type feeds
-  const feedFilters = selectedCategory
-    ? { type: 'mantra' as const, categoryId: selectedCategory }
-    : { type: 'mantra' as const };
+  // Build filters for all mantras
+  const feedFilters: any = { type: 'mantra' as const };
+  if (selectedDeity) {
+    feedFilters.deityId = selectedDeity.id;
+  }
+  if (selectedCategory) {
+    feedFilters.categoryId = selectedCategory.id;
+  }
+  if (searchQuery.trim()) {
+    feedFilters.search = searchQuery.trim();
+  }
 
+  // Fetch all mantras with filters
   const {
     feeds: mantras,
     isLoading,
@@ -46,28 +78,28 @@ export default function MantrasScreen() {
     isRefreshing,
     loadMore,
     refresh,
-    likeFeed,
     viewFeed,
-    error,
   } = useFeed({
     filters: feedFilters,
     limit: 20
   });
 
-  const handleCategoryPress = useCallback((categoryId: number | null) => {
-    setSelectedCategory(categoryId);
-  }, []);
+  const handleSearchSubmit = () => {
+    if (searchQuery.trim()) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      // The search will automatically trigger via the feedFilters effect
+    }
+  };
 
-  const handleMantraPress = useCallback((mantra: Feed) => {
-    // Track view
+  const handleTrendingMantraPress = useCallback((mantra: Feed) => {
     viewFeed(mantra.id.toString());
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-    // Navigate to audio player with mantra data
     router.push({
       pathname: '/(main)/audio-player',
       params: {
         feedId: mantra.id.toString(),
-        title: mantra.caption || 'Mantra',
+        title: mantra.caption || 'Sacred Mantra',
         audioUrl: mantra.media?.[0]?.audioUrl || mantra.media?.[0]?.mediaUrl || '',
         thumbnailUrl: mantra.media?.[0]?.thumbnailUrl || mantra.media?.[0]?.mediaUrl || '',
         artist: mantra.user?.name || 'Unknown Artist',
@@ -77,131 +109,112 @@ export default function MantrasScreen() {
     });
   }, [viewFeed]);
 
-  const handleLikePress = useCallback((mantraId: string, event: any) => {
-    event?.stopPropagation();
-    likeFeed(mantraId);
-  }, [likeFeed]);
+  const handleMantraPress = useCallback((mantra: Feed) => {
+    viewFeed(mantra.id.toString());
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    router.push({
+      pathname: '/(main)/audio-player',
+      params: {
+        feedId: mantra.id.toString(),
+        title: mantra.caption || 'Sacred Mantra',
+        audioUrl: mantra.media?.[0]?.audioUrl || mantra.media?.[0]?.mediaUrl || '',
+        thumbnailUrl: mantra.media?.[0]?.thumbnailUrl || mantra.media?.[0]?.mediaUrl || '',
+        artist: mantra.user?.name || 'Unknown Artist',
+        duration: mantra.media?.[0]?.duration?.toString() || '0',
+        isLiked: mantra.isLiked ? 'true' : 'false',
+      },
+    });
+  }, [viewFeed]);
+
+  const handleDeityPress = useCallback((deity: Deity) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSelectedDeity(selectedDeity?.id === deity.id ? null : deity);
+  }, [selectedDeity]);
+
+  const handleCategoryFilterPress = useCallback((category: Category) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSelectedCategory(selectedCategory?.id === category.id ? null : category);
+  }, [selectedCategory]);
+
+  const handleFindMantraPress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    // Navigate to mantra quiz page
+    router.push('/(main)/mantra-quiz');
+  };
+
+  // Handle carousel scroll for pagination dots
+  const handleTrendingScroll = (event: any) => {
+    const contentOffset = event.nativeEvent.contentOffset.x;
+    const cardWidth = 300; // Approximate card width
+    const index = Math.round(contentOffset / cardWidth);
+    setCurrentTrendingIndex(index);
+  };
+
+  const renderTrendingMantraCard = ({ item }: { item: Feed }) => (
+    <TrendingMantraCard
+      mantra={item}
+      onPress={handleTrendingMantraPress}
+    />
+  );
+
+  const renderDeityCard = ({ item }: { item: Deity }) => (
+    <DeityCard
+      deity={item}
+      isSelected={selectedDeity?.id === item.id}
+      onPress={handleDeityPress}
+      language={currentLanguage}
+    />
+  );
 
   const renderMantraCard = useCallback(({ item: mantra }: { item: Feed }) => (
+    <HorizontalMantraCard
+      mantra={mantra}
+      onPress={handleMantraPress}
+    />
+  ), [handleMantraPress]);
+
+  const renderCategoryFilterButton = ({ item: category }: { item: Category }) => (
     <TouchableOpacity
-      style={styles.mantraCard}
-      onPress={() => handleMantraPress(mantra)}
+      key={category.id}
+      style={[
+        styles.filterButton,
+        selectedCategory?.id === category.id && styles.selectedFilterButton
+      ]}
+      onPress={() => handleCategoryFilterPress(category)}
       activeOpacity={0.8}
     >
-      <Image
-        source={{
-          uri: mantra.media?.[0]?.thumbnailUrl || mantra.media?.[0]?.mediaUrl || 'https://via.placeholder.com/80x80'
-        }}
-        style={styles.mantraImage}
-        resizeMode="cover"
-      />
+      <Text style={[
+        styles.filterText,
+        selectedCategory?.id === category.id && styles.selectedFilterText
+      ]}>
+        {category.displayName[currentLanguage as keyof typeof category.displayName] || category.displayName.en || category.categoryName}
+      </Text>
 
-      <View style={styles.mantraContent}>
-        <Text variant="body" weight="semibold" style={styles.mantraTitle} numberOfLines={2}>
-          {mantra.caption || 'Untitled Mantra'}
-        </Text>
-        <Text variant="caption" color="secondary" numberOfLines={1}>
-          {mantra.user?.name || 'Unknown Artist'}
-        </Text>
-
-        <View style={styles.mantraStats}>
-          <View style={styles.statItem}>
-            <Ionicons name="play" size={12} color={goldenTempleTheme.colors.text.secondary} />
-            <Text variant="caption" style={styles.statText}>
-              {mantra.viewsCount || 0}
-            </Text>
-          </View>
-          <View style={styles.statItem}>
-            <Ionicons name="time-outline" size={12} color={goldenTempleTheme.colors.text.secondary} />
-            <Text variant="caption" style={styles.statText}>
-              {mantra.media?.[0]?.duration ? `${Math.floor((mantra.media[0].duration || 0) / 60)}:${String((mantra.media[0].duration || 0) % 60).padStart(2, '0')}` : '0:00'}
-            </Text>
-          </View>
+      {/* Show cross icon when selected */}
+      {selectedCategory?.id === category.id && (
+        <View style={styles.crossIcon}>
+          <Ionicons name="close" size={14} color="#FFFFFF" />
         </View>
-      </View>
-
-      <TouchableOpacity
-        style={styles.playButton}
-        onPress={() => handleMantraPress(mantra)}
-        activeOpacity={0.7}
-      >
-        <Ionicons name="play" size={20} color="#ffffff" />
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={[styles.likeButton, mantra.isLiked && styles.likeButtonActive]}
-        onPress={(e) => handleLikePress(mantra.id.toString(), e)}
-        activeOpacity={0.7}
-      >
-        <Ionicons
-          name={mantra.isLiked ? "heart" : "heart-outline"}
-          size={18}
-          color={mantra.isLiked ? "#e91e63" : goldenTempleTheme.colors.text.secondary}
-        />
-      </TouchableOpacity>
+      )}
     </TouchableOpacity>
-  ), [handleMantraPress, handleLikePress]);
-
-  const renderCategoryCard = useCallback(({ item: category }: { item: Category }) => (
-    <TouchableOpacity
-      style={styles.categoryCard}
-      onPress={() => handleCategoryPress(selectedCategory === category.id ? null : category.id)}
-      activeOpacity={0.8}
-    >
-      <LinearGradient
-        colors={['#fff6da', '#f5ebc7']}
-        style={styles.categoryGradient}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-      >
-        <Text variant="body" weight="semibold" style={styles.categoryTitle}>
-          {category.displayName[language as keyof typeof category.displayName] || category.displayName.en}
-        </Text>
-        {selectedCategory === category.id && (
-          <View style={styles.selectedIndicator}>
-            <Ionicons name="checkmark" size={16} color="#ffffff" />
-          </View>
-        )}
-      </LinearGradient>
-    </TouchableOpacity>
-  ), [language, selectedCategory, handleCategoryPress]);
-
-  if (error) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButtonRow}
-            onPress={() => router.back()}
-          >
-            <Ionicons name="arrow-back" size={20} color={goldenTempleTheme.colors.text.primary} />
-            <Text style={styles.backText}>Back</Text>
-          </TouchableOpacity>
-          <Text style={styles.mainTitle}>Mantra Explorer</Text>
-        </View>
-        <View style={styles.errorContainer}>
-          <Ionicons name="alert-circle" size={48} color={goldenTempleTheme.colors.secondary.DEFAULT} />
-          <Text variant="body" style={styles.errorText}>{t('common.error')}</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={refresh}>
-            <Text variant="body" style={styles.retryText}>{t('common.retry')}</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    );
-  }
+  );
 
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
+        <Text style={styles.appTitle}>Bhav Bhakti</Text>
         <TouchableOpacity
-          style={styles.backButtonRow}
-          onPress={() => router.back()}
+          style={styles.profileButton}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            router.push('/(main)/profile');
+          }}
+          activeOpacity={0.7}
         >
-          <Ionicons name="arrow-back" size={20} color={goldenTempleTheme.colors.text.primary} />
-          <Text style={styles.backText}>Back</Text>
+          <Ionicons name="person" size={24} color="#ffffff" />
         </TouchableOpacity>
-        <Text style={styles.mainTitle}>Mantra Explorer</Text>
       </View>
 
       <ScrollView
@@ -216,93 +229,177 @@ export default function MantrasScreen() {
           />
         }
       >
-        {/* Find Perfect Mantra Card */}
-        <View style={[styles.section, styles.firstSection]}>
-          <TouchableOpacity
-            onPress={() => {
-              console.log('🎯 Find Your Perfect Mantra clicked');
-              router.push('/mantra-quiz' as any);
-            }}
-            activeOpacity={0.8}
-          >
-            <LinearGradient
-              colors={['#ff6b35', '#f7931e']}
-              style={styles.promoCard}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            >
-              <View style={styles.promoIconContainer}>
-                <Ionicons name="star-outline" size={32} color="#ffffff" />
-              </View>
-              <View style={styles.promoContent}>
-                <Text variant="h3" weight="bold" style={styles.promoTitle}>
-                  Find Your Perfect Mantra
-                </Text>
-                <Text variant="body" style={styles.promoDescription}>
-                  Based on your birth date, name and spiritual goals
-                </Text>
-              </View>
-            </LinearGradient>
+        {/* Search Bar */}
+        <View style={styles.searchContainer}>
+          <Ionicons
+            name="search-outline"
+            size={20}
+            color="#333333"
+            style={styles.searchIcon}
+          />
+          <TextInput
+            style={styles.searchInput}
+            placeholder={currentLanguage === 'hi' ? 'आरती, भजन या चालीसा खोजें...' : 'Search for Aarti, Bhajan, or Chalisa...'}
+            placeholderTextColor="#8B7355"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            returnKeyType="search"
+            onSubmitEditing={handleSearchSubmit}
+            autoCapitalize="none"
+            autoCorrect={false}
+            selectionColor="#D4824A"
+          />
+          <TouchableOpacity style={styles.micButton}>
+            <Ionicons
+              name="mic"
+              size={18}
+              color="#D4824A"
+            />
           </TouchableOpacity>
         </View>
 
-        {/* Browse by Category */}
+        {/* Right mantra for you - Trending Section */}
         <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text variant="h4" weight="bold" style={styles.sectionTitle}>
-              {t('mantras.browseBycategory')}
-            </Text>
-            {selectedCategory && (
-              <TouchableOpacity
-                style={styles.clearButton}
-                onPress={() => handleCategoryPress(null)}
-              >
-                <Text variant="caption" style={styles.clearButtonText}>
-                  {t('mantras.all')}
-                </Text>
-              </TouchableOpacity>
-            )}
-          </View>
+          <Text style={styles.sectionTitle}>
+            {currentLanguage === 'hi' ? 'आपके लिए सही मंत्र' : 'Right mantra for you'}
+          </Text>
 
-          {categoriesLoading ? (
+          {trendingLoading ? (
             <View style={styles.loadingContainer}>
-              <Text variant="body" color="secondary">
-                {t('common.loading')}
+              <Text color="secondary">Loading trending mantras...</Text>
+            </View>
+          ) : trendingError ? (
+            <View style={styles.errorContainer}>
+              <Text color="secondary">Failed to load trending mantras</Text>
+            </View>
+          ) : (
+            <>
+              <FlatList
+                data={trendingData?.feeds || []}
+                renderItem={renderTrendingMantraCard}
+                keyExtractor={(item) => item.id.toString()}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.trendingList}
+                onScroll={handleTrendingScroll}
+                scrollEventThrottle={16}
+                pagingEnabled={false}
+                snapToInterval={300}
+                decelerationRate="fast"
+              />
+
+              {/* Pagination Dots - Fixed below carousel */}
+              {trendingData?.feeds && trendingData.feeds.length > 1 && (
+                <View style={styles.paginationContainer}>
+                  {trendingData.feeds.map((_, index) => (
+                    <View
+                      key={index}
+                      style={[
+                        styles.paginationDot,
+                        index === currentTrendingIndex && styles.paginationDotActive
+                      ]}
+                    />
+                  ))}
+                </View>
+              )}
+            </>
+          )}
+        </View>
+
+        {/* Find your mantra */}
+        <View style={styles.section}>
+          <TouchableOpacity
+            style={styles.findMantraCard}
+            onPress={handleFindMantraPress}
+            activeOpacity={0.8}
+          >
+            {/* Image on the left - Commented out for now */}
+            {/* <View style={styles.findMantraImageContainer}>
+              <Image
+                source={require('../../assets/right-mantra.svg')}
+                style={styles.findMantraImage}
+                resizeMode="contain"
+              />
+            </View> */}
+
+            {/* Text content in the middle */}
+            <View style={styles.findMantraContent}>
+              <Text style={styles.findMantraTitle}>
+                {currentLanguage === 'hi' ? 'अपना मंत्र खोजें' : 'Find your mantra'}
+              </Text>
+              <Text style={styles.findMantraSubtitle}>
+                {currentLanguage === 'hi' ? 'आपके लिए सही मंत्र प्राप्त करें' : 'Get the right mantra for you'}
               </Text>
             </View>
-          ) : categoriesError ? (
-            <View style={styles.errorContainer}>
-              <Text variant="body" color="secondary">
-                {t('common.error')}
+
+            {/* Arrow on the right */}
+            <Ionicons name="chevron-forward" size={24} color="#CA3500" />
+          </TouchableOpacity>
+        </View>
+
+        {/* Choose your God */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>
+              {currentLanguage === 'hi' ? 'अपने भगवान को चुनें' : 'Choose your God'}
+            </Text>
+            <TouchableOpacity style={styles.seeAllButton}>
+              <Ionicons name="options-outline" size={16} color="#CA3500" />
+              <Text style={styles.seeAllText}>
+                {currentLanguage === 'hi' ? 'सभी फ़िल्टर देखें' : 'See all filters'}
               </Text>
+            </TouchableOpacity>
+          </View>
+
+          {deitiesLoading ? (
+            <View style={styles.loadingContainer}>
+              <Text color="secondary">Loading deities...</Text>
+            </View>
+          ) : deitiesError ? (
+            <View style={styles.errorContainer}>
+              <Text color="secondary">Failed to load deities</Text>
             </View>
           ) : (
             <FlatList
-              data={categories}
-              renderItem={renderCategoryCard}
+              data={deities}
+              renderItem={renderDeityCard}
               keyExtractor={(item) => item.id.toString()}
-              numColumns={2}
-              columnWrapperStyle={styles.categoryRow}
-              scrollEnabled={false}
-              contentContainerStyle={styles.categoriesContainer}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.deitiesList}
+            />
+          )}
+
+          {/* Filter Buttons - Dynamic Categories */}
+          {categoriesLoading ? (
+            <View style={styles.loadingContainer}>
+              <Text color="secondary">Loading categories...</Text>
+            </View>
+          ) : categoriesError ? (
+            <View style={styles.errorContainer}>
+              <Text color="secondary">Failed to load categories</Text>
+            </View>
+          ) : (
+            <FlatList
+              data={mantraCategories.slice(0, 6)} // Show first 6 categories
+              renderItem={renderCategoryFilterButton}
+              keyExtractor={(item) => item.id.toString()}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.filtersContainer}
             />
           )}
         </View>
 
-        {/* All Mantras Section */}
+        {/* All mantra section */}
         <View style={styles.section}>
-          <Text variant="h4" weight="bold" style={styles.sectionTitle}>
-            {selectedCategory
-              ? t('mantras.selectedMantras')
-              : t('mantras.allMantras')
-            }
+          <Text style={styles.sectionTitle}>
+            {currentLanguage === 'hi' ? 'सभी मंत्र' : 'All mantra'}
           </Text>
 
           {isLoading ? (
             <View style={styles.loadingContainer}>
-              <Text variant="body" color="secondary">
-                {t('common.loading')}
-              </Text>
+              <Text color="secondary">Loading mantras...</Text>
             </View>
           ) : mantras.length > 0 ? (
             <FlatList
@@ -316,22 +413,16 @@ export default function MantrasScreen() {
               ListFooterComponent={() =>
                 isLoadingMore ? (
                   <View style={styles.loadingMore}>
-                    <Text variant="caption" color="secondary">
-                      {t('common.loading')}
-                    </Text>
+                    <Text color="secondary">Loading more...</Text>
                   </View>
                 ) : null
               }
             />
           ) : (
             <View style={styles.emptyContainer}>
-              <Ionicons name="musical-notes-outline" size={48} color={goldenTempleTheme.colors.text.secondary} />
-              <Text variant="body" style={styles.emptyText}>
-                {t('mantras.noMantrasFound')}
-              </Text>
-              <Text variant="caption" color="secondary" style={styles.emptySubtext}>
-                {t('mantras.tryDifferentCategory')}
-              </Text>
+              <Ionicons name="musical-notes-outline" size={48} color="#8B7355" />
+              <Text style={styles.emptyText}>No mantras found</Text>
+              <Text style={styles.emptySubtext}>Try different filters</Text>
             </View>
           )}
         </View>
@@ -343,151 +434,46 @@ export default function MantrasScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff6da',
+    backgroundColor: '#fff6da', // Same as homepage
   },
   header: {
-    paddingHorizontal: goldenTempleTheme.spacing.md,
-    paddingVertical: goldenTempleTheme.spacing.md,
-    backgroundColor: '#fff6da',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0, 0, 0, 0.1)',
-  },
-  backButtonRow: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: goldenTempleTheme.spacing.sm,
+    paddingHorizontal: goldenTempleTheme.spacing.lg,
+    paddingTop: goldenTempleTheme.spacing.lg,
+    paddingBottom: 4,
+    minHeight: 60,
   },
-  backText: {
-    marginLeft: goldenTempleTheme.spacing.xs,
-    color: goldenTempleTheme.colors.text.primary,
-    fontSize: 16,
+  appTitle: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#000000',
+    lineHeight: 28,
+    includeFontPadding: false,
   },
-  mainTitle: {
-    color: goldenTempleTheme.colors.text.primary,
-    fontSize: 20,
-    fontWeight: '600',
+  profileButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#D4824A',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   scrollView: {
     flex: 1,
   },
-  section: {
-    paddingHorizontal: goldenTempleTheme.spacing.md,
-    marginBottom: goldenTempleTheme.spacing.lg,
-  },
-  firstSection: {
-    marginTop: goldenTempleTheme.spacing.lg,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: goldenTempleTheme.spacing.sm,
-  },
-  sectionTitle: {
-    color: goldenTempleTheme.colors.text.primary,
-    marginBottom: goldenTempleTheme.spacing.md,
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  sectionSubtitle: {
-    color: goldenTempleTheme.colors.text.secondary,
-    marginBottom: goldenTempleTheme.spacing.md,
-  },
-  clearButton: {
-    backgroundColor: goldenTempleTheme.colors.primary.DEFAULT,
-    paddingHorizontal: goldenTempleTheme.spacing.md,
-    paddingVertical: goldenTempleTheme.spacing.sm,
-    borderRadius: 12,
-    shadowColor: goldenTempleTheme.colors.primary.DEFAULT,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  clearButtonText: {
-    color: '#ffffff',
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  promoCard: {
-    borderRadius: 16,
-    padding: goldenTempleTheme.spacing.lg,
+  searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  promoIconContainer: {
-    width: 56,
-    height: 56,
+    backgroundColor: '#f7ebc4',
     borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: goldenTempleTheme.spacing.md,
-  },
-  promoContent: {
-    flex: 1,
-  },
-  promoTitle: {
-    color: '#ffffff',
-    marginBottom: goldenTempleTheme.spacing.xs,
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  promoDescription: {
-    color: 'rgba(255, 255, 255, 0.9)',
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  categoriesContainer: {
-    gap: goldenTempleTheme.spacing.sm,
-  },
-  categoryRow: {
-    justifyContent: 'space-between',
-  },
-  categoryCard: {
-    width: '48%',
-    borderRadius: 12,
-    overflow: 'hidden',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginHorizontal: goldenTempleTheme.spacing.lg,
+    marginVertical: goldenTempleTheme.spacing.sm,
     borderWidth: 1,
-    borderColor: '#E8DDD1',
-  },
-  categoryGradient: {
-    padding: goldenTempleTheme.spacing.md,
-    alignItems: 'center',
-    minHeight: 80,
-    justifyContent: 'center',
-    position: 'relative',
-  },
-  categoryTitle: {
-    color: '#C41E3A',
-    textAlign: 'center',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  selectedIndicator: {
-    position: 'absolute',
-    top: goldenTempleTheme.spacing.sm,
-    right: goldenTempleTheme.spacing.sm,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    borderRadius: 14,
-    width: 28,
-    height: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: 'rgba(0, 0, 0, 0.2)',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 4,
-  },
-  mantrasContainer: {
-    gap: goldenTempleTheme.spacing.md,
-  },
-  mantraCard: {
-    backgroundColor: goldenTempleTheme.colors.backgrounds.card,
-    borderRadius: 16,
-    padding: goldenTempleTheme.spacing.lg,
-    flexDirection: 'row',
-    alignItems: 'center',
+    borderColor: '#D4C4A8',
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -496,113 +482,176 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 4,
-    borderWidth: 0.5,
-    borderColor: 'rgba(212, 175, 55, 0.1)',
   },
-  mantraImage: {
-    width: 64,
-    height: 64,
-    borderRadius: 12,
-    backgroundColor: goldenTempleTheme.colors.muted.DEFAULT,
+  searchIcon: {
+    marginRight: 12,
   },
-  mantraContent: {
+  searchInput: {
     flex: 1,
-    marginLeft: goldenTempleTheme.spacing.md,
-    marginRight: goldenTempleTheme.spacing.sm,
+    fontSize: 16,
+    color: '#333333',
+    fontWeight: '400',
+    padding: 0,
+    margin: 0,
+    height: 20,
   },
-  mantraTitle: {
-    color: goldenTempleTheme.colors.text.primary,
-    marginBottom: goldenTempleTheme.spacing.xs / 2,
+  micButton: {
+    marginLeft: 8,
+    padding: 2,
   },
-  mantraStats: {
+  section: {
+    paddingHorizontal: 20,
+    marginBottom: 24,
+  },
+  sectionHeader: {
     flexDirection: 'row',
-    marginTop: goldenTempleTheme.spacing.xs,
-    gap: goldenTempleTheme.spacing.md,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
   },
-  statItem: {
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#CA3500',
+  },
+  seeAllButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
   },
-  statText: {
-    color: goldenTempleTheme.colors.text.secondary,
-  },
-  playButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: goldenTempleTheme.colors.primary.DEFAULT,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: goldenTempleTheme.spacing.md,
-    shadowColor: goldenTempleTheme.colors.primary.DEFAULT,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  likeButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: goldenTempleTheme.colors.backgrounds.card,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: goldenTempleTheme.colors.primary[200],
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  likeButtonActive: {
-    backgroundColor: 'rgba(233, 30, 99, 0.1)',
-    borderColor: '#e91e63',
-    shadowColor: '#e91e63',
-    shadowOpacity: 0.2,
+  seeAllText: {
+    fontSize: 14,
+    color: '#CA3500',
+    fontWeight: '500',
   },
   loadingContainer: {
     alignItems: 'center',
-    paddingVertical: goldenTempleTheme.spacing.xl * 2,
+    paddingVertical: 40,
+  },
+  errorContainer: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+
+  trendingList: {
+    paddingLeft: 0, // Align with section content (20 - 8 margin = 12)
+    paddingRight: 0,
+    paddingTop: 12,
+  },
+  paginationContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 8,
+    paddingBottom: 0,
+    gap: 8,
+  },
+  paginationDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#E8DDD1',
+  },
+  paginationDotActive: {
+    backgroundColor: '#CA3500',
+  },
+  findMantraCard: {
+    backgroundColor: '#F7EBC4',
+    borderRadius: 16,
+    padding: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E8DDD1',
+    // height: 120, // Commented out for now since no image
+    // overflow: 'hidden', // Commented out for now
+  },
+  findMantraContent: {
+    flex: 1,
+    // paddingHorizontal: 20, // Commented out since card has padding now
+    // paddingVertical: 16, // Commented out since card has padding now
+  },
+  findMantraTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#CA3500',
+    marginBottom: 4,
+  },
+  findMantraSubtitle: {
+    fontSize: 16,
+    color: '#CA3500',
+  },
+  // Commented out image-related styles for now
+  // findMantraImageContainer: {
+  //   width: 120,
+  //   height: '100%',
+  //   backgroundColor: '#F5E6D3',
+  //   justifyContent: 'center',
+  //   alignItems: 'center',
+  // },
+  // findMantraImage: {
+  //   width: 100,
+  //   height: 100,
+  // },
+  // findMantraArrow: {
+  //   paddingRight: 20,
+  // },
+  deitiesList: {
+    paddingLeft: 20,
+    marginBottom: 12,
+  },
+  filtersContainer: {
+    paddingLeft: 20,
+    paddingRight: 12,
+    gap: 12,
+  },
+  filterButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#CA3500',
+    marginHorizontal: 4,
+    gap: 6,
+  },
+  selectedFilterButton: {
+    backgroundColor: '#CA3500',
+  },
+  filterText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#CA3500',
+  },
+  selectedFilterText: {
+    color: '#FFFFFF',
+  },
+  crossIcon: {
+    marginLeft: 4,
+  },
+  mantrasContainer: {
+    gap: 12,
+    paddingHorizontal: 0,
   },
   loadingMore: {
     alignItems: 'center',
-    paddingVertical: goldenTempleTheme.spacing.lg,
+    paddingVertical: 20,
   },
   emptyContainer: {
     alignItems: 'center',
-    paddingVertical: goldenTempleTheme.spacing.xl * 2,
-    paddingHorizontal: goldenTempleTheme.spacing.lg,
+    paddingVertical: 40,
   },
   emptyText: {
-    color: goldenTempleTheme.colors.text.primary,
-    marginTop: goldenTempleTheme.spacing.sm,
-    marginBottom: goldenTempleTheme.spacing.xs,
+    fontSize: 16,
+    color: '#8B7355',
+    marginTop: 12,
+    marginBottom: 4,
   },
   emptySubtext: {
+    fontSize: 14,
+    color: '#8B7355',
     textAlign: 'center',
-  },
-  errorContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: goldenTempleTheme.spacing.lg,
-  },
-  errorText: {
-    color: goldenTempleTheme.colors.text.primary,
-    marginTop: goldenTempleTheme.spacing.md,
-    marginBottom: goldenTempleTheme.spacing.lg,
-    textAlign: 'center',
-  },
-  retryButton: {
-    backgroundColor: goldenTempleTheme.colors.primary.DEFAULT,
-    paddingHorizontal: goldenTempleTheme.spacing.lg,
-    paddingVertical: goldenTempleTheme.spacing.sm,
-    borderRadius: goldenTempleTheme.borderRadius.md,
-  },
-  retryText: {
-    color: '#ffffff',
-    fontWeight: '600',
   },
 });

@@ -9,6 +9,7 @@ import { usePremiumStore } from '@/store/premiumStore';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useI18nStore } from '@/shared/stores/i18nStore';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
+import { useOnboardingStore } from '@/shared/stores/onboardingStore';
 
 export default function ProfileScreen() {
   const { user, logout } = useAuth();
@@ -16,13 +17,12 @@ export default function ProfileScreen() {
   const { t, language } = useTranslation();
   const { setLanguage, getLanguageLabel } = useI18nStore();
   const { contentPadding } = useTabBarHeight();
+  const { resetOnboarding } = useOnboardingStore();
   const [showLanguageModal, setShowLanguageModal] = useState(false);
 
   const languages = [
     { code: 'hi', name: 'हिंदी' },
     { code: 'en', name: 'English' },
-    { code: 'gu', name: 'ગુજરાતી' },
-    { code: 'bn', name: 'বাংলা' },
   ];
 
   const handleLogout = () => {
@@ -42,6 +42,24 @@ export default function ProfileScreen() {
 
   const handleEditProfile = () => {
     Alert.alert(t('profile.editProfile'), 'This feature is coming soon!');
+  };
+
+  const handleResetOnboarding = () => {
+    Alert.alert(
+      'Reset Onboarding',
+      'This will reset the app to show language selection on next launch. Are you sure?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reset',
+          style: 'destructive',
+          onPress: () => {
+            resetOnboarding();
+            Alert.alert('Success', 'Onboarding has been reset. Restart the app to see the language selection screen.');
+          },
+        },
+      ]
+    );
   };
 
   const accountOptions = [
@@ -75,6 +93,7 @@ export default function ProfileScreen() {
       icon: 'notifications-outline',
       description: language === 'hi' ? 'सूचना प्राथमिकताएं प्रबंधित करें' : 'Manage notification preferences',
       onPress: () => Alert.alert(t('profile.notifications'), language === 'hi' ? 'अपनी सूचनाएं कॉन्फ़िगर करें' : 'Configure your notifications'),
+      onLongPress: undefined,
     },
     {
       id: 2,
@@ -82,6 +101,7 @@ export default function ProfileScreen() {
       icon: 'shield-checkmark-outline',
       description: language === 'hi' ? 'अपनी गोपनीयता सेटिंग्स नियंत्रित करें' : 'Control your privacy settings',
       onPress: () => Alert.alert(t('profile.privacy'), language === 'hi' ? 'गोपनीयता सेटिंग्स प्रबंधित करें' : 'Manage privacy settings'),
+      onLongPress: undefined,
     },
     {
       id: 3,
@@ -89,6 +109,7 @@ export default function ProfileScreen() {
       icon: 'language-outline',
       description: getLanguageLabel(language),
       onPress: () => setShowLanguageModal(true),
+      onLongPress: undefined,
     },
     {
       id: 4,
@@ -96,6 +117,7 @@ export default function ProfileScreen() {
       icon: 'help-circle-outline',
       description: language === 'hi' ? 'सहायता प्राप्त करें और संपर्क करें' : 'Get help and contact support',
       onPress: () => Alert.alert(language === 'hi' ? 'सहायता' : 'Support', language === 'hi' ? 'हमारी सहायता टीम से संपर्क करें' : 'Contact our support team'),
+      onLongPress: undefined,
     },
     {
       id: 5,
@@ -103,6 +125,7 @@ export default function ProfileScreen() {
       icon: 'information-circle-outline',
       description: language === 'hi' ? 'ऐप संस्करण 1.0.0' : 'App version 1.0.0',
       onPress: () => Alert.alert(t('profile.aboutUs'), 'Divine Wallpapers v1.0.0'),
+      onLongPress: handleResetOnboarding,
     },
   ];
 
@@ -247,6 +270,7 @@ export default function ProfileScreen() {
                 key={option.id}
                 style={styles.optionItem}
                 onPress={option.onPress}
+                onLongPress={option.onLongPress}
                 activeOpacity={0.7}
               >
                 <View style={styles.optionIcon}>

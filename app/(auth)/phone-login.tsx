@@ -6,6 +6,7 @@ import {
   Platform,
   Alert,
   StyleSheet,
+  Image,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useForm, Controller } from 'react-hook-form';
@@ -102,7 +103,6 @@ export default function PhoneLoginScreen() {
         phoneNumber: data.phoneNumber,
         countryCode: selectedCountry.callingCode,
       });
-      console.log(response);
 
       if (response.success) {
         // Save phone number for back navigation
@@ -150,10 +150,14 @@ export default function PhoneLoginScreen() {
             {/* Header */}
             <View style={styles.header}>
               <View style={styles.iconContainer}>
-                <Text style={styles.icon}>📱</Text>
+                <Image
+                  source={{ uri: 'https://d12b36sm0rczqk.cloudfront.net/app-assets/bhavbhaktiv1.webp' }}
+                  style={styles.logo}
+                  resizeMode="contain"
+                />
               </View>
               <Text variant="h2" weight="bold" align="center" style={styles.title}>
-                Welcome Back
+                Bhav bhakti
               </Text>
               <Text variant="body" color="secondary" align="center" style={styles.subtitle}>
                 Enter your phone number to receive a verification code
@@ -245,19 +249,19 @@ const styles = StyleSheet.create({
     marginBottom: 48,
   },
   iconContainer: {
-    width: 80,
-    height: 80,
-    backgroundColor: '#dbeafe',
-    borderRadius: 40,
+    width: 120,
+    height: 120,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 24,
   },
-  icon: {
-    fontSize: 48,
+  logo: {
+    width: 120,
+    height: 120,
   },
   title: {
     marginBottom: 12,
+    color: '#D4824A',
   },
   subtitle: {
     paddingHorizontal: 16,

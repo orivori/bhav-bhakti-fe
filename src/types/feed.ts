@@ -38,7 +38,7 @@ export interface Feed {
   title?: Record<string, string> | null;
   caption?: string;
   location?: string;
-  type: 'general' | 'mantra' | 'ringtone' | 'wallpaper';
+  type: 'general' | 'mantra' | 'ringtone' | 'wallpaper' |'video';
   categoryId?: number | null;
   category?: Category | null;
   deityId?: number | null;

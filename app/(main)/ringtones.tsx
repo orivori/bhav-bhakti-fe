@@ -15,25 +15,28 @@ import { Text } from '@/components/atoms';
 import RingtoneFeedCard from '@/components/molecules/RingtoneFeedCard/RingtoneFeedCard';
 import { Feed } from '@/types/feed';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
-import { useRingtones } from '@/features/feed/hooks/useRingtones';
+import { useFeed } from '@/features/feed/hooks/useFeed';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
 
 export default function RingtonesPage() {
   const { contentPadding } = useTabBarHeight();
   const {
-    ringtones,
+    feeds: ringtones,
     isLoading,
     isLoadingMore,
     isRefreshing,
     hasMore,
     error,
-    loadRingtones,
-    handleRefresh,
-    handleLoadMore,
-    handleLike,
-    handleShare,
-    handleDownload,
-  } = useRingtones();
+    retry: loadRingtones,
+    refresh: handleRefresh,
+    loadMore: handleLoadMore,
+    likeFeed: handleLike,
+    shareFeed: handleShare,
+    downloadFeed: handleDownload,
+  } = useFeed({
+    limit: 10,
+    // Remove filter temporarily to see if any feeds show up
+  });
 
   const handleBack = useCallback(() => {
     router.back();

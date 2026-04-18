@@ -28,10 +28,6 @@ class ApiClient {
         if ( tokens?.accessToken) {
           config.headers.Authorization = `Bearer ${tokens.accessToken}`;
         }
-        console.log('🚀 API Request:', {
-          url: `URL===>${config.baseURL}${config.url}`,
-          payload: config.data,
-        });
 
         return config;
       },
@@ -44,26 +40,12 @@ class ApiClient {
     // Response interceptor to handle token refresh and log responses
     this.client.interceptors.response.use(
       (response: AxiosResponse) => {
-        console.log('✅ API Response:', {
-          data: response.data?.data,
-        });
 
         return response;
       },
       async (error: AxiosError) => {
         const originalRequest = error.config as any;
 
-        // Log API error details
-        console.error('❌ API Error:', {
-          method: error.config?.method?.toUpperCase(),
-          url: `${error.config?.baseURL}${error.config?.url}`,
-          status: error.response?.status,
-          statusText: error.response?.statusText,
-          headers: error.response?.headers,
-          errorData: error.response?.data,
-          message: error.message,
-          timestamp: new Date().toISOString(),
-        });
 
         if (error.response?.status === 401 && !originalRequest._retry) {
           if (this.isRefreshing) {
@@ -95,7 +77,6 @@ class ApiClient {
           } catch (refreshError) {
             // Refresh failed, logout user
             await secureStorage.clearAll();
-            console.error('❌ Token refresh failed:', refreshError);
             // You can emit an event here to redirect to login
             return Promise.reject(refreshError);
           } finally {
@@ -134,20 +115,16 @@ class ApiClient {
 
   // Public methods
   async get<T>(url: string, config?: any): Promise<T> {
-     console.log(`url:${url}`)
     const response = await this.client.get(url, config);
-    console.log("response",response)
     return response.data;
   }
 
   async post<T>(url: string, data?: any, config?: any): Promise<T> {
-     console.log(`url:${url}`,data)
     const response = await this.client.post(url, data, config);
     return response.data;
   }
 
   async put<T>(url: string, data?: any, config?: any): Promise<T> {
-     console.log(`url:${url}`,data)
     const response = await this.client.put(url, data, config);
     return response.data;
   }
