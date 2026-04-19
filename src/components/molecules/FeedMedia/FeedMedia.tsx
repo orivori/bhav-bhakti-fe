@@ -24,7 +24,7 @@ interface FeedMediaProps {
 }
 
 const { width } = Dimensions.get('window');
-const MEDIA_HEIGHT = width * 1.2; // 4:5 aspect ratio similar to Instagram
+const MEDIA_HEIGHT = width * 0.75; // 4:3 aspect ratio for better image display
 
 export default function FeedMedia({
   media,
@@ -34,17 +34,18 @@ export default function FeedMedia({
   showCenterPlayButton = true,
   style,
 }: FeedMediaProps) {
-  const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
+  const [activeMediaIndex, setCurrentMediaIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [sound, setSound] = useState<Audio.Sound | null>(null);
 
+
   // Safety check for media array
-  const currentMedia = media && media.length > 0 ? media[currentMediaIndex] : null;
+  const activeMedia = media && media.length > 0 ? media[activeMediaIndex] : null;
 
   const handleNextMedia = () => {
-    if (currentMediaIndex < media.length - 1) {
-      setCurrentMediaIndex(currentMediaIndex + 1);
+    if (activeMediaIndex < media.length - 1) {
+      setCurrentMediaIndex(activeMediaIndex + 1);
       setIsPlaying(false);
       if (sound) {
         sound.unloadAsync();
@@ -54,8 +55,8 @@ export default function FeedMedia({
   };
 
   const handlePrevMedia = () => {
-    if (currentMediaIndex > 0) {
-      setCurrentMediaIndex(currentMediaIndex - 1);
+    if (activeMediaIndex > 0) {
+      setCurrentMediaIndex(activeMediaIndex - 1);
       setIsPlaying(false);
       if (sound) {
         sound.unloadAsync();
@@ -66,14 +67,14 @@ export default function FeedMedia({
 
   const handleMediaPress = () => {
     if (onMediaPress) {
-      onMediaPress(currentMediaIndex);
+      onMediaPress(activeMediaIndex);
     }
   };
 
   const handlePlayAudio = async () => {
     try {
-      // Safety check for currentMedia
-      if (!currentMedia) {
+      // Safety check for activeMedia
+      if (!activeMedia) {
         return;
       }
 
@@ -85,7 +86,7 @@ export default function FeedMedia({
       }
 
       // For pure audio media, use mediaUrl. For image_audio, use audioUrl
-      const audioUri = currentMedia.audioUrl || currentMedia.mediaUrl;
+      const audioUri = activeMedia.audioUrl || activeMedia.mediaUrl;
 
       if (audioUri) {
         setIsLoading(true);
@@ -111,22 +112,25 @@ export default function FeedMedia({
   };
 
   const renderMedia = () => {
-    // Safety check for currentMedia
-    if (!currentMedia) {
+    // Safety check for activeMedia
+    if (!activeMedia) {
       return (
-        <View style={[styles.media, { backgroundColor: '#f0f0f0', justifyContent: 'center', alignItems: 'center' }]}>
+        <View style={[styles.media, style, { backgroundColor: '#f0f0f0', justifyContent: 'center', alignItems: 'center' }]}>
           <Text>No media available</Text>
         </View>
       );
     }
 
-    switch (currentMedia.type) {
+    // Determine the image style - use passed style if provided, otherwise use default
+    const imageStyle = style || styles.media;
+
+    switch (activeMedia.type) {
       case 'image':
         return (
           <TouchableOpacity onPress={handleMediaPress} activeOpacity={0.9}>
             <Image
-              source={{ uri: currentMedia.mediaUrl }}
-              style={styles.media}
+              source={{ uri: activeMedia.mediaUrl }}
+              style={imageStyle}
               resizeMode="cover"
             />
           </TouchableOpacity>
@@ -135,15 +139,15 @@ export default function FeedMedia({
       case 'video':
         return (
           <Video
-            source={{ uri: currentMedia.mediaUrl }}
-            style={styles.media}
+            source={{ uri: activeMedia.mediaUrl }}
+            style={imageStyle}
             useNativeControls={showControls}
             resizeMode={ResizeMode.COVER}
             isLooping
             shouldPlay={autoPlay}
             posterSource={
-              currentMedia.thumbnailUrl
-                ? { uri: currentMedia.thumbnailUrl }
+              activeMedia.thumbnailUrl
+                ? { uri: activeMedia.thumbnailUrl }
                 : undefined
             }
           />
@@ -152,12 +156,12 @@ export default function FeedMedia({
       case 'audio':
         return (
           <TouchableOpacity onPress={handleMediaPress} activeOpacity={0.9}>
-            {currentMedia.thumbnailUrl ? (
+            {activeMedia.thumbnailUrl ? (
               // Mantra with thumbnail - show thumbnail with play button overlay (like the user's image)
-              <View style={styles.mantraContainer}>
+              <View style={[styles.mantraContainer, style]}>
                 <Image
-                  source={{ uri: currentMedia.thumbnailUrl }}
-                  style={styles.media}
+                  source={{ uri: activeMedia.thumbnailUrl }}
+                  style={imageStyle}
                   resizeMode="cover"
                 />
 
@@ -165,10 +169,10 @@ export default function FeedMedia({
                 <View style={styles.mantraOverlay} />
 
                 {/* Duration Badge (top right) */}
-                {currentMedia.duration && (
+                {activeMedia.duration && (
                   <View style={styles.durationBadge}>
                     <Text style={styles.durationText}>
-                      {Math.floor(currentMedia.duration / 60)}:{(currentMedia.duration % 60).toString().padStart(2, '0')}
+                      {Math.floor(activeMedia.duration / 60)}:{(activeMedia.duration % 60).toString().padStart(2, '0')}
                     </Text>
                   </View>
                 )}
@@ -198,7 +202,7 @@ export default function FeedMedia({
               </View>
             ) : (
               // Audio without thumbnail - show icon design
-              <View style={styles.audioContainer}>
+              <View style={[styles.audioContainer, style]}>
                 <View style={styles.audioIconContainer}>
                   <Ionicons
                     name="musical-notes"
@@ -232,12 +236,12 @@ export default function FeedMedia({
           <View>
             <TouchableOpacity onPress={handleMediaPress} activeOpacity={0.9}>
               <Image
-                source={{ uri: currentMedia.mediaUrl }}
-                style={styles.media}
+                source={{ uri: activeMedia.mediaUrl }}
+                style={imageStyle}
                 resizeMode="cover"
               />
             </TouchableOpacity>
-            {currentMedia.audioUrl && (
+            {activeMedia.audioUrl && (
               <TouchableOpacity
                 style={styles.audioButton}
                 onPress={handlePlayAudio}
@@ -259,7 +263,7 @@ export default function FeedMedia({
 
       default:
         return (
-          <View style={styles.errorContainer}>
+          <View style={[styles.errorContainer, style]}>
             <Text variant="body" color="secondary">
               Unsupported media type
             </Text>
@@ -269,13 +273,13 @@ export default function FeedMedia({
   };
 
   return (
-    <View style={[styles.container, style]}>
+    <View style={styles.container}>
       {renderMedia()}
 
       {/* Media Navigation */}
       {media.length > 1 && (
         <>
-          {currentMediaIndex > 0 && (
+          {activeMediaIndex > 0 && (
             <TouchableOpacity
               style={[styles.navButton, styles.navButtonLeft]}
               onPress={handlePrevMedia}
@@ -284,7 +288,7 @@ export default function FeedMedia({
             </TouchableOpacity>
           )}
 
-          {currentMediaIndex < media.length - 1 && (
+          {activeMediaIndex < media.length - 1 && (
             <TouchableOpacity
               style={[styles.navButton, styles.navButtonRight]}
               onPress={handleNextMedia}
@@ -300,7 +304,7 @@ export default function FeedMedia({
                 key={index}
                 style={[
                   styles.indicator,
-                  index === currentMediaIndex && styles.indicatorActive,
+                  index === activeMediaIndex && styles.indicatorActive,
                 ]}
               />
             ))}
@@ -309,11 +313,11 @@ export default function FeedMedia({
       )}
 
       {/* Duration Badge for Videos */}
-      {currentMedia && currentMedia.type === 'video' && currentMedia.duration && (
+      {activeMedia && activeMedia.type === 'video' && activeMedia.duration && (
         <View style={styles.durationBadge}>
           <Text variant="caption" style={styles.durationText}>
-            {Math.floor(currentMedia.duration / 60)}:
-            {(currentMedia.duration % 60).toString().padStart(2, '0')}
+            {Math.floor(activeMedia.duration / 60)}:
+            {(activeMedia.duration % 60).toString().padStart(2, '0')}
           </Text>
         </View>
       )}

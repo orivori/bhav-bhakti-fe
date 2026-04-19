@@ -552,7 +552,7 @@ const styles = StyleSheet.create({
   },
   mantraImage: {
     width: '100%',
-    height: 435,
+    aspectRatio: 4/3,
     backgroundColor: '#F5E6D3',
   },
   mantraContentContainer: {

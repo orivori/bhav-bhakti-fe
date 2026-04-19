@@ -26,6 +26,7 @@ import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { feedService } from '@/features/feed/services/feedService';
 import { useFeedStore } from '@/store/feedStore';
 import { useTranslation } from '@/hooks/useTranslation';
+import RingtonePlayer from '../RingtonePlayer/RingtonePlayer';
 
 // Shared HeartIcon — same as FeedCard
 const HeartIcon = ({ width: w, height: h, fill, stroke, strokeWidth }: {
@@ -57,11 +58,8 @@ export default function RingtoneFeedCard({
   onShare,
   onDownload,
 }: RingtoneFeedCardProps) {
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isSettingRingtone, setIsSettingRingtone] = useState(false);
-  const [sound, setSound] = useState<Audio.Sound | null>(null);
   const [playbackPosition, setPlaybackPosition] = useState(0);
   const [duration, setDuration] = useState(0);
 
@@ -74,6 +72,7 @@ export default function RingtoneFeedCard({
     setLocalIsLiked(feed.isLiked);
     setLocalLikesCount(feed.likesCount);
   }, [feed.isLiked, feed.likesCount]);
+
 
   const { toggleLike, incrementDownload, incrementShare, incrementView } = useFeedStore();
   const { language } = useTranslation();
@@ -98,14 +97,7 @@ export default function RingtoneFeedCard({
     };
 
     setupAudio();
-
-    // Cleanup sound when component unmounts
-    return () => {
-      if (sound) {
-        sound.unloadAsync();
-      }
-    };
-  }, [sound]);
+  }, []);
 
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -119,97 +111,6 @@ export default function RingtoneFeedCard({
     return `${(count / 1000000).toFixed(1)}M`;
   };
 
-  const handlePlayPause = async () => {
-    console.log('🎵 Play/Pause button pressed, isPlaying:', isPlaying, 'sound exists:', !!sound);
-
-    try {
-      if (sound) {
-        // Check if sound is actually loaded
-        const status = await sound.getStatusAsync();
-        console.log('🔍 Sound status:', status);
-
-        if (status.isLoaded) {
-          if (isPlaying) {
-            console.log('⏸️ Pausing audio...');
-            await sound.pauseAsync();
-            setIsPlaying(false);
-          } else {
-            console.log('▶️ Resuming audio...');
-            await sound.playAsync();
-            setIsPlaying(true);
-          }
-          return;
-        } else {
-          console.log('🔄 Sound exists but not loaded, recreating...');
-          // Sound exists but not loaded, clean it up and recreate
-          await sound.unloadAsync();
-          setSound(null);
-        }
-      }
-
-      // Create new sound
-      setIsLoading(true);
-      const audioUri = audioMedia.audioUrl || audioMedia.mediaUrl;
-      console.log('🎧 Audio URI:', audioUri);
-      console.log('🎼 Audio media:', audioMedia);
-
-      if (audioUri) {
-        console.log('📱 Creating new sound instance...');
-        const { sound: newSound } = await Audio.Sound.createAsync(
-          { uri: audioUri },
-          { shouldPlay: true }
-        );
-
-        console.log('✅ Sound created successfully');
-        setSound(newSound);
-        setIsPlaying(true);
-
-        // Set up playback status updates
-        newSound.setOnPlaybackStatusUpdate((status) => {
-          if (status.isLoaded) {
-            setPlaybackPosition(status.positionMillis || 0);
-            setDuration(status.durationMillis || 0);
-
-            // Update playing state based on actual playback status
-            setIsPlaying(status.isPlaying || false);
-
-            if (status.didJustFinish) {
-              console.log('🏁 Audio finished playing');
-              setIsPlaying(false);
-              setPlaybackPosition(0);
-              // Clean up the sound when finished
-              newSound.unloadAsync().then(() => {
-                setSound(null);
-              });
-            }
-          } else {
-            console.log('⚠️ Sound became unloaded');
-            setIsPlaying(false);
-            setSound(null);
-          }
-        });
-
-        // Track view
-        try {
-          await feedService.viewFeed(feed.id.toString());
-          incrementView(feed.id.toString());
-          console.log('📊 View tracked successfully');
-        } catch (viewError) {
-          console.error('Error tracking view:', viewError);
-          // Don't show alert for view tracking errors
-        }
-      } else {
-        console.error('❌ No audio URI found');
-        Alert.alert('Error', 'No audio file found for this ringtone.');
-      }
-    } catch (error) {
-      console.error('❌ Error playing audio:', error);
-      Alert.alert('Error', 'Failed to play ringtone. Please try again.');
-      setIsPlaying(false);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const handleLike = async () => {
     console.log('❤️ Like button pressed for ringtone:', feed.id, 'current localIsLiked:', localIsLiked, 'localCount:', localLikesCount);
@@ -434,19 +335,7 @@ export default function RingtoneFeedCard({
 
   // Handle progress bar seeking
   const handleSeek = async (event: any) => {
-    if (sound && duration > 0) {
-      try {
-        const { locationX } = event.nativeEvent;
-        const progressBarWidth = width - 80; // Account for card padding
-        const percentage = Math.max(0, Math.min(locationX / progressBarWidth, 1));
-        const seekPosition = duration * percentage;
-
-        await sound.setPositionAsync(seekPosition);
-        setPlaybackPosition(seekPosition);
-      } catch (error) {
-        console.error('Error seeking:', error);
-      }
-    }
+    // Seeking functionality removed - handled by individual RingtonePlayer
   };
 
   const formatTime = (millis: number): string => {
@@ -490,23 +379,14 @@ export default function RingtoneFeedCard({
           {/* Play Controls Row */}
           <View style={styles.playControlsContainer}>
             {/* Play Button */}
-            <TouchableOpacity
-              style={styles.playButton}
-              onPress={handlePlayPause}
-              disabled={isLoading}
-              activeOpacity={0.8}
-            >
-              {isLoading ? (
-                <ActivityIndicator color="#C41E3A" size="small" />
-              ) : (
-                <Ionicons
-                  name={isPlaying ? 'pause' : 'play'}
-                  size={20}
-                  color="#C41E3A"
-                  style={{ marginLeft: isPlaying ? 0 : 2 }}
-                />
-              )}
-            </TouchableOpacity>
+            <RingtonePlayer
+              feedId={feed.id.toString()}
+              audioUri={audioMedia.audioUrl || audioMedia.mediaUrl}
+              onViewTrack={() => {
+                feedService.viewFeed(feed.id.toString());
+                incrementView(feed.id.toString());
+              }}
+            />
 
             {/* Progress Bar */}
             <View style={styles.progressSection}>

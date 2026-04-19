@@ -7,7 +7,7 @@ import {
   FlatList,
   RefreshControl,
   TextInput,
-  // Image, // Commented out for now
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -43,7 +43,34 @@ export default function MantrasScreen() {
     data: trendingData,
     isLoading: trendingLoading,
     error: trendingError,
+    refetch: refetchTrending,
+    isFetching: trendingFetching,
   } = useTrendingMantras({ limit: 5 });
+
+  // Debug trending data
+  console.log('🔍 Trending Debug:', {
+    loading: trendingLoading,
+    fetching: trendingFetching,
+    error: trendingError,
+    data: trendingData,
+    feedsCount: trendingData?.feeds?.length || 0,
+    feeds: trendingData?.feeds?.map(feed => ({
+      id: feed.id,
+      caption: feed.caption,
+      mediaUrl: feed.media?.[0]?.mediaUrl
+    }))
+  });
+
+  // Log when data changes
+  React.useEffect(() => {
+    if (trendingData?.feeds?.length) {
+      console.log('✅ Trending mantras loaded successfully:', trendingData.feeds.length, 'items');
+    } else if (trendingError) {
+      console.error('❌ Trending mantras error:', trendingError);
+    } else if (!trendingLoading && !trendingData?.feeds?.length) {
+      console.warn('⚠️ No trending mantras data available');
+    }
+  }, [trendingData, trendingError, trendingLoading]);
   // Fetch deities
   const {
     data: deities = [],
@@ -270,7 +297,21 @@ export default function MantrasScreen() {
             </View>
           ) : trendingError ? (
             <View style={styles.errorContainer}>
-              <Text color="secondary">Failed to load trending mantras</Text>
+              <Text color="secondary">Failed to load trending mantras: {trendingError?.message || 'Unknown error'}</Text>
+            </View>
+          ) : !trendingData?.feeds?.length ? (
+            <View style={styles.errorContainer}>
+              <Text color="secondary">No trending mantras found (Empty data)</Text>
+              <TouchableOpacity
+                style={{ marginTop: 8, padding: 8, backgroundColor: '#CA3500', borderRadius: 6 }}
+                onPress={() => {
+                  console.log('🔄 Manual refresh triggered');
+                  // Force refresh trending data specifically
+                  refetchTrending();
+                }}
+              >
+                <Text style={{ color: 'white' }}>Debug: Retry API Call</Text>
+              </TouchableOpacity>
             </View>
           ) : (
             <>
@@ -313,14 +354,20 @@ export default function MantrasScreen() {
             onPress={handleFindMantraPress}
             activeOpacity={0.8}
           >
-            {/* Image on the left - Commented out for now */}
-            {/* <View style={styles.findMantraImageContainer}>
+            {/* Image on the left */}
+            <View style={styles.findMantraImageContainer}>
               <Image
-                source={require('../../assets/right-mantra.svg')}
+                source={{ uri: 'https://d12b36sm0rczqk.cloudfront.net/app-assets/icons/right-mantra.png' }}
                 style={styles.findMantraImage}
                 resizeMode="contain"
+                onError={(error) => {
+                  console.log('❌ Image loading error:', error);
+                }}
+                onLoad={() => {
+                  console.log('✅ Find mantra image loaded successfully');
+                }}
               />
-            </View> */}
+            </View>
 
             {/* Text content in the middle */}
             <View style={styles.findMantraContent}>
@@ -333,7 +380,9 @@ export default function MantrasScreen() {
             </View>
 
             {/* Arrow on the right */}
-            <Ionicons name="chevron-forward" size={24} color="#CA3500" />
+            <View style={styles.arrowContainer}>
+              <Ionicons name="chevron-forward" size={28} color="#CA3500" />
+            </View>
           </TouchableOpacity>
         </View>
 
@@ -557,45 +606,62 @@ const styles = StyleSheet.create({
   },
   findMantraCard: {
     backgroundColor: '#F7EBC4',
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: 24,
+    padding: 0,
     flexDirection: 'row',
+    alignItems: 'stretch',
+    borderWidth: 2,
+    borderColor: '#CA3500',
+    height: 75,
+    overflow: 'hidden',
+  },
+  findMantraImageContainer: {
+    width: 110,
+    height: 75,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+    paddingLeft: 8,
+  },
+  findMantraImage: {
+    width: 90,
+    height: 75,
+  },
+  imagePlaceholder: {
+    width: 120,
+    height: 100,
+    justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E8DDD1',
-    // height: 120, // Commented out for now since no image
-    // overflow: 'hidden', // Commented out for now
+    backgroundColor: 'rgba(202, 53, 0, 0.1)',
+    borderRadius: 12,
   },
   findMantraContent: {
     flex: 1,
-    // paddingHorizontal: 20, // Commented out since card has padding now
-    // paddingVertical: 16, // Commented out since card has padding now
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
   },
   findMantraTitle: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '700',
     color: '#CA3500',
     marginBottom: 4,
+    height: 26,
+    lineHeight: 26,
   },
   findMantraSubtitle: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#CA3500',
+    fontWeight: '500',
+    height: 18,
+    lineHeight: 18,
   },
-  // Commented out image-related styles for now
-  // findMantraImageContainer: {
-  //   width: 120,
-  //   height: '100%',
-  //   backgroundColor: '#F5E6D3',
-  //   justifyContent: 'center',
-  //   alignItems: 'center',
-  // },
-  // findMantraImage: {
-  //   width: 100,
-  //   height: 100,
-  // },
-  // findMantraArrow: {
-  //   paddingRight: 20,
-  // },
+  arrowContainer: {
+    height: 75,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingRight: 12,
+  },
   deitiesList: {
     paddingLeft: 20,
     marginBottom: 12,

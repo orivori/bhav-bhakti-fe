@@ -9,11 +9,17 @@ import {
   ActivityIndicator,
   Alert,
   Modal,
+  Image,
+  ScrollView,
+  PanResponder,
 } from 'react-native';
+import Svg, { Circle } from 'react-native-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
+import { useNavigation } from '@react-navigation/native';
 import { Audio } from 'expo-av';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
@@ -21,6 +27,8 @@ import { feedService } from '@/features/feed/services/feedService';
 import { Feed } from '@/types/feed';
 import { useTranslation } from '@/shared/i18n/useTranslation';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
+import { SpeedMeter } from '@/components/icons/SpeedMeter';
+import { useLanguageStore } from '@/store/languageStore';
 
 const { width } = Dimensions.get('window');
 
@@ -32,6 +40,12 @@ export default function AudioPlayerScreen() {
   const feedId = params.feedId?.toString();
   const { t } = useTranslation();
   const { contentPadding } = useTabBarHeight();
+  const navigation = useNavigation();
+  const { language } = useLanguageStore();
+
+  // UI state
+  const [activeTab, setActiveTab] = useState<'mantra' | 'lyrics'>('mantra');
+  const [showEditProgress, setShowEditProgress] = useState(false);
 
   // Feed data state
   const [feedData, setFeedData] = useState<Feed | null>(null);
@@ -123,7 +137,7 @@ export default function AudioPlayerScreen() {
       setIsFeedLoading(true);
       setFeedError(null);
 
-      const feed = await feedService.getFeedById(feedId);
+      const feed = await feedService.getFeedById(feedId, language);
       console.log('✅ Audio Player: Feed data received:', feed);
 
       setFeedData(feed);
@@ -178,7 +192,7 @@ export default function AudioPlayerScreen() {
       const objective = getLocalizedText(feedData.objective, t('spiritualGrowth'));
 
       return {
-        title: feedData.caption || t('sacredMantra'),
+        title: getLocalizedText(feedData.title, feedData.caption || t('sacredMantra')),
         description,
         tags: feedData.tags,
         deity: deityName,
@@ -230,10 +244,181 @@ export default function AudioPlayerScreen() {
     console.log('🔧 Updated soundRef to match sound state:', !!sound);
   }, [sound]);
 
-  // Fetch feed data on component mount
+  // Track previous feedId to detect actual changes
+  const prevFeedIdRef = React.useRef<string | undefined>(feedId);
+
+  // Fetch feed data on component mount and reset audio when feedId changes
   useEffect(() => {
-    fetchFeedData();
+    const currentFeedId = feedId;
+    const previousFeedId = prevFeedIdRef.current;
+
+    console.log('🔍 FeedId effect triggered - Current:', currentFeedId, 'Previous:', previousFeedId);
+
+    // Update the ref for next time
+    prevFeedIdRef.current = currentFeedId;
+
+    // Only cleanup if feedId actually changed and we have existing audio
+    if (sound && currentFeedId && previousFeedId && currentFeedId !== previousFeedId) {
+      console.log('🔄 FeedId ACTUALLY changed - cleaning up previous audio');
+
+      // Completely safe cleanup - never throws errors
+      const ultraSafeCleanup = async () => {
+        try {
+          // Double check sound still exists
+          if (!sound) {
+            console.log('⚠️ Sound object became null during cleanup');
+            resetAudioStates();
+            fetchFeedData();
+            return;
+          }
+
+          // Try to get status first
+          let status;
+          try {
+            status = await sound.getStatusAsync();
+          } catch (statusError: any) {
+            console.log('⚠️ Cannot get audio status:', statusError?.message || 'Unknown error');
+            resetAudioStates();
+            fetchFeedData();
+            return;
+          }
+
+          // If loaded, try to stop
+          if (status.isLoaded) {
+            console.log('🔄 Stopping loaded audio for new mantra');
+            try {
+              await sound.stopAsync();
+              console.log('✅ Audio stopped successfully');
+            } catch (stopError: any) {
+              console.log('⚠️ Stop failed, but continuing:', stopError?.message || 'Unknown error');
+            }
+          }
+
+          // Always try to unload
+          console.log('🔄 Unloading audio for new mantra');
+          try {
+            await sound.unloadAsync();
+            console.log('✅ Audio unloaded successfully');
+          } catch (unloadError: any) {
+            console.log('⚠️ Unload failed:', unloadError?.message || 'Unknown error');
+          }
+
+        } catch (error: any) {
+          console.log('⚠️ Unexpected error during cleanup:', error?.message || 'Unknown error');
+        } finally {
+          // Always reset states and continue
+          resetAudioStates();
+          fetchFeedData();
+        }
+      };
+
+      ultraSafeCleanup();
+    } else {
+      // No existing audio or feedId didn't change, just fetch data normally
+      console.log('📁 Fetching feed data without cleanup');
+      fetchFeedData();
+    }
   }, [feedId]);
+
+  // Listen for navigation events to stop audio when user navigates away
+  useEffect(() => {
+    const unsubscribeBlur = navigation.addListener('blur', () => {
+      // Screen lost focus (user navigated to another screen)
+      console.log('📱 Navigation: Screen blurred - stopping audio playback');
+
+      if (sound && isPlaying) {
+        // Safe audio pause with error handling
+        const safePause = async () => {
+          try {
+            const status = await sound.getStatusAsync();
+
+            if (status.isLoaded && status.isPlaying) {
+              await sound.pauseAsync();
+              console.log('⏸️ Audio paused due to navigation away');
+            } else {
+              console.log('⚠️ Audio not playing - just updating states');
+            }
+          } catch (error: any) {
+            console.log('⚠️ Error pausing on blur:', error?.message || 'Unknown error');
+          } finally {
+            // Always update UI states
+            setIsPlaying(false);
+            setIsAutoLooping(false);
+          }
+        };
+
+        safePause();
+      } else {
+        // No sound or not playing, just update states
+        setIsPlaying(false);
+        setIsAutoLooping(false);
+      }
+    });
+
+    const unsubscribeFocus = navigation.addListener('focus', () => {
+      // Screen gained focus (user came back to this screen)
+      console.log('📱 Navigation: Screen focused - audio player ready');
+    });
+
+    // Cleanup listeners
+    return () => {
+      unsubscribeBlur();
+      unsubscribeFocus();
+    };
+  }, [navigation, sound, isPlaying]);
+
+  // Cleanup audio when component unmounts (user navigates away)
+  useEffect(() => {
+    return () => {
+      // Cleanup function runs when component unmounts (user goes back or navigates to another screen)
+      if (sound) {
+        console.log('🧹 Audio Player: Component unmounting - cleaning up audio');
+
+        // Fire and forget cleanup - don't wait for it
+        const cleanup = async () => {
+          try {
+            const status = await sound.getStatusAsync();
+
+            if (status.isLoaded) {
+              console.log('🧹 Stopping and unloading audio on unmount');
+              try {
+                await sound.stopAsync();
+              } catch (stopError: any) {
+                console.log('⚠️ Stop failed on unmount:', stopError?.message || 'Unknown error');
+              }
+            }
+
+            try {
+              await sound.unloadAsync();
+              console.log('✅ Audio unloaded on unmount');
+            } catch (unloadError: any) {
+              console.log('⚠️ Unload failed on unmount:', unloadError?.message || 'Unknown error');
+            }
+
+          } catch (error: any) {
+            console.log('⚠️ Cleanup error on unmount:', error?.message || 'Unknown error');
+            // Try silent unload as last resort
+            try {
+              await sound.unloadAsync();
+            } catch (finalError) {
+              // Silent fail - component is unmounting anyway
+            }
+          }
+        };
+
+        cleanup(); // Fire and forget
+      }
+
+      // Clear any ongoing volume change timeouts
+      if (volumeChangeTimeout.current) {
+        clearTimeout(volumeChangeTimeout.current);
+        volumeChangeTimeout.current = null;
+      }
+
+      console.log('🔄 Audio Player cleanup initiated');
+    };
+  }, [sound]);
+
 
   // Test animation on mount to see if bars can animate at all
   useEffect(() => {
@@ -512,8 +697,13 @@ export default function AudioPlayerScreen() {
                 // soundRef will be updated by useEffect
 
                 // Set volume to current volume setting
-                await newSound.setVolumeAsync(volume);
-                console.log('🔊 Audio Player: Volume set to', volume);
+                try {
+                  await newSound.setVolumeAsync(volume);
+                  console.log('🔊 Audio Player: Volume set to', volume);
+                } catch (volumeError) {
+                  console.error('⚠️ Audio Player: Failed to set initial volume:', volumeError);
+                  // Continue without failing the audio load
+                }
 
                 // Now start playing
                 console.log('▶️ Audio Player: Starting playback...');
@@ -871,6 +1061,119 @@ export default function AudioPlayerScreen() {
     );
   };
 
+  const handleFinishSession = async () => {
+    // Stop audio playback
+    if (sound && isPlaying) {
+      await sound.pauseAsync();
+      setIsPlaying(false);
+    }
+
+    // Stop auto-looping
+    setIsAutoLooping(false);
+
+    // Show completion message regardless of target reached
+    Alert.alert(
+      'Session Complete',
+      `You have completed ${chantCount} chants. Well done on your spiritual practice!`,
+      [
+        {
+          text: 'Continue',
+          style: 'default',
+          onPress: () => {
+            // Allow user to continue if they want
+          }
+        },
+        {
+          text: 'Reset Counter',
+          onPress: handleResetCounter,
+          style: 'destructive'
+        },
+        {
+          text: 'Go Back',
+          onPress: handleBackPress,
+          style: 'cancel'
+        }
+      ]
+    );
+  };
+
+  const handleRestartSession = async () => {
+    console.log('🔄 Restarting session - resetting counter and audio position');
+
+    // Reset counter to 0
+    setChantCount(0);
+
+    // Save the reset progress
+    if (feedId) {
+      await saveCounterProgress(feedId, 0, targetCount);
+    }
+
+    // Reset audio position to beginning
+    await seekToPosition(0);
+
+    // If audio was playing and we have a target, restart auto-looping
+    if (isPlaying && sound && targetCount > 0 && !isLooping) {
+      setIsAutoLooping(true);
+      try {
+        const status = await sound.getStatusAsync();
+        if (status.isLoaded) {
+          await sound.setIsLoopingAsync(false); // Auto-loop uses manual restart
+        }
+      } catch (error) {
+        console.error('Error setting loop state after restart:', error);
+      }
+      console.log('🔄 Restarted auto-loop after session restart');
+    }
+
+    // Show confirmation
+    console.log('✅ Session restarted - Counter: 0, Position: 0:00');
+  };
+
+  // Reset all audio states
+  const resetAudioStates = () => {
+    console.log('🔄 Resetting all audio states...');
+
+    setSound(null);
+    soundRef.current = null;
+    setIsPlaying(false);
+    setIsAutoLooping(false);
+    setIsAudioLoading(false);
+    setPosition(0);
+    setDuration(0);
+    setIsSeeking(false);
+
+    // Clear any ongoing timeouts
+    if (volumeChangeTimeout.current) {
+      clearTimeout(volumeChangeTimeout.current);
+      volumeChangeTimeout.current = null;
+    }
+
+    console.log('✅ All audio states reset completely');
+  };
+
+  // Handle back navigation with audio cleanup
+  const handleBackPress = async () => {
+    console.log('⬅️ Back button pressed - stopping audio before navigation');
+
+    if (sound) {
+      try {
+        const status = await sound.getStatusAsync();
+        if (status.isLoaded && isPlaying) {
+          await sound.stopAsync();
+          console.log('✅ Audio stopped on back press');
+        } else {
+          console.log('⚠️ Audio not playing - skipping stop');
+        }
+      } catch (error: any) {
+        console.log('⚠️ Error stopping on back press:', error?.message || 'Unknown error');
+        // Continue navigation anyway
+      }
+    }
+
+    // Always navigate back regardless of audio stop result
+    router.back();
+  };
+
   // const remainingCount = targetCount - chantCount;
   // const halfwayCount = Math.floor(targetCount / 2);
 
@@ -884,9 +1187,18 @@ export default function AudioPlayerScreen() {
   const seekToPosition = async (positionMillis: number) => {
     if (sound) {
       try {
+        // Check if sound is loaded before seeking
+        const status = await sound.getStatusAsync();
+        if (!status.isLoaded) {
+          console.log('⚠️ Cannot seek: Sound not loaded yet');
+          return;
+        }
+
         setIsSeeking(true);
         await sound.setPositionAsync(positionMillis);
         setPosition(positionMillis);
+        console.log('🎯 Seeked to position:', positionMillis);
+
         // Haptic feedback for seeking
         await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       } catch (error) {
@@ -897,23 +1209,6 @@ export default function AudioPlayerScreen() {
     }
   };
 
-  // Skip forward by 10 seconds
-  const skipForward = async () => {
-    if (sound && duration > 0) {
-      const newPosition = Math.min(position + 10000, duration);
-      await seekToPosition(newPosition);
-      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    }
-  };
-
-  // Skip backward by 10 seconds
-  const skipBackward = async () => {
-    if (sound) {
-      const newPosition = Math.max(position - 10000, 0);
-      await seekToPosition(newPosition);
-      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    }
-  };
 
   // Toggle playback speed
   const togglePlaybackSpeed = async () => {
@@ -931,75 +1226,132 @@ export default function AudioPlayerScreen() {
     }
   };
 
-  // Toggle loop mode
-  const toggleLoop = async () => {
-    if (sound) {
-      try {
-        const newLoopState = !isLooping;
-        setIsLooping(newLoopState);
-
-        if (newLoopState) {
-          // Manual loop enabled - disable auto-loop
-          console.log('🔁 Manual loop enabled - disabling auto-loop');
-          setIsAutoLooping(false);
-          await sound.setIsLoopingAsync(true);
-        } else {
-          // Manual loop disabled - check if we should enable auto-loop
-          const shouldAutoLoop = chantCount < targetCount && isPlaying;
-          console.log('🔁 Manual loop disabled - Auto-loop:', shouldAutoLoop);
-          setIsAutoLooping(shouldAutoLoop);
-          await sound.setIsLoopingAsync(false); // Auto-loop doesn't use built-in looping
-        }
-      } catch (error) {
-        console.error('Error toggling loop:', error);
-      }
-    }
-  };
 
   // Handle progress bar press for seeking
   const handleProgressBarPress = (event: any) => {
-    if (duration > 0) {
+    if (duration > 0 && !isAudioLoading) {
       const { locationX } = event.nativeEvent;
       const progressBarWidth = width - 48; // Account for padding
       const percentage = locationX / progressBarWidth;
       const seekPosition = duration * percentage;
       seekToPosition(Math.max(0, Math.min(seekPosition, duration)));
+    } else if (isAudioLoading) {
+      console.log('⚠️ Seek ignored: Audio still loading');
     }
   };
+
+  // Throttled volume change for smooth dragging
+  const volumeChangeTimeout = React.useRef<number | null>(null);
 
   // Change volume
   const changeVolume = async (newVolume: number) => {
-    if (sound) {
-      try {
-        await sound.setVolumeAsync(newVolume);
-        setVolume(newVolume);
-      } catch (error) {
-        console.error('Error changing volume:', error);
-      }
+    // Update UI immediately for smooth visual feedback
+    setVolume(newVolume);
+
+    // Throttle actual audio volume changes to prevent overwhelming the audio system
+    if (volumeChangeTimeout.current) {
+      clearTimeout(volumeChangeTimeout.current);
     }
+
+    volumeChangeTimeout.current = setTimeout(async () => {
+      if (sound) {
+        try {
+          // Check if sound is properly loaded before changing volume
+          const status = await sound.getStatusAsync();
+          if (status.isLoaded) {
+            await sound.setVolumeAsync(newVolume);
+            console.log('🔊 Volume changed to:', newVolume);
+          } else {
+            console.log('⚠️ Cannot change volume: Sound not loaded yet');
+          }
+        } catch (error) {
+          console.error('Error changing volume:', error);
+        }
+      }
+    }, 50) as unknown as number; // Update audio volume every 50ms during drag
   };
 
-  // Toggle volume slider
+  // Toggle volume slider visibility
   const toggleVolumeSlider = () => {
     setShowVolumeSlider(!showVolumeSlider);
   };
 
+
+  // Create pan responder for smooth dragging
+  const volumePanResponder = PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: () => true,
+
+    onPanResponderGrant: (event) => {
+      // Handle initial touch - only if not loading
+      if (!isAudioLoading) {
+        const { locationX } = event.nativeEvent;
+        const sliderWidth = width - 80;
+        const percentage = Math.max(0, Math.min(1, locationX / sliderWidth));
+        changeVolume(percentage);
+      }
+    },
+
+    onPanResponderMove: (event) => {
+      // Handle dragging - only if not loading
+      if (!isAudioLoading) {
+        const { locationX } = event.nativeEvent;
+        const sliderWidth = width - 80;
+        const percentage = Math.max(0, Math.min(1, locationX / sliderWidth));
+        changeVolume(percentage);
+      }
+    },
+
+    onPanResponderRelease: () => {
+      // Haptic feedback when released
+      if (!isAudioLoading) {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      }
+    },
+  });
+
+
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header with Back Button */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="arrow-back" size={24} color={'#5D4E37'} />
-          <Text style={styles.backButtonText}>{t('back')}</Text>
-        </TouchableOpacity>
-      </View>
+      {/* New Header Design */}
+      <View style={styles.newHeader}>
+        <View style={styles.headerTop}>
+          <TouchableOpacity
+            onPress={handleBackPress}
+            style={styles.newBackButton}
+          >
+            <Ionicons name="chevron-back" size={24} color="#8B4513" />
+          </TouchableOpacity>
+          <View style={styles.headerTitleContainer}>
+            <Text style={styles.appName}>Bhav Bhakti</Text>
+          </View>
+          <TouchableOpacity style={styles.profileButton}>
+            <View style={styles.profileIcon}>
+              <Ionicons name="person" size={20} color="#8B4513" />
+            </View>
+          </TouchableOpacity>
+        </View>
 
-      {/* Separator Line */}
-      <View style={styles.separator} />
+        {/* Tab Navigation */}
+        <View style={styles.tabContainer}>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'mantra' && styles.activeTab]}
+            onPress={() => setActiveTab('mantra')}
+          >
+            <Text style={[styles.tabText, activeTab === 'mantra' && styles.activeTabText]}>
+              Mantra
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'lyrics' && styles.activeTab]}
+            onPress={() => setActiveTab('lyrics')}
+          >
+            <Text style={[styles.tabText, activeTab === 'lyrics' && styles.activeTabText]}>
+              Lyrics
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
 
       {/* Loading State */}
       {isFeedLoading && (
@@ -1020,356 +1372,333 @@ export default function AudioPlayerScreen() {
         </View>
       )}
 
-      {/* Main Content - Scrollable */}
-      {!isFeedLoading && !feedError && (
+      {/* Main Content */}
+      {!isFeedLoading && !feedError && activeTab === 'mantra' && (
         <ScrollView
-          style={styles.scrollContainer}
-          contentContainerStyle={[styles.scrollContent, { paddingBottom: contentPadding }]}
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollViewContent}
           showsVerticalScrollIndicator={false}
-          bounces={true}
         >
+          {/* Circular Progress Card */}
+          <View style={styles.progressCard}>
+            {/* Circular Progress Ring */}
+            <View style={styles.circularProgressContainer}>
+              <View style={styles.circularProgressRing}>
+                {/* SVG Progress Ring */}
+                <Svg width="282" height="282" style={styles.progressSvg}>
+                  {/* Background circle */}
+                  <Circle
+                    cx="141"
+                    cy="141"
+                    r="130"
+                    stroke="rgba(184, 115, 74, 0.2)"
+                    strokeWidth="12"
+                    fill="transparent"
+                  />
+                  {/* Progress circle */}
+                  <Circle
+                    cx="141"
+                    cy="141"
+                    r="130"
+                    stroke="#CA3500"
+                    strokeWidth="12"
+                    fill="transparent"
+                    strokeDasharray={`${2 * Math.PI * 130}`}
+                    strokeDashoffset={`${2 * Math.PI * 130 * (1 - progress / 100)}`}
+                    strokeLinecap="round"
+                    transform="rotate(-90 141 141)"
+                  />
+                </Svg>
+
+                {/* Inner content */}
+                <View style={styles.circularProgressContent}>
+                  <View style={styles.countDisplay}>
+                    <Text style={styles.progressCount}>{chantCount}</Text>
+                    <Text style={styles.progressTotal}>/{targetCount}</Text>
+                  </View>
+                  <Text style={styles.progressTime}>
+                    {formatTime(position)} / {formatTime(duration)}
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={styles.editButton}
+              onPress={() => setShowEditProgress(true)}
+            >
+              <Ionicons name="create-outline" size={20} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
+
           {/* Mantra Info Card */}
-          <View style={styles.mantraCard}>
-            <Text style={styles.mantraTitle}>{mantraData.title}</Text>
+          <View style={styles.mantraInfoSection}>
+            <View style={styles.mantraMainInfo}>
+              <Image
+                source={{ uri: (mantraData.thumbnailUrl?.toString() || 'https://via.placeholder.com/100') }}
+                style={styles.mantraLargeImage}
+                resizeMode="cover"
+              />
+              <View style={styles.mantraTextInfo}>
+                <Text style={styles.mantraMainTitle}>{mantraData.title}</Text>
+                <Text style={styles.mantraMainSubtitle}>{mantraData.objective}</Text>
+              </View>
+            </View>
+            <TouchableOpacity style={styles.mantraShareButton}>
+              <Ionicons name="share-outline" size={24} color="#B8734A" />
+            </TouchableOpacity>
+          </View>
 
-            {/* Description */}
-            <Text style={styles.description}>{mantraData.description}</Text>
-
-            {/* Tags */}
+          {/* Tags */}
+          {feedData?.tags && feedData.tags.length > 0 && (
             <View style={styles.tagsContainer}>
-              {mantraData.tags.map((tag, index) => (
+              {feedData.tags.slice(0, 3).map((tag, index) => (
                 <View key={index} style={styles.tag}>
                   <Text style={styles.tagText}>{tag}</Text>
                 </View>
               ))}
             </View>
+          )}
 
-            {/* Info Row */}
-            <View style={styles.infoRow}>
-              <View style={styles.infoItem}>
-                <Text style={styles.infoLabel}>{t('deity')}</Text>
-                <Text style={styles.infoValue}>{mantraData.deity}</Text>
-              </View>
-              <View style={styles.infoItem}>
-                <Text style={styles.infoLabel}>{t('objective')}</Text>
-                <Text style={styles.infoValue}>{mantraData.objective}</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Chant Counter Section */}
-          <View style={styles.counterSection}>
-            {/* Counter Display & Controls */}
-            <View style={styles.counterContainer}>
-              <TouchableOpacity onPress={handleDecrementCount} style={styles.counterButton}>
-                <Ionicons name="remove" size={24} color={goldenTempleTheme.colors.primary.DEFAULT} />
-              </TouchableOpacity>
-
-              <View style={styles.counterDisplay}>
-                <Text style={styles.currentCount}>{chantCount}</Text>
-                <Text style={styles.targetCount}>/ {targetCount}</Text>
-                <View style={styles.progressCircle}>
-                  <View
-                    style={[
-                      styles.progressFillCircle,
-                      {
-                        transform: [{
-                          rotate: `${(progress * 3.6)}deg`
-                        }]
-                      }
-                    ]}
-                  />
-                  <View style={styles.progressInner}>
-                    <Text style={styles.progressText}>{Math.floor(progress)}%</Text>
-                  </View>
-                </View>
-                
-              </View>
-
-              <TouchableOpacity onPress={handleIncrementCount} style={styles.incrementButton}>
-                <Ionicons name="add" size={24} color="#fff" />
-              </TouchableOpacity>
-            </View>
-
-            {/* Target Selection */}
-            <View style={styles.targetSection}>
-              <View style={styles.targetHeader}>
-                <Text style={styles.targetLabel}>{t('target')}</Text>
-                {isAutoLooping && (
-                  <View style={styles.autoLoopIndicator}>
-                    <Text style={styles.autoLoopText}>{t('autoLoopActive')}</Text>
-                  </View>
-                )}
-              </View>
-              <View style={styles.targetOptions}>
-                {[27, 54, 108].map((count) => (
-                  <TouchableOpacity
-                    key={count}
-                    onPress={() => handleTargetCountChange(count)}
-                    style={[
-                      styles.targetOptionChip,
-                      targetCount === count && styles.targetOptionChipSelected,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.targetOptionChipText,
-                        targetCount === count && styles.targetOptionChipTextSelected,
-                      ]}
-                    >
-                      {count}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-                <TouchableOpacity
-                  onPress={() => setShowTargetSelector(true)}
-                  style={styles.moreTargetsButton}
-                >
-                  <Text style={styles.moreTargetsText}>{t('more')}</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-
-          {/* Mantra Lyrics Section - Large Video/Image Area */}
-          <View style={styles.lyricsSection}>
-            <LinearGradient
-              colors={goldenTempleTheme.gradients.sunrise}
-              style={styles.lyricsContainer}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
+          {/* Progress Bar */}
+          <View style={styles.progressBarContainer}>
+            <TouchableOpacity
+              style={styles.progressBar}
+              onPress={handleProgressBarPress}
+              activeOpacity={0.7}
             >
-              {/* Background Image */}
-              {mantraData.thumbnailUrl ? (
-                <Image
-                  source={{ uri: mantraData.thumbnailUrl.toString() }}
-                  style={styles.lyricsBackground}
-                  resizeMode="cover"
+              <View style={styles.progressTrack}>
+                <View
+                  style={[
+                    styles.progressFill,
+                    { width: duration > 0 ? `${(position / duration) * 100}%` : '0%' },
+                  ]}
                 />
-              ) : (
-                <View style={styles.lyricsDefaultBg}>
-                  <Ionicons name="musical-notes" size={120} color="rgba(255,255,255,0.3)" />
-                </View>
-              )}
-
-              {/* Overlay Gradient */}
-              <LinearGradient
-                colors={['transparent', 'rgba(0,0,0,0.8)']}
-                style={styles.lyricsOverlay}
-              />
-
-              {/* Content */}
-              <View style={styles.lyricsContent}>
-                <View style={styles.lyricsHeader}>
-                  <Text style={styles.lyricsTitle}>{t('mantraLyrics')}</Text>
-                  {sound && duration > 0 && (
-                    <View style={styles.audioStatusIndicator}>
-                      <View style={styles.audioStatusDot} />
-                      <Text style={styles.audioStatusText}>{t('ready')}</Text>
-                    </View>
-                  )}
-                </View>
-                <Text style={styles.lyricsText}>{mantraData.title}</Text>
-
-                {/* Single Wave Visualizer - Only one row */}
-                <View style={styles.waveVisualizer}>
-                  {waveAnims.map((anim, index) => (
-                    <Animated.View
-                      key={index}
-                      style={[
-                        styles.waveBar,
-                        {
-                          height: anim.interpolate({
-                            inputRange: [0.2, 1.8],
-                            outputRange: [6, 30], // Min 6px, Max 30px
-                            extrapolate: 'clamp',
-                          }),
-                          opacity: isPlaying ? 0.9 : 0.4,
-                        }
-                      ]}
-                    />
-                  ))}
-                </View>
-
-                {/* Audio Progress */}
-                <View style={styles.progressSection}>
-                  <TouchableOpacity
-                    style={styles.progressBar}
-                    onPress={handleProgressBarPress}
-                    activeOpacity={0.7}
-                  >
-                    <View
-                      style={[
-                        styles.progressFill,
-                        { width: duration > 0 ? `${(position / duration) * 100}%` : '0%' },
-                      ]}
-                    />
-                    {duration > 0 && (
-                      <View
-                        style={[
-                          styles.progressThumb,
-                          {
-                            left: `${(position / duration) * 100}%`,
-                            opacity: isSeeking ? 1 : 0.8
-                          }
-                        ]}
-                      />
-                    )}
-                  </TouchableOpacity>
-                  <View style={styles.timeContainer}>
-                    <Text style={styles.timeText}>{formatTime(position)}</Text>
-                    <Text style={styles.timeText}>{formatTime(duration)}</Text>
-                  </View>
-                </View>
               </View>
-            </LinearGradient>
+            </TouchableOpacity>
+            <Text style={styles.timeDisplay}>{formatTime(duration)}</Text>
           </View>
 
           {/* Audio Controls */}
           <View style={styles.audioControls}>
-            {/* Secondary Controls Row */}
-            <View style={styles.secondaryControls}>
-              <TouchableOpacity onPress={toggleLoop} style={styles.secondaryControlButton}>
-                <Ionicons
-                  name="repeat"
-                  size={20}
-                  color={isLooping ? '#FF5722' : '#8B7355'}
-                />
-              </TouchableOpacity>
-
-              <TouchableOpacity onPress={toggleVolumeSlider} style={styles.secondaryControlButton}>
-                <Ionicons
-                  name={volume > 0.5 ? "volume-high" : volume > 0 ? "volume-low" : "volume-mute"}
-                  size={20}
-                  color={'#5D4E37'}
-                />
-              </TouchableOpacity>
-
-              <TouchableOpacity onPress={togglePlaybackSpeed} style={styles.secondaryControlButton}>
-                <Text style={styles.speedText}>{playbackSpeed}x</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Volume Slider */}
-            {showVolumeSlider && (
-              <View style={styles.volumeContainer}>
-                <Text style={styles.volumeLabel}>Volume</Text>
-                <View style={styles.volumeSliderContainer}>
-                  <TouchableOpacity
-                    style={styles.volumeSlider}
-                    onPress={(event) => {
-                      const { locationX } = event.nativeEvent;
-                      const sliderWidth = 200; // Fixed width
-                      const percentage = locationX / sliderWidth;
-                      const newVolume = Math.max(0, Math.min(percentage, 1));
-                      changeVolume(newVolume);
-                    }}
-                  >
-                    <View style={styles.volumeTrack}>
-                      <View
-                        style={[
-                          styles.volumeFill,
-                          { width: `${volume * 100}%` }
-                        ]}
-                      />
-                      <View
-                        style={[
-                          styles.volumeThumb,
-                          { left: `${volume * 100}%` }
-                        ]}
-                      />
-                    </View>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )}
-
-            {/* Primary Controls Row */}
-            <View style={styles.primaryControls}>
-              <TouchableOpacity onPress={skipBackward} style={styles.skipButton}>
-                <Ionicons name="play-skip-back" size={28} color={'#5D4E37'} />
-              </TouchableOpacity>
-
-              <Animated.View
-                style={[
-                  styles.playButtonContainer,
-                  { transform: [{ scale: pulseAnim }] },
-                ]}
+            {/* Speed Control Button with Label */}
+            <View style={styles.controlButtonContainer}>
+              <TouchableOpacity
+                style={styles.controlButton}
+                onPress={togglePlaybackSpeed}
               >
-                <TouchableOpacity
-                  style={styles.playButton}
-                  onPress={togglePlayback}
-                  disabled={isAudioLoading}
-                >
-                  <LinearGradient
-                    colors={['#FF5722', '#E64A19']}
-                    style={styles.playButtonGradient}
-                  >
-                    {isAudioLoading ? (
-                      <Animated.View style={{ transform: [{ rotate: rotateInterpolation }] }}>
-                        <Ionicons name="refresh" size={40} color="#fff" />
-                      </Animated.View>
-                    ) : (
-                      <Ionicons
-                        name={isPlaying ? 'pause' : 'play'}
-                        size={40}
-                        color="#fff"
-                        style={!isPlaying ? { marginLeft: 4 } : {}}
-                      />
-                    )}
-                  </LinearGradient>
-                </TouchableOpacity>
-              </Animated.View>
-
-              <TouchableOpacity onPress={skipForward} style={styles.skipButton}>
-                <Ionicons name="play-skip-forward" size={28} color={'#5D4E37'} />
+                <SpeedMeter width={20} height={18} color="#B8734A" />
               </TouchableOpacity>
+              <Text style={styles.controlButtonLabel}>{playbackSpeed}x</Text>
             </View>
 
-            {/* Skip Indicators */}
-            <View style={styles.skipIndicators}>
-              <Text style={styles.skipText}>-10s</Text>
-              <Text style={styles.skipText}>+10s</Text>
+            {/* Main Play/Pause Button */}
+            <TouchableOpacity
+              style={styles.playButton}
+              onPress={togglePlayback}
+              disabled={isAudioLoading}
+            >
+              <LinearGradient
+                colors={['#CA3500', '#B8734A']}
+                style={styles.playButtonGradient}
+              >
+                {isAudioLoading ? (
+                  <Animated.View style={{ transform: [{ rotate: rotateInterpolation }] }}>
+                    <Ionicons name="refresh" size={32} color="#FEF6DA" />
+                  </Animated.View>
+                ) : (
+                  <Ionicons
+                    name={isPlaying ? 'pause' : 'play'}
+                    size={32}
+                    color="#FEF6DA"
+                    style={!isPlaying ? { marginLeft: 4 } : {}}
+                  />
+                )}
+              </LinearGradient>
+            </TouchableOpacity>
+
+            {/* Volume Control Button with Label */}
+            <View style={styles.controlButtonContainer}>
+              <TouchableOpacity
+                style={styles.controlButton}
+                onPress={toggleVolumeSlider}
+              >
+                <Ionicons
+                  name={volume === 0 ? "volume-mute" : volume < 0.5 ? "volume-low" : "volume-high"}
+                  size={20}
+                  color="#B8734A"
+                />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={toggleVolumeSlider}>
+                <Text style={styles.controlButtonLabel}>{Math.round(volume * 100)}%</Text>
+              </TouchableOpacity>
             </View>
           </View>
 
-
-          {/* Target Count Selector Modal */}
-          {showTargetSelector && (
-            <View style={styles.targetSelectorOverlay}>
-              <View style={styles.targetSelectorModal}>
-                <Text style={styles.targetSelectorTitle}>Select Target Count</Text>
-                <View style={styles.targetOptionsContainer}>
-                  {TARGET_COUNT_OPTIONS.map((count) => (
-                    <TouchableOpacity
-                      key={count}
-                      onPress={() => handleTargetCountChange(count)}
-                      style={[
-                        styles.targetOption,
-                        targetCount === count && styles.targetOptionSelected,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.targetOptionText,
-                          targetCount === count && styles.targetOptionTextSelected,
-                        ]}
-                      >
-                        {count}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
+          {/* Volume Slider */}
+          {showVolumeSlider && (
+            <View style={styles.volumeSliderContainer}>
+              <View
+                style={styles.volumeSlider}
+                {...volumePanResponder.panHandlers}
+              >
+                <View style={styles.volumeTrack}>
+                  <View
+                    style={[
+                      styles.volumeFill,
+                      { width: `${volume * 100}%` },
+                    ]}
+                  />
+                  <View
+                    style={[
+                      styles.volumeHandle,
+                      { left: `${volume * 100}%` },
+                    ]}
+                  />
                 </View>
-                <TouchableOpacity
-                  onPress={() => setShowTargetSelector(false)}
-                  style={styles.targetSelectorCancel}
-                >
-                  <Text style={styles.targetSelectorCancelText}>{t('cancel')}</Text>
-                </TouchableOpacity>
+              </View>
+              <View style={styles.volumeLabels}>
+                <Text style={styles.volumeLabel}>0%</Text>
+                <Text style={styles.volumeLabel}>100%</Text>
               </View>
             </View>
           )}
+
+          {/* Bottom Actions */}
+          <View style={styles.bottomActions}>
+            <TouchableOpacity
+              style={styles.restartButton}
+              onPress={handleRestartSession}
+            >
+              <Text style={styles.restartButtonText}>Restart</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.finishButton} onPress={handleFinishSession}>
+              <Text style={styles.finishButtonText}>Finish</Text>
+            </TouchableOpacity>
+          </View>
         </ScrollView>
+      )}
+
+      {/* Lyrics Tab Content */}
+      {!isFeedLoading && !feedError && activeTab === 'lyrics' && (
+        <View style={styles.lyricsContent}>
+          <Text style={styles.lyricsText}>{mantraData.title}</Text>
+          <Text style={styles.lyricsDescription}>{mantraData.description}</Text>
+        </View>
+      )}
+
+
+
+
+      {/* Edit Progress Modal */}
+      <Modal
+        visible={showEditProgress}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowEditProgress(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.editProgressModal}>
+            <Text style={styles.editProgressTitle}>Edit the progress</Text>
+            <Text style={styles.editProgressSubtitle}>
+              Adjust the number of chant completed in the session
+            </Text>
+
+            {/* Counter Controls */}
+            <View style={styles.editCounterContainer}>
+              <TouchableOpacity
+                style={styles.editCounterButton}
+                onPress={handleDecrementCount}
+              >
+                <Ionicons name="remove" size={24} color="#8B4513" />
+              </TouchableOpacity>
+
+              <Text style={styles.editCounterValue}>{chantCount}</Text>
+
+              <TouchableOpacity
+                style={styles.editCounterButton}
+                onPress={handleIncrementCount}
+              >
+                <Ionicons name="add" size={24} color="#8B4513" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Quick Target Options */}
+            <View style={styles.quickTargetsContainer}>
+              {[21, 54, 108].map((count) => (
+                <TouchableOpacity
+                  key={count}
+                  onPress={() => handleTargetCountChange(count)}
+                  style={[
+                    styles.quickTargetButton,
+                    targetCount === count && styles.quickTargetButtonSelected,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.quickTargetText,
+                      targetCount === count && styles.quickTargetTextSelected,
+                    ]}
+                  >
+                    {count}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Action Buttons */}
+            <View style={styles.editProgressActions}>
+              <TouchableOpacity
+                style={styles.editCancelButton}
+                onPress={() => setShowEditProgress(false)}
+              >
+                <Text style={styles.editCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.editConfirmButton}
+                onPress={() => setShowEditProgress(false)}
+              >
+                <Text style={styles.editConfirmText}>Confirm</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Target Count Selector Modal */}
+      {showTargetSelector && (
+        <View style={styles.targetSelectorOverlay}>
+          <View style={styles.targetSelectorModal}>
+            <Text style={styles.targetSelectorTitle}>Select Target Count</Text>
+            <View style={styles.targetOptionsContainer}>
+              {TARGET_COUNT_OPTIONS.map((count) => (
+                <TouchableOpacity
+                  key={count}
+                  onPress={() => handleTargetCountChange(count)}
+                  style={[
+                    styles.targetOption,
+                    targetCount === count && styles.targetOptionSelected,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.targetOptionText,
+                      targetCount === count && styles.targetOptionTextSelected,
+                    ]}
+                  >
+                    {count}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <TouchableOpacity
+              onPress={() => setShowTargetSelector(false)}
+              style={styles.targetSelectorCancel}
+            >
+              <Text style={styles.targetSelectorCancelText}>{t('cancel')}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       )}
     </SafeAreaView>
   );
@@ -1378,140 +1707,440 @@ export default function AudioPlayerScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff6da', // Light cream background
+    backgroundColor: '#FEF6DA', // Updated cream background
   },
-  // Header with Back Button
-  header: {
+  // New Header Design
+  newHeader: {
+    backgroundColor: '#FEF6DA',
+    paddingHorizontal: 16,
+  },
+  headerTop: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: goldenTempleTheme.spacing.lg,
-    paddingVertical: goldenTempleTheme.spacing.md,
-    backgroundColor: '#fff6da',
-  },
-  backButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: goldenTempleTheme.spacing.sm,
-  },
-  backButtonText: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#5D4E37', // Warm brown text
-    marginLeft: 4,
-  },
-  separator: {
-    height: 1,
-    backgroundColor: 'rgba(205, 180, 140, 0.2)', // Light brown separator
-    marginHorizontal: goldenTempleTheme.spacing.lg,
-  },
-  stickyHeader: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 60, // Account for status bar
-    paddingBottom: 15,
-    backgroundColor: '#FFFFFF', // White controls
-    zIndex: 1000,
+    paddingVertical: 12,
   },
-  headerSpacer: {
-    flex: 1,
-  },
-  resetButton: {
+  newBackButton: {
     padding: 8,
+  },
+  headerTitleContainer: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  appName: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#8B4513',
+  },
+  profileButton: {
+    padding: 4,
+  },
+  profileIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#E6D5C3',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // Tab Navigation
+  tabContainer: {
+    flexDirection: 'row',
+    marginTop: 8,
+    marginBottom: 16,
+    backgroundColor: '#F5E6D3', // Light peach background
+    borderRadius: 25,
+    padding: 4,
+    marginHorizontal: 16,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    alignItems: 'center',
     borderRadius: 20,
     backgroundColor: 'transparent',
   },
-  scrollContainer: {
+  activeTab: {
+    backgroundColor: '#CA3500', // Deep red-orange for active state
+  },
+  tabText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#B8734A',
+  },
+  activeTabText: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+  },
+  // Main Content
+  scrollView: {
     flex: 1,
   },
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: goldenTempleTheme.spacing.md,
+  scrollViewContent: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 120, // Extra padding to clear bottom tab bar
   },
-  // Mantra Info Card
-  mantraCard: {
-    backgroundColor: '#FFFFFF', // Pure white card
+  // Progress Card
+  progressCard: {
+    backgroundColor: '#E76A4A66',
     borderRadius: 20,
     padding: 20,
-    marginBottom: 20,
-    shadowColor: 'rgba(0, 0, 0, 0.1)',
+    marginBottom: 12,
+    alignItems: 'center',
+    position: 'relative',
+    justifyContent: 'center',
+  },
+  circularProgressContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  circularProgressRing: {
+    width: 282,
+    height: 282,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  progressSvg: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+  },
+  circularProgressContent: {
+    position: 'absolute',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    height: '100%',
+  },
+  countDisplay: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    height: 36,
+  },
+  progressCount: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#E76A4A',
+  },
+  progressTotal: {
+    fontSize: 32,
+    color: '#E76A4A',
+    fontWeight: 'bold',
+  },
+  progressTime: {
+    fontSize: 12,
+    color: '#B8734A',
+    fontWeight: '500',
+  },
+  editButton: {
+    position: 'absolute',
+    top: 15,
+    right: 15,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#B8734A',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // Mantra Card
+  mantraCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 10,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
-    elevation: 4,
+    elevation: 3,
   },
-  mantraTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#5D4E37', // Dark brown text
-    marginBottom: 12,
-    textAlign: 'left',
+  mantraImage: {
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+    marginRight: 16,
   },
-  description: {
-    fontSize: 16,
-    color: '#8B7355', // Medium brown text
-    lineHeight: 24,
-    marginBottom: 16,
-    textAlign: 'left',
-  },
-  tagsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: 8,
-    marginBottom: 20,
-  },
-  tag: {
-    backgroundColor: 'rgba(218, 165, 32, 0.15)',
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(218, 165, 32, 0.3)',
-  },
-  tagText: {
-    color: '#FF5722', // Orange selected
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  infoItem: {
-    alignItems: 'center',
+  mantraInfo: {
     flex: 1,
   },
-  infoLabel: {
-    fontSize: 12,
-    color: '#8B7355',
+  mantraTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#B8734A',
     marginBottom: 4,
   },
-  infoValue: {
+  mantraSubtitle: {
+    fontSize: 14,
+    color: '#B8734A',
+  },
+  shareButton: {
+    padding: 8,
+  },
+  // New Mantra Info Section
+  mantraInfoSection: {
+    position: 'relative',
+    marginBottom: 10,
+  },
+  mantraMainInfo: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingRight: 40, // Space for share button
+  },
+  mantraLargeImage: {
+    width: 77,
+    aspectRatio: 1,
+    borderRadius: 12,
+    marginRight: 16,
+  },
+  mantraTextInfo: {
+    flex: 1,
+    justifyContent: 'flex-start',
+  },
+  mantraMainTitle: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#5D4E37',
+    fontWeight: 'bold',
+    color: '#B8734A',
+    marginBottom: 8,
+    lineHeight: 20,
+  },
+  mantraMainSubtitle: {
+    fontSize: 16,
+    color: '#B8734A',
+    lineHeight: 22,
+  },
+  mantraShareButton: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    padding: 8,
+  },
+  // Tags
+  tagsContainer: {
+    flexDirection: 'row',
+    marginBottom: 13,
+  },
+  tag: {
+    backgroundColor: '#F0C4A0',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    marginRight: 12,
+  },
+  tagText: {
+    fontSize: 13,
+    color: '#B8734A',
+    fontWeight: '500',
+  },
+  // Progress Bar
+  progressBarContainer: {
+    marginBottom: 3,
+    alignItems: 'flex-end',
+  },
+  progressBar: {
+    width: '100%',
+    height: 19,
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  progressTrack: {
+    height: 6,
+    backgroundColor: '#F0C4A0',
+    borderRadius: 3,
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: '#B8734A',
+    borderRadius: 3,
+  },
+  timeDisplay: {
+    fontSize: 14,
+    color: '#B8734A',
+    fontWeight: '500',
+  },
+  // Audio Controls
+  audioControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    paddingHorizontal: 60,
+    marginBottom: 2,
+  },
+  controlButtonContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  controlButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(184, 115, 74, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  controlButtonLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#B8734A',
     textAlign: 'center',
   },
-  // Counter Section
-  counterSection: {
-    backgroundColor: '#FFFFFF', // White card
-    borderRadius: 24,
-    padding: 24,
+  playButton: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    overflow: 'hidden',
+  },
+  playButtonGradient: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  // Volume Slider
+  volumeSliderContainer: {
+    paddingHorizontal: 40,
     marginBottom: 20,
+  },
+  volumeSlider: {
+    height: 50,
+    justifyContent: 'center',
+    marginBottom: 8,
+    paddingVertical: 15, // Increase touch area
+  },
+  volumeTrack: {
+    height: 8,
+    backgroundColor: 'rgba(184, 115, 74, 0.2)',
+    borderRadius: 4,
+    position: 'relative',
+  },
+  volumeFill: {
+    height: '100%',
+    backgroundColor: '#B8734A',
+    borderRadius: 4,
+    position: 'absolute',
+    left: 0,
+    top: 0,
+  },
+  volumeHandle: {
+    position: 'absolute',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#CA3500',
+    marginLeft: -12,
+    top: -8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 6,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  volumeLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  volumeLabel: {
+    fontSize: 12,
+    color: '#B8734A',
+    fontWeight: '500',
+  },
+  // Bottom Actions
+  bottomActions: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    gap: 16,
+    marginTop: 18,
+  },
+  restartButton: {
+    flex: 1,
+    height: 37,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: 'rgba(218, 165, 32, 0.25)',
-    ...goldenTempleTheme.shadows.lg,
-    shadowColor: 'rgba(218, 165, 32, 0.4)',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    elevation: 12,
+    borderColor: '#B8734A',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  restartButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#B8734A',
+  },
+  finishButton: {
+    flex: 1,
+    height: 37,
+    borderRadius: 8,
+    backgroundColor: '#CA3500',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  finishButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  // New Audio Controls
+  newAudioControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 40,
+    marginBottom: 20,
+  },
+  newPlayButton: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    overflow: 'hidden',
+  },
+  speedControls: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 60,
+    marginBottom: 30,
+  },
+  speedLabel: {
+    fontSize: 14,
+    color: '#8B4513',
+    fontWeight: '500',
+  },
+  speedPercentage: {
+    fontSize: 14,
+    color: '#8B4513',
+    fontWeight: '500',
+  },
+  actionButton: {
+    flex: 1,
+    paddingVertical: 16,
+    borderRadius: 25,
+    borderWidth: 1,
+    borderColor: '#CD853F',
+    alignItems: 'center',
+  },
+  actionButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#CD853F',
+  },
+  actionButtonPrimary: {
+    flex: 1,
+    paddingVertical: 16,
+    borderRadius: 25,
+    backgroundColor: '#8B4513',
+    alignItems: 'center',
+  },
+  actionButtonPrimaryText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
   counterContainer: {
     flexDirection: 'row',
@@ -1700,260 +2329,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  lyricsOverlay: {
-    position: 'absolute',
-    width: '100%',
-    height: '100%',
-  },
-  lyricsContent: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 24,
-  },
-  lyricsHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  lyricsTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#fff',
-    textShadowColor: 'rgba(0,0,0,0.7)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 3,
-  },
-  audioStatusIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,255,0,0.2)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(0,255,0,0.3)',
-  },
-  audioStatusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#00FF00',
-    marginRight: 4,
-  },
-  audioStatusText: {
-    fontSize: 10,
-    color: '#fff',
-    fontWeight: '500',
-  },
-  audioVisualizer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 3,
-    marginTop: 12,
-    height: 30,
-  },
-  visualizerBar: {
-    width: 3,
-    backgroundColor: '#FFD700',
-    borderRadius: 1.5,
-    opacity: 0.6,
-  },
-  waveVisualizer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 3,
-    marginBottom: 12,
-    height: 25,
-    paddingHorizontal: 15,
-  },
-  waveBar: {
-    width: 3,
-    backgroundColor: '#FFD700',
-    borderRadius: 1.5,
-    opacity: 0.9,
-    shadowColor: '#FFD700',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 3,
-    elevation: 3,
-  },
-  lyricsText: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#fff',
-    textAlign: 'center',
-    marginBottom: 20,
-    textShadowColor: 'rgba(0,0,0,0.7)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 3,
-  },
-  progressSection: {
-    width: '100%',
-  },
-  progressBar: {
-    height: 6,
-    backgroundColor: 'rgba(255,255,255,0.3)',
-    borderRadius: 3,
-    marginBottom: 8,
-    position: 'relative',
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: '#edc77a',
-    borderRadius: 3,
-  },
-  progressThumb: {
-    position: 'absolute',
-    top: -4,
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: '#FFD700',
-    marginLeft: -7,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  timeContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
   timeText: {
-    color: '#fff',
     fontSize: 12,
+    color: '#8B4513',
     fontWeight: '500',
-  },
-  // Audio Controls
-  audioControls: {
-    alignItems: 'center',
-    marginBottom: 20,
-    paddingHorizontal: 20,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    paddingVertical: 20,
-    borderWidth: 0,
-    borderColor: 'rgba(218, 165, 32, 0.6)',
-    ...goldenTempleTheme.shadows.lg,
-  },
-  secondaryControls: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '100%',
-    marginBottom: 16,
-    paddingHorizontal: 40,
-  },
-  secondaryControlButton: {
-    padding: 10,
-    backgroundColor: '#F5E6D3',
-    borderRadius: 16,
-    borderWidth: 0,
-    borderColor: 'rgba(218, 165, 32, 0.5)',
-    minWidth: 50,
-    alignItems: 'center',
-    ...goldenTempleTheme.shadows.sm,
-  },
-  speedText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#5D4E37',
-  },
-  primaryControls: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 30,
-    marginBottom: 12,
-  },
-  skipButton: {
-    padding: 14,
-    backgroundColor: '#F5E6D3',
-    borderRadius: 25,
-    borderWidth: 0,
-    borderColor: 'rgba(218, 165, 32, 0.5)',
-    ...goldenTempleTheme.shadows.sm,
-  },
-  playButtonContainer: {
-    alignItems: 'center',
-  },
-  playButton: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    overflow: 'hidden',
-    ...goldenTempleTheme.shadows.lg,
-  },
-  playButtonGradient: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  skipIndicators: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: 180,
-    paddingHorizontal: 20,
-  },
-  skipText: {
-    fontSize: 10,
-    color: '#8B7355',
-    fontWeight: '500',
-  },
-  volumeContainer: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
-    alignItems: 'center',
-    width: '100%',
-    borderWidth: 0,
-    borderColor: 'rgba(218, 165, 32, 0.6)',
-    ...goldenTempleTheme.shadows.md,
-  },
-  volumeLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#5D4E37',
-    marginBottom: 8,
-  },
-  volumeSliderContainer: {
-    alignItems: 'center',
-  },
-  volumeSlider: {
-    width: 200,
-    height: 20,
-    justifyContent: 'center',
-  },
-  volumeTrack: {
-    height: 4,
-    backgroundColor: '#F5E6D3',
-    borderRadius: 2,
-    position: 'relative',
-  },
-  volumeFill: {
-    height: '100%',
-    backgroundColor: '#FF5722',
-    borderRadius: 2,
-  },
-  volumeThumb: {
-    position: 'absolute',
-    top: -6,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: '#FF5722',
-    marginLeft: -8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 4,
   },
   // Loading States
   loadingContainer: {
@@ -1992,6 +2371,128 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '600',
     fontSize: 16,
+  },
+  // Edit Progress Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  editProgressModal: {
+    backgroundColor: '#FEF6DA',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    paddingBottom: 40,
+  },
+  editProgressTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#8B4513',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  editProgressSubtitle: {
+    fontSize: 14,
+    color: '#CD853F',
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  editCounterContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 24,
+  },
+  editCounterButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#F5E6D3',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: 20,
+  },
+  editCounterValue: {
+    fontSize: 48,
+    fontWeight: 'bold',
+    color: '#8B4513',
+    minWidth: 100,
+    textAlign: 'center',
+  },
+  quickTargetsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 12,
+    marginBottom: 32,
+  },
+  quickTargetButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 20,
+    backgroundColor: '#F5E6D3',
+    borderWidth: 1,
+    borderColor: '#E6D5C3',
+  },
+  quickTargetButtonSelected: {
+    backgroundColor: '#8B4513',
+  },
+  quickTargetText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#8B4513',
+  },
+  quickTargetTextSelected: {
+    color: '#FFFFFF',
+  },
+  editProgressActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  editCancelButton: {
+    flex: 1,
+    paddingVertical: 16,
+    borderRadius: 25,
+    borderWidth: 1,
+    borderColor: '#CD853F',
+    alignItems: 'center',
+  },
+  editCancelText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#CD853F',
+  },
+  editConfirmButton: {
+    flex: 1,
+    paddingVertical: 16,
+    borderRadius: 25,
+    backgroundColor: '#8B4513',
+    alignItems: 'center',
+  },
+  editConfirmText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  // Lyrics Content
+  lyricsContent: {
+    flex: 1,
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  lyricsText: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#8B4513',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  lyricsDescription: {
+    fontSize: 16,
+    color: '#CD853F',
+    textAlign: 'center',
+    lineHeight: 24,
   },
   // Target Selector Modal
   targetSelectorOverlay: {

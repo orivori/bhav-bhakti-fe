@@ -3,6 +3,7 @@ import { useInfiniteQuery, useMutation, useQueryClient, useQuery } from '@tansta
 import { feedService } from '../services/feedService';
 import { FeedQueryParams, Feed, FeedFilters } from '@/types/feed';
 import { useFeedStore } from '@/store/feedStore';
+import { useLanguageStore } from '@/store/languageStore';
 
 interface UseFeedOptions {
   filters?: FeedFilters;
@@ -13,6 +14,7 @@ interface UseFeedOptions {
 export function useFeed(options: UseFeedOptions = {}) {
   const { filters = {}, limit = 20, enabled = true } = options;
   const queryClient = useQueryClient();
+  const { language } = useLanguageStore();
   const {
     setFeeds,
     addFeeds,
@@ -27,8 +29,8 @@ export function useFeed(options: UseFeedOptions = {}) {
     incrementView,
   } = useFeedStore();
 
-  // Create query key based on filters
-  const queryKey = ['feeds', filters];
+  // Create query key based on filters and language
+  const queryKey = ['feeds', filters, language];
 
   const {
     data,
@@ -48,7 +50,7 @@ export function useFeed(options: UseFeedOptions = {}) {
         limit,
         offset: pageParam as number,
       };
-      return await feedService.getFeeds(params);
+      return await feedService.getFeeds(params, language);
     },
     initialPageParam: 0,
     getNextPageParam: (lastPage: any, allPages) => {

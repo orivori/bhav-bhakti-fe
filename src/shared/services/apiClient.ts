@@ -24,9 +24,19 @@ class ApiClient {
     // Request interceptor to add auth token and log requests
     this.client.interceptors.request.use(
       async (config) => {
+        console.log('🚀 API Request:', {
+          method: config.method?.toUpperCase(),
+          url: config.url,
+          baseURL: config.baseURL,
+          fullURL: `${config.baseURL}${config.url}`
+        });
+
         const tokens = await secureStorage.getTokens();
-        if ( tokens?.accessToken) {
+        if (tokens?.accessToken) {
           config.headers.Authorization = `Bearer ${tokens.accessToken}`;
+          console.log('🔐 Auth token added to request');
+        } else {
+          console.log('ℹ️ No auth token available');
         }
 
         return config;
@@ -40,10 +50,24 @@ class ApiClient {
     // Response interceptor to handle token refresh and log responses
     this.client.interceptors.response.use(
       (response: AxiosResponse) => {
-
+        console.log('✅ API Response:', {
+          status: response.status,
+          url: response.config?.url,
+          method: response.config?.method?.toUpperCase(),
+          dataType: typeof response.data
+        });
         return response;
       },
       async (error: AxiosError) => {
+        console.log('❌ API Response Error:', {
+          message: error.message,
+          status: error.response?.status,
+          url: error.config?.url,
+          method: error.config?.method?.toUpperCase(),
+          hasResponse: !!error.response,
+          hasRequest: !!error.request
+        });
+
         const originalRequest = error.config as any;
 
 

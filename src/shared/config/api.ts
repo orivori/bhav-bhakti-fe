@@ -1,9 +1,13 @@
+// Use production URL for deployed backend
+const isDev = __DEV__;
+const baseUrl = isDev ? 'https://api.orivori.com/api' : 'https://api.orivori.com/api';
+
+console.log('🔧 API Config:', { isDev, baseUrl });
+
 export const API_CONFIG = {
-  BASE_URL: __DEV__
-    ? 'https://api.orivori.com/api' // Your local development server IP
-    : 'https://api.orivori.com/api', // Production URL with HTTPS
-  TIMEOUT: 10000,
-  RETRY_ATTEMPTS: 2,
+  BASE_URL: baseUrl,
+  TIMEOUT: 15000, // Increased timeout
+  RETRY_ATTEMPTS: 3,
 };
 
 export const API_ENDPOINTS = {
@@ -13,8 +17,16 @@ export const API_ENDPOINTS = {
     LOGOUT: '/v1/auth/logout',
   },
   USER: {
-    PROFILE: '/v1/user/profile',
-    UPDATE_PROFILE: '/v1/user/profile',
+    PROFILE: '/v1/profile',
+    UPDATE_PROFILE: '/v1/profile',
+  },
+  
+  PROFILE: {
+    GET: '/v1/profile',
+    UPDATE: '/v1/profile',
+    UPLOAD_PHOTO: '/v1/profile/photo',
+    DELETE_PHOTO: '/v1/profile/photo',
+    CALCULATE_ZODIAC: '/v1/profile/zodiac',
   },
   HOROSCOPE: {
     CALCULATE_ZODIAC: '/v1/horoscope/zodiac/calculate',

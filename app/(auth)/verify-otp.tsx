@@ -199,7 +199,7 @@ export default function VerifyOTPScreen() {
               </View>
 
               <Text variant="body" color="secondary" align="center" style={styles.infoText}>
-                We've sent a 6-digit verification code to
+                We've sent a 6-digit code to
               </Text>
               <Text variant="body" weight="semibold" align="center" style={styles.phoneNumber}>
                 {formatPhoneNumber()}
@@ -227,7 +227,7 @@ export default function VerifyOTPScreen() {
 
             {/* Verify Button */}
             <Button
-              title="Verify Code"
+              title="Verify and continue"
               onPress={handleVerifyOTP}
               loading={isLoading}
               disabled={otp.length !== 6 || isLoading}
@@ -284,7 +284,7 @@ export default function VerifyOTPScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: 'transparent',
+    backgroundColor: '#FFF8F0',
   },
   keyboardView: {
     flex: 1,
@@ -346,6 +346,7 @@ const styles = StyleSheet.create({
   },
   verifyButton: {
     marginBottom: 24,
+    backgroundColor: '#CA3500',
   },
   resendContainer: {
     alignItems: 'center',

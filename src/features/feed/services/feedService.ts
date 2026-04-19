@@ -23,7 +23,7 @@ class FeedService {
   /**
    * Get feeds with filters and pagination
    */
-  async getFeeds(params: FeedQueryParams = {}): Promise<FeedListResponse> {
+  async getFeeds(params: FeedQueryParams = {}, language: string = 'en'): Promise<FeedListResponse> {
     const queryParams = new URLSearchParams();
 
     // Add pagination params
@@ -40,6 +40,9 @@ class FeedService {
     if (params.sortOrder) queryParams.append('sortOrder', params.sortOrder);
     if (params.createdBy) queryParams.append('createdBy', params.createdBy);
 
+    // Add language parameter for multilingual tags
+    queryParams.append('lang', language);
+
     // Handle tags array
     if (params.tags && params.tags.length > 0) {
       queryParams.append('tags', params.tags.join(','));
@@ -49,8 +52,10 @@ class FeedService {
 
     // Get the API response
     const apiResponse = await apiClient.get<ApiFeedListResponse>(url);
+    console.log(apiResponse,"apiResponse")
 
     // Transform API response to client format
+    
     return {
       feeds: apiResponse.data.feeds,
       totalCount: apiResponse.data.pagination.total,
@@ -62,8 +67,13 @@ class FeedService {
   /**
    * Get feed by ID
    */
-  async getFeedById(feedId: string): Promise<Feed> {
-    const response = await apiClient.get<any>(API_ENDPOINTS.FEED.GET_BY_ID(feedId));
+  async getFeedById(feedId: string, language: string = 'en'): Promise<Feed> {
+    // Add language parameter to query
+    const queryParams = new URLSearchParams();
+    queryParams.append('lang', language);
+
+    const url = `${API_ENDPOINTS.FEED.GET_BY_ID(feedId)}?${queryParams.toString()}`;
+    const response = await apiClient.get<any>(url);
 
     // Handle nested API response structure {success: true, data: {feedData}}
     if (response && typeof response === 'object' && 'data' in response) {

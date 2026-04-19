@@ -7,6 +7,7 @@ import {
   Alert,
   StyleSheet,
   Image,
+  TouchableOpacity,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useForm, Controller } from 'react-hook-form';
@@ -20,6 +21,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useToast } from '@/components/atoms/Toast';
 import { PhoneStorageService } from '@/utils/phoneStorage';
 import { useLocalSearchParams } from 'expo-router';
+import { useTranslation } from '@/hooks/useTranslation';
+import { Ionicons } from '@expo/vector-icons';
 
 // Form data type
 type PhoneFormData = {
@@ -29,6 +32,7 @@ type PhoneFormData = {
 export default function PhoneLoginScreen() {
   const { showToast } = useToast();
   const params = useLocalSearchParams<{ phoneNumber?: string; countryCode?: string }>();
+  const { t, language, toggleLanguage } = useTranslation();
   const [selectedCountry, setSelectedCountry] = useState({
     code: 'IND',
     callingCode: '+91',
@@ -92,7 +96,7 @@ export default function PhoneLoginScreen() {
   const onSubmit = async (data: PhoneFormData) => {
     // Validate phone number with selected country
     if (!validatePhoneWithCountry(data.phoneNumber)) {
-      showToast({ type: 'error', message: 'Please enter a valid phone number for the selected country.' });
+      showToast({ type: 'error', message: t('auth.invalidPhone') });
       return;
     }
 
@@ -111,7 +115,7 @@ export default function PhoneLoginScreen() {
         // Show success toast
         showToast({
           type: 'success',
-          message: 'Verification Code Sent',
+          message: t('auth.otpSent'),
           duration: 2000
         });
         // Navigate to OTP verification screen with phone data
@@ -128,8 +132,8 @@ export default function PhoneLoginScreen() {
     } catch (error) {
       showToast({
         type: 'error',
-        title: 'Error',
-        message: error instanceof Error ? error.message : 'Failed to send OTP. Please try again.'
+        title: t('common.error'),
+        message: error instanceof Error ? error.message : t('errors.somethingWrong')
       });
     } finally {
       setIsLoading(false);
@@ -147,6 +151,16 @@ export default function PhoneLoginScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.container}>
+            {/* Language Toggle */}
+            <View style={styles.languageToggle}>
+              <TouchableOpacity onPress={toggleLanguage} style={styles.languageButton}>
+                <Ionicons name="language" size={20} color="#CA3500" />
+                <Text style={styles.languageText}>
+                  {language === 'en' ? 'हिंदी' : 'English'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
             {/* Header */}
             <View style={styles.header}>
               <View style={styles.iconContainer}>
@@ -157,10 +171,10 @@ export default function PhoneLoginScreen() {
                 />
               </View>
               <Text variant="h2" weight="bold" align="center" style={styles.title}>
-                Bhav bhakti
+                {language === 'en' ? 'Bhav bhakti' : 'भव भक्ति'}
               </Text>
               <Text variant="body" color="secondary" align="center" style={styles.subtitle}>
-                Enter your phone number to receive a verification code
+                {language === 'en' ? 'Signup to explore divine mantras, soulful ringtones & rashifal' : 'दिव्य मंत्र, आत्मिक रिंगटोन और राशिफल का अन्वेषण करने के लिए साइनअप करें'}
               </Text>
             </View>
 
@@ -182,8 +196,8 @@ export default function PhoneLoginScreen() {
                 }}
                 render={({ field: { onChange, value } }) => (
                   <PhoneInput
-                    label="Phone Number"
-                    placeholder="Enter your phone number"
+                    label={language === 'en' ? 'Phone Number' : 'फ़ोन नंबर'}
+                    placeholder={language === 'en' ? 'Enter your phone number' : 'अपना फ़ोन नंबर दर्ज करें'}
                     value={value}
                     onChangeText={onChange}
                     onCountryChange={setSelectedCountry}
@@ -196,17 +210,20 @@ export default function PhoneLoginScreen() {
               />
 
               <Button
-                title="Send Verification Code"
+                title={language === 'en' ? 'Continue' : 'जारी रखें'}
                 onPress={handleSubmit(onSubmit)}
                 loading={isLoading}
                 disabled={!phoneNumber || isLoading}
                 fullWidth
-                style={styles.button}
+                style={styles.continueButton}
               />
 
               {/* Terms and Privacy */}
               <Text variant="caption" color="secondary" align="center" style={styles.terms}>
-                By continuing, you agree to our Terms of Service and Privacy Policy
+                {language === 'en'
+                  ? 'By continuing, you agree to our Terms of Service and Privacy Policy'
+                  : 'जारी रखकर, आप हमारी सेवा की शर्तों और गोपनीयता नीति से सहमत हैं'
+                }
               </Text>
             </View>
 
@@ -214,10 +231,10 @@ export default function PhoneLoginScreen() {
             {__DEV__ && (
               <View style={styles.devNote}>
                 <Text variant="caption" weight="medium" style={styles.devNoteTitle}>
-                  Development Mode
+                  {language === 'en' ? 'Development Mode' : 'डेवलपमेंट मोड'}
                 </Text>
                 <Text variant="caption" style={styles.devNoteText}>
-                  Use OTP: 123456 for testing
+                  {language === 'en' ? 'Use OTP: 123456 for testing' : 'परीक्षण के लिए OTP: 123456 का उपयोग करें'}
                 </Text>
               </View>
             )}
@@ -271,9 +288,32 @@ const styles = StyleSheet.create({
   },
   phoneInput: {
     marginBottom: 24,
+    backgroundColor: '#FEF6DA',
   },
   button: {
     marginBottom: 24,
+  },
+  continueButton: {
+    marginBottom: 24,
+    backgroundColor: '#CA3500',
+  },
+  languageToggle: {
+    alignItems: 'flex-end',
+    paddingBottom: 16,
+  },
+  languageButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(202, 53, 0, 0.1)',
+    gap: 6,
+  },
+  languageText: {
+    color: '#CA3500',
+    fontSize: 14,
+    fontWeight: '600',
   },
   terms: {
     paddingHorizontal: 16,

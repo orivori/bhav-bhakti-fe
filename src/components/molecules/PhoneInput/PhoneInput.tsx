@@ -164,7 +164,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#d1d5db',
     borderRadius: 8,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#FEF6DA',
     overflow: 'hidden',
   },
   inputWrapperError: {
