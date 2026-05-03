@@ -5,7 +5,7 @@ node_modules/
 .env
 
 # Secrets and configuration
-src/config/secrets.ts
+# src/config/secrets.ts - now uses environment variables
 # Expo
 .expo/
 dist/

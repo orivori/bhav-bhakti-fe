@@ -40,9 +40,6 @@ export default {
 
     // Android Configuration
     android: {
-      compileSdkVersion: 34,
-      targetSdkVersion: 34,
-      minSdkVersion: 23,
       versionCode: 1,
       package: "com.vivekpandit.bhavbhakti",
       edgeToEdgeEnabled: true,
@@ -95,9 +92,10 @@ export default {
       [
         "expo-av",
         {
-          microphonePermission: "Allow this app to access your microphone for audio playback."
+          microphonePermission: "Allow this app to access your microphone for audio playbook."
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker"
     ],
 
     // Additional configuration

@@ -39,7 +39,8 @@
         "EXPO_OPTIMIZE": "true",
         "NPM_CONFIG_LEGACY_PEER_DEPS": "true",
         "NPM_CONFIG_FORCE": "true",
-        "NPM_CONFIG_AUDIT": "false"
+        "NPM_CONFIG_AUDIT": "false",
+        "EXPO_PUBLIC_MIXPANEL_TOKEN": "261869eed1d29c9318debc59da116528"
       },
       "cache": {
         "disabled": true
@@ -68,7 +69,8 @@
         "EXPO_OPTIMIZE": "true",
         "NPM_CONFIG_LEGACY_PEER_DEPS": "true",
         "NPM_CONFIG_FORCE": "true",
-        "NPM_CONFIG_AUDIT": "false"
+        "NPM_CONFIG_AUDIT": "false",
+        "EXPO_PUBLIC_MIXPANEL_TOKEN": "261869eed1d29c9318debc59da116528"
       },
       "cache": {
         "disabled": true
@@ -104,7 +106,8 @@
         "NPM_CONFIG_LEGACY_PEER_DEPS": "true",
         "NPM_CONFIG_AUDIT": "false",
         "EXPO_DEBUG": "false",
-        "EXPO_MINIFY": "true"
+        "EXPO_MINIFY": "true",
+        "EXPO_PUBLIC_MIXPANEL_TOKEN": "261869eed1d29c9318debc59da116528"
       },
       "cache": {
         "disabled": true
