@@ -103,10 +103,20 @@ export default function FeedCard({
       await feedService.shareFeed(feed.id.toString(), { platform: 'native_share' });
       incrementShare(feed.id.toString());
 
+      // Create deep link based on feed type
+      const deepLink = feed.type === 'mantra'
+        ? `bhavbhakti://mantra/${feed.id}`
+        : `bhavbhakti://feed/${feed.id}`;
+
+      const playStoreLink = 'https://play.google.com/store/apps/details?id=com.bhavbhakti.app';
+
+      const contentType = feed.type === 'mantra' ? 'sacred mantra' : 'spiritual content';
+      const shareMessage = feed.caption
+        ? `🙏 Check out this ${contentType}: ${feed.caption}\n\n📱 Open in Bhav Bhakti App: ${deepLink}\n\n⬇️ Download the app: ${playStoreLink}\n\n#BhavBhakti #Spirituality`
+        : `🙏 Check out this amazing ${contentType} from Bhav Bhakti App!\n\n📱 Open in app: ${deepLink}\n\n⬇️ Download the app: ${playStoreLink}\n\n#BhavBhakti #Spirituality`;
+
       const result = await Share.share({
-        message: feed.caption
-          ? `Check out this post: ${feed.caption}\n\nShared from Bhav Bhakti App`
-          : 'Check out this amazing post from Bhav Bhakti App!',
+        message: shareMessage,
         url: feed.media[0]?.mediaUrl,
       });
 

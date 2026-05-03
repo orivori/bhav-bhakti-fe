@@ -13,6 +13,7 @@ import {
   ScrollView,
   PanResponder,
   Share,
+  Platform,
 } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -20,13 +21,15 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Audio } from 'expo-av';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { feedService } from '@/features/feed/services/feedService';
 import { Feed } from '@/types/feed';
 import { useTranslation } from '@/shared/i18n/useTranslation';
+import { mixpanel } from '@/services/mixpanel';
+import { useScreenTracking } from '@/hooks/useScreenTracking';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
 import { SpeedMeter } from '@/components/icons/SpeedMeter';
 import { useLanguageStore } from '@/store/languageStore';
@@ -36,12 +39,41 @@ const { width } = Dimensions.get('window');
 // Target count options for mantras
 const TARGET_COUNT_OPTIONS = [27, 54, 108, 216, 324, 540, 1008];
 
+// Access global audio session manager (shared with ringtones)
+declare global {
+  var globalAudioSessionManager: {
+    currentSound: Audio.Sound | null;
+    currentScreen: string | null;
+    activeRingtones: Map<string, Audio.Sound>;
+    stopCurrentAudio: (newScreen?: string) => Promise<void>;
+    stopAllRingtones: (exceptFeedId?: string) => Promise<void>;
+    setCurrentSound: (sound: Audio.Sound, screen: string) => void;
+  } | undefined;
+}
+
+// Ensure global manager exists (it should be initialized by RingtonePlayer)
+if (!global.globalAudioSessionManager) {
+  global.globalAudioSessionManager = {
+    currentSound: null,
+    currentScreen: null,
+    activeRingtones: new Map<string, Audio.Sound>(),
+    async stopCurrentAudio() { /* will be implemented */ },
+    async stopAllRingtones() { /* will be implemented */ },
+    setCurrentSound() { /* will be implemented */ }
+  };
+}
+
+const globalAudioManager = global.globalAudioSessionManager;
+
 export default function AudioPlayerScreen() {
   const params = useLocalSearchParams();
   const feedId = params.feedId?.toString();
   const { t } = useTranslation();
   const { contentPadding } = useTabBarHeight();
   const navigation = useNavigation();
+
+  // Track screen view
+  useScreenTracking('Audio Player');
   const { language } = useLanguageStore();
 
   // UI state
@@ -58,8 +90,15 @@ export default function AudioPlayerScreen() {
   const [targetCount, setTargetCount] = useState(108);
   const [showTargetSelector, setShowTargetSelector] = useState(false);
 
-  // Audio state
-  const [isPlaying, setIsPlaying] = useState(false);
+  // Audio state with logging
+  const [isPlaying, setIsPlayingState] = useState(false);
+
+  // Wrapper to log when isPlaying changes
+  const setIsPlaying = (value: boolean) => {
+    console.log('🎵 🎵 setIsPlaying called with value:', value);
+    console.trace('🎵 Call stack for setIsPlaying:'); // This will show where it's called from
+    setIsPlayingState(value);
+  };
   const [sound, setSound] = useState<Audio.Sound | null>(null);
   const [duration, setDuration] = useState(0);
   const [position, setPosition] = useState(0);
@@ -88,6 +127,28 @@ export default function AudioPlayerScreen() {
     inputRange: [0, 1],
     outputRange: ['0deg', '360deg'],
   });
+
+  // Handle screen focus/blur for audio session management
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log('🎵 Audio Player screen focused - DISABLED stopping other audio during debug');
+
+      // TEMPORARILY DISABLED - Don't stop any audio during auto-play debugging
+      // const shouldAutoPlay = params.autoPlay === 'true';
+      // if (!shouldAutoPlay) {
+      //   console.log('🎵 Not auto-play mode - stopping other audio');
+      //   globalAudioManager.stopCurrentAudio('audio-player');
+      // } else {
+      //   console.log('🎵 Auto-play mode detected - letting audio load first');
+      // }
+
+      // Return cleanup function for when screen loses focus
+      return () => {
+        console.log('🎵 Audio Player screen unfocused - DISABLED auto-stopping');
+        // TEMPORARILY DISABLED - Don't stop audio on unfocus during debugging
+      };
+    }, [params.autoPlay])
+  );
 
   // Counter storage key
   const getCounterKey = (feedId: string) => `mantra_counter_${feedId}`;
@@ -149,6 +210,19 @@ export default function AudioPlayerScreen() {
       // Track view
       await feedService.viewFeed(feedId);
       console.log('👁️ Audio Player: View tracked for feed:', feedId);
+
+      // Check for auto-play after feed is loaded
+      const shouldAutoPlay = params.autoPlay === 'true';
+      if (shouldAutoPlay && !autoPlayTriggeredRef.current) {
+        console.log('🎵 Feed loaded: Triggering auto-play now...');
+        autoPlayTriggeredRef.current = true;
+
+        // Start auto-play immediately after feed is loaded
+        setTimeout(() => {
+          console.log('🎵 Feed loaded: Executing auto-play...');
+          startAutoPlay();
+        }, 100);
+      }
     } catch (error) {
       console.error('❌ Audio Player: Error fetching feed:', error);
       setFeedError('Failed to load mantra details');
@@ -247,6 +321,7 @@ export default function AudioPlayerScreen() {
 
   // Track previous feedId to detect actual changes
   const prevFeedIdRef = React.useRef<string | undefined>(feedId);
+  const autoPlayTriggeredRef = React.useRef<boolean>(false);
 
   // Fetch feed data on component mount and reset audio when feedId changes
   useEffect(() => {
@@ -325,7 +400,12 @@ export default function AudioPlayerScreen() {
   useEffect(() => {
     const unsubscribeBlur = navigation.addListener('blur', () => {
       // Screen lost focus (user navigated to another screen)
-      console.log('📱 Navigation: Screen blurred - stopping audio playback');
+      console.log('📱 Navigation: Screen blurred - but NOT stopping audio automatically (let user control)');
+      console.log('📱 Current audio state - sound exists:', !!sound, 'isPlaying:', isPlaying);
+
+      // Don't automatically stop audio on blur - let it continue playing
+      // The user can manually pause if they want
+      return;
 
       if (sound && isPlaying) {
         // Safe audio pause with error handling
@@ -540,6 +620,76 @@ export default function AudioPlayerScreen() {
     };
   }, [sound]);
 
+  // Simple auto-play function - bypasses togglePlayback completely
+  const startAutoPlay = async () => {
+    try {
+      console.log('🎵 🎵 🎵 SIMPLE AUTO-PLAY: STARTING 🎵 🎵 🎵');
+
+      // Get mantra data
+      const mantraData = getMantraData();
+      if (!mantraData.audioUrl) {
+        console.error('🎵 Auto-play: No audio URL available');
+        return;
+      }
+
+      console.log('🎵 Auto-play: Creating sound directly with audioUrl:', mantraData.audioUrl);
+
+      // Create sound directly - bypass all togglePlayback logic
+      const { sound: newSound } = await Audio.Sound.createAsync(
+        { uri: mantraData.audioUrl },
+        {
+          shouldPlay: true, // Start playing immediately
+          isLooping: false,
+          volume: volume,
+          rate: playbackSpeed,
+          shouldCorrectPitch: false,
+        }
+      );
+
+      console.log('🎵 Auto-play: Sound created, setting state...');
+      setSound(newSound);
+      setIsPlaying(true);
+      console.log('🎵 Auto-play: State set - sound and playing=true');
+
+      // Register with global manager
+      globalAudioManager.setCurrentSound(newSound, 'audio-player');
+
+      // Set up status listener for UI updates
+      newSound.setOnPlaybackStatusUpdate((status) => {
+        if (status.isLoaded) {
+          setDuration(status.durationMillis || 0);
+          if (!isSeeking) {
+            setPosition(status.positionMillis || 0);
+          }
+          console.log('🎵 Auto-play: Status update - isPlaying:', status.isPlaying);
+        }
+      });
+
+      console.log('🎵 Auto-play: Setup complete!');
+
+    } catch (error) {
+      console.error('🎵 Auto-play: FAILED:', error);
+      autoPlayTriggeredRef.current = false;
+    }
+  };
+
+  // DISABLED OLD AUTO-PLAY EFFECT - Now triggered from fetchFeedData
+  // useEffect(() => {
+  //   const shouldAutoPlay = params.autoPlay === 'true';
+  //   if (shouldAutoPlay && feedId && !isFeedLoading && !isAudioLoading && !autoPlayTriggeredRef.current) {
+  //     autoPlayTriggeredRef.current = true;
+  //     const autoPlayTimer = setTimeout(() => {
+  //       startAutoPlay();
+  //     }, 300);
+  //     return () => clearTimeout(autoPlayTimer);
+  //   }
+  // }, [params.autoPlay, feedId, isFeedLoading, isAudioLoading]);
+
+  // Reset auto-play trigger when feedId changes
+  useEffect(() => {
+    autoPlayTriggeredRef.current = false;
+  }, [feedId]);
+
   // Animations
   useEffect(() => {
     // Pulse animation for play button
@@ -612,10 +762,26 @@ export default function AudioPlayerScreen() {
           if (isPlaying) {
             console.log('⏸️ Pausing audio - stopping auto-loop');
             await sound.pauseAsync();
+
+            // Track pause event
+            const pauseStatus = await sound.getStatusAsync();
+            if (pauseStatus.isLoaded) {
+              mixpanel.trackAudioPause(
+                feedId || 'unknown',
+                pauseStatus.positionMillis || 0
+              );
+            }
+
             setIsPlaying(false);
             setIsAutoLooping(false); // Stop auto-loop when user pauses
           } else {
             console.log('▶️ Resuming audio');
+
+            // Track play event
+            mixpanel.trackAudioPlay(
+              feedId || 'unknown',
+              feedData?.caption || 'Unknown Mantra'
+            );
 
             // Check if we should restart auto-looping
             const shouldAutoLoop = chantCount < targetCount && !isLooping;
@@ -666,7 +832,7 @@ export default function AudioPlayerScreen() {
         const { sound: newSound } = await Audio.Sound.createAsync(
           { uri: mantraData.audioUrl?.toString() || '' },
           {
-            shouldPlay: false, // Don't auto-play, let user control
+            shouldPlay: false, // Always start paused
             isLooping: isLooping && !shouldAutoLoop, // Only use audio loop for manual loop, not auto-loop
             volume: volume,
             rate: playbackSpeed,
@@ -697,6 +863,9 @@ export default function AudioPlayerScreen() {
                 setSound(newSound);
                 // soundRef will be updated by useEffect
 
+                // Register this sound with the global audio manager
+                globalAudioManager.setCurrentSound(newSound, 'audio-player');
+
                 // Set volume to current volume setting
                 try {
                   await newSound.setVolumeAsync(volume);
@@ -706,10 +875,8 @@ export default function AudioPlayerScreen() {
                   // Continue without failing the audio load
                 }
 
-                // Now start playing
-                console.log('▶️ Audio Player: Starting playback...');
-                const playResult = await newSound.playAsync();
-                console.log('▶️ Audio Player: playAsync() result:', playResult);
+                // Audio loaded successfully - will be played by auto-play useEffect if needed
+                console.log('✅ Audio Player: Sound loaded and ready for playback');
 
                 // Wait a moment for playback to actually start
                 await new Promise(resolve => setTimeout(resolve, 100));
@@ -725,9 +892,9 @@ export default function AudioPlayerScreen() {
                   shouldPlay: playStatus.isLoaded ? playStatus.shouldPlay : 'N/A'
                 });
 
-                // If playback didn't start, try different approaches
-                if (playStatus.isLoaded && !playStatus.isPlaying) {
-                  console.log('⚠️ Audio Player: Playback not started, trying alternative method...');
+                // If manual playback didn't start, try different approaches
+                if (playStatus.isLoaded && !playStatus.isPlaying && sound === newSound && isPlaying) {
+                  console.log('⚠️ Audio Player: Manual playback not started, trying alternative method...');
 
                   // Try method 1: Stop and restart
                   try {
@@ -1559,6 +1726,8 @@ export default function AudioPlayerScreen() {
               style={styles.playButton}
               onPress={togglePlayback}
               disabled={isAudioLoading}
+              activeOpacity={0.8}
+              android_ripple={null}
             >
               <LinearGradient
                 colors={['#CA3500', '#B8734A']}
@@ -2061,6 +2230,16 @@ const styles = StyleSheet.create({
     height: 80,
     borderRadius: 40,
     overflow: 'hidden',
+    ...Platform.select({
+      android: {
+        elevation: 0, // Remove Android elevation shadow
+        borderWidth: 0, // Ensure no border
+        backgroundColor: 'transparent', // Force transparent background
+      },
+      ios: {
+        shadowOpacity: 0, // Remove iOS shadow
+      },
+    }),
   },
   playButtonGradient: {
     flex: 1,

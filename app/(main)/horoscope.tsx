@@ -27,9 +27,11 @@ import { useTabBarHeight } from '@/hooks/useTabBarHeight';
 import { ZODIAC_SIGNS } from '@/data/zodiacData';
 import type { ZodiacSign } from '@/types/horoscope';
 import { useZodiacCalculation } from '@/features/profile/hooks/useZodiac';
+import { mixpanel } from '@/services/mixpanel';
+import { useScreenTracking } from '@/hooks/useScreenTracking';
 
 const { width } = Dimensions.get('window');
-const ITEM_WIDTH = (width - 60) / 3; // 3 columns with padding
+const ITEM_WIDTH = (width - 60 - 32) / 3; // 3 columns with padding and gaps (16px each side)
 
 // Isolated Search Component
 const IsolatedSearchBar = ({ onSearchSubmit, currentLanguage }: {
@@ -62,13 +64,6 @@ const IsolatedSearchBar = ({ onSearchSubmit, currentLanguage }: {
         autoCorrect={false}
         selectionColor="#D4824A"
       />
-      <TouchableOpacity style={styles.micButton}>
-        <Ionicons
-          name="mic"
-          size={18}
-          color="#D4824A"
-        />
-      </TouchableOpacity>
     </View>
   );
 };
@@ -76,6 +71,9 @@ const IsolatedSearchBar = ({ onSearchSubmit, currentLanguage }: {
 export default function HoroscopeScreen() {
   const { language } = useTranslation();
   const { contentPadding } = useTabBarHeight();
+
+  // Track screen view
+  useScreenTracking('Horoscope Screen');
 
   // Zodiac calculation hook
   const zodiacCalculation = useZodiacCalculation({
@@ -139,6 +137,10 @@ export default function HoroscopeScreen() {
   const handleZodiacPress = (zodiacSign: ZodiacSign) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setSelectedZodiac(zodiacSign);
+
+    // Track horoscope view
+    const today = new Date().toISOString().split('T')[0];
+    mixpanel.trackHoroscopeView(zodiacSign, today);
 
     // Navigate directly to horoscope details
     router.push({
@@ -668,10 +670,6 @@ const styles = StyleSheet.create({
     margin: 0,
     height: 20,
   },
-  micButton: {
-    marginLeft: 8,
-    padding: 2,
-  },
   birthDetailsContainer: {
     paddingHorizontal: goldenTempleTheme.spacing.lg,
     paddingVertical: goldenTempleTheme.spacing.md,
@@ -684,7 +682,8 @@ const styles = StyleSheet.create({
   },
   gridContainer: {
     paddingHorizontal: goldenTempleTheme.spacing.lg,
-    gap: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   zodiacCard: {
     width: ITEM_WIDTH,
@@ -694,6 +693,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#D4C4A8',
     marginBottom: 16,
+    marginHorizontal: 8, // Add horizontal spacing between cards
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: {

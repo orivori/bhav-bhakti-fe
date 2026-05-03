@@ -34,6 +34,7 @@ export default function ProfileScreen() {
   const [isEditingZodiac, setIsEditingZodiac] = useState(false);
   const [selectedWesternZodiac, setSelectedWesternZodiac] = useState('');
   const [selectedVedicRashi, setSelectedVedicRashi] = useState('');
+  const [showFullScreenImage, setShowFullScreenImage] = useState(false);
 
   // Debug logging
   React.useEffect(() => {
@@ -60,11 +61,21 @@ export default function ProfileScreen() {
     ]);
   };
 
+  const handleAvatarPress = () => {
+    if (profile?.profilePicture) {
+      // If there's a profile picture, show it in full screen
+      setShowFullScreenImage(true);
+    } else {
+      // If no profile picture, show upload options
+      handleImageUpload();
+    }
+  };
+
   const handleImageUpload = async () => {
     if (Platform.OS === 'ios') {
       ActionSheetIOS.showActionSheetWithOptions(
         {
-          options: ['Cancel', 'Take Photo', 'Choose from Gallery'],
+          options: ['Cancel', 'Take Photo', 'Choose from Gallery', 'View Profile Picture'],
           cancelButtonIndex: 0,
         },
         async (buttonIndex) => {
@@ -72,18 +83,29 @@ export default function ProfileScreen() {
             await openCamera();
           } else if (buttonIndex === 2) {
             await openGallery();
+          } else if (buttonIndex === 3 && profile?.profilePicture) {
+            setShowFullScreenImage(true);
           }
         }
       );
     } else {
+      const options = [
+        { text: language === 'hi' ? 'रद्द करें' : 'Cancel', style: 'cancel' },
+        { text: language === 'hi' ? 'फ़ोटो लें' : 'Take Photo', onPress: openCamera },
+        { text: language === 'hi' ? 'गैलरी से चुनें' : 'Choose from Gallery', onPress: openGallery },
+      ];
+
+      if (profile?.profilePicture) {
+        options.push({
+          text: language === 'hi' ? 'प्रोफ़ाइल फ़ोटो देखें' : 'View Profile Picture',
+          onPress: () => setShowFullScreenImage(true)
+        });
+      }
+
       Alert.alert(
         language === 'hi' ? 'प्रोफ़ाइल फ़ोटो' : 'Profile Photo',
         language === 'hi' ? 'एक विकल्प चुनें' : 'Choose an option',
-        [
-          { text: language === 'hi' ? 'रद्द करें' : 'Cancel', style: 'cancel' },
-          { text: language === 'hi' ? 'फ़ोटो लें' : 'Take Photo', onPress: openCamera },
-          { text: language === 'hi' ? 'गैलरी से चुनें' : 'Choose from Gallery', onPress: openGallery },
-        ]
+        options
       );
     }
   };
@@ -482,7 +504,7 @@ export default function ProfileScreen() {
 
         {/* Profile Card */}
         <View style={styles.profileCard}>
-          <TouchableOpacity style={styles.avatarContainer} onPress={handleImageUpload} disabled={isUploadingPhoto}>
+          <TouchableOpacity style={styles.avatarContainer} onPress={handleAvatarPress} disabled={isUploadingPhoto}>
             <View style={styles.avatar}>
               {profile?.profilePicture ? (
                 <Image
@@ -499,9 +521,15 @@ export default function ProfileScreen() {
                 </View>
               )}
             </View>
-            <View style={styles.cameraButton}>
+            <TouchableOpacity
+              style={styles.cameraButton}
+              onPress={(e) => {
+                e.stopPropagation();
+                handleImageUpload();
+              }}
+            >
               <Ionicons name="camera" size={16} color="#fff" />
-            </View>
+            </TouchableOpacity>
           </TouchableOpacity>
 
           <View style={styles.profileInfo}>
@@ -616,8 +644,8 @@ export default function ProfileScreen() {
                 ]}>
                   <Ionicons
                     name={option.icon as any}
-                    size={20}
-                    color={option.isEditable ? "#3b82f6" : "#9ca3af"}
+                    size={22}
+                    color={option.isEditable ? "#CA3500" : "#9ca3af"}
                   />
                 </View>
                 <View style={styles.optionContent}>
@@ -640,7 +668,7 @@ export default function ProfileScreen() {
                 <Ionicons
                   name={option.isEditable ? "create-outline" : "information-circle-outline"}
                   size={20}
-                  color={option.isEditable ? "#3b82f6" : "#9ca3af"}
+                  color={option.isEditable ? "#CA3500" : "#9ca3af"}
                 />
               </TouchableOpacity>
             ))}
@@ -662,7 +690,7 @@ export default function ProfileScreen() {
                 activeOpacity={0.7}
               >
                 <View style={styles.optionIcon}>
-                  <Ionicons name={option.icon as any} size={20} color="#3b82f6" />
+                  <Ionicons name={option.icon as any} size={22} color="#CA3500" />
                 </View>
                 <View style={styles.optionContent}>
                   <Text variant="body" weight="medium">
@@ -672,7 +700,7 @@ export default function ProfileScreen() {
                     {option.description}
                   </Text>
                 </View>
-                <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
+                <Ionicons name="chevron-forward" size={20} color="#CA3500" />
               </TouchableOpacity>
             ))}
           </View>
@@ -979,6 +1007,42 @@ export default function ProfileScreen() {
           </ScrollView>
         </SafeAreaView>
       </Modal>
+
+      {/* Full Screen Profile Picture Modal */}
+      <Modal
+        visible={showFullScreenImage}
+        animationType="fade"
+        transparent={true}
+        statusBarTranslucent={true}
+        onRequestClose={() => setShowFullScreenImage(false)}
+      >
+        <View style={styles.fullScreenImageContainer}>
+          <TouchableOpacity
+            style={styles.fullScreenOverlay}
+            activeOpacity={1}
+            onPress={() => setShowFullScreenImage(false)}
+          >
+            <View style={styles.fullScreenImageWrapper}>
+              {profile?.profilePicture && (
+                <Image
+                  source={{ uri: profile.profilePicture }}
+                  style={styles.fullScreenImage}
+                  resizeMode="contain"
+                />
+              )}
+            </View>
+
+            {/* Close button */}
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={() => setShowFullScreenImage(false)}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="close" size={28} color="#ffffff" />
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -986,7 +1050,7 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: 'transparent',
+    backgroundColor: '#fff6da',
   },
   header: {
     flexDirection: 'row',
@@ -994,50 +1058,75 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 24,
     paddingVertical: 20,
-    backgroundColor: 'transparent',
+    backgroundColor: '#fff6da',
   },
   premiumButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fbbf24',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    gap: 4,
+    backgroundColor: '#CA3500',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 25,
+    gap: 6,
+    shadowColor: '#CA3500',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
   },
   premiumText: {
     color: '#fff',
-    fontWeight: '600',
+    fontWeight: '700',
+    fontSize: 12,
   },
   profileCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    marginHorizontal: 24,
-    marginTop: 24,
-    borderRadius: 16,
-    padding: 24,
+    backgroundColor: '#f7ebc4',
+    marginHorizontal: 20,
+    marginTop: 16,
+    borderRadius: 24,
+    padding: 28,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(229, 231, 235, 0.3)',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 6,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+    borderWidth: 2,
+    borderColor: '#CA3500',
   },
   avatarContainer: {
     position: 'relative',
     marginBottom: 16,
   },
   avatar: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: 'rgba(243, 244, 246, 0.5)',
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: '#E8D5C4',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 3,
-    borderColor: '#fff',
+    borderWidth: 4,
+    borderColor: '#CA3500',
     overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 6,
   },
   avatarImage: {
     width: '100%',
     height: '100%',
-    borderRadius: 50,
+    borderRadius: 60,
   },
   avatarLoading: {
     position: 'absolute',
@@ -1052,16 +1141,24 @@ const styles = StyleSheet.create({
   },
   cameraButton: {
     position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#3b82f6',
+    bottom: 2,
+    right: 2,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#CA3500',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 3,
-    borderColor: '#fff',
+    borderColor: '#f7ebc4',
+    shadowColor: '#CA3500',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.4,
+    shadowRadius: 6,
+    elevation: 8,
   },
   profileInfo: {
     alignItems: 'center',
@@ -1088,9 +1185,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderWidth: 1,
-    borderColor: '#d1d5db',
+    borderColor: '#CA3500',
     borderRadius: 8,
-    backgroundColor: '#fff',
+    backgroundColor: '#E8D5C4',
     minWidth: 200,
     marginBottom: 8,
   },
@@ -1111,64 +1208,113 @@ const styles = StyleSheet.create({
   premiumBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(254, 243, 199, 0.8)',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    gap: 6,
+    backgroundColor: '#E8D5C4',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 25,
+    gap: 8,
+    borderWidth: 2,
+    borderColor: '#fbbf24',
+    shadowColor: '#fbbf24',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 4,
   },
   premiumBadgeText: {
-    color: '#92400e',
+    color: '#CA3500',
+    fontWeight: '700',
+    fontSize: 14,
   },
   upgradeCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(249, 250, 251, 0.3)',
-    padding: 16,
-    borderRadius: 12,
+    backgroundColor: '#f7ebc4',
+    padding: 20,
+    borderRadius: 16,
     width: '100%',
-    gap: 12,
+    gap: 14,
+    borderWidth: 2,
+    borderColor: '#CA3500',
+    shadowColor: '#CA3500',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
   },
   upgradeIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(254, 243, 199, 0.8)',
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#E8D5C4',
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   upgradeText: {
     flex: 1,
   },
   section: {
-    marginTop: 32,
-    paddingHorizontal: 24,
+    marginTop: 28,
+    paddingHorizontal: 20,
   },
   sectionTitle: {
     marginBottom: 16,
+    color: '#CA3500',
+    fontSize: 18,
+    fontWeight: '700',
   },
   optionsList: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 12,
+    backgroundColor: '#f7ebc4',
+    borderRadius: 16,
     overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(229, 231, 235, 0.3)',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 4,
+    borderWidth: 2,
+    borderColor: '#CA3500',
   },
   optionItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
+    padding: 18,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(229, 231, 235, 0.3)',
+    borderBottomColor: '#D4C4A8',
   },
   optionIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(219, 234, 254, 0.5)',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#E8D5C4',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: 16,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   optionContent: {
     flex: 1,
@@ -1180,24 +1326,36 @@ const styles = StyleSheet.create({
   },
   socialButton: {
     width: '47%',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    padding: 20,
-    borderRadius: 12,
+    backgroundColor: '#f7ebc4',
+    padding: 24,
+    borderRadius: 16,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(229, 231, 235, 0.3)',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 4,
+    borderWidth: 2,
+    borderColor: '#CA3500',
   },
   socialLabel: {
-    marginTop: 8,
+    marginTop: 10,
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#374151',
   },
   logoutContainer: {
-    marginHorizontal: 24,
+    marginHorizontal: 20,
     marginTop: 32,
+    marginBottom: 20,
   },
   // Language Modal Styles
   modalContainer: {
     flex: 1,
-    backgroundColor: '#f9fafb',
+    backgroundColor: '#fff6da',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -1206,14 +1364,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
-    backgroundColor: '#fff',
+    borderBottomColor: '#D4C4A8',
+    backgroundColor: '#f7ebc4',
   },
   modalCloseButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: '#E8D5C4',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1234,29 +1392,29 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 16,
     paddingHorizontal: 20,
-    backgroundColor: '#fff',
+    backgroundColor: '#f7ebc4',
     borderRadius: 12,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: '#D4C4A8',
   },
   languageOptionSelected: {
-    backgroundColor: '#eff6ff',
-    borderColor: '#3b82f6',
+    backgroundColor: '#E8D5C4',
+    borderColor: '#CA3500',
   },
   languageOptionText: {
     fontSize: 16,
     color: '#374151',
   },
   languageOptionTextSelected: {
-    color: '#3b82f6',
+    color: '#CA3500',
   },
   // New styles for editing functionality
   optionItemDisabled: {
     opacity: 0.6,
   },
   optionIconDisabled: {
-    backgroundColor: 'rgba(156, 163, 175, 0.2)',
+    backgroundColor: '#e5e7eb',
   },
   optionTitleRow: {
     flexDirection: 'row',
@@ -1277,7 +1435,7 @@ const styles = StyleSheet.create({
   modalSaveButton: {
     paddingHorizontal: 16,
     paddingVertical: 8,
-    backgroundColor: '#3b82f6',
+    backgroundColor: '#CA3500',
     borderRadius: 8,
   },
   modalSaveText: {
@@ -1292,20 +1450,20 @@ const styles = StyleSheet.create({
   },
   modalInput: {
     borderWidth: 1,
-    borderColor: '#d1d5db',
+    borderColor: '#CA3500',
     borderRadius: 8,
     paddingHorizontal: 16,
     paddingVertical: 12,
     fontSize: 16,
     color: '#111827',
-    backgroundColor: '#fff',
+    backgroundColor: '#f7ebc4',
     marginBottom: 8,
   },
   fieldHint: {
     marginTop: 8,
   },
   datePicker: {
-    backgroundColor: '#fff',
+    backgroundColor: '#f7ebc4',
     borderRadius: 8,
     marginVertical: 16,
   },
@@ -1313,11 +1471,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#d1d5db',
+    borderColor: '#CA3500',
     borderRadius: 8,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#fff',
+    backgroundColor: '#f7ebc4',
     gap: 12,
   },
   dateDisplayText: {
@@ -1339,17 +1497,17 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 12,
     paddingHorizontal: 16,
-    backgroundColor: '#fff',
+    backgroundColor: '#f7ebc4',
     borderRadius: 8,
     marginBottom: 8,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: '#D4C4A8',
     minWidth: '47%',
     flex: 1,
   },
   zodiacOptionSelected: {
-    backgroundColor: '#eff6ff',
-    borderColor: '#3b82f6',
+    backgroundColor: '#E8D5C4',
+    borderColor: '#CA3500',
   },
   zodiacOptionText: {
     fontSize: 14,
@@ -1357,6 +1515,45 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   zodiacOptionTextSelected: {
-    color: '#3b82f6',
+    color: '#CA3500',
+  },
+
+  // Full Screen Image Modal Styles
+  fullScreenImageContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fullScreenOverlay: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  fullScreenImageWrapper: {
+    width: '90%',
+    height: '70%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fullScreenImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 12,
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 60,
+    right: 24,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
   },
 });

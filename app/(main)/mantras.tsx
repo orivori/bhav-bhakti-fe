@@ -8,11 +8,13 @@ import {
   RefreshControl,
   TextInput,
   Image,
+  Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useFocusEffect } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 
 import { Text } from '@/components/atoms';
@@ -37,6 +39,22 @@ export default function MantrasScreen() {
   const [selectedDeity, setSelectedDeity] = useState<Deity | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [currentTrendingIndex, setCurrentTrendingIndex] = useState(0);
+
+  // Stop ringtones when this screen becomes focused
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log('🕉️ Mantras screen focused - stopping ringtones');
+
+      // Stop all ringtones when entering mantras screen
+      if (global.globalAudioSessionManager) {
+        global.globalAudioSessionManager.stopAllRingtones();
+      }
+
+      return () => {
+        console.log('🕉️ Mantras screen unfocused');
+      };
+    }, [])
+  );
 
   // Fetch trending mantras (top 5)
   const {
@@ -76,7 +94,7 @@ export default function MantrasScreen() {
     data: deities = [],
     isLoading: deitiesLoading,
     error: deitiesError,
-  } = useDeities();
+  } = useDeities({ type: 'mantra' });
 
   // Fetch mantra categories for filter buttons
   const {
@@ -132,6 +150,7 @@ export default function MantrasScreen() {
         artist: mantra.user?.name || 'Unknown Artist',
         duration: mantra.media?.[0]?.duration?.toString() || '0',
         isLiked: mantra.isLiked ? 'true' : 'false',
+        autoPlay: 'true', // Auto-start playing when opened
       },
     });
   }, [viewFeed]);
@@ -150,6 +169,7 @@ export default function MantrasScreen() {
         artist: mantra.user?.name || 'Unknown Artist',
         duration: mantra.media?.[0]?.duration?.toString() || '0',
         isLiked: mantra.isLiked ? 'true' : 'false',
+        autoPlay: 'true', // Auto-start playing when opened
       },
     });
   }, [viewFeed]);
@@ -173,7 +193,8 @@ export default function MantrasScreen() {
   // Handle carousel scroll for pagination dots
   const handleTrendingScroll = (event: any) => {
     const contentOffset = event.nativeEvent.contentOffset.x;
-    const cardWidth = 300; // Approximate card width
+    const screenWidth = Dimensions.get('window').width;
+    const cardWidth = screenWidth * 0.85 + 16; // 85% of screen width + 16px margin (8px each side)
     const index = Math.round(contentOffset / cardWidth);
     setCurrentTrendingIndex(index);
   };
@@ -276,17 +297,10 @@ export default function MantrasScreen() {
             autoCorrect={false}
             selectionColor="#D4824A"
           />
-          <TouchableOpacity style={styles.micButton}>
-            <Ionicons
-              name="mic"
-              size={18}
-              color="#D4824A"
-            />
-          </TouchableOpacity>
         </View>
 
         {/* Right mantra for you - Trending Section */}
-        <View style={styles.section}>
+        <View style={styles.trendingSection}>
           <Text style={styles.sectionTitle}>
             {currentLanguage === 'hi' ? 'आपके लिए सही मंत्र' : 'Right mantra for you'}
           </Text>
@@ -325,7 +339,8 @@ export default function MantrasScreen() {
                 onScroll={handleTrendingScroll}
                 scrollEventThrottle={16}
                 pagingEnabled={false}
-                snapToInterval={300}
+                snapToInterval={Dimensions.get('window').width * 0.85 + 16}
+                snapToAlignment="start"
                 decelerationRate="fast"
               />
 
@@ -403,14 +418,16 @@ export default function MantrasScreen() {
               <Text color="secondary">Failed to load deities</Text>
             </View>
           ) : (
-            <FlatList
-              data={deities}
-              renderItem={renderDeityCard}
-              keyExtractor={(item) => item.id.toString()}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.deitiesList}
-            />
+            <View style={styles.deitiesListWrapper}>
+              <FlatList
+                data={deities}
+                renderItem={renderDeityCard}
+                keyExtractor={(item) => item.id.toString()}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.deitiesList}
+              />
+            </View>
           )}
 
           {/* Filter Buttons - Dynamic Categories */}
@@ -436,9 +453,11 @@ export default function MantrasScreen() {
 
         {/* All mantra section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            {currentLanguage === 'hi' ? 'सभी मंत्र' : 'All mantra'}
-          </Text>
+          <View style={styles.allMantrasHeader}>
+            <Text style={styles.sectionTitle}>
+              {currentLanguage === 'hi' ? 'सभी मंत्र' : 'All mantra'}
+            </Text>
+          </View>
 
           {isLoading ? (
             <View style={styles.loadingContainer}>
@@ -538,13 +557,14 @@ const styles = StyleSheet.create({
     margin: 0,
     height: 20,
   },
-  micButton: {
-    marginLeft: 8,
-    padding: 2,
-  },
   section: {
-    paddingHorizontal: 20,
+    paddingHorizontal: goldenTempleTheme.spacing.lg,
     marginBottom: 24,
+  },
+  trendingSection: {
+    paddingHorizontal: goldenTempleTheme.spacing.lg,
+    marginBottom: 24,
+    minHeight: 140, // Ensure enough height for 100px cards + padding
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -556,6 +576,9 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: '#CA3500',
+  },
+  allMantrasHeader: {
+    marginBottom: 16,
   },
   seeAllButton: {
     flexDirection: 'row',
@@ -577,9 +600,10 @@ const styles = StyleSheet.create({
   },
 
   trendingList: {
-    paddingLeft: 0, // Align with section content (20 - 8 margin = 12)
-    paddingRight: 0,
+    paddingLeft: 0,
+    paddingRight: goldenTempleTheme.spacing.lg,
     paddingTop: 12,
+    paddingBottom: 4, // Ensure cards don't get cut off at bottom
   },
   paginationContainer: {
     flexDirection: 'row',
@@ -656,13 +680,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingRight: 12,
   },
-  deitiesList: {
-    paddingLeft: 20,
+  deitiesListWrapper: {
+    marginLeft: 0,
     marginBottom: 12,
   },
+  deitiesList: {
+    paddingLeft: 0,
+    paddingRight: goldenTempleTheme.spacing.lg,
+    gap: 8,
+  },
   filtersContainer: {
-    paddingLeft: 20,
-    paddingRight: 12,
+    paddingLeft: 0,
+    paddingRight: goldenTempleTheme.spacing.lg,
     gap: 12,
   },
   filterButton: {

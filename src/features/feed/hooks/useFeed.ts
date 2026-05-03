@@ -4,6 +4,7 @@ import { feedService } from '../services/feedService';
 import { FeedQueryParams, Feed, FeedFilters } from '@/types/feed';
 import { useFeedStore } from '@/store/feedStore';
 import { useLanguageStore } from '@/store/languageStore';
+import { mixpanel } from '@/services/mixpanel';
 
 interface UseFeedOptions {
   filters?: FeedFilters;
@@ -189,19 +190,37 @@ export function useFeed(options: UseFeedOptions = {}) {
         currentIsLiked: feed.isLiked,
         willToggleTo: !feed.isLiked
       });
+
+      // Track like event
+      if (!feed.isLiked) {
+        mixpanel.trackFeedLike(feedId, feed.type || 'general');
+      }
+
       likeMutation.mutate({ feedId, isLiked: feed.isLiked || false });
     }
   };
 
   const handleDownload = (feedId: string) => {
+    const feed = feeds.find(f => f.id.toString() === feedId);
+    if (feed) {
+      mixpanel.trackFeedDownload(feedId, feed.type || 'general');
+    }
     downloadMutation.mutate(feedId);
   };
 
   const handleShare = (feedId: string, platform?: string) => {
+    const feed = feeds.find(f => f.id.toString() === feedId);
+    if (feed) {
+      mixpanel.trackFeedShare(feedId, feed.type || 'general', platform || 'unknown');
+    }
     shareMutation.mutate({ feedId, platform });
   };
 
   const handleView = (feedId: string) => {
+    const feed = feeds.find(f => f.id.toString() === feedId);
+    if (feed) {
+      mixpanel.trackFeedView(feedId, feed.type || 'general');
+    }
     viewMutation.mutate(feedId);
   };
 

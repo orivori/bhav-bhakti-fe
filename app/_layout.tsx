@@ -10,6 +10,9 @@ import { PremiumPaywall } from '@/components/molecules/PremiumPaywall';
 import { useScreenshotProtection } from '@/hooks/useScreenshotProtection';
 import { ToastProvider } from '@/components/atoms/Toast';
 import { Audio } from 'expo-av';
+import { mixpanel } from '@/services/mixpanel';
+import { SECRETS } from '@/config/secrets';
+import { AppState, AppStateStatus } from 'react-native';
 // Removed react-native-gesture-handler dependency for smaller bundle size
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
@@ -56,10 +59,32 @@ export default function RootLayout() {
       }
     };
 
+    // Initialize Mixpanel with token
+    const initializeMixpanel = async () => {
+      // Pass the token at runtime from secrets config
+      await mixpanel.init(SECRETS.MIXPANEL_TOKEN);
+      mixpanel.trackAppLaunch();
+    };
+
     initializeAudioSession();
+    initializeMixpanel();
 
     // Hide splash screen immediately since we're not loading fonts
     SplashScreen.hideAsync();
+  }, []);
+
+  // Track app state changes
+  React.useEffect(() => {
+    const handleAppStateChange = (nextAppState: AppStateStatus) => {
+      if (nextAppState === 'background') {
+        mixpanel.trackAppBackground();
+      } else if (nextAppState === 'active') {
+        mixpanel.trackAppForeground();
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    return () => subscription?.remove();
   }, []);
 
   return (

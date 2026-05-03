@@ -156,7 +156,7 @@ export const goldenTempleTheme = {
     xs: 4,
     sm: 8,
     md: 16,
-    lg: 24,
+    lg: 18,
     xl: 32,
     '2xl': 48,
     '3xl': 64,

@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { useAuthStore } from '@/shared/stores/authStore';
 import { authService } from '../services/authService';
 import { SendOTPRequest, VerifyOTPRequest, ApiError, AuthTokens } from '../types';
+import { mixpanel } from '@/services/mixpanel';
 
 interface AuthContextType {
   // State
@@ -67,6 +68,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         await login(response.data.user, tokens);
 
+        // Track successful login
+        mixpanel.identify(response.data.user.id?.toString() || response.data.user.phoneNumber);
+        mixpanel.trackLogin('phone_otp');
+
+        // Set user properties
+        mixpanel.setUserProperties({
+          phone_number: response.data.user.phoneNumber,
+          country_code: response.data.user.countryCode,
+          name: response.data.user.name,
+          created_at: response.data.user.createdAt,
+        });
+
         // Force navigation to main after successful login
         router.replace('/(main)');
       }
@@ -85,6 +98,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // Call API to logout if needed
       // await authService.logout();
+
+      // Track logout
+      mixpanel.trackLogout();
+      mixpanel.reset();
 
       await storeLogout();
 

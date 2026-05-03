@@ -18,23 +18,27 @@ export interface Deity {
 interface UseDeitiesOptions {
   isActive?: boolean;
   enabled?: boolean;
+  type?: 'mantra' | 'ringtone' | 'wallpaper' | 'general';
 }
 
 export function useDeities(options: UseDeitiesOptions = {}) {
-  const { isActive = true, enabled = true } = options;
+  const { isActive = true, enabled = true, type } = options;
 
   return useQuery<Deity[]>({
-    queryKey: ['deities', { isActive }],
+    queryKey: ['deities', { isActive, type }],
     queryFn: async () => {
       const searchParams = new URLSearchParams();
       if (isActive !== undefined) {
         searchParams.append('isActive', isActive.toString());
       }
+      if (type) {
+        searchParams.append('type', type);
+      }
 
       const apiUrl = `/v1/deities?${searchParams.toString()}`;
       console.log('🔍 API Call - Deities:', {
         url: apiUrl,
-        parameters: { isActive }
+        parameters: { isActive, type }
       });
 
       const response = await apiClient.get<{ success: boolean; data: Deity[] }>(apiUrl);

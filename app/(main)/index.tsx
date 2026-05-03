@@ -13,9 +13,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useFocusEffect } from '@react-navigation/native';
 
 import { Text } from '@/components/atoms';
 import FeedList from '@/components/molecules/FeedList';
+import { LanguageToggle } from '@/components/molecules/LanguageToggle';
 import { useFeed } from '@/features/feed/hooks';
 import { Feed } from '@/types/feed';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
@@ -23,6 +25,8 @@ import { useTranslation as useI18n } from '@/shared/i18n/useTranslation';
 import { SvgUri } from 'react-native-svg';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
 import * as Haptics from 'expo-haptics';
+import { mixpanel } from '@/services/mixpanel';
+import { useScreenTracking } from '@/hooks/useScreenTracking';
 
 type ContentCategory = 'Mantras' | 'Rashifal' | 'Status' | 'Ringtones';
 
@@ -58,13 +62,6 @@ const IsolatedSearchBar = ({ onSearchSubmit, currentLanguage }: {
         autoCorrect={false}
         selectionColor="#D4824A"
       />
-      <TouchableOpacity style={styles.micButton}>
-        <Ionicons
-          name="mic"
-          size={18}
-          color="#D4824A"
-        />
-      </TouchableOpacity>
     </View>
   );
 };
@@ -157,6 +154,25 @@ export default function HomeScreen() {
   const { contentPadding } = useTabBarHeight();
   const { t: ti, currentLanguage } = useI18n();
 
+  // Track screen view
+  useScreenTracking('Home Screen');
+
+  // Stop ringtones when home screen becomes focused
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log('🏠 Home screen focused - stopping ringtones');
+
+      // Stop all ringtones when entering home screen
+      if (global.globalAudioSessionManager) {
+        global.globalAudioSessionManager.stopAllRingtones();
+      }
+
+      return () => {
+        console.log('🏠 Home screen unfocused');
+      };
+    }, [])
+  );
+
   const {
     feeds,
     isLoading,
@@ -179,6 +195,7 @@ export default function HomeScreen() {
   const handleSearchSubmit = (query: string) => {
     if (query.trim()) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      mixpanel.trackSearch(query.trim(), 'home');
       router.push({
         pathname: '/search-results',
         params: { query: query.trim() }
@@ -226,6 +243,9 @@ export default function HomeScreen() {
   const handleCategoryPress = (category: ContentCategory) => {
     // Add haptic feedback for button press
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    // Track category selection
+    mixpanel.trackCategoryPress(category);
 
     // Navigate to category screen
     switch (category) {
@@ -279,6 +299,7 @@ export default function HomeScreen() {
             audioUrl: audioMedia.mediaUrl,
             thumbnailUrl: audioMedia.thumbnailUrl,
             tags: feed.tags?.join(',') || '',
+            autoPlay: 'true', // Auto-start playing when opened from home
           }
         });
         return;
@@ -293,21 +314,24 @@ export default function HomeScreen() {
 
   const renderHeader = () => (
     <View>
-      {/* App Title Header with Profile */}
+      {/* App Title Header with Language Toggle and Profile */}
       <View style={styles.appHeader}>
         <View style={styles.titleContainer}>
           <Text style={styles.appTitle}>Bhav Bhakti</Text>
         </View>
-        <TouchableOpacity
-          style={styles.profileAvatar}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            router.push('/profile');
-          }}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="person" size={24} color="#ffffff" />
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <LanguageToggle />
+          <TouchableOpacity
+            style={styles.profileAvatar}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              router.push('/profile');
+            }}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="person" size={24} color="#ffffff" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Search Bar */}
@@ -469,6 +493,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'flex-start',
   },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
   profileAvatar: {
     width: 48,
     height: 48,
@@ -544,10 +573,6 @@ const styles = StyleSheet.create({
     margin: 0,
     height: 20,
   },
-  micButton: {
-    marginLeft: 8,
-    padding: 2,
-  },
   // Choose where to start header styles
   chooseStartHeader: {
     flexDirection: 'row',
@@ -568,17 +593,19 @@ const styles = StyleSheet.create({
   // Categories grid styles
   categoriesGrid: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: goldenTempleTheme.spacing.lg,
+    justifyContent: 'flex-start',
+    paddingLeft: goldenTempleTheme.spacing.lg,
+    paddingRight: goldenTempleTheme.spacing.lg,
     marginBottom: goldenTempleTheme.spacing.sm,
-    gap: 0,
+    gap: 8,
+    marginLeft: -8, // Compensate for first item to align with title
   },
   categoryGridItem: {
-    flex: 1,
+    width: 80,
+    alignItems: 'center',
   },
   categoryGridCard: {
     height: 100,
-    padding: 14,
     justifyContent: 'center',
     alignItems: 'center',
     gap: 8,

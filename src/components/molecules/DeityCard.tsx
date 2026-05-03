@@ -5,6 +5,7 @@ import {
   StyleSheet,
   Image,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Text } from '@/components/atoms';
 import type { Deity } from '@/features/feed/hooks/useDeities';
 
@@ -33,7 +34,11 @@ export const DeityCard: React.FC<DeityCardProps> = ({
       onPress={handlePress}
       activeOpacity={0.8}
     >
-      {isSelected && <View style={styles.closeButton} />}
+      {isSelected && (
+        <View style={styles.closeButton}>
+          <Ionicons name="close" size={12} color="#FFFFFF" />
+        </View>
+      )}
 
       {/* Image */}
       <View style={styles.imageContainer}>
@@ -81,10 +86,10 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     backgroundColor: '#F7EBC4',
-    borderRadius: 12,
+    // borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: 4,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,

@@ -5,6 +5,7 @@ import {
   TouchableOpacity,
   ScrollView,
   Share,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -18,7 +19,6 @@ import { useHoroscopeBySign } from '@/features/horoscope/hooks/useHoroscope';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
 import { getZodiacBySign } from '@/data/zodiacData';
-import { LanguageToggle } from '@/components/molecules/LanguageToggle';
 import type { ZodiacSign } from '@/types/horoscope';
 
 export default function HoroscopeDetailScreen() {
@@ -37,52 +37,34 @@ export default function HoroscopeDetailScreen() {
 
   const zodiacData = zodiacSign ? getZodiacBySign(zodiacSign) : null;
 
-
-  const handleShare = async () => {
-    if (!horoscope || !zodiacData) return;
-
-    try {
-      const formattedDate = selectedDate.toLocaleDateString(
-        language === 'hi' ? 'hi-IN' : 'en-US',
-        { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }
-      );
-
-      await Share.share({
-        message: `${zodiacData.name[language as 'en' | 'hi'] || zodiacData.name.en} - ${formattedDate}\n\n${horoscope.overallPrediction}\n\n${t('horoscope.luckyNumber')}: ${horoscope.luckyNumber?.join(', ') || 'N/A'}\n${t('horoscope.luckyColor')}: ${horoscope.luckyColor?.join(', ') || 'N/A'}`,
-        title: `${t('horoscope.dailyHoroscope')} - ${zodiacData.name[language as 'en' | 'hi'] || zodiacData.name.en}`,
-      });
-    } catch (error) {
-      console.error('Error sharing:', error);
-    }
+  const isToday = () => {
+    const today = new Date();
+    return selectedDate.toDateString() === today.toDateString();
   };
 
-  const getGradientColors = () => {
-    if (!zodiacData) return ['#8B5A2B', '#A0522D', '#D4AF37'];
-
-    switch (zodiacData.element) {
-      case 'Fire':
-        return ['#FF6B00', '#FF8533', '#FFA500'];
-      case 'Earth':
-        return ['#8B4513', '#A0522D', '#CD853F'];
-      case 'Air':
-        return ['#4169E1', '#6495ED', '#87CEEB'];
-      case 'Water':
-        return ['#20B2AA', '#48D1CC', '#7FFFD4'];
-      default:
-        return ['#8B5A2B', '#A0522D', '#D4AF37'];
-    }
+  const isTomorrow = () => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return selectedDate.toDateString() === tomorrow.toDateString();
   };
 
   const formatDisplayDate = () => {
     return selectedDate.toLocaleDateString(
       language === 'hi' ? 'hi-IN' : 'en-US',
-      { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }
+      { day: 'numeric', month: 'long', year: 'numeric' }
     );
   };
 
-  const isToday = () => {
-    const today = new Date();
-    return selectedDate.toDateString() === today.toDateString();
+  const handleTodayPress = () => {
+    setSelectedDate(new Date());
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const handleTomorrowPress = () => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    setSelectedDate(tomorrow);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
   if (isLoading) {
@@ -120,246 +102,147 @@ export default function HoroscopeDetailScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={{ paddingBottom: contentPadding }}
+        contentContainerStyle={{ paddingBottom: contentPadding + 20 }}
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
         <View style={styles.header}>
+          <Text style={styles.appTitle}>Bhav Bhakti</Text>
           <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => router.back()}
+            style={styles.profileAvatar}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              router.push('/profile');
+            }}
+            activeOpacity={0.7}
           >
-            <Ionicons name="arrow-back" size={24} color="#374151" />
-          </TouchableOpacity>
-
-          <View style={styles.headerCenter}>
-            <Text variant="h5" weight="semibold" style={styles.headerTitle}>
-              {zodiacData.name[language as 'en' | 'hi'] || zodiacData.name.en}
-            </Text>
-            <LanguageToggle />
-          </View>
-
-          <TouchableOpacity
-            style={styles.shareButton}
-            onPress={handleShare}
-          >
-            <Ionicons name="share-outline" size={24} color="#374151" />
+            <Ionicons name="person" size={24} color="#ffffff" />
           </TouchableOpacity>
         </View>
 
-        {/* Date Selector */}
-        <View style={styles.dateSelector}>
-          <TouchableOpacity
-            style={styles.dateNavButton}
-            onPress={() => {
-              const prevDay = new Date(selectedDate);
-              prevDay.setDate(prevDay.getDate() - 1);
-              setSelectedDate(prevDay);
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            }}
-            disabled={selectedDate <= new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)}
-          >
-            <Ionicons name="chevron-back" size={20} color={goldenTempleTheme.colors.primary[600]} />
-          </TouchableOpacity>
 
-          <View style={styles.dateDisplay}>
-            <Text variant="body" weight="medium" style={styles.dateSelectorText}>
-              {formatDisplayDate()}
-            </Text>
-            {isToday() && (
-              <Text variant="caption" style={styles.todayLabel}>
-                {language === 'hi' ? 'आज' : 'Today'}
-              </Text>
-            )}
+        {/* Zodiac Info and Day Selection Section */}
+        <View style={styles.zodiacInfoSection}>
+          <View style={styles.zodiacIconContainer}>
+            <Text style={styles.zodiacIcon}>{zodiacData.icon}</Text>
           </View>
-
-          <TouchableOpacity
-            style={styles.dateNavButton}
-            onPress={() => {
-              const nextDay = new Date(selectedDate);
-              nextDay.setDate(nextDay.getDate() + 1);
-              setSelectedDate(nextDay);
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            }}
-            disabled={selectedDate >= new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)}
-          >
-            <Ionicons name="chevron-forward" size={20} color={goldenTempleTheme.colors.primary[600]} />
-          </TouchableOpacity>
-        </View>
-
-        {/* Zodiac Card */}
-        <LinearGradient
-          colors={getGradientColors()}
-          style={styles.zodiacCard}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-        >
-          <View style={styles.zodiacHeader}>
-            <View style={styles.zodiacIcon}>
-              <Text style={styles.zodiacEmoji}>{zodiacData.icon}</Text>
-            </View>
-            <View style={styles.zodiacInfo}>
-              <Text variant="h3" weight="bold" style={styles.zodiacName}>
-                {zodiacData.name[language as 'en' | 'hi'] || zodiacData.name.en}
-              </Text>
-              <Text variant="body" style={styles.zodiacDetails}>
-                {zodiacData.dates} • {language === 'hi' ? t(`elements.${zodiacData.element}`) : zodiacData.element}
-              </Text>
-            </View>
-          </View>
-
-          {/* Lucky Info */}
-          <View style={styles.luckyInfo}>
-            <View style={styles.luckyItem}>
-              <Text style={styles.luckyLabel}>{t('horoscope.luckyNumber')}</Text>
-              <Text style={styles.luckyValue}>
-                {horoscope.luckyNumber?.join(', ') || 'N/A'}
-              </Text>
-            </View>
-            <View style={styles.luckyItem}>
-              <Text style={styles.luckyLabel}>{t('horoscope.luckyColor')}</Text>
-              <Text style={styles.luckyValue}>
-                {horoscope.luckyColor?.join(', ') || 'N/A'}
-              </Text>
-            </View>
-            <View style={styles.luckyItem}>
-              <Text style={styles.luckyLabel}>{t('horoscope.luckyTime')}</Text>
-              <Text style={styles.luckyValue}>
-                {horoscope.luckyTime || 'N/A'}
-              </Text>
-            </View>
-          </View>
-        </LinearGradient>
-
-        {/* Horoscope Content */}
-        <View style={styles.contentCard}>
-          <View style={styles.contentHeader}>
-            <Text variant="h4" weight="semibold" style={styles.contentTitle}>
-              {isToday()
-                ? (language === 'hi' ? 'आज का राशिफल' : 'Today\'s Horoscope')
-                : (language === 'hi' ? 'राशिफल' : 'Horoscope')}
-            </Text>
-          </View>
-
-          <Text variant="body" style={styles.horoscopeText}>
-            {horoscope.overallPrediction}
+          <Text style={styles.zodiacName}>
+            {zodiacData.name[language as 'en' | 'hi'] || zodiacData.name.en}
           </Text>
 
-          {/* Categories */}
-          {(horoscope.love || horoscope.career || horoscope.health || horoscope.finance) && (
-            <View style={styles.categoriesSection}>
-              <Text variant="h5" weight="semibold" style={styles.categoriesTitle}>
-                {language === 'hi' ? 'विस्तृत भविष्यफल' : 'Detailed Predictions'}
+          {/* Today/Tomorrow Buttons */}
+          <View style={styles.dayButtonsContainer}>
+            <TouchableOpacity
+              style={[styles.dayButton, isToday() && styles.dayButtonActive]}
+              onPress={handleTodayPress}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.dayButtonText, isToday() && styles.dayButtonTextActive]}>
+                {language === 'hi' ? 'आज' : 'Today'}
               </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.dayButton, isTomorrow() && styles.dayButtonActive]}
+              onPress={handleTomorrowPress}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.dayButtonText, isTomorrow() && styles.dayButtonTextActive]}>
+                {language === 'hi' ? 'कल' : 'Tomorrow'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
 
-              {horoscope.love && (
-                <View style={styles.categoryItem}>
-                  <View style={styles.categoryHeader}>
-                    <Ionicons name="heart" size={16} color="#e11d48" />
-                    <Text variant="body" weight="semibold" style={styles.categoryLabel}>
-                      {t('horoscope.love')}
-                    </Text>
-                    {horoscope.loveRating && (
-                      <View style={styles.ratingContainer}>
-                        {[1, 2, 3, 4, 5].map((star) => (
-                          <Ionicons
-                            key={star}
-                            name={star <= horoscope.loveRating! ? 'star' : 'star-outline'}
-                            size={14}
-                            color="#fbbf24"
-                          />
-                        ))}
-                      </View>
-                    )}
-                  </View>
-                  <Text variant="body" style={styles.categoryText}>
-                    {horoscope.love}
-                  </Text>
-                </View>
-              )}
+        {/* Date Display */}
+        <View style={styles.dateDisplaySection}>
+          <Text style={styles.selectedDateText}>
+            {formatDisplayDate()}
+          </Text>
+        </View>
 
-              {horoscope.career && (
-                <View style={styles.categoryItem}>
-                  <View style={styles.categoryHeader}>
-                    <Ionicons name="briefcase" size={16} color="#3b82f6" />
-                    <Text variant="body" weight="semibold" style={styles.categoryLabel}>
-                      {t('horoscope.career')}
-                    </Text>
-                    {horoscope.careerRating && (
-                      <View style={styles.ratingContainer}>
-                        {[1, 2, 3, 4, 5].map((star) => (
-                          <Ionicons
-                            key={star}
-                            name={star <= horoscope.careerRating! ? 'star' : 'star-outline'}
-                            size={14}
-                            color="#fbbf24"
-                          />
-                        ))}
-                      </View>
-                    )}
-                  </View>
-                  <Text variant="body" style={styles.categoryText}>
-                    {horoscope.career}
-                  </Text>
-                </View>
-              )}
+        {/* Overview Card */}
+        <View style={styles.predictionCard}>
+          <Text style={styles.predictionTitle}>
+            {language === 'hi' ? 'अवलोकन' : 'Overview'}
+          </Text>
+          <Text style={styles.predictionText}>
+            {horoscope.overallPrediction}
+          </Text>
+        </View>
 
-              {horoscope.health && (
-                <View style={styles.categoryItem}>
-                  <View style={styles.categoryHeader}>
-                    <Ionicons name="fitness" size={16} color="#10b981" />
-                    <Text variant="body" weight="semibold" style={styles.categoryLabel}>
-                      {t('horoscope.health')}
-                    </Text>
-                    {horoscope.healthRating && (
-                      <View style={styles.ratingContainer}>
-                        {[1, 2, 3, 4, 5].map((star) => (
-                          <Ionicons
-                            key={star}
-                            name={star <= horoscope.healthRating! ? 'star' : 'star-outline'}
-                            size={14}
-                            color="#fbbf24"
-                          />
-                        ))}
-                      </View>
-                    )}
-                  </View>
-                  <Text variant="body" style={styles.categoryText}>
-                    {horoscope.health}
-                  </Text>
-                </View>
-              )}
+        {/* Love & Relationships Card */}
+        {horoscope.love && (
+          <View style={styles.predictionCard}>
+            <Text style={styles.predictionTitle}>
+              {language === 'hi' ? 'प्रेम और रिश्ते' : 'Love & Relationships'}
+            </Text>
+            <Text style={styles.predictionText}>
+              {horoscope.love}
+            </Text>
+          </View>
+        )}
 
-              {horoscope.finance && (
-                <View style={styles.categoryItem}>
-                  <View style={styles.categoryHeader}>
-                    <Ionicons name="card" size={16} color="#f59e0b" />
-                    <Text variant="body" weight="semibold" style={styles.categoryLabel}>
-                      {t('horoscope.finance')}
-                    </Text>
-                    {horoscope.financeRating && (
-                      <View style={styles.ratingContainer}>
-                        {[1, 2, 3, 4, 5].map((star) => (
-                          <Ionicons
-                            key={star}
-                            name={star <= horoscope.financeRating! ? 'star' : 'star-outline'}
-                            size={14}
-                            color="#fbbf24"
-                          />
-                        ))}
-                      </View>
-                    )}
-                  </View>
-                  <Text variant="body" style={styles.categoryText}>
-                    {horoscope.finance}
-                  </Text>
-                </View>
-              )}
+        {/* Career & Finance Card */}
+        {(horoscope.career || horoscope.finance) && (
+          <View style={styles.predictionCard}>
+            <Text style={styles.predictionTitle}>
+              {language === 'hi' ? 'करियर और वित्त' : 'Career & Finance'}
+            </Text>
+            <Text style={styles.predictionText}>
+              {horoscope.career || horoscope.finance}
+            </Text>
+          </View>
+        )}
+
+        {/* Health & Wellness Card */}
+        {horoscope.health && (
+          <View style={styles.predictionCard}>
+            <Text style={styles.predictionTitle}>
+              {language === 'hi' ? 'स्वास्थ्य और कल्याण' : 'Health & Wellness'}
+            </Text>
+            <Text style={styles.predictionText}>
+              {horoscope.health}
+            </Text>
+          </View>
+        )}
+
+        {/* Lucky Info Cards */}
+        <View style={styles.luckyCardsContainer}>
+          {/* Lucky Color Card */}
+          <View style={styles.luckyCard}>
+            <Text style={styles.luckyCardTitle}>
+              {language === 'hi' ? 'भाग्यशाली रंग' : 'Lucky color'}
+            </Text>
+            <View style={styles.luckyColorIndicator}>
+              <View style={[styles.colorDot, { backgroundColor: '#FFD700' }]} />
+              <Text style={styles.luckyCardValue}>
+                {horoscope.luckyColor?.[0] || (language === 'hi' ? 'पीला' : 'Yellow')}
+              </Text>
             </View>
-          )}
+          </View>
+
+          {/* Lucky Number Card */}
+          <View style={styles.luckyCard}>
+            <Text style={styles.luckyCardTitle}>
+              {language === 'hi' ? 'भाग्यशाली संख्या' : 'Lucky number'}
+            </Text>
+            <View style={styles.luckyNumberContainer}>
+              <Text style={styles.luckyNumber}>
+                {horoscope.luckyNumber?.[0] || '7'}
+              </Text>
+              <Text style={styles.luckyNumberText}>
+                {horoscope.luckyNumber?.[0] ?
+                  (language === 'hi' ?
+                    (['शून्य','एक','दो','तीन','चार','पांच','छह','सात','आठ','नौ'])[horoscope.luckyNumber[0]] || horoscope.luckyNumber[0].toString()
+                    : (['Zero','One','Two','Three','Four','Five','Six','Seven','Eight','Nine'])[horoscope.luckyNumber[0]] || horoscope.luckyNumber[0].toString()
+                  ) :
+                  (language === 'hi' ? 'सात' : 'Seven')
+                }
+              </Text>
+            </View>
+          </View>
         </View>
       </ScrollView>
-
     </SafeAreaView>
   );
 }
@@ -372,180 +255,196 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
+  // Header styles
   header: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: goldenTempleTheme.spacing.md,
-    paddingVertical: goldenTempleTheme.spacing.sm,
-    backgroundColor: goldenTempleTheme.colors.backgrounds.card,
-    borderBottomWidth: 1,
-    borderBottomColor: goldenTempleTheme.colors.primary[200],
-    ...goldenTempleTheme.shadows.sm,
-  },
-  backButton: {
-    padding: goldenTempleTheme.spacing.sm,
-    borderRadius: goldenTempleTheme.borderRadius.md,
-    backgroundColor: goldenTempleTheme.colors.primary[50],
-  },
-  headerCenter: {
-    flex: 1,
     alignItems: 'center',
-    gap: 6,
+    paddingHorizontal: goldenTempleTheme.spacing.lg,
+    paddingTop: goldenTempleTheme.spacing.lg,
+    paddingBottom: 4,
+    minHeight: 60,
   },
-  headerTitle: {
-    textAlign: 'center',
-    color: goldenTempleTheme.colors.text.primary,
+  appTitle: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#000000',
+    lineHeight: 28,
+    includeFontPadding: false,
   },
-  shareButton: {
-    padding: goldenTempleTheme.spacing.sm,
-    borderRadius: goldenTempleTheme.borderRadius.md,
-    backgroundColor: goldenTempleTheme.colors.primary[50],
-  },
-  dateSelector: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginHorizontal: goldenTempleTheme.spacing.md,
-    marginTop: goldenTempleTheme.spacing.lg,
-    backgroundColor: '#fff',
-    borderRadius: goldenTempleTheme.borderRadius.lg,
-    padding: goldenTempleTheme.spacing.md,
-    ...goldenTempleTheme.shadows.sm,
-  },
-  dateNavButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: goldenTempleTheme.colors.primary[50],
-    alignItems: 'center',
+  profileAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#D4824A',
     justifyContent: 'center',
-  },
-  dateDisplay: {
-    flex: 1,
     alignItems: 'center',
   },
-  dateSelectorText: {
-    color: goldenTempleTheme.colors.text.primary,
-    textAlign: 'center',
-  },
-  todayLabel: {
-    color: goldenTempleTheme.colors.primary[600],
-    fontSize: 12,
-    marginTop: 2,
-  },
-  zodiacCard: {
-    marginHorizontal: goldenTempleTheme.spacing.md,
-    marginTop: goldenTempleTheme.spacing.lg,
-    borderRadius: goldenTempleTheme.borderRadius.xl,
-    padding: goldenTempleTheme.spacing.lg,
-    ...goldenTempleTheme.shadows.lg,
-  },
-  zodiacHeader: {
+
+
+  // Zodiac Info Section
+  zodiacInfoSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: goldenTempleTheme.spacing.md,
+    justifyContent: 'space-between',
+    paddingHorizontal: goldenTempleTheme.spacing.lg,
+    paddingVertical: goldenTempleTheme.spacing.md,
   },
-  zodiacIcon: {
+  zodiacIconContainer: {
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: '#CA3500',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: goldenTempleTheme.spacing.md,
   },
-  zodiacEmoji: {
-    fontSize: 32,
-  },
-  zodiacInfo: {
-    flex: 1,
+  zodiacIcon: {
+    fontSize: 28,
+    color: '#fff',
   },
   zodiacName: {
-    color: '#fff',
-    marginBottom: 4,
-  },
-  zodiacDetails: {
-    color: 'rgba(255, 255, 255, 0.8)',
-    fontSize: 14,
-  },
-  luckyInfo: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: goldenTempleTheme.borderRadius.md,
-    padding: goldenTempleTheme.spacing.md,
-  },
-  luckyItem: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  luckyLabel: {
-    color: 'rgba(255, 255, 255, 0.7)',
-    fontSize: 12,
-    marginBottom: 4,
-  },
-  luckyValue: {
-    color: '#fff',
-    fontSize: 14,
+    fontSize: 20,
     fontWeight: '600',
-    textAlign: 'center',
-  },
-  contentCard: {
-    marginHorizontal: goldenTempleTheme.spacing.md,
-    marginTop: goldenTempleTheme.spacing.lg,
-    backgroundColor: '#fff',
-    borderRadius: goldenTempleTheme.borderRadius.xl,
-    padding: goldenTempleTheme.spacing.lg,
-    ...goldenTempleTheme.shadows.md,
-  },
-  contentHeader: {
-    marginBottom: goldenTempleTheme.spacing.md,
-    paddingBottom: goldenTempleTheme.spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: goldenTempleTheme.colors.primary[100],
-  },
-  contentTitle: {
-    color: goldenTempleTheme.colors.text.primary,
-    textAlign: 'center',
-  },
-  horoscopeText: {
-    color: goldenTempleTheme.colors.text.secondary,
-    lineHeight: 24,
-    marginBottom: goldenTempleTheme.spacing.lg,
-  },
-  categoriesSection: {
-    marginTop: goldenTempleTheme.spacing.md,
-  },
-  categoriesTitle: {
-    color: goldenTempleTheme.colors.text.primary,
-    marginBottom: goldenTempleTheme.spacing.md,
-    textAlign: 'center',
-  },
-  categoryItem: {
-    marginBottom: goldenTempleTheme.spacing.lg,
-    paddingBottom: goldenTempleTheme.spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: goldenTempleTheme.colors.primary[50],
-  },
-  categoryHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: goldenTempleTheme.spacing.sm,
-    gap: goldenTempleTheme.spacing.sm,
-  },
-  categoryLabel: {
-    color: goldenTempleTheme.colors.text.primary,
+    color: '#CA3500',
     flex: 1,
   },
-  ratingContainer: {
+
+  // Day Buttons (Tab-like)
+  dayButtonsContainer: {
     flexDirection: 'row',
-    gap: 2,
+    backgroundColor: '#f7ebc4',
+    borderRadius: 25,
+    padding: 4,
+    borderWidth: 1,
+    borderColor: '#CA3500',
   },
-  categoryText: {
-    color: goldenTempleTheme.colors.text.secondary,
+  dayButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 18,
+    minWidth: 60,
+    alignItems: 'center',
+  },
+  dayButtonActive: {
+    backgroundColor: '#CA3500',
+  },
+  dayButtonText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#CA3500',
+  },
+  dayButtonTextActive: {
+    color: '#fff',
+  },
+
+  // Date Display Section
+  dateDisplaySection: {
+    alignItems: 'flex-end',
+    paddingHorizontal: goldenTempleTheme.spacing.lg,
+    marginBottom: goldenTempleTheme.spacing.lg,
+  },
+  selectedDateText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#CA3500',
+  },
+
+  // Prediction Cards
+  predictionCard: {
+    backgroundColor: '#f7ebc4',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#CA3500',
+    marginHorizontal: goldenTempleTheme.spacing.lg,
+    marginBottom: goldenTempleTheme.spacing.md,
+    padding: goldenTempleTheme.spacing.lg,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  predictionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#8B4513',
+    marginBottom: goldenTempleTheme.spacing.sm,
+  },
+  predictionText: {
+    fontSize: 14,
+    color: '#8B4513',
     lineHeight: 20,
   },
+
+  // Lucky Cards
+  luckyCardsContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: goldenTempleTheme.spacing.lg,
+    gap: 12,
+    marginBottom: goldenTempleTheme.spacing.lg,
+  },
+  luckyCard: {
+    flex: 1,
+    backgroundColor: '#f7ebc4',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#CA3500',
+    padding: goldenTempleTheme.spacing.lg,
+    minHeight: 100,
+    justifyContent: 'space-between',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  luckyCardTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#8B4513',
+    marginBottom: goldenTempleTheme.spacing.md,
+  },
+  luckyColorIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  colorDot: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+  },
+  luckyCardValue: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#8B4513',
+  },
+  luckyNumberContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
+  },
+  luckyNumber: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#8B4513',
+    marginBottom: 4,
+    textAlign: 'center',
+    lineHeight: 24,
+  },
+  luckyNumberText: {
+    fontSize: 12,
+    color: '#8B4513',
+  },
+
+  // Loading and Error states
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',

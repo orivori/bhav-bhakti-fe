@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -7,19 +7,103 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   ListRenderItemInfo,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import { Text } from '@/components/atoms';
 import RingtoneFeedCard from '@/components/molecules/RingtoneFeedCard/RingtoneFeedCard';
 import { Feed } from '@/types/feed';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { useFeed } from '@/features/feed/hooks/useFeed';
+import { useDeities } from '@/features/feed/hooks/useDeities';
+import { DeityCard } from '@/components/molecules/DeityCard';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
+import { useTranslation } from '@/hooks/useTranslation';
+import type { Deity } from '@/features/feed/hooks/useDeities';
+import * as Haptics from 'expo-haptics';
+
+// Isolated Search Component to prevent keyboard disappearing
+const IsolatedSearchBar = ({ onSearchSubmit, currentLanguage }: {
+  onSearchSubmit: (query: string) => void;
+  currentLanguage: string;
+}) => {
+  const [localSearchText, setLocalSearchText] = React.useState('');
+
+  const handleSubmit = () => {
+    onSearchSubmit(localSearchText.trim());
+  };
+
+  return (
+    <View style={styles.searchContainer}>
+      <Ionicons
+        name="search-outline"
+        size={20}
+        color="#333333"
+        style={styles.searchIcon}
+      />
+      <TextInput
+        style={styles.searchInput}
+        placeholder={currentLanguage === 'hi' ? 'रिंगटोन खोजें...' : 'Search ringtones...'}
+        placeholderTextColor="#8B7355"
+        value={localSearchText}
+        onChangeText={setLocalSearchText}
+        returnKeyType="search"
+        onSubmitEditing={handleSubmit}
+        autoCapitalize="none"
+        autoCorrect={false}
+        selectionColor="#D4824A"
+      />
+    </View>
+  );
+};
 
 export default function RingtonesPage() {
   const { contentPadding } = useTabBarHeight();
+  const { language: currentLanguage } = useTranslation();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedDeity, setSelectedDeity] = useState<Deity | null>(null);
+
+  // Fetch deities for filter
+  const {
+    data: deities = [],
+    isLoading: deitiesLoading,
+    error: deitiesError,
+  } = useDeities({ type: 'ringtone' });
+
+  // Stop other audio when this screen becomes focused, and stop ringtones when leaving
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log('🎵 Ringtones screen focused - stopping other audio');
+
+      // Access global audio manager to stop other audio (mantras)
+      if (global.globalAudioSessionManager) {
+        // Only stop main audio (mantras), not ringtones
+        if (global.globalAudioSessionManager.currentSound) {
+          global.globalAudioSessionManager.stopCurrentAudio('ringtones');
+        }
+      }
+
+      return () => {
+        console.log('🎵 Ringtones screen unfocused - stopping all ringtones');
+        // Stop all ringtones when leaving the screen
+        if (global.globalAudioSessionManager) {
+          global.globalAudioSessionManager.stopAllRingtones();
+        }
+      };
+    }, [])
+  );
+  // Build filters for ringtone feeds
+  const feedFilters: any = { type: 'ringtone' as const };
+  if (selectedDeity) {
+    feedFilters.deityId = selectedDeity.id;
+  }
+  if (searchQuery && searchQuery.trim()) {
+    feedFilters.search = searchQuery.trim();
+  }
+
   const {
     feeds: ringtones,
     isLoading,
@@ -35,12 +119,28 @@ export default function RingtonesPage() {
     downloadFeed: handleDownload,
   } = useFeed({
     limit: 10,
-    // Remove filter temporarily to see if any feeds show up
+    filters: feedFilters,
   });
 
-  const handleBack = useCallback(() => {
-    router.back();
-  }, []);
+  const handleSearchSubmit = (query: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSearchQuery(query);
+  };
+
+  const handleDeityPress = useCallback((deity: Deity) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSelectedDeity(selectedDeity?.id === deity.id ? null : deity);
+  }, [selectedDeity]);
+
+  const renderDeityCard = ({ item }: { item: Deity }) => (
+    <DeityCard
+      deity={item}
+      isSelected={selectedDeity?.id === item.id}
+      onPress={handleDeityPress}
+      language={currentLanguage}
+    />
+  );
+
 
   const renderRingtone = useCallback(({ item: ringtone }: ListRenderItemInfo<Feed>) => (
     <RingtoneFeedCard
@@ -114,44 +214,110 @@ export default function RingtonesPage() {
           <Ionicons name="musical-notes" size={48} color="#FF8C42" />
         </View>
         <Text variant="h4" style={styles.emptyTitle}>
-          No Ringtones Yet
+          {searchQuery ? 'No Ringtones Found' : 'No Ringtones Yet'}
         </Text>
         <Text variant="body" style={styles.emptySubtitle}>
-          Sacred ringtones are coming soon!
+          {searchQuery ? 'Try different search terms' : 'Sacred ringtones are coming soon!'}
         </Text>
       </View>
     );
   }, [isLoading, error, loadRingtones]);
 
-  const keyExtractor = useCallback((item: Feed) => item.id.toString(), []);
+
+  // Prepare data with header items
+  const listData = [
+    { type: 'header', key: 'header' },
+    { type: 'deities', key: 'deities' },
+    ...ringtones.map(item => ({ type: 'ringtone', key: item.id.toString(), data: item }))
+  ];
+
+  const renderItem = ({ item, index }: any) => {
+    if (item.type === 'header') {
+      return (
+        <View style={styles.headerSection}>
+          <View style={styles.header}>
+            <Text style={styles.appTitle}>Bhav Bhakti</Text>
+            <TouchableOpacity
+              style={styles.profileAvatar}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                router.push('/profile');
+              }}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="person" size={24} color="#ffffff" />
+            </TouchableOpacity>
+          </View>
+
+          {/* Search Bar */}
+          <IsolatedSearchBar
+            onSearchSubmit={handleSearchSubmit}
+            currentLanguage={currentLanguage}
+          />
+        </View>
+      );
+    }
+
+    if (item.type === 'deities') {
+      return (
+        <View style={styles.stickySection}>
+          <Text style={[styles.sectionTitle, { paddingHorizontal: goldenTempleTheme.spacing.lg }]}>
+            {currentLanguage === 'hi' ? 'अपने भगवान को चुनें' : 'Choose your God'}
+          </Text>
+
+          {deitiesLoading ? (
+            <View style={styles.loadingContainer}>
+              <Text color="secondary">Loading deities...</Text>
+            </View>
+          ) : deitiesError ? (
+            <View style={styles.errorContainer}>
+              <Text color="secondary">Failed to load deities</Text>
+            </View>
+          ) : (
+            <View style={styles.fullWidthDeityContainer}>
+              <FlatList
+                data={deities}
+                renderItem={renderDeityCard}
+                keyExtractor={(item) => item.id.toString()}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.deitiesList}
+                style={styles.deityList}
+              />
+            </View>
+          )}
+        </View>
+      );
+    }
+
+    // Ringtone item
+    return (
+      <View style={styles.ringtoneItemContainer}>
+        {renderRingtone({
+          item: item.data,
+          index: index - 2,
+          separators: {
+            highlight: () => {},
+            unhighlight: () => {},
+            updateProps: () => {}
+          }
+        } as any)}
+      </View>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={handleBack}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="arrow-back" size={24} color="#1A1A1A" />
-        </TouchableOpacity>
-        <Text variant="h3" style={styles.headerTitle}>
-          Sacred Ringtones
-        </Text>
-        <View style={styles.headerSpacer} />
-      </View>
-
-      {/* Ringtones List */}
       <FlatList
-        data={ringtones}
-        renderItem={renderRingtone}
-        keyExtractor={keyExtractor}
+        data={listData}
+        renderItem={renderItem}
+        keyExtractor={(item) => item.key}
         ListEmptyComponent={renderEmptyComponent}
         ListFooterComponent={renderFooter}
+        stickyHeaderIndices={[1]} // Make the deities section sticky
         style={styles.list}
-        contentContainerStyle={[{ paddingBottom: contentPadding },
-          styles.listContent,
+        contentContainerStyle={[
+          { paddingBottom: contentPadding },
           ringtones.length === 0 && styles.emptyContainer,
         ]}
         refreshControl={
@@ -180,35 +346,75 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#fff6da',
   },
+  headerSection: {
+    backgroundColor: '#fff6da',
+  },
+  stickySection: {
+    backgroundColor: '#fff6da',
+    paddingTop: goldenTempleTheme.spacing.xs,
+    paddingBottom: goldenTempleTheme.spacing.md,
+    width: '100%',
+    alignSelf: 'stretch',
+  },
+  fullWidthDeityContainer: {
+    width: '100%',
+    flex: 1,
+  },
   header: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 0,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    alignItems: 'center',
+    paddingHorizontal: goldenTempleTheme.spacing.lg,
+    paddingTop: goldenTempleTheme.spacing.lg,
+    paddingBottom: 4,
+    minHeight: 60,
   },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#F8F9FA',
+  appTitle: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#000000',
+    lineHeight: 28,
+    includeFontPadding: false,
+  },
+  profileAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#D4824A',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  headerTitle: {
-    fontWeight: '700',
-    color: '#1A1A1A',
-    letterSpacing: -0.5,
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f7ebc4',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginHorizontal: goldenTempleTheme.spacing.lg,
+    marginVertical: goldenTempleTheme.spacing.sm,
+    borderWidth: 1,
+    borderColor: '#D4C4A8',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  headerSpacer: {
-    width: 40,
+  searchIcon: {
+    marginRight: 12,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: '#333333',
+    fontWeight: '400',
+    padding: 0,
+    margin: 0,
+    height: 20,
   },
   list: {
     flex: 1,
@@ -315,5 +521,39 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '700',
     fontSize: 16,
+  },
+  // Deities Section
+  section: {
+    paddingHorizontal: goldenTempleTheme.spacing.lg,
+    paddingBottom: goldenTempleTheme.spacing.md,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#000000',
+    marginBottom: 8,
+  },
+  loadingContainer: {
+    padding: goldenTempleTheme.spacing.lg,
+    alignItems: 'center',
+  },
+  errorContainer: {
+    padding: goldenTempleTheme.spacing.lg,
+    alignItems: 'center',
+  },
+  deitiesList: {
+    // paddingLeft: 0,
+    // paddingRight: goldenTempleTheme.spacing.sm,
+    // paddingVertical: 0,
+    // gap: 1,
+  },
+  deityList: {
+    marginTop: 0,
+    marginLeft: 0,
+    width: '100%',
+  },
+  ringtoneItemContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
   },
 });

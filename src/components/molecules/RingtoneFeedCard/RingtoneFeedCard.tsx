@@ -20,6 +20,7 @@ const { width } = Dimensions.get('window');
 import { Audio } from 'expo-av';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as MediaLibrary from 'expo-media-library';
+import RingtoneManager from 'react-native-ringtone-manager-new';
 import { Text } from '@/components/atoms';
 import { Feed } from '@/types/feed';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
@@ -60,8 +61,6 @@ export default function RingtoneFeedCard({
 }: RingtoneFeedCardProps) {
   const [isDownloading, setIsDownloading] = useState(false);
   const [isSettingRingtone, setIsSettingRingtone] = useState(false);
-  const [playbackPosition, setPlaybackPosition] = useState(0);
-  const [duration, setDuration] = useState(0);
 
   // Local state for like management
   const [localIsLiked, setLocalIsLiked] = useState(feed.isLiked);
@@ -163,10 +162,16 @@ export default function RingtoneFeedCard({
       await feedService.shareFeed(feed.id.toString(), { platform: 'native_share' });
       incrementShare(feed.id.toString());
 
+      // Create deep link for ringtone
+      const deepLink = `bhavbhakti://ringtone/${feed.id}`;
+      const playStoreLink = 'https://play.google.com/store/apps/details?id=com.bhavbhakti.app';
+
+      const shareMessage = feed.caption
+        ? `🔔 Check out this sacred ringtone: ${feed.caption}\n\n📱 Open in Bhav Bhakti App: ${deepLink}\n\n⬇️ Download the app: ${playStoreLink}\n\n#BhavBhakti #SacredRingtones #Spirituality`
+        : `🔔 Check out this amazing sacred ringtone from Bhav Bhakti App!\n\n📱 Open in app: ${deepLink}\n\n⬇️ Download the app: ${playStoreLink}\n\n#BhavBhakti #SacredRingtones #Spirituality`;
+
       const result = await Share.share({
-        message: feed.caption
-          ? `Check out this ringtone: ${feed.caption}\n\nShared from Bhav Bhakti App`
-          : 'Check out this amazing ringtone from Bhav Bhakti App!',
+        message: shareMessage,
         url: audioMedia.mediaUrl,
       });
 
@@ -247,44 +252,55 @@ export default function RingtoneFeedCard({
       if (downloadResult.status === 200) {
         if (Platform.OS === 'android') {
           try {
-            // On Android, try to save to media library
-            console.log('💾 Attempting to save audio file to media library...');
-            await MediaLibrary.saveToLibraryAsync(downloadResult.uri);
-            console.log('✅ Audio saved to media library successfully');
+            console.log('🎵 Setting ringtone using RingtoneManager...');
 
+            // Use the ringtone manager to set the ringtone
+            const ringtoneTitle = feed.caption || `Sacred Ringtone ${feed.id}`;
+
+            // Check if RingtoneManager is available and has the setRingtone method
+            if (RingtoneManager && typeof RingtoneManager.setRingtone === 'function') {
+              RingtoneManager.setRingtone({
+                uri: downloadResult.uri,
+                title: ringtoneTitle,
+                type: 'ringtone'
+              } as any);
+            } else {
+              // Fallback if RingtoneManager is not available
+              throw new Error('RingtoneManager not available');
+            }
+
+            console.log('✅ Ringtone set successfully');
             Alert.alert(
-              'Ringtone Downloaded & Saved',
-              'The ringtone has been saved to your device. To set it as your ringtone:\n\n1. Go to Settings > Sounds\n2. Select Phone Ringtone\n3. Choose the downloaded file',
-              [
-                {
-                  text: 'Open Sound Settings',
-                  onPress: () => {
-                    // Try to open Android sound settings
-                    // Open device settings
-                    Linking.openSettings();
-                  },
-                },
-                { text: 'OK', style: 'default' },
-              ]
+              'Success!',
+              `"${ringtoneTitle}" has been set as your ringtone successfully! 🎵`,
+              [{ text: 'OK', style: 'default' }]
             );
-          } catch (mediaError) {
-            const errorMessage = mediaError instanceof Error ? mediaError.message : 'Unknown error';
-            console.log('⚠️ Could not save to media library, but file is downloaded:', errorMessage);
-            // File is still downloaded, just not in media library
-            Alert.alert(
-              'Ringtone Downloaded',
-              'The ringtone has been downloaded to your device. To set it as your ringtone:\n\n1. Go to Settings > Sounds\n2. Select Phone Ringtone\n3. Look for the ringtone file in your downloads',
-              [
-                {
-                  text: 'Open Sound Settings',
-                  onPress: () => {
-                    // Open device settings
-                    Linking.openSettings();
+
+            // Track the action
+            await feedService.downloadFeed(feed.id.toString());
+            incrementDownload(feed.id.toString());
+            onDownload?.(feed.id.toString());
+
+          } catch (ringtoneError) {
+            console.log('⚠️ RingtoneManager failed, falling back to manual method:', ringtoneError);
+
+            // Fallback: Save to media library and show manual instructions
+            try {
+              await MediaLibrary.saveToLibraryAsync(downloadResult.uri);
+              Alert.alert(
+                'Ringtone Downloaded',
+                'The ringtone has been saved to your device. To set it as your ringtone:\n\n1. Go to Settings > Sounds\n2. Select Phone Ringtone\n3. Choose the downloaded file',
+                [
+                  {
+                    text: 'Open Sound Settings',
+                    onPress: () => Linking.openSettings(),
                   },
-                },
-                { text: 'OK', style: 'default' },
-              ]
-            );
+                  { text: 'OK', style: 'default' },
+                ]
+              );
+            } catch (mediaError) {
+              Alert.alert('Error', 'Failed to set or save ringtone. Please try again.');
+            }
           }
         } else if (Platform.OS === 'ios') {
           try {
@@ -333,17 +349,6 @@ export default function RingtoneFeedCard({
     }
   };
 
-  // Handle progress bar seeking
-  const handleSeek = async (event: any) => {
-    // Seeking functionality removed - handled by individual RingtonePlayer
-  };
-
-  const formatTime = (millis: number): string => {
-    const totalSeconds = Math.floor(millis / 1000);
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-  };
 
 
   return (
@@ -386,40 +391,8 @@ export default function RingtoneFeedCard({
                 feedService.viewFeed(feed.id.toString());
                 incrementView(feed.id.toString());
               }}
+              showProgressBar={true}
             />
-
-            {/* Progress Bar */}
-            <View style={styles.progressSection}>
-              <TouchableOpacity
-                style={styles.progressBar}
-                onPress={handleSeek}
-                activeOpacity={0.8}
-              >
-                <View style={styles.progressTrack}>
-                  <View
-                    style={[
-                      styles.progressFill,
-                      { width: duration > 0 ? `${(playbackPosition / duration) * 100}%` : '0%' },
-                    ]}
-                  />
-                  {duration > 0 && (
-                    <View
-                      style={[
-                        styles.progressThumb,
-                        {
-                          left: `${Math.max(0, Math.min((playbackPosition / duration) * 100, 100))}%`,
-                        }
-                      ]}
-                    />
-                  )}
-                </View>
-              </TouchableOpacity>
-            </View>
-
-            {/* Duration */}
-            <Text style={styles.duration}>
-              {formatTime(duration || (audioMedia.duration || 0) * 1000)} sec
-            </Text>
           </View>
 
           {/* Action Buttons Row — 2 buttons only */}

@@ -6,6 +6,10 @@ import {
   Alert,
   Share,
   ActivityIndicator,
+  Modal,
+  Image,
+  Dimensions,
+  StatusBar,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -52,6 +56,7 @@ export default function WallpaperFeedCard({
   onPress,
 }: WallpaperFeedCardProps) {
   const [isDownloading, setIsDownloading] = useState(false);
+  const [showFullscreen, setShowFullscreen] = useState(false);
   const { incrementDownload, incrementShare, incrementView } = useFeedStore();
   const { language } = useTranslation();
 
@@ -68,6 +73,14 @@ export default function WallpaperFeedCard({
     onPress?.(feed);
   };
 
+  const handleImagePress = () => {
+    setShowFullscreen(true);
+  };
+
+  const closeFullscreen = () => {
+    setShowFullscreen(false);
+  };
+
   const handleLike = () => {
     onLike?.(feed.id.toString());
   };
@@ -76,10 +89,17 @@ export default function WallpaperFeedCard({
     try {
       await feedService.shareFeed(feed.id.toString(), { platform: 'native_share' });
       incrementShare(feed.id.toString());
+
+      // Create deep link for the app
+      const deepLink = `bhavbhakti://wallpaper/${feed.id}`;
+      const playStoreLink = 'https://play.google.com/store/apps/details?id=com.bhavbhakti.app';
+
+      const shareMessage = title
+        ? `🙏 Check out this beautiful wallpaper: ${title}\n\n📱 Open in Bhav Bhakti App: ${deepLink}\n\n⬇️ Download the app: ${playStoreLink}\n\n#BhavBhakti #SacredWallpapers #Spirituality`
+        : `🙏 Check out this amazing wallpaper from Bhav Bhakti App!\n\n📱 Open in app: ${deepLink}\n\n⬇️ Download the app: ${playStoreLink}\n\n#BhavBhakti #SacredWallpapers #Spirituality`;
+
       await Share.share({
-        message: title
-          ? `Check out this beautiful wallpaper: ${title}\n\nShared from Bhav Bhakti App`
-          : 'Check out this amazing wallpaper from Bhav Bhakti App!',
+        message: shareMessage,
         url: feed.media[0]?.mediaUrl,
       });
       onShare?.(feed.id.toString());
@@ -120,10 +140,10 @@ export default function WallpaperFeedCard({
   return (
     <View style={styles.card}>
       {/* Wallpaper Image */}
-      <TouchableOpacity onPress={handlePress} activeOpacity={0.95} style={styles.imageWrapper}>
+      <TouchableOpacity onPress={handleImagePress} activeOpacity={0.95} style={styles.imageWrapper}>
         <FeedMedia
           media={feed.media}
-          onMediaPress={handlePress}
+          onMediaPress={handleImagePress}
           autoPlay={false}
           showControls={false}
           showCenterPlayButton={false}
@@ -206,6 +226,38 @@ export default function WallpaperFeedCard({
         </TouchableOpacity> */}
 
       </View>
+
+      {/* Fullscreen Image Modal */}
+      <Modal
+        visible={showFullscreen}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={closeFullscreen}
+      >
+        <View style={styles.fullscreenContainer}>
+          <StatusBar barStyle="light-content" backgroundColor="rgba(0,0,0,0.9)" />
+          <TouchableOpacity
+            style={styles.fullscreenOverlay}
+            onPress={closeFullscreen}
+            activeOpacity={1}
+          >
+            <Image
+              source={{ uri: feed.media[0]?.mediaUrl }}
+              style={styles.fullscreenImage}
+              resizeMode="contain"
+            />
+
+            {/* Close button */}
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={closeFullscreen}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="close" size={30} color="#FFFFFF" />
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -303,5 +355,35 @@ const styles = StyleSheet.create({
     color: '#E76A4A',
     fontSize: 16,
     fontWeight: '600',
+  },
+
+  // Fullscreen Modal Styles
+  fullscreenContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fullscreenOverlay: {
+    flex: 1,
+    width: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fullscreenImage: {
+    width: Dimensions.get('window').width,
+    height: Dimensions.get('window').height,
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1,
   },
 });

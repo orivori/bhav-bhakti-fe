@@ -3,6 +3,9 @@
 # dependencies
 node_modules/
 .env
+
+# Secrets and configuration
+src/config/secrets.ts
 # Expo
 .expo/
 dist/

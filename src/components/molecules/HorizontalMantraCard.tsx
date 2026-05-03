@@ -85,6 +85,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F7EBC4',
     borderRadius: 16,
     marginBottom: 16,
+    marginHorizontal: 4, // Add horizontal margin to contain shadow
     padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
@@ -93,9 +94,9 @@ const styles = StyleSheet.create({
       width: 0,
       height: 2,
     },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOpacity: 0.08, // Slightly reduce shadow opacity
+    shadowRadius: 6, // Reduce shadow radius to prevent overflow
+    elevation: 3, // Reduce elevation for Android
   },
   imageContainer: {
     width: 80,
