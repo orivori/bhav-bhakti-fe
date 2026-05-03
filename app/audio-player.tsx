@@ -12,6 +12,7 @@ import {
   Image,
   ScrollView,
   PanResponder,
+  Share,
 } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -1151,6 +1152,49 @@ export default function AudioPlayerScreen() {
     console.log('✅ All audio states reset completely');
   };
 
+  // Handle share functionality
+  const handleShare = async () => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+      const mantraTitle = feedData?.caption || 'Sacred Mantra';
+      const audioUrl = feedData?.media?.[0]?.mediaUrl || feedData?.media?.[0]?.audioUrl;
+
+      const shareContent: any = {
+        message: `🕉️ ${mantraTitle}\n\nListen to this beautiful mantra on Bhav Bhakti app!\n\nDownload the app for more spiritual content.`,
+        title: mantraTitle,
+      };
+
+      // Only include URL if it exists
+      if (audioUrl) {
+        shareContent.url = audioUrl;
+      }
+
+      console.log('📤 Sharing mantra:', { title: mantraTitle, hasAudioUrl: !!audioUrl });
+
+      const result = await Share.share(shareContent);
+
+      if (result.action === Share.sharedAction) {
+        console.log('✅ Mantra shared successfully');
+
+        // Track share analytics if feedId exists
+        if (feedId) {
+          try {
+            await feedService.shareFeed(feedId, { platform: 'native_share' });
+            console.log('📊 Share tracked in analytics');
+          } catch (error) {
+            console.log('⚠️ Failed to track share:', error);
+          }
+        }
+      } else if (result.action === Share.dismissedAction) {
+        console.log('📤 Share cancelled by user');
+      }
+    } catch (error) {
+      console.error('❌ Error sharing mantra:', error);
+      Alert.alert('Share Failed', 'Unable to share this mantra. Please try again.');
+    }
+  };
+
   // Handle back navigation with audio cleanup
   const handleBackPress = async () => {
     console.log('⬅️ Back button pressed - stopping audio before navigation');
@@ -1229,14 +1273,31 @@ export default function AudioPlayerScreen() {
 
   // Handle progress bar press for seeking
   const handleProgressBarPress = (event: any) => {
-    if (duration > 0 && !isAudioLoading) {
+    if (duration > 0 && !isAudioLoading && sound) {
       const { locationX } = event.nativeEvent;
-      const progressBarWidth = width - 48; // Account for padding
-      const percentage = locationX / progressBarWidth;
-      const seekPosition = duration * percentage;
-      seekToPosition(Math.max(0, Math.min(seekPosition, duration)));
-    } else if (isAudioLoading) {
-      console.log('⚠️ Seek ignored: Audio still loading');
+      const progressBarWidth = width - 40; // Account for container padding
+
+      console.log('🎯 Progress bar pressed:', {
+        locationX,
+        progressBarWidth,
+        duration: formatTime(duration),
+        currentPosition: formatTime(position)
+      });
+
+      // Calculate percentage and clamp between 0 and 1
+      const percentage = Math.max(0, Math.min(1, locationX / progressBarWidth));
+      const seekPosition = Math.round(duration * percentage);
+
+      console.log('🎯 Seeking to:', {
+        percentage: `${Math.round(percentage * 100)}%`,
+        seekPosition: seekPosition,
+        formattedTime: formatTime(seekPosition)
+      });
+
+      seekToPosition(seekPosition);
+    } else {
+      const reason = !duration ? 'No duration' : isAudioLoading ? 'Audio loading' : !sound ? 'No sound loaded' : 'Unknown';
+      console.log('⚠️ Seek ignored:', reason);
     }
   };
 
@@ -1444,7 +1505,7 @@ export default function AudioPlayerScreen() {
                 <Text style={styles.mantraMainSubtitle}>{mantraData.objective}</Text>
               </View>
             </View>
-            <TouchableOpacity style={styles.mantraShareButton}>
+            <TouchableOpacity style={styles.mantraShareButton} onPress={handleShare}>
               <Ionicons name="share-outline" size={24} color="#B8734A" />
             </TouchableOpacity>
           </View>
@@ -1465,7 +1526,8 @@ export default function AudioPlayerScreen() {
             <TouchableOpacity
               style={styles.progressBar}
               onPress={handleProgressBarPress}
-              activeOpacity={0.7}
+              activeOpacity={0.9}
+              hitSlop={{ top: 10, bottom: 10, left: 5, right: 5 }}
             >
               <View style={styles.progressTrack}>
                 <View
@@ -1610,7 +1672,7 @@ export default function AudioPlayerScreen() {
                 style={styles.editCounterButton}
                 onPress={handleDecrementCount}
               >
-                <Ionicons name="remove" size={24} color="#8B4513" />
+                <Ionicons name="remove" size={24} color="#CA3500" />
               </TouchableOpacity>
 
               <Text style={styles.editCounterValue}>{chantCount}</Text>
@@ -1619,7 +1681,7 @@ export default function AudioPlayerScreen() {
                 style={styles.editCounterButton}
                 onPress={handleIncrementCount}
               >
-                <Ionicons name="add" size={24} color="#8B4513" />
+                <Ionicons name="add" size={24} color="#CA3500" />
               </TouchableOpacity>
             </View>
 
@@ -1945,19 +2007,22 @@ const styles = StyleSheet.create({
   },
   progressBar: {
     width: '100%',
-    height: 19,
+    height: 24,
     justifyContent: 'center',
     marginBottom: 8,
+    paddingVertical: 4,
   },
   progressTrack: {
-    height: 6,
+    height: 8,
     backgroundColor: '#F0C4A0',
-    borderRadius: 3,
+    borderRadius: 4,
+    width: '100%',
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#B8734A',
-    borderRadius: 3,
+    backgroundColor: '#CA3500',
+    borderRadius: 4,
+    minWidth: 8,
   },
   timeDisplay: {
     fontSize: 14,
@@ -2416,7 +2481,7 @@ const styles = StyleSheet.create({
   editCounterValue: {
     fontSize: 48,
     fontWeight: 'bold',
-    color: '#8B4513',
+    color: '#CA3500',
     minWidth: 100,
     textAlign: 'center',
   },
@@ -2435,12 +2500,12 @@ const styles = StyleSheet.create({
     borderColor: '#E6D5C3',
   },
   quickTargetButtonSelected: {
-    backgroundColor: '#8B4513',
+    backgroundColor: '#CA3500',
   },
   quickTargetText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#8B4513',
+    color: '#CA3500',
   },
   quickTargetTextSelected: {
     color: '#FFFFFF',
@@ -2466,7 +2531,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 16,
     borderRadius: 25,
-    backgroundColor: '#8B4513',
+    backgroundColor: '#CA3500',
     alignItems: 'center',
   },
   editConfirmText: {

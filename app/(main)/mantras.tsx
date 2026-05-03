@@ -123,7 +123,7 @@ export default function MantrasScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
     router.push({
-      pathname: '/(main)/audio-player',
+      pathname: '/audio-player',
       params: {
         feedId: mantra.id.toString(),
         title: mantra.caption || 'Sacred Mantra',
@@ -141,7 +141,7 @@ export default function MantrasScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
     router.push({
-      pathname: '/(main)/audio-player',
+      pathname: '/audio-player',
       params: {
         feedId: mantra.id.toString(),
         title: mantra.caption || 'Sacred Mantra',
@@ -167,7 +167,7 @@ export default function MantrasScreen() {
   const handleFindMantraPress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     // Navigate to mantra quiz page
-    router.push('/(main)/mantra-quiz');
+    router.push('/mantra-quiz');
   };
 
   // Handle carousel scroll for pagination dots
@@ -236,7 +236,7 @@ export default function MantrasScreen() {
           style={styles.profileButton}
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            router.push('/(main)/profile');
+            router.push('/profile');
           }}
           activeOpacity={0.7}
         >
@@ -392,12 +392,6 @@ export default function MantrasScreen() {
             <Text style={styles.sectionTitle}>
               {currentLanguage === 'hi' ? 'अपने भगवान को चुनें' : 'Choose your God'}
             </Text>
-            <TouchableOpacity style={styles.seeAllButton}>
-              <Ionicons name="options-outline" size={16} color="#CA3500" />
-              <Text style={styles.seeAllText}>
-                {currentLanguage === 'hi' ? 'सभी फ़िल्टर देखें' : 'See all filters'}
-              </Text>
-            </TouchableOpacity>
           </View>
 
           {deitiesLoading ? (

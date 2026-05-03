@@ -1,4 +1,4 @@
-import { Tabs } from 'expo-router';
+import { Tabs, Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SvgUri } from 'react-native-svg';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
@@ -109,74 +109,6 @@ export default function MainLayout() {
               fill={focused ? '#D4824A' : '#666666'}
             />
           ),
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          href: null, // Hide from tabs but keep for navigation
-          headerShown: false,
-        }}
-      />
-      <Tabs.Screen
-        name="wallpapers"
-        options={{
-          href: null, // Hide from tabs but keep for navigation
-          headerShown: false,
-        }}
-      />
-      <Tabs.Screen
-        name="spiritual"
-        options={{
-          href: null, // Hide from tabs but keep for navigation
-        }}
-      />
-      <Tabs.Screen
-        name="wallpaper-detail"
-        options={{
-          href: null, // Hide from tabs
-        }}
-      />
-      <Tabs.Screen
-        name="zodiac-selection"
-        options={{
-          href: null, // Hide from tabs
-           headerShown: false,
-        }}
-      />
-      <Tabs.Screen
-        name="horoscope-detail"
-        options={{
-          href: null, // Hide from tabs
-          headerShown: false,
-        }}
-      />
-      <Tabs.Screen
-        name="audio-player"
-        options={{
-          href: null, // Hide from tabs
-          headerShown: false,
-        }}
-      />
-      <Tabs.Screen
-        name="search-results"
-        options={{
-          href: null, // Hide from tabs
-          headerShown: false,
-        }}
-      />
-      <Tabs.Screen
-        name="mantra-quiz"
-        options={{
-          href: null, // Hide from tabs - only accessible from mantras page
-          headerShown: false,
-        }}
-      />
-      <Tabs.Screen
-        name="choose-start"
-        options={{
-          href: null, // Hide from tabs - only accessible via navigation
-          headerShown: false,
         }}
       />
 

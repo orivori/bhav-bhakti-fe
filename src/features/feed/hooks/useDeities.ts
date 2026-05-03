@@ -31,7 +31,13 @@ export function useDeities(options: UseDeitiesOptions = {}) {
         searchParams.append('isActive', isActive.toString());
       }
 
-      const response = await apiClient.get<{ success: boolean; data: Deity[] }>(`/v1/deities?${searchParams.toString()}`);
+      const apiUrl = `/v1/deities?${searchParams.toString()}`;
+      console.log('🔍 API Call - Deities:', {
+        url: apiUrl,
+        parameters: { isActive }
+      });
+
+      const response = await apiClient.get<{ success: boolean; data: Deity[] }>(apiUrl);
       return response.data;
     },
     enabled,

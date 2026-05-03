@@ -1,7 +1,10 @@
+import React, { useState, useCallback } from 'react';
 import {
   View,
   StyleSheet,
   TouchableOpacity,
+  FlatList,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -11,14 +14,79 @@ import * as Haptics from 'expo-haptics';
 import { Text } from '@/components/atoms';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import FeedList from '@/components/molecules/FeedList';
+import { DeityCard } from '@/components/molecules/DeityCard';
 import { useFeed } from '@/features/feed/hooks';
+import { useDeities } from '@/features/feed/hooks/useDeities';
+import { useTranslation } from '@/hooks/useTranslation';
 import { Feed } from '@/types/feed';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
+import type { Deity } from '@/features/feed/hooks/useDeities';
+
+// Isolated Search Component to prevent keyboard disappearing
+const IsolatedSearchBar = ({ onSearchSubmit, currentLanguage }: {
+  onSearchSubmit: (query: string) => void;
+  currentLanguage: string;
+}) => {
+  const [localSearchText, setLocalSearchText] = React.useState('');
+
+  const handleSubmit = () => {
+    onSearchSubmit(localSearchText.trim());
+  };
+
+  return (
+    <View style={styles.searchContainer}>
+      <Ionicons
+        name="search-outline"
+        size={20}
+        color="#333333"
+        style={styles.searchIcon}
+      />
+      <TextInput
+        style={styles.searchInput}
+        placeholder={currentLanguage === 'hi' ? 'वॉलपेपर खोजें...' : 'Search wallpapers...'}
+        placeholderTextColor="#8B7355"
+        value={localSearchText}
+        onChangeText={setLocalSearchText}
+        returnKeyType="search"
+        onSubmitEditing={handleSubmit}
+        autoCapitalize="none"
+        autoCorrect={false}
+        selectionColor="#D4824A"
+      />
+      <TouchableOpacity style={styles.micButton}>
+        <Ionicons
+          name="mic"
+          size={18}
+          color="#D4824A"
+        />
+      </TouchableOpacity>
+    </View>
+  );
+};
 
 export default function DailyStatusScreen() {
+  const { language: currentLanguage } = useTranslation();
   const { contentPadding } = useTabBarHeight();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedDeity, setSelectedDeity] = useState<Deity | null>(null);
 
-  // Initialize feed data with wallpaper type filter
+  // Fetch deities for filter
+  const {
+    data: deities = [],
+    isLoading: deitiesLoading,
+    error: deitiesError,
+  } = useDeities();
+
+  // Build filters for wallpaper feeds
+  const feedFilters: any = { type: 'wallpaper' as const };
+  if (selectedDeity) {
+    feedFilters.deityId = selectedDeity.id;
+  }
+  if (searchQuery && searchQuery.trim()) {
+    feedFilters.search = searchQuery.trim();
+  }
+
+  // Initialize feed data with wallpaper type filter and deity filter
   const {
     feeds,
     isLoading,
@@ -35,10 +103,18 @@ export default function DailyStatusScreen() {
     downloadFeed,
   } = useFeed({
     limit: 10,
-    filters: {
-      type: 'wallpaper', // Filter for wallpaper feeds only
-    },
+    filters: feedFilters,
   });
+
+  const handleSearchSubmit = (query: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSearchQuery(query);
+  };
+
+  const handleDeityPress = useCallback((deity: Deity) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSelectedDeity(selectedDeity?.id === deity.id ? null : deity);
+  }, [selectedDeity]);
 
   const handleFeedPress = (feed: Feed) => {
     // Add haptic feedback for feed press
@@ -59,31 +135,67 @@ export default function DailyStatusScreen() {
     console.log('ℹ️ Daily Status: Wallpaper feed pressed');
   };
 
+  const renderDeityCard = ({ item }: { item: Deity }) => (
+    <DeityCard
+      deity={item}
+      isSelected={selectedDeity?.id === item.id}
+      onPress={handleDeityPress}
+      language={currentLanguage}
+    />
+  );
+
   const renderHeader = () => (
     <View style={styles.headerSection}>
       <View style={styles.header}>
+        <Text style={styles.appTitle}>Daily Status</Text>
         <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
+          style={styles.profileButton}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            router.push('/profile');
+          }}
+          activeOpacity={0.7}
         >
-          <Ionicons name="arrow-back" size={24} color="#374151" />
+          <Ionicons name="person" size={24} color="#ffffff" />
         </TouchableOpacity>
-        <Text variant="h4" weight="semibold" style={styles.title}>
-          Daily Status
-        </Text>
-        <View style={styles.placeholder} />
       </View>
 
-      {/* <View style={styles.subtitleContainer}>
-        <Text variant="body" color="secondary" style={styles.subtitle}>
-          Browse beautiful wallpapers for daily inspiration
+      <IsolatedSearchBar
+        onSearchSubmit={handleSearchSubmit}
+        currentLanguage={currentLanguage}
+      />
+
+      {/* Choose your God Section */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>
+          {currentLanguage === 'hi' ? 'अपने भगवान को चुनें' : 'Choose your God'}
         </Text>
-      </View> */}
+
+        {deitiesLoading ? (
+          <View style={styles.loadingContainer}>
+            <Text color="secondary">Loading deities...</Text>
+          </View>
+        ) : deitiesError ? (
+          <View style={styles.errorContainer}>
+            <Text color="secondary">Failed to load deities</Text>
+          </View>
+        ) : (
+          <FlatList
+            data={deities}
+            renderItem={renderDeityCard}
+            keyExtractor={(item) => item.id.toString()}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.deitiesList}
+            style={styles.deityList}
+          />
+        )}
+      </View>
     </View>
   );
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container}>
       <FeedList
         feeds={feeds}
         onLoadMore={loadMore}
@@ -97,8 +209,8 @@ export default function DailyStatusScreen() {
         isLoadingMore={isLoadingMore}
         isRefreshing={isRefreshing}
         error={error}
-        emptyTitle="No wallpapers yet"
-        emptySubtitle="Check back later for beautiful wallpapers!"
+        emptyTitle="No wallpapers found"
+        emptySubtitle="Try different filters or search terms"
         onRetry={retry}
         autoPlayVideo={false}
         ListHeaderComponent={renderHeader}
@@ -120,34 +232,102 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: goldenTempleTheme.spacing.md,
-    paddingVertical: goldenTempleTheme.spacing.sm,
-    backgroundColor: goldenTempleTheme.colors.backgrounds.card,
-    borderBottomWidth: 1,
-    borderBottomColor: goldenTempleTheme.colors.primary[200],
-    ...goldenTempleTheme.shadows.sm,
-  },
-  backButton: {
-    padding: goldenTempleTheme.spacing.sm,
-    borderRadius: goldenTempleTheme.borderRadius.md,
-    backgroundColor: goldenTempleTheme.colors.primary[50],
-  },
-  title: {
-    flex: 1,
-    textAlign: 'center',
-    color: goldenTempleTheme.colors.text.primary,
-  },
-  placeholder: {
-    width: 40,
-  },
-  subtitleContainer: {
+    alignItems: 'center',
     paddingHorizontal: goldenTempleTheme.spacing.lg,
-    paddingVertical: goldenTempleTheme.spacing.md,
+    paddingTop: goldenTempleTheme.spacing.lg,
+    paddingBottom: 4,
+    minHeight: 60,
   },
-  subtitle: {
-    textAlign: 'center',
+  appTitle: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#000000',
+    lineHeight: 28,
+    includeFontPadding: false,
+  },
+  profileButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#D4824A',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f7ebc4',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginHorizontal: goldenTempleTheme.spacing.lg,
+    marginVertical: goldenTempleTheme.spacing.sm,
+    borderWidth: 1,
+    borderColor: '#D4C4A8',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  searchIcon: {
+    marginRight: 12,
+  },
+  searchInput: {
+    flex: 1,
     fontSize: 16,
+    color: '#333333',
+    fontWeight: '400',
+    padding: 0,
+    margin: 0,
+    height: 20,
+  },
+  micButton: {
+    marginLeft: 8,
+    padding: 2,
+  },
+  section: {
+    paddingHorizontal: 20,
+    marginBottom: 12,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#CA3500',
+    marginBottom: 12,
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  errorContainer: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  deitiesList: {
+    paddingLeft: 20,
+    marginBottom: 12,
+  },
+  deityList: {
+    marginBottom: 8,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#8B7355',
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: '#8B7355',
+    textAlign: 'center',
   },
 });

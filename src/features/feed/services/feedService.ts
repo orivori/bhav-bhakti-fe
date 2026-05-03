@@ -35,6 +35,9 @@ class FeedService {
     if (params.categoryId) {
       queryParams.append('categoryId', params.categoryId.toString());
     }
+    if (params.deityId) {
+      queryParams.append('deityId', params.deityId.toString());
+    }
     if (params.search) queryParams.append('search', params.search);
     if (params.sortBy) queryParams.append('sortBy', params.sortBy);
     if (params.sortOrder) queryParams.append('sortOrder', params.sortOrder);
@@ -50,9 +53,22 @@ class FeedService {
 
     const url = `${API_ENDPOINTS.FEED.LIST}?${queryParams.toString()}`;
 
+    // Log API call with parameters (no response logging)
+    console.log('🔍 API Call - Get Feeds:', {
+      url,
+      parameters: {
+        type: params.type,
+        categoryId: params.categoryId,
+        deityId: params.deityId,
+        search: params.search,
+        limit: params.limit,
+        offset: params.offset,
+        language
+      }
+    });
+
     // Get the API response
     const apiResponse = await apiClient.get<ApiFeedListResponse>(url);
-    console.log(apiResponse,"apiResponse")
 
     // Transform API response to client format
     

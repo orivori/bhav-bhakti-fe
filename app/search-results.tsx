@@ -77,7 +77,7 @@ export default function SearchResultsScreen() {
 
         // Navigate to audio player with feed data
         router.push({
-          pathname: '/(main)/audio-player',
+          pathname: '/(main)audio-player',
           params: {
             feedId: feed.id.toString(),
             title: feed.caption || 'Sacred Mantra',

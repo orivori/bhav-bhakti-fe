@@ -180,7 +180,7 @@ export default function HomeScreen() {
     if (query.trim()) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       router.push({
-        pathname: '/(main)/search-results',
+        pathname: '/search-results',
         params: { query: query.trim() }
       });
     }
@@ -230,16 +230,16 @@ export default function HomeScreen() {
     // Navigate to category screen
     switch (category) {
       case 'Mantras':
-        router.push('/(main)/mantras');
+        router.push('/mantras');
         break;
       case 'Rashifal':
-        router.push('/(main)/horoscope');
+        router.push('/horoscope');
         break;
       case 'Status':
-        router.push('/(main)/daily-status');
+        router.push('/daily-status');
         break;
       case 'Ringtones':
-        router.push('/(main)/ringtones');
+        router.push('/ringtones');
         break;
     }
   };
@@ -272,7 +272,7 @@ export default function HomeScreen() {
 
         // Navigate to audio player with feed data
         router.push({
-          pathname: '/(main)/audio-player',
+          pathname: '/audio-player',
           params: {
             feedId: feed.id.toString(),
             title: feed.caption || 'Sacred Mantra',
@@ -302,7 +302,7 @@ export default function HomeScreen() {
           style={styles.profileAvatar}
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            router.push('/(main)/profile');
+            router.push('/profile');
           }}
           activeOpacity={0.7}
         >
@@ -319,28 +319,10 @@ export default function HomeScreen() {
       </View>
 
       {/* Choose where to start Header */}
-      <View style={styles.chooseStartHeader}>
+      <View style={styles.chooseStartHeaderSimple}>
         <Text style={styles.chooseStartTitle}>
           {currentLanguage === 'hi' ? 'कहां से शुरू करना है चुनें' : 'Choose where to start'}
         </Text>
-        <Pressable
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            // Navigate to choose-start screen or show all categories
-            router.push('/(main)/choose-start');
-          }}
-          style={({ pressed }) => [
-            styles.seeAllButton,
-            {
-              opacity: pressed ? 0.7 : 1,
-              transform: [{ scale: pressed ? 0.95 : 1 }]
-            }
-          ]}
-        >
-          <Text style={styles.seeAllText}>
-            {currentLanguage === 'hi' ? 'सभी देखें' : 'See all'}
-          </Text>
-        </Pressable>
       </View>
 
       {/* Category Cards Grid */}
@@ -368,7 +350,7 @@ export default function HomeScreen() {
           style={styles.todayHoroscopeCard}
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            router.push('/(main)/horoscope');
+            router.push('/horoscope');
           }}
           activeOpacity={0.7}
         >
@@ -574,6 +556,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: goldenTempleTheme.spacing.lg,
     marginBottom: goldenTempleTheme.spacing.md,
   },
+  chooseStartHeaderSimple: {
+    paddingHorizontal: goldenTempleTheme.spacing.lg,
+    marginBottom: goldenTempleTheme.spacing.md,
+  },
   chooseStartTitle: {
     fontSize: 18,
     fontWeight: '600',
@@ -655,17 +641,23 @@ const styles = StyleSheet.create({
   },
   horoscopeTextContainer: {
     flex: 1,
+    justifyContent: 'center',
+    minHeight: 44,
   },
   horoscopeDateText: {
     fontSize: 16,
     fontWeight: '600',
     color: '#C41E3A',
-    marginBottom: 4,
+    marginBottom: 2,
+    lineHeight: 20,
+    includeFontPadding: false,
   },
   horoscopeSubText: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#C41E3A',
     fontWeight: '400',
+    lineHeight: 18,
+    includeFontPadding: false,
   },
   arrowContainer: {
     width: 40,

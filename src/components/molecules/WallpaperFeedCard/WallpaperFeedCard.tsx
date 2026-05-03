@@ -128,6 +128,7 @@ export default function WallpaperFeedCard({
           showControls={false}
           showCenterPlayButton={false}
           style={styles.image}
+          resizeMode="cover"
         />
       </TouchableOpacity>
 
@@ -229,7 +230,7 @@ const styles = StyleSheet.create({
   },
   image: {
     width: '100%',
-    height: 356,
+    aspectRatio: 9/16, // Standard mobile wallpaper aspect ratio (portrait)
     backgroundColor: '#EDD8A0',
   },
 

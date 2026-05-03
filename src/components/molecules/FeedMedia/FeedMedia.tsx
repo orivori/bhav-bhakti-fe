@@ -21,6 +21,7 @@ interface FeedMediaProps {
   showControls?: boolean;
   showCenterPlayButton?: boolean;
   style?: any;
+  resizeMode?: 'cover' | 'contain' | 'stretch' | 'center';
 }
 
 const { width } = Dimensions.get('window');
@@ -33,6 +34,7 @@ export default function FeedMedia({
   showControls = true,
   showCenterPlayButton = true,
   style,
+  resizeMode = 'cover',
 }: FeedMediaProps) {
   const [activeMediaIndex, setCurrentMediaIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
@@ -131,7 +133,7 @@ export default function FeedMedia({
             <Image
               source={{ uri: activeMedia.mediaUrl }}
               style={imageStyle}
-              resizeMode="cover"
+              resizeMode={resizeMode}
             />
           </TouchableOpacity>
         );
@@ -162,7 +164,7 @@ export default function FeedMedia({
                 <Image
                   source={{ uri: activeMedia.thumbnailUrl }}
                   style={imageStyle}
-                  resizeMode="cover"
+                  resizeMode={resizeMode}
                 />
 
                 {/* Subtle overlay for better play button visibility */}
@@ -238,7 +240,7 @@ export default function FeedMedia({
               <Image
                 source={{ uri: activeMedia.mediaUrl }}
                 style={imageStyle}
-                resizeMode="cover"
+                resizeMode={resizeMode}
               />
             </TouchableOpacity>
             {activeMedia.audioUrl && (

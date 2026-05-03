@@ -141,19 +141,19 @@ export default function ChooseStartScreen() {
     // Navigate based on category
     switch (category.id) {
       case 'mantras':
-        router.push('/(main)/mantras');
+        router.push('//(main)/mantras');
         break;
       case 'rashifal':
-        router.push('/(main)/horoscope');
+        router.push('//(main)/horoscope');
         break;
       case 'status':
-        router.push('/(main)/daily-status');
+        router.push('//(main)/daily-status');
         break;
       case 'ringtones':
-        router.push('/(main)/ringtones');
+        router.push('//(main)/ringtones');
         break;
       default:
-        router.push('/(main)/' as any);
+        router.push('/(main)' as any);
     }
   };
 

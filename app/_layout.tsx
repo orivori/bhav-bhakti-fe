@@ -68,9 +68,76 @@ export default function RootLayout() {
         <AuthProvider>
           <View style={styles.container}>
             <NavigationThemeProvider value={MyTheme}>
-              <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#fff6da' } }}>
+              <Stack screenOptions={{
+                headerShown: false,
+                contentStyle: { backgroundColor: '#fff6da' },
+                animation: 'slide_from_right',
+                gestureEnabled: true,
+                gestureDirection: 'horizontal'
+              }}>
                 <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-                <Stack.Screen name="(main)" options={{ headerShown: false }} />
+                <Stack.Screen
+                  name="(main)"
+                  options={{
+                    headerShown: false,
+                    gestureEnabled: false // Disable gesture for tabs
+                  }}
+                />
+                {/* Detail Screens as Stack Screens */}
+                <Stack.Screen
+                  name="horoscope-detail"
+                  options={{
+                    headerShown: false,
+                    presentation: 'card',
+                    gestureEnabled: true,
+                    animation: 'slide_from_right'
+                  }}
+                />
+                <Stack.Screen
+                  name="audio-player"
+                  options={{
+                    headerShown: false,
+                    presentation: 'card',
+                    gestureEnabled: true,
+                    animation: 'slide_from_right'
+                  }}
+                />
+                <Stack.Screen
+                  name="profile"
+                  options={{
+                    headerShown: false,
+                    presentation: 'card',
+                    gestureEnabled: true,
+                    animation: 'slide_from_right'
+                  }}
+                />
+                <Stack.Screen
+                  name="search-results"
+                  options={{
+                    headerShown: false,
+                    presentation: 'card',
+                    gestureEnabled: true,
+                    animation: 'slide_from_right'
+                  }}
+                />
+                <Stack.Screen
+                  name="mantra-quiz"
+                  options={{
+                    headerShown: false,
+                    presentation: 'card',
+                    gestureEnabled: true,
+                    animation: 'slide_from_right'
+                  }}
+                />
+                <Stack.Screen
+                  name="choose-start"
+                  options={{
+                    headerShown: false,
+                    presentation: 'card',
+                    gestureEnabled: true,
+                    animation: 'slide_from_right'
+                  }}
+                />
               </Stack>
             </NavigationThemeProvider>
           </View>

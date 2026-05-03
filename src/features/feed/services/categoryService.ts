@@ -33,6 +33,12 @@ class CategoryService {
     const queryParams = new URLSearchParams();
     queryParams.append('type', type);
     const url = `${API_ENDPOINTS.CATEGORIES.LIST}?${queryParams.toString()}`;
+
+    console.log('🔍 API Call - Categories by Type:', {
+      url,
+      parameters: { type }
+    });
+
     try {
       const response = await apiClient.get<{ data: Category[] }>(url);
       return response.data;
