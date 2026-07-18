@@ -16,6 +16,7 @@ import { Feed } from '@/types/feed';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { feedService } from '@/features/feed/services/feedService';
 import { useFeedStore } from '@/store/feedStore';
+import { useTranslation } from '@/hooks/useTranslation';
 
 interface MantraCardProps {
   feed: Feed;
@@ -33,6 +34,7 @@ export default function MantraCard({
   onShare,
   onPress,
 }: MantraCardProps) {
+  const { language } = useTranslation();
   const [isLiking, setIsLiking] = useState(false);
   const { toggleLike, incrementShare } = useFeedStore();
 
@@ -69,8 +71,8 @@ export default function MantraCard({
       incrementShare(feed.id.toString());
 
       const result = await Share.share({
-        message: feed.caption
-          ? `Listen to this beautiful mantra: ${feed.caption}\n\nShared from Bhav Bhakti App`
+        message: (feed.caption || feed.title?.[language] || feed.title?.en)
+          ? `Listen to this beautiful mantra: ${feed.caption || feed.title?.[language] || feed.title?.en}\n\nShared from Bhav Bhakti App`
           : 'Listen to this beautiful mantra from Bhav Bhakti App!',
         url: feed.media[0]?.mediaUrl,
       });

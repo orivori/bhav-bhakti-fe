@@ -22,6 +22,7 @@ import { Feed } from '@/types/feed';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { feedService } from '@/features/feed/services/feedService';
 import { useFeedStore } from '@/store/feedStore';
+import { useTranslation } from '@/hooks/useTranslation';
 
 interface RingtoneFeedCardProps {
   feed: Feed;
@@ -36,6 +37,7 @@ export default function RingtoneFeedCard({
   onShare,
   onDownload,
 }: RingtoneFeedCardProps) {
+  const { language } = useTranslation();
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -241,8 +243,8 @@ export default function RingtoneFeedCard({
       incrementShare(feed.id.toString());
 
       const result = await Share.share({
-        message: feed.caption
-          ? `Check out this ringtone: ${feed.caption}\n\nShared from Bhav Bhakti App`
+        message: (feed.caption || feed.title?.[language] || feed.title?.en)
+          ? `Check out this ringtone: ${feed.caption || feed.title?.[language] || feed.title?.en}\n\nShared from Bhav Bhakti App`
           : 'Check out this amazing ringtone from Bhav Bhakti App!',
         url: audioMedia.mediaUrl,
       });
@@ -462,7 +464,7 @@ export default function RingtoneFeedCard({
         <View style={styles.rightContent}>
           {/* Title */}
           <Text style={styles.title} numberOfLines={1}>
-            {feed.caption || 'Untitled Ringtone'}
+            {feed.title ? (feed.title[language] || feed.title.en || 'Untitled Ringtone') : 'Untitled Ringtone'}
           </Text>
 
           {/* Play Controls Row */}

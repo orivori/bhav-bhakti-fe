@@ -98,7 +98,7 @@ export default function MantrasScreen() {
 
       <View style={styles.mantraContent}>
         <Text variant="body" weight="semibold" style={styles.mantraTitle} numberOfLines={2}>
-          {mantra.caption || 'Untitled Mantra'}
+          {mantra.title ? (mantra.title[language] || mantra.title.en || 'Untitled Mantra') : 'Untitled Mantra'}
         </Text>
         <Text variant="caption" color="secondary" numberOfLines={1}>
           {mantra.user?.name || 'Unknown Artist'}

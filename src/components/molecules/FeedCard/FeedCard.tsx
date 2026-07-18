@@ -81,9 +81,12 @@ export default function FeedCard({
       incrementShare(feed.id.toString());
 
       const result = await Share.share({
-        message: feed.caption
-          ? `Check out this post: ${feed.caption}\n\nShared from Bhav Bhakti App`
-          : 'Check out this amazing post from Bhav Bhakti App!',
+        message: (() => {
+          const shareTitle = feed.caption || feed.title?.[language] || feed.title?.en;
+          return shareTitle
+            ? `Check out this post: ${shareTitle}\n\nShared from Bhav Bhakti App`
+            : 'Check out this amazing post from Bhav Bhakti App!';
+        })(),
         url: feed.media[0]?.mediaUrl,
       });
 
@@ -234,7 +237,7 @@ export default function FeedCard({
       <View style={styles.mantraContentContainer}>
         {/* Title */}
         <Text style={styles.mantraTitle} numberOfLines={1}>
-          {feed.caption || 'Sacred Mantra'}
+          {feed.title ? (feed.title[language] || feed.title.en || 'Sacred Mantra') : 'Sacred Mantra'}
         </Text>
 
         {/* Description */}
