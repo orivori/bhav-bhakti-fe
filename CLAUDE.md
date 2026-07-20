@@ -1,6 +1,6 @@
 # Bhav Bhakti — Project Context
 
-*Last verified against actual code/config: 2026-07-19.*
+*Last verified against actual code/config: 2026-07-20.*
 
 ## 1. Project overview
 
@@ -139,3 +139,49 @@ The complete navigation graph (every `router.push`/`router.replace` call site in
 - **`zodiac-selection.tsx`** — registered in `_layout.tsx`, but superseded: the Rashifal tab's zodiac grid (`horoscope.tsx:31-35`) navigates straight to `horoscope-detail.tsx` instead, bypassing this screen entirely. Looks like a leftover from before that grid existed.
 
 **`spiritual.tsx` and `zodiac-selection.tsx` are candidates for either linking up or deleting — undecided.** Don't assume either direction in a future session; confirm with the founder. Same caution applies to `wallpapers.tsx`/`wallpaper-detail.tsx`, though those are already tracked as a known gap via §3/§4.
+
+## 11. 2026-07-20 session — Ringtones playback/caching fixes, play count tracking, Trending Now planning
+
+**Ringtones screen — playback fixes, done, tested by the founder, pushed** (`bhav-bhakti-fe` `691baee..f3e3a2f`):
+- Single-active-sound: only one ringtone plays at a time in the Ringtones list — enforced via `activePlaybackRef` in `app/(main)/ringtones.tsx`, which stops whichever card was previously playing before letting a new one start.
+- Stops on tab-navigation away: a `useFocusEffect` blur cleanup in `ringtones.tsx` stops the active ringtone when the user switches tabs. This is in-app navigation only — a separate mechanism (below) handles OS-level backgrounding.
+- Stops on app backgrounding/lock screen: an `AppState` listener in `RingtoneFeedCard.tsx`, scoped so it's only subscribed while that specific card is actually playing — idle cards in the list never hold a listener.
+- Playback position resets to 0 on every stop that isn't natural end-of-track: manual pause, tab-navigation-away, app-backgrounding, and being superseded by a sibling card starting playback. Natural end-of-track already reset correctly and was left untouched.
+- **Known, deferred conflict, not fixed:** `RingtoneFeedCard.tsx` still calls `setAudioModeAsync` with `staysActiveInBackground: false` on every mount, overwriting the app-wide session `app/_layout.tsx` sets at startup (`staysActiveInBackground: true`). `audio-player.tsx` makes its own third, differently-configured call into the same shared session (`expo-av`'s `setAudioModeAsync` is a single app-wide singleton, confirmed from its source — not a per-screen setting). Left unfixed this session by founder choice, since a real fix means also touching `audio-player.tsx`, which was out of scope. Revisit when `audio-player.tsx` is in scope.
+
+**Caching — done, tested by the founder via airplane mode, confirmed working:**
+- `ensureLocalFile()` in `RingtoneFeedCard.tsx` gives every ringtone one stable, human-readable local filename derived from its title (sanitized, e.g. `Ganpati_Bappa_Morya.mp3`), shared by `handlePlayPause`, `handleDownload`, and `handleSetRingtone` — all three now resolve to and reuse the same cached file instead of each downloading/creating their own.
+- Fixed a real extension-detection bug: the check was reading the raw Firebase URL including its `?alt=media` query string, so it never actually parsed a real extension — it always coincidentally fell through to the `mp3` default. Now strips the query string first, so `.wav`/`.m4a`/etc. are genuinely detected.
+- The old bug where `handleSetRingtone` created a new timestamped file on every tap is fixed as a side effect of the shared caching path.
+
+**"Set as Ringtone" — confirmed fully functional, via a real dev build test** (call interruption simulated through the Android emulator's Extended Controls; the ringtone genuinely played as the phone's ringtone):
+- Required moving off Expo Go entirely — confirmed a first-party Expo Go limitation, not an app bug: `expo-media-library`'s own source ships a load-time warning that Android permission changes mean Expo Go "can no longer provide full access to the media library," and `MediaLibrary.requestPermissionsAsync()` can genuinely reject (not just resolve `denied`) when called from Expo Go on Android.
+- Getting a working dev build required fixing two machine-level environment issues on this Windows dev machine: `JAVA_HOME` was pointing at an old 32-bit Java 8 install, corrected to Android Studio's bundled JBR (confirmed path: `D:\Android Studio\jbr`); `ANDROID_HOME` was unset entirely, added pointing at `C:\Users\harsh\AppData\Local\Android\Sdk`.
+
+**Play count tracking — done, pushed** (`bhav-bhakti-be` `5bbe066..530508e`, `bhav-bhakti-fe` `691baee..f3e3a2f`):
+- New `plays_count` column (migration run against the local dev DB, confirmed present), `Feed.model.js`'s `playsCount` field + `incrementPlays()` helper, a `POST /feed/:feedId/play` route/validator/controller/service chain mirroring the existing `/:feedId/view` chain exactly (same public/no-auth posture), and a frontend `feedService.playFeed()` call wired into `RingtoneFeedCard.tsx`'s fresh-play-start path only (not resume-from-pause, matching `viewFeed`'s existing behavior) — additive alongside the existing view-tracking call, not a replacement.
+- Purpose-built to power a "Trending Now" section (next item) — not yet consumed by any UI.
+
+**Trending Now section — designed, not yet built (the next task):**
+- Ranking by `playsCount`, rolling 7-day window, cold-start fallback to newest-first when there's insufficient play data, top 5 results, **vertical** layout (not horizontal) stacked above the full ringtones list, server-side ranking (not computed client-side).
+- Endpoint spec agreed but not implemented: `GET /feed/trending?type=ringtone&limit=5&sortBy=playsCount&days=7` — `sortBy` and `days` are real query parameters, not hardcoded, so the ranking signal can be swapped later without an API shape change.
+
+**Figma MCP — connection in progress, not yet authenticated:**
+- Goal: read the "Design System" Figma file (built by a hired design intern) via MCP, extract it into a permanent `DESIGN_SYSTEM.md` at the project root, so future UI work — starting with Trending Now's styling — references real documented design values instead of ad hoc choices.
+- The MCP server was initially added local-scoped to `bhav-bhakti-be` only, then corrected later the same session to user scope (`-s user`), so it's available across `bhav-bhakti-fe`, `bhav-bhakti-be`, and the parent folder.
+- OAuth login has not yet succeeded — `claude mcp login figma` failed when attempted through a non-interactive shell (expected; that flow needs a real terminal), and a live tool search later in the session found no Figma tools available, meaning authentication had not been completed as of session end. Next session: confirm the correct Figma account is logged into in the browser first, then retry via `/mcp` or `claude mcp login figma` from a real interactive terminal.
+
+**Deferred issues — logged with in-code comments, not fixed, revisit post-launch or on real user complaint:**
+- `MediaLibrary.saveToLibraryAsync` has no native dedup — repeated "Set as Ringtone" taps create separate, uniquified entries in the OS media library/file manager even though the underlying cached file is correctly deduped. Cosmetic only. Comment left at both call sites in `RingtoneFeedCard.tsx` (`handleDownload` and `handleSetRingtone`).
+- `ensureLocalFile()` has no concurrency guard — near-simultaneous taps on two different actions (e.g. Download and Play) before any cache exists could race into two independent downloads to the same path. Low real-world risk (worst case: a harmless redundant download, not corruption). Comment left in place.
+- A tiered card-interaction pattern (Zedge-style: tapping the thumbnail plays only, a separate "details" tap surfaces download/set/share/paywall actions) is a real product idea raised this session, tied to future premium UX — not needed for launch, not decided. Don't assume it's been designed further without checking.
+
+**New bug found this session, not fixed:** the Home screen's "Recommended for You" section has no playback exclusivity with the Ringtones screen — audio from both can play simultaneously, confirmed by direct testing. Same root-cause class as `FeedMedia.tsx`'s already-documented lack of unmount cleanup — a different component, same underlying gap (no shared "now playing" coordination across the app).
+
+**Standing process, adopted this session — Audio Content Pre-Work Scoping Checklist.** Apply before starting work on any future audio content type (Mantras, Audio Stories, Aarti/Bhajans, etc.), since this session's ringtone work surfaced the same categories of gap repeatedly:
+- *Playback*: Is exclusivity enforced (within the screen, and app-wide)? Does it stop on navigating away? Does it stop on app backgrounding? Any audio-session conflicts with other screens? Has unmount cleanup actually been verified to fire (not just assumed)?
+- *Caching*: Does it re-download every play, or is there a real cache? Are filenames stable/human-readable? Is extension detection actually correct? Is there a concurrency risk?
+- *Platform*: Does it work identically on Android and iOS? Can it be tested in Expo Go, or does it require a dev build?
+- *Product*: Is premium-gating for this content type decided? Is categorization decided? Is trending/cold-start behavior defined?
+
+**Housekeeping confirmed this session:** `bhav-bhakti-fe`'s `src/shared/config/api.ts` `BASE_URL` dev override (`10.0.2.2`) and `package-lock.json` remain deliberately uncommitted — both pre-existing, unrelated to this session's work, verified via `git log` not to have been swept into any commit this session. Still exactly as described in §7.
