@@ -272,6 +272,16 @@ export default function RingtoneFeedCard({
           console.error('Error tracking view:', viewError);
           // Don't show alert for view tracking errors
         }
+
+        // Track play (fresh play-start only, not resume-from-pause -
+        // matches viewFeed's behavior above; additive, not a replacement)
+        try {
+          await feedService.playFeed(feed.id.toString());
+          console.log('▶️ Play tracked successfully');
+        } catch (playError) {
+          console.error('Error tracking play:', playError);
+          // Don't show alert for play tracking errors
+        }
       } else {
         console.error('❌ No audio URI found');
         Alert.alert('Error', 'No audio file found for this ringtone.');

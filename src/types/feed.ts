@@ -176,6 +176,11 @@ export interface ViewFeedResponse {
   message: string;
 }
 
+export interface PlayFeedResponse {
+  success: boolean;
+  message: string;
+}
+
 export interface TrendingFeedsResponse {
   feeds: Feed[];
   totalCount: number;

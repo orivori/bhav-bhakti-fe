@@ -14,6 +14,7 @@ import {
   ShareFeedResponse,
   DownloadFeedResponse,
   ViewFeedResponse,
+  PlayFeedResponse,
   TrendingFeedsResponse,
   PopularTagsResponse,
   UserLikedFeedsResponse,
@@ -128,6 +129,13 @@ class FeedService {
    */
   async viewFeed(feedId: string): Promise<ViewFeedResponse> {
     return await apiClient.post<ViewFeedResponse>(API_ENDPOINTS.FEED.VIEW(feedId), {});
+  }
+
+  /**
+   * Track feed play
+   */
+  async playFeed(feedId: string): Promise<PlayFeedResponse> {
+    return await apiClient.post<PlayFeedResponse>(API_ENDPOINTS.FEED.PLAY(feedId), {});
   }
 
   /**

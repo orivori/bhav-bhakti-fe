@@ -42,6 +42,7 @@ export const API_ENDPOINTS = {
     DOWNLOAD: (feedId: string) => `/v1/feed/${feedId}/download`,
     SHARE: (feedId: string) => `/v1/feed/${feedId}/share`,
     VIEW: (feedId: string) => `/v1/feed/${feedId}/view`,
+    PLAY: (feedId: string) => `/v1/feed/${feedId}/play`,
     USER_LIKED: '/v1/feed/user/liked',
     TRENDING: '/v1/feed/trending',
     POPULAR_TAGS: '/v1/feed/tags/popular',
