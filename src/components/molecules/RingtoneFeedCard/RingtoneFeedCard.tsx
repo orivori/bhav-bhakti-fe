@@ -9,7 +9,8 @@ import {
   Share,
   Platform,
   Linking,
-  Dimensions} from 'react-native';
+  Dimensions,
+  AppState} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 const { width } = Dimensions.get('window');
@@ -29,6 +30,8 @@ interface RingtoneFeedCardProps {
   onLike?: (feedId: string) => void;
   onShare?: (feedId: string) => void;
   onDownload?: (feedId: string) => void;
+  onPlaybackStart?: (feedId: string, stop: () => void) => void;
+  onPlaybackEnd?: (feedId: string) => void;
 }
 
 export default function RingtoneFeedCard({
@@ -36,6 +39,8 @@ export default function RingtoneFeedCard({
   onLike,
   onShare,
   onDownload,
+  onPlaybackStart,
+  onPlaybackEnd,
 }: RingtoneFeedCardProps) {
   const { language } = useTranslation();
   const [isPlaying, setIsPlaying] = useState(false);
@@ -60,32 +65,102 @@ export default function RingtoneFeedCard({
 
   // Get the main audio media
   const audioMedia = feed.media.find(m => m.type === 'audio') || feed.media[0];
+  const audioSourceUri = audioMedia.audioUrl || audioMedia.mediaUrl;
 
+  // One stable, predictable local filename per ringtone - derived from the
+  // title, not the feed ID/a timestamp - so playback caching, download, and
+  // set-as-ringtone all resolve to and share the exact same cached file.
+  const sanitizeForFilename = (text: string): string =>
+    text
+      .trim()
+      .replace(/\s+/g, '_')
+      .replace(/[^\p{L}\p{N}_]/gu, '');
+
+  const getAudioFileExtension = (audioUri: string): string => {
+    const pathWithoutQuery = audioUri.split('?')[0];
+    const urlParts = pathWithoutQuery.split('.');
+    const extension = urlParts.length > 1 ? urlParts[urlParts.length - 1].toLowerCase() : 'mp3';
+    const supportedExtensions = ['mp3', 'wav', 'aac', 'm4a', 'ogg'];
+    return supportedExtensions.includes(extension) ? extension : 'mp3';
+  };
+
+  const rawTitle = feed.title?.en || Object.values(feed.title || {}).find(Boolean) || '';
+  const sanitizedTitle = sanitizeForFilename(rawTitle);
+  const localFileName = `${sanitizedTitle || `ringtone_${feed.id}`}.${
+    audioSourceUri ? getAudioFileExtension(audioSourceUri) : 'mp3'
+  }`;
+  const localFileUri = FileSystem.documentDirectory + localFileName;
+
+  // Returns the local cached copy of this ringtone, downloading it once if
+  // it isn't already on disk. Shared by playback, download, and
+  // set-as-ringtone so they never each create their own separate file.
+  //
+  // Known gap, deliberately deferred: no concurrency guard. If two of the
+  // three callers race before any cache exists (e.g. Download and Play
+  // tapped almost simultaneously), both can pass the getInfoAsync check and
+  // independently downloadAsync to the same path. Low real-world risk at
+  // current scale (worst case is a harmless redundant download, not
+  // corruption) - revisit with an in-flight-download tracker if this ever
+  // becomes a real problem.
+  const ensureLocalFile = async (): Promise<string> => {
+    const fileInfo = await FileSystem.getInfoAsync(localFileUri);
+    if (fileInfo.exists) {
+      console.log('📦 Using cached ringtone file:', localFileUri);
+      return localFileUri;
+    }
+
+    if (!audioSourceUri) {
+      throw new Error('No audio file found for this ringtone.');
+    }
+
+    console.log('⬇️ No cached file found, downloading to:', localFileUri);
+    const downloadResult = await FileSystem.downloadAsync(audioSourceUri, localFileUri);
+    if (downloadResult.status !== 200) {
+      throw new Error(`Download failed with status ${downloadResult.status}`);
+    }
+    return downloadResult.uri;
+  };
+
+  // Cleanup sound when component unmounts. Audio session mode (background
+  // playback, ducking, etc.) is configured once, app-wide, in app/_layout.tsx
+  // - this component intentionally does not call setAudioModeAsync, since
+  // that would overwrite the shared session for the whole app.
   useEffect(() => {
-    // Set up audio mode for playback
-    const setupAudio = async () => {
-      try {
-        await Audio.setAudioModeAsync({
-          allowsRecordingIOS: false,
-          staysActiveInBackground: false,
-          playsInSilentModeIOS: true,
-          shouldDuckAndroid: true,
-          playThroughEarpieceAndroid: false,
-        });
-      } catch (error) {
-        console.error('Error setting up audio mode:', error);
-      }
-    };
-
-    setupAudio();
-
-    // Cleanup sound when component unmounts
     return () => {
       if (sound) {
         sound.unloadAsync();
+        onPlaybackEnd?.(feed.id.toString());
       }
     };
   }, [sound]);
+
+  // Stop this ringtone if the app is backgrounded/inactive while it's
+  // playing. The app-wide session is configured to survive backgrounding
+  // (for future long-form content), so without this, a playing ringtone
+  // would keep going after the phone is locked or the user switches apps.
+  // Scoped to only subscribe while THIS card is actually playing, so idle
+  // cards in the list never hold an AppState listener.
+  useEffect(() => {
+    if (!isPlaying || !sound) {
+      return;
+    }
+
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState !== 'active') {
+        console.log('📵 App backgrounded/inactive, stopping ringtone playback...');
+        setIsPlaying(false);
+        setPlaybackPosition(0);
+        onPlaybackEnd?.(feed.id.toString());
+        sound.unloadAsync().then(() => {
+          setSound(null);
+        });
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [isPlaying, sound, onPlaybackEnd, feed.id]);
 
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -110,11 +185,21 @@ export default function RingtoneFeedCard({
 
         if (status.isLoaded) {
           if (isPlaying) {
-            console.log('⏸️ Pausing audio...');
-            await sound.pauseAsync();
+            console.log('⏸️ Pausing audio, resetting position...');
+            // stopAsync (not pauseAsync) so this behaves as a quick-preview
+            // list, not a resumable player: re-pressing play after a manual
+            // pause starts from 0, it doesn't resume where it left off.
+            await sound.stopAsync();
             setIsPlaying(false);
+            setPlaybackPosition(0);
+            onPlaybackEnd?.(feed.id.toString());
           } else {
             console.log('▶️ Resuming audio...');
+            onPlaybackStart?.(feed.id.toString(), () => {
+              sound.stopAsync();
+              setIsPlaying(false);
+              setPlaybackPosition(0);
+            });
             await sound.playAsync();
             setIsPlaying(true);
           }
@@ -129,20 +214,26 @@ export default function RingtoneFeedCard({
 
       // Create new sound
       setIsLoading(true);
-      const audioUri = audioMedia.audioUrl || audioMedia.mediaUrl;
-      console.log('🎧 Audio URI:', audioUri);
+      console.log('🎧 Audio source URI:', audioSourceUri);
       console.log('🎼 Audio media:', audioMedia);
 
-      if (audioUri) {
-        console.log('📱 Creating new sound instance...');
+      if (audioSourceUri) {
+        const localUri = await ensureLocalFile();
+        console.log('📱 Creating new sound instance from local file:', localUri);
         const { sound: newSound } = await Audio.Sound.createAsync(
-          { uri: audioUri },
+          { uri: localUri },
           { shouldPlay: true }
         );
 
         console.log('✅ Sound created successfully');
         setSound(newSound);
         setIsPlaying(true);
+        onPlaybackStart?.(feed.id.toString(), () => {
+          // stopAsync, not pauseAsync - see note on the resume branch above.
+          newSound.stopAsync();
+          setIsPlaying(false);
+          setPlaybackPosition(0);
+        });
 
         // Set up playback status updates
         newSound.setOnPlaybackStatusUpdate((status) => {
@@ -157,6 +248,7 @@ export default function RingtoneFeedCard({
               console.log('🏁 Audio finished playing');
               setIsPlaying(false);
               setPlaybackPosition(0);
+              onPlaybackEnd?.(feed.id.toString());
               // Clean up the sound when finished
               newSound.unloadAsync().then(() => {
                 setSound(null);
@@ -165,7 +257,9 @@ export default function RingtoneFeedCard({
           } else {
             console.log('⚠️ Sound became unloaded');
             setIsPlaying(false);
+            setPlaybackPosition(0);
             setSound(null);
+            onPlaybackEnd?.(feed.id.toString());
           }
         });
 
@@ -269,20 +363,19 @@ export default function RingtoneFeedCard({
         return;
       }
 
-      const audioUri = audioMedia.audioUrl || audioMedia.mediaUrl;
-      if (!audioUri) return;
+      const localUri = await ensureLocalFile();
+      // Known gap, deliberately deferred: saveToLibraryAsync has no native
+      // dedup - repeated taps create separate, uniquified entries in the OS
+      // media library even though ensureLocalFile reuses the same cached
+      // file. Cosmetic only (extra library entries), not a functional or
+      // cost issue - the actual cached file is correctly deduped. Deferred
+      // until real user feedback justifies the fix.
+      await MediaLibrary.saveToLibraryAsync(localUri);
+      Alert.alert('Success', 'Ringtone saved to your device!');
 
-      const fileUri = FileSystem.documentDirectory + `ringtone_${feed.id}.mp3`;
-      const downloadResult = await FileSystem.downloadAsync(audioUri, fileUri);
-
-      if (downloadResult.status === 200) {
-        await MediaLibrary.saveToLibraryAsync(downloadResult.uri);
-        Alert.alert('Success', 'Ringtone saved to your device!');
-
-        await feedService.downloadFeed(feed.id.toString());
-        incrementDownload(feed.id.toString());
-        onDownload?.(feed.id.toString());
-      }
+      await feedService.downloadFeed(feed.id.toString());
+      incrementDownload(feed.id.toString());
+      onDownload?.(feed.id.toString());
     } catch (error) {
       console.error('Error downloading ringtone:', error);
       Alert.alert('Error', 'Failed to download ringtone. Please try again.');
@@ -302,108 +395,99 @@ export default function RingtoneFeedCard({
         return;
       }
 
-      const audioUri = audioMedia.audioUrl || audioMedia.mediaUrl;
-      if (!audioUri) return;
-
       console.log('🎧 Starting ringtone setup...');
-      console.log('📱 Audio URI:', audioUri);
+      console.log('📱 Audio source URI:', audioSourceUri);
       console.log('🎵 Audio media details:', audioMedia);
 
-      // Download the audio file first - try to determine file extension from URL
-      const urlParts = audioUri.split('.');
-      const extension = urlParts.length > 1 ? urlParts[urlParts.length - 1].toLowerCase() : 'mp3';
-      const supportedExtensions = ['mp3', 'wav', 'aac', 'm4a', 'ogg'];
-      const fileExtension = supportedExtensions.includes(extension) ? extension : 'mp3';
+      const localUri = await ensureLocalFile();
+      const fileName = localUri.split('/').pop() || localFileName;
+      console.log('✅ Local file ready:', localUri);
 
-      const fileName = `ringtone_${feed.id}_${Date.now()}.${fileExtension}`;
-      const fileUri = FileSystem.documentDirectory + fileName;
-      console.log('🎵 Using file extension:', fileExtension);
-      console.log('⬇️ Downloading to:', fileUri);
+      // Known gap, deliberately deferred: saveToLibraryAsync (both branches
+      // below) has no native dedup - repeated taps create separate,
+      // uniquified entries in the OS media library even though localUri
+      // above is the same reused cached file each time. Cosmetic only, not
+      // a functional or cost issue. Deferred until real user feedback
+      // justifies the fix.
+      if (Platform.OS === 'android') {
+        try {
+          // On Android, try to save to media library
+          console.log('💾 Attempting to save audio file to media library...');
+          await MediaLibrary.saveToLibraryAsync(localUri);
+          console.log('✅ Audio saved to media library successfully');
 
-      const downloadResult = await FileSystem.downloadAsync(audioUri, fileUri);
-      console.log('✅ Download completed:', downloadResult);
-
-      if (downloadResult.status === 200) {
-        if (Platform.OS === 'android') {
-          try {
-            // On Android, try to save to media library
-            console.log('💾 Attempting to save audio file to media library...');
-            await MediaLibrary.saveToLibraryAsync(downloadResult.uri);
-            console.log('✅ Audio saved to media library successfully');
-
-            Alert.alert(
-              'Ringtone Downloaded & Saved',
-              'The ringtone has been saved to your device. To set it as your ringtone:\n\n1. Go to Settings > Sounds\n2. Select Phone Ringtone\n3. Choose the downloaded file',
-              [
-                {
-                  text: 'Open Sound Settings',
-                  onPress: () => {
-                    // Try to open Android sound settings
-                    // Open device settings
-                    Linking.openSettings();
-                  },
+          Alert.alert(
+            'Ringtone Downloaded & Saved',
+            'The ringtone has been saved to your device. To set it as your ringtone:\n\n1. Go to Settings > Sounds\n2. Select Phone Ringtone\n3. Choose the downloaded file',
+            [
+              {
+                text: 'Open Sound Settings',
+                onPress: () => {
+                  // Try to open Android sound settings
+                  // Open device settings
+                  Linking.openSettings();
                 },
-                { text: 'OK', style: 'default' },
-              ]
-            );
-          } catch (mediaError) {
-            const errorMessage = mediaError instanceof Error ? mediaError.message : 'Unknown error';
-            console.log('⚠️ Could not save to media library, but file is downloaded:', errorMessage);
-            // File is still downloaded, just not in media library
-            Alert.alert(
-              'Ringtone Downloaded',
-              'The ringtone has been downloaded to your device. To set it as your ringtone:\n\n1. Go to Settings > Sounds\n2. Select Phone Ringtone\n3. Look for the ringtone file in your downloads',
-              [
-                {
-                  text: 'Open Sound Settings',
-                  onPress: () => {
-                    // Open device settings
-                    Linking.openSettings();
-                  },
+              },
+              { text: 'OK', style: 'default' },
+            ]
+          );
+        } catch (mediaError) {
+          const errorMessage = mediaError instanceof Error ? mediaError.message : 'Unknown error';
+          console.log('⚠️ Could not save to media library, but file is downloaded:', errorMessage);
+          // File is still downloaded, just not in media library
+          Alert.alert(
+            'Ringtone Downloaded',
+            'The ringtone has been downloaded to your device. To set it as your ringtone:\n\n1. Go to Settings > Sounds\n2. Select Phone Ringtone\n3. Look for the ringtone file in your downloads',
+            [
+              {
+                text: 'Open Sound Settings',
+                onPress: () => {
+                  // Open device settings
+                  Linking.openSettings();
                 },
-                { text: 'OK', style: 'default' },
-              ]
-            );
-          }
-        } else if (Platform.OS === 'ios') {
-          try {
-            // On iOS, try to save to media library (may not work for audio files)
-            console.log('💾 Attempting to save audio file to media library (iOS)...');
-            await MediaLibrary.saveToLibraryAsync(downloadResult.uri);
-            console.log('✅ Audio saved to media library (iOS)');
-
-            Alert.alert(
-              'Ringtone Downloaded & Saved',
-              'The ringtone has been saved to your device. To set it as your ringtone:\n\n1. Go to Settings > Sounds & Haptics\n2. Select Ringtone\n3. Choose the downloaded file from "Custom" section',
-              [
-                {
-                  text: 'Open Settings',
-                  onPress: () => Linking.openSettings(),
-                },
-                { text: 'OK', style: 'default' },
-              ]
-            );
-          } catch (mediaError) {
-            const errorMessage = mediaError instanceof Error ? mediaError.message : 'Unknown error';
-            console.log('⚠️ MediaLibrary doesn\'t support this audio format on iOS:', errorMessage);
-            // iOS has restrictions on audio files in media library
-            Alert.alert(
-              'Ringtone Downloaded',
-              `The ringtone has been downloaded successfully!\n\nFile location: ${fileName}\n\nFor iOS ringtones:\n• Connect to iTunes/Finder\n• Convert to .m4r format\n• Sync to set as ringtone\n\nOr use GarageBand to import and set as ringtone.`,
-              [
-                {
-                  text: 'Open Settings',
-                  onPress: () => Linking.openSettings(),
-                },
-                { text: 'Got It', style: 'default' },
-              ]
-            );
-          }
+              },
+              { text: 'OK', style: 'default' },
+            ]
+          );
         }
+      } else if (Platform.OS === 'ios') {
+        try {
+          // On iOS, try to save to media library (may not work for audio files)
+          console.log('💾 Attempting to save audio file to media library (iOS)...');
+          await MediaLibrary.saveToLibraryAsync(localUri);
+          console.log('✅ Audio saved to media library (iOS)');
 
-        // Track the action (optional)
-        console.log('✅ Ringtone set for feed:', feed.id);
+          Alert.alert(
+            'Ringtone Downloaded & Saved',
+            'The ringtone has been saved to your device. To set it as your ringtone:\n\n1. Go to Settings > Sounds & Haptics\n2. Select Ringtone\n3. Choose the downloaded file from "Custom" section',
+            [
+              {
+                text: 'Open Settings',
+                onPress: () => Linking.openSettings(),
+              },
+              { text: 'OK', style: 'default' },
+            ]
+          );
+        } catch (mediaError) {
+          const errorMessage = mediaError instanceof Error ? mediaError.message : 'Unknown error';
+          console.log('⚠️ MediaLibrary doesn\'t support this audio format on iOS:', errorMessage);
+          // iOS has restrictions on audio files in media library
+          Alert.alert(
+            'Ringtone Downloaded',
+            `The ringtone has been downloaded successfully!\n\nFile location: ${fileName}\n\nFor iOS ringtones:\n• Connect to iTunes/Finder\n• Convert to .m4r format\n• Sync to set as ringtone\n\nOr use GarageBand to import and set as ringtone.`,
+            [
+              {
+                text: 'Open Settings',
+                onPress: () => Linking.openSettings(),
+              },
+              { text: 'Got It', style: 'default' },
+            ]
+          );
+        }
       }
+
+      // Track the action (optional)
+      console.log('✅ Ringtone set for feed:', feed.id);
     } catch (error) {
       console.error('Error setting ringtone:', error);
       Alert.alert('Error', 'Failed to set ringtone. Please try again.');
