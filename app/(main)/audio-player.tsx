@@ -9,7 +9,6 @@ import {
   Animated,
   ActivityIndicator,
   Alert,
-  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -17,12 +16,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Audio } from 'expo-av';
+import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
+import { designSystemTheme } from '@/styles/designSystemTheme';
 import { feedService } from '@/features/feed/services/feedService';
 import { Feed } from '@/types/feed';
 import { useTranslation } from '@/shared/i18n/useTranslation';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
+import { CounterSheet, InfoSheet } from '@/components/molecules/AudioPlayerSheets';
 
 const { width } = Dimensions.get('window');
 
@@ -58,6 +60,10 @@ export default function AudioPlayerScreen() {
   const [showVolumeSlider, setShowVolumeSlider] = useState(false);
   const [isAutoLooping, setIsAutoLooping] = useState(false); // Auto-loop until target reached
   const soundRef = React.useRef<Audio.Sound | null>(null); // Ref to maintain current sound instance
+
+  // Bottom sheet refs
+  const counterSheetRef = React.useRef<BottomSheetModal>(null);
+  const infoSheetRef = React.useRef<BottomSheetModal>(null);
 
   // Refs to store current state values for callback access (fixes stale closure issue)
   const isAutoLoopingRef = React.useRef(isAutoLooping);
@@ -161,8 +167,11 @@ export default function AudioPlayerScreen() {
     return fallback;
   };
 
-  // Get mantra data from feed or fallback to params
-  const getMantraData = () => {
+  // Resolve the currently-active content's display data from the fetched feed
+  // (or fallback route params before the fetch resolves). Kept as a single
+  // generic shape so this screen can serve any repeatable/non-repeatable
+  // audio content type (Mantra today, Aarti/Bhajan later) without a rewrite.
+  const getContentData = () => {
     if (feedData && feedData.media && Array.isArray(feedData.media)) {
       const audioMedia = feedData.media.find(media =>
         media.type === 'audio' || media.type === 'image_audio'
@@ -204,7 +213,7 @@ export default function AudioPlayerScreen() {
     };
   };
 
-  const mantraData = getMantraData();
+  const contentData = getContentData();
 
   // Update refs whenever state changes to avoid stale closure issues
   useEffect(() => {
@@ -451,13 +460,13 @@ export default function AudioPlayerScreen() {
         }
       }
 
-      if (mantraData.audioUrl) {
-        console.log('🎵 Audio Player: Attempting to load audio from URL:', mantraData.audioUrl);
+      if (contentData.audioUrl) {
+        console.log('🎵 Audio Player: Attempting to load audio from URL:', contentData.audioUrl);
 
         // Test URL accessibility first
         try {
           console.log('🔍 Audio Player: Testing URL accessibility...');
-          const response = await fetch(mantraData.audioUrl?.toString() || '', { method: 'HEAD' });
+          const response = await fetch(contentData.audioUrl?.toString() || '', { method: 'HEAD' });
           console.log('🔍 Audio Player: URL test response:', {
             status: response.status,
             ok: response.ok,
@@ -486,7 +495,7 @@ export default function AudioPlayerScreen() {
 
         // Create the sound with initial configuration
         const { sound: newSound } = await Audio.Sound.createAsync(
-          { uri: mantraData.audioUrl?.toString() || '' },
+          { uri: contentData.audioUrl?.toString() || '' },
           {
             shouldPlay: false, // Don't auto-play, let user control
             isLooping: isLooping && !shouldAutoLoop, // Only use audio loop for manual loop, not auto-loop
@@ -564,7 +573,7 @@ export default function AudioPlayerScreen() {
                       await newSound.unloadAsync();
 
                       const { sound: retrySound } = await Audio.Sound.createAsync(
-                        { uri: mantraData.audioUrl?.toString() || '' },
+                        { uri: contentData.audioUrl?.toString() || '' },
                         { shouldPlay: true, volume: 1.0 }
                       );
 
@@ -744,7 +753,7 @@ export default function AudioPlayerScreen() {
         message: error?.message,
         code: error?.code,
         domain: error?.domain,
-        audioUrl: mantraData.audioUrl
+        audioUrl: contentData.audioUrl
       });
 
       let errorMessage = 'Failed to play audio. Please try again.';
@@ -878,9 +887,6 @@ export default function AudioPlayerScreen() {
       ]
     );
   };
-
-  // const remainingCount = targetCount - chantCount;
-  // const halfwayCount = Math.floor(targetCount / 2);
 
   const formatTime = (millis: number) => {
     const minutes = Math.floor(millis / 60000);
@@ -1028,120 +1034,25 @@ export default function AudioPlayerScreen() {
         </View>
       )}
 
-      {/* Main Content - Scrollable */}
+      {/* Main Content - fixed three-region layout, no scrolling */}
       {!isFeedLoading && !feedError && (
-        <ScrollView
-          style={styles.scrollContainer}
-          contentContainerStyle={[styles.scrollContent, { paddingBottom: contentPadding }]}
-          showsVerticalScrollIndicator={false}
-          bounces={true}
-        >
-          {/* Mantra Info Card */}
-          <View style={styles.mantraCard}>
-            <Text style={styles.mantraTitle}>{mantraData.title}</Text>
-
-            {/* Description */}
-            <Text style={styles.description}>{mantraData.description}</Text>
-
-            {/* Tags */}
-            <View style={styles.tagsContainer}>
-              {mantraData.tags.map((tag, index) => (
-                <View key={index} style={styles.tag}>
-                  <Text style={styles.tagText}>{tag}</Text>
-                </View>
-              ))}
+        <View style={[styles.playerBody, { paddingBottom: contentPadding }]}>
+          {/* Compact content header strip */}
+          <View style={styles.contentHeaderStrip}>
+            <View style={styles.contentHeaderTextBlock}>
+              <Text numberOfLines={1} style={styles.contentTitleCompact}>{contentData.title}</Text>
+              <Text numberOfLines={1} style={styles.contentSubtitleCompact}>{contentData.deity}</Text>
             </View>
-
-            {/* Info Row */}
-            <View style={styles.infoRow}>
-              <View style={styles.infoItem}>
-                <Text style={styles.infoLabel}>{t('deity')}</Text>
-                <Text style={styles.infoValue}>{mantraData.deity}</Text>
-              </View>
-              <View style={styles.infoItem}>
-                <Text style={styles.infoLabel}>{t('objective')}</Text>
-                <Text style={styles.infoValue}>{mantraData.objective}</Text>
-              </View>
-            </View>
+            <TouchableOpacity
+              onPress={() => infoSheetRef.current?.present()}
+              style={styles.headerIconButton}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="information-circle-outline" size={22} color={'#5D4E37'} />
+            </TouchableOpacity>
           </View>
 
-          {/* Chant Counter Section - only for feeds flagged as repeatable */}
-          {feedData?.isRepeatable && (
-          <View style={styles.counterSection}>
-            {/* Counter Display & Controls */}
-            <View style={styles.counterContainer}>
-              <TouchableOpacity onPress={handleDecrementCount} style={styles.counterButton}>
-                <Ionicons name="remove" size={24} color={goldenTempleTheme.colors.primary.DEFAULT} />
-              </TouchableOpacity>
-
-              <View style={styles.counterDisplay}>
-                <Text style={styles.currentCount}>{chantCount}</Text>
-                <Text style={styles.targetCount}>/ {targetCount}</Text>
-                <View style={styles.progressCircle}>
-                  <View
-                    style={[
-                      styles.progressFillCircle,
-                      {
-                        transform: [{
-                          rotate: `${(progress * 3.6)}deg`
-                        }]
-                      }
-                    ]}
-                  />
-                  <View style={styles.progressInner}>
-                    <Text style={styles.progressText}>{Math.floor(progress)}%</Text>
-                  </View>
-                </View>
-                
-              </View>
-
-              <TouchableOpacity onPress={handleIncrementCount} style={styles.incrementButton}>
-                <Ionicons name="add" size={24} color="#fff" />
-              </TouchableOpacity>
-            </View>
-
-            {/* Target Selection */}
-            <View style={styles.targetSection}>
-              <View style={styles.targetHeader}>
-                <Text style={styles.targetLabel}>{t('target')}</Text>
-                {isAutoLooping && (
-                  <View style={styles.autoLoopIndicator}>
-                    <Text style={styles.autoLoopText}>{t('autoLoopActive')}</Text>
-                  </View>
-                )}
-              </View>
-              <View style={styles.targetOptions}>
-                {[27, 54, 108].map((count) => (
-                  <TouchableOpacity
-                    key={count}
-                    onPress={() => handleTargetCountChange(count)}
-                    style={[
-                      styles.targetOptionChip,
-                      targetCount === count && styles.targetOptionChipSelected,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.targetOptionChipText,
-                        targetCount === count && styles.targetOptionChipTextSelected,
-                      ]}
-                    >
-                      {count}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-                <TouchableOpacity
-                  onPress={() => setShowTargetSelector(true)}
-                  style={styles.moreTargetsButton}
-                >
-                  <Text style={styles.moreTargetsText}>{t('more')}</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-          )}
-
-          {/* Mantra Lyrics Section - Large Video/Image Area */}
+          {/* Visual Area - flexible, fills remaining space */}
           <View style={styles.lyricsSection}>
             <LinearGradient
               colors={goldenTempleTheme.gradients.sunrise}
@@ -1150,9 +1061,9 @@ export default function AudioPlayerScreen() {
               end={{ x: 1, y: 1 }}
             >
               {/* Background Image */}
-              {mantraData.thumbnailUrl ? (
+              {contentData.thumbnailUrl ? (
                 <Image
-                  source={{ uri: mantraData.thumbnailUrl.toString() }}
+                  source={{ uri: contentData.thumbnailUrl.toString() }}
                   style={styles.lyricsBackground}
                   resizeMode="cover"
                 />
@@ -1179,7 +1090,7 @@ export default function AudioPlayerScreen() {
                     </View>
                   )}
                 </View>
-                <Text style={styles.lyricsText}>{mantraData.title}</Text>
+                <Text style={styles.lyricsText}>{contentData.title}</Text>
 
                 {/* Single Wave Visualizer - Only one row */}
                 <View style={styles.waveVisualizer}>
@@ -1235,7 +1146,7 @@ export default function AudioPlayerScreen() {
             </LinearGradient>
           </View>
 
-          {/* Audio Controls */}
+          {/* Compact Control Bar - fixed */}
           <View style={styles.audioControls}>
             {/* Secondary Controls Row */}
             <View style={styles.secondaryControls}>
@@ -1247,17 +1158,22 @@ export default function AudioPlayerScreen() {
                 />
               </TouchableOpacity>
 
-              <TouchableOpacity onPress={toggleVolumeSlider} style={styles.secondaryControlButton}>
-                <Ionicons
-                  name={volume > 0.5 ? "volume-high" : volume > 0 ? "volume-low" : "volume-mute"}
-                  size={20}
-                  color={'#5D4E37'}
-                />
-              </TouchableOpacity>
-
               <TouchableOpacity onPress={togglePlaybackSpeed} style={styles.secondaryControlButton}>
                 <Text style={styles.speedText}>{playbackSpeed}x</Text>
               </TouchableOpacity>
+
+              {/* Counter sheet trigger - only for content flagged as repeatable */}
+              {feedData?.isRepeatable && (
+                <TouchableOpacity
+                  onPress={() => counterSheetRef.current?.present()}
+                  style={styles.secondaryControlButton}
+                >
+                  <Ionicons name="stats-chart-outline" size={20} color={designSystemTheme.colors.primary} />
+                  <View style={styles.counterBadge}>
+                    <Text style={styles.counterBadgeText}>{chantCount}/{targetCount}</Text>
+                  </View>
+                </TouchableOpacity>
+              )}
             </View>
 
             {/* Volume Slider */}
@@ -1342,44 +1258,65 @@ export default function AudioPlayerScreen() {
               <Text style={styles.skipText}>+10s</Text>
             </View>
           </View>
+        </View>
+      )}
 
+      {/* Chant counter, moved off-screen into an overlay sheet */}
+      <CounterSheet
+        ref={counterSheetRef}
+        chantCount={chantCount}
+        targetCount={targetCount}
+        isAutoLooping={isAutoLooping}
+        onIncrement={handleIncrementCount}
+        onDecrement={handleDecrementCount}
+        onSelectTarget={handleTargetCountChange}
+        onOpenMoreTargets={() => setShowTargetSelector(true)}
+      />
 
-          {/* Target Count Selector Modal */}
-          {showTargetSelector && (
-            <View style={styles.targetSelectorOverlay}>
-              <View style={styles.targetSelectorModal}>
-                <Text style={styles.targetSelectorTitle}>Select Target Count</Text>
-                <View style={styles.targetOptionsContainer}>
-                  {TARGET_COUNT_OPTIONS.map((count) => (
-                    <TouchableOpacity
-                      key={count}
-                      onPress={() => handleTargetCountChange(count)}
-                      style={[
-                        styles.targetOption,
-                        targetCount === count && styles.targetOptionSelected,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.targetOptionText,
-                          targetCount === count && styles.targetOptionTextSelected,
-                        ]}
-                      >
-                        {count}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
+      {/* Description/tags/deity/objective, moved off-screen into an overlay sheet */}
+      <InfoSheet
+        ref={infoSheetRef}
+        title={contentData.title as string}
+        description={contentData.description as string}
+        deity={contentData.deity as string}
+        objective={contentData.objective as string}
+        tags={(contentData.tags as string[]) || []}
+      />
+
+      {/* Target Count Selector Modal */}
+      {showTargetSelector && (
+        <View style={styles.targetSelectorOverlay}>
+          <View style={styles.targetSelectorModal}>
+            <Text style={styles.targetSelectorTitle}>Select Target Count</Text>
+            <View style={styles.targetOptionsContainer}>
+              {TARGET_COUNT_OPTIONS.map((count) => (
                 <TouchableOpacity
-                  onPress={() => setShowTargetSelector(false)}
-                  style={styles.targetSelectorCancel}
+                  key={count}
+                  onPress={() => handleTargetCountChange(count)}
+                  style={[
+                    styles.targetOption,
+                    targetCount === count && styles.targetOptionSelected,
+                  ]}
                 >
-                  <Text style={styles.targetSelectorCancelText}>{t('cancel')}</Text>
+                  <Text
+                    style={[
+                      styles.targetOptionText,
+                      targetCount === count && styles.targetOptionTextSelected,
+                    ]}
+                  >
+                    {count}
+                  </Text>
                 </TouchableOpacity>
-              </View>
+              ))}
             </View>
-          )}
-        </ScrollView>
+            <TouchableOpacity
+              onPress={() => setShowTargetSelector(false)}
+              style={styles.targetSelectorCancel}
+            >
+              <Text style={styles.targetSelectorCancelText}>{t('cancel')}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       )}
     </SafeAreaView>
   );
@@ -1414,285 +1351,43 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(205, 180, 140, 0.2)', // Light brown separator
     marginHorizontal: goldenTempleTheme.spacing.lg,
   },
-  stickyHeader: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 60, // Account for status bar
-    paddingBottom: 15,
-    backgroundColor: '#FFFFFF', // White controls
-    zIndex: 1000,
-  },
-  headerSpacer: {
+  // Main player body - fixed three-region layout (header strip / visual area / controls)
+  playerBody: {
     flex: 1,
-  },
-  resetButton: {
-    padding: 8,
-    borderRadius: 20,
-    backgroundColor: 'transparent',
-  },
-  scrollContainer: {
-    flex: 1,
-  },
-  scrollContent: {
     paddingHorizontal: 20,
     paddingTop: goldenTempleTheme.spacing.md,
   },
-  // Mantra Info Card
-  mantraCard: {
-    backgroundColor: '#FFFFFF', // Pure white card
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 20,
-    shadowColor: 'rgba(0, 0, 0, 0.1)',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  mantraTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#5D4E37', // Dark brown text
-    marginBottom: 12,
-    textAlign: 'left',
-  },
-  description: {
-    fontSize: 16,
-    color: '#8B7355', // Medium brown text
-    lineHeight: 24,
-    marginBottom: 16,
-    textAlign: 'left',
-  },
-  tagsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: 8,
-    marginBottom: 20,
-  },
-  tag: {
-    backgroundColor: 'rgba(218, 165, 32, 0.15)',
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(218, 165, 32, 0.3)',
-  },
-  tagText: {
-    color: '#FF5722', // Orange selected
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  infoItem: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  infoLabel: {
-    fontSize: 12,
-    color: '#8B7355',
-    marginBottom: 4,
-  },
-  infoValue: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#5D4E37',
-    textAlign: 'center',
-  },
-  // Counter Section
-  counterSection: {
-    backgroundColor: '#FFFFFF', // White card
-    borderRadius: 24,
-    padding: 24,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(218, 165, 32, 0.25)',
-    ...goldenTempleTheme.shadows.lg,
-    shadowColor: 'rgba(218, 165, 32, 0.4)',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    elevation: 12,
-  },
-  counterContainer: {
+  // Compact Content Header Strip
+  contentHeaderStrip: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 24,
+    marginBottom: goldenTempleTheme.spacing.sm,
   },
-  counterButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: 'rgba(218, 165, 32, 0.15)',
-    borderWidth: 0,
-    borderColor: 'rgba(218, 165, 32, 0.4)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...goldenTempleTheme.shadows.md,
-    shadowColor: 'rgba(218, 165, 32, 0.5)',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 6,
+  contentHeaderTextBlock: {
+    flex: 1,
+    marginRight: goldenTempleTheme.spacing.sm,
   },
-  counterDisplay: {
-    alignItems: 'center',
-    position: 'relative',
-  },
-  currentCount: {
-    fontSize: 36,
-    fontWeight: 'bold',
-    color: goldenTempleTheme.colors.primary.DEFAULT,
-    marginBottom: 4,
-  },
-  targetCount: {
-    fontSize: 14,
-    color: goldenTempleTheme.colors.text.secondary,
-    marginBottom: 8,
-  },
-  autoLoopStatus: {
-    fontSize: 11,
-    color: '#8B7355',
-    textAlign: 'center',
-    fontStyle: 'italic',
-    marginTop: 8,
-  },
-  progressCircle: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: 'rgba(0, 0, 0, 0.1)',
-    borderWidth: 3,
-    borderColor: 'rgba(218, 165, 32, 0.3)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-    overflow: 'hidden',
-    ...goldenTempleTheme.shadows.md,
-    shadowColor: 'rgba(218, 165, 32, 0.4)',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  progressFillCircle: {
-    position: 'absolute',
-    width: '100%',
-    height: '50%',
-    backgroundColor: '#FF5722', // Orange fill
-    top: 0,
-    left: 0,
-    transformOrigin: '50% 100%',
-    borderTopLeftRadius: 60,
-    borderTopRightRadius: 60,
-  },
-  progressInner: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 1,
-    borderWidth: 1,
-    borderColor: 'rgba(218, 165, 32, 0.3)',
-  },
-  progressText: {
+  contentTitleCompact: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: goldenTempleTheme.colors.primary.DEFAULT,
-  },
-  incrementButton: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: '#FF5722', // Orange selected
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...goldenTempleTheme.shadows.sm,
-  },
-  targetSection: {
-    alignItems: 'center',
-  },
-  targetHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
-    gap: 12,
-  },
-  targetLabel: {
-    fontSize: 16,
-    fontWeight: '600',
     color: '#5D4E37',
   },
-  autoLoopIndicator: {
-    backgroundColor: 'rgba(0, 255, 0, 0.2)',
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderWidth: 1,
-    borderColor: 'rgba(0, 255, 0, 0.4)',
-  },
-  autoLoopText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#00FF00',
-  },
-  targetOptions: {
-    flexDirection: 'row',
-    gap: 12,
-    alignItems: 'center',
-  },
-  targetOptionChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 16,
-    backgroundColor: '#F5E6D3', // Light peach
-    borderWidth: 0,
-    borderColor: 'rgba(218, 165, 32, 0.5)',
-    ...goldenTempleTheme.shadows.sm,
-  },
-  targetOptionChipSelected: {
-    backgroundColor: '#FF5722',
-    borderColor: goldenTempleTheme.colors.primary.DEFAULT,
-  },
-  targetOptionChipText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: goldenTempleTheme.colors.primary.DEFAULT,
-  },
-  targetOptionChipTextSelected: {
-    color: '#fff',
-  },
-  moreTargetsButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 16,
-    backgroundColor: 'rgba(218, 165, 32, 0.05)',
-    borderWidth: 1,
-    borderColor: 'rgba(218, 165, 32, 0.2)',
-  },
-  moreTargetsText: {
-    fontSize: 12,
+  contentSubtitleCompact: {
+    fontSize: 13,
     color: '#8B7355',
+    marginTop: 2,
   },
-  // Lyrics Section - Large Video/Image Area
+  headerIconButton: {
+    padding: 6,
+  },
+  // Lyrics Section - flexible visual area
   lyricsSection: {
-    marginBottom: 20,
+    flex: 1,
+    marginBottom: goldenTempleTheme.spacing.md,
   },
   lyricsContainer: {
-    height: 300,
+    flex: 1,
     borderRadius: 24,
     overflow: 'hidden',
     position: 'relative',
@@ -1757,20 +1452,6 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: '#fff',
     fontWeight: '500',
-  },
-  audioVisualizer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 3,
-    marginTop: 12,
-    height: 30,
-  },
-  visualizerBar: {
-    width: 3,
-    backgroundColor: '#FFD700',
-    borderRadius: 1.5,
-    opacity: 0.6,
   },
   waveVisualizer: {
     flexDirection: 'row',
@@ -1840,24 +1521,23 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
   },
-  // Audio Controls
+  // Audio Controls - compact, fixed
   audioControls: {
     alignItems: 'center',
-    marginBottom: 20,
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     backgroundColor: '#FFFFFF',
     borderRadius: 24,
-    paddingVertical: 20,
+    paddingVertical: 16,
     borderWidth: 0,
     borderColor: 'rgba(218, 165, 32, 0.6)',
     ...goldenTempleTheme.shadows.lg,
   },
   secondaryControls: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'space-around',
     width: '100%',
-    marginBottom: 16,
-    paddingHorizontal: 40,
+    marginBottom: 14,
+    paddingHorizontal: 8,
   },
   secondaryControlButton: {
     padding: 10,
@@ -1869,8 +1549,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     ...goldenTempleTheme.shadows.sm,
   },
+  counterBadge: {
+    marginTop: 2,
+  },
+  counterBadgeText: {
+    fontSize: 9,
+    fontWeight: '600',
+    color: designSystemTheme.colors.primary,
+  },
   speedText: {
-    fontSize: 12,
+    fontSize: 16,
     fontWeight: '600',
     color: '#5D4E37',
   },

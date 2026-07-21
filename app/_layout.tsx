@@ -10,7 +10,8 @@ import { PremiumPaywall } from '@/components/molecules/PremiumPaywall';
 import { useScreenshotProtection } from '@/hooks/useScreenshotProtection';
 import { ToastProvider } from '@/components/atoms/Toast';
 import { Audio } from 'expo-av';
-// Removed react-native-gesture-handler dependency for smaller bundle size
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -63,22 +64,26 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <ToastProvider>
-        <AuthProvider>
-          <View style={styles.container}>
-            <NavigationThemeProvider value={MyTheme}>
-              <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#fff6da' } }}>
-                <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-                <Stack.Screen name="(main)" options={{ headerShown: false }} />
-              </Stack>
-            </NavigationThemeProvider>
-          </View>
-          <StatusBar style="dark" translucent backgroundColor="transparent" />
-          <PremiumPaywall />
-        </AuthProvider>
-      </ToastProvider>
-    </QueryClientProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <QueryClientProvider client={queryClient}>
+        <BottomSheetModalProvider>
+          <ToastProvider>
+            <AuthProvider>
+              <View style={styles.container}>
+                <NavigationThemeProvider value={MyTheme}>
+                  <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#fff6da' } }}>
+                    <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+                    <Stack.Screen name="(main)" options={{ headerShown: false }} />
+                  </Stack>
+                </NavigationThemeProvider>
+              </View>
+              <StatusBar style="dark" translucent backgroundColor="transparent" />
+              <PremiumPaywall />
+            </AuthProvider>
+          </ToastProvider>
+        </BottomSheetModalProvider>
+      </QueryClientProvider>
+    </GestureHandlerRootView>
   );
 }
 
