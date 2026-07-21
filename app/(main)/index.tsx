@@ -262,9 +262,9 @@ export default function HomeScreen() {
     // Track view
     viewFeed(feed.id.toString());
 
-    // Check if feed is a mantra with audio media
-    if (feed.type === 'mantra') {
-      console.log('🔍 Home: This is a mantra feed, checking for audio media');
+    // Check if feed is repeatable (chant counter) with audio media
+    if (feed.isRepeatable) {
+      console.log('🔍 Home: This is a repeatable feed, checking for audio media');
       const audioMedia = feed.media.find(media => media.type === 'audio');
 
       if (audioMedia) {
@@ -287,12 +287,12 @@ export default function HomeScreen() {
         });
         return;
       } else {
-        console.log('❌ Home: No audio media found in mantra feed');
+        console.log('❌ Home: No audio media found in repeatable feed');
       }
     }
 
-    // For other feed types, you can add different navigation logic
-    console.log('ℹ️ Home: Non-mantra feed or no audio media found');
+    // For non-repeatable feeds, you can add different navigation logic
+    console.log('ℹ️ Home: Non-repeatable feed or no audio media found');
   };
 
   const renderHeader = () => (

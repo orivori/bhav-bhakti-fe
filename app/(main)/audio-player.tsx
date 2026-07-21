@@ -1065,7 +1065,8 @@ export default function AudioPlayerScreen() {
             </View>
           </View>
 
-          {/* Chant Counter Section */}
+          {/* Chant Counter Section - only for feeds flagged as repeatable */}
+          {feedData?.isRepeatable && (
           <View style={styles.counterSection}>
             {/* Counter Display & Controls */}
             <View style={styles.counterContainer}>
@@ -1138,6 +1139,7 @@ export default function AudioPlayerScreen() {
               </View>
             </View>
           </View>
+          )}
 
           {/* Mantra Lyrics Section - Large Video/Image Area */}
           <View style={styles.lyricsSection}>

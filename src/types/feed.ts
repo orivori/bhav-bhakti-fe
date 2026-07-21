@@ -38,7 +38,7 @@ export interface Feed {
   title?: Record<string, string> | null;
   caption?: string;
   location?: string;
-  type: 'general' | 'mantra' | 'ringtone' | 'wallpaper';
+  type: 'general' | 'mantra' | 'ringtone' | 'wallpaper' | 'aarti' | 'bhajan';
   categoryId?: number | null;
   category?: Category | null;
   deityId?: number | null;
@@ -53,6 +53,7 @@ export interface Feed {
   viewsCount: number;
   allowComments: boolean;
   allowDownloads: boolean;
+  isRepeatable: boolean;
   status: string;
   createdAt: string;
   updatedAt: string;
@@ -110,11 +111,12 @@ export interface FeedListResponse {
 }
 
 export interface CreateFeedRequest {
-  type?: 'general' | 'mantra' | 'ringtone' | 'wallpaper';
+  type?: 'general' | 'mantra' | 'ringtone' | 'wallpaper' | 'aarti' | 'bhajan';
   caption?: string;
   location?: string;
   allowComments?: boolean;
   allowDownloads?: boolean;
+  isRepeatable?: boolean;
   media: {
     type: 'image' | 'video' | 'audio' | 'image_audio';
     mediaUrl: string;
@@ -129,7 +131,7 @@ export interface CreateFeedRequest {
 }
 
 export interface FeedFilters {
-  type?: 'general' | 'mantra' | 'ringtone' | 'wallpaper';
+  type?: 'general' | 'mantra' | 'ringtone' | 'wallpaper' | 'aarti' | 'bhajan';
   categoryId?: number;
   tags?: string[];
   search?: string;
