@@ -1,7 +1,21 @@
+import Constants from 'expo-constants';
+
+const getDevBaseUrl = () => {
+  // hostUri is the Metro dev server's <host>:<port>, e.g. "192.168.1.5:8081" on a
+  // physical device over WiFi, or the emulator's routable host alias — same value
+  // Expo itself uses to reach this machine, so the backend (port 3000) is reachable
+  // at the same host with no manually maintained IP.
+  const host = Constants.expoConfig?.hostUri?.split(':')[0];
+  if (!host) {
+    throw new Error(
+      'Could not determine dev server host from Constants.expoConfig.hostUri — is Metro running?'
+    );
+  }
+  return `http://${host}:3000/api`;
+};
+
 export const API_CONFIG = {
-  BASE_URL: __DEV__
-    ? 'https://api.orivori.com/api' // Your local development server IP
-    : 'https://api.orivori.com/api', // Production URL with HTTPS
+  BASE_URL: __DEV__ ? getDevBaseUrl() : 'https://api.orivori.com/api', // Production URL with HTTPS
   TIMEOUT: 10000,
   RETRY_ATTEMPTS: 2,
 };
