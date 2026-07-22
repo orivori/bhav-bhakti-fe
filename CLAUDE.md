@@ -93,10 +93,9 @@ Intended direction: a custom nightly AI-generation workflow to replace the third
 
 ## 7. Session state — uncommitted local changes and tooling (as of 2026-07-18)
 
-**One intentionally uncommitted, unpushed local change remains in `bhav-bhakti-fe`** — left in place on purpose, don't commit without asking first:
-- `package-lock.json` — has an unexplained local modification, cause not yet investigated. Likely harmless (routine dependency-resolution drift), low priority, but don't assume it's safe without a quick review first.
-
-(The second item that used to be listed here — `src/shared/config/api.ts`'s hardcoded `10.0.2.2` dev-mode `BASE_URL` override — is resolved and committed as of 2026-07-21. See §12.)
+**Both items formerly tracked here as uncommitted local changes in `bhav-bhakti-fe` are resolved — `git status` shows nothing uncommitted in this repo as of 2026-07-22.**
+- `package-lock.json` — the "unexplained local modification" noted through 2026-07-21 is stale: a direct `git status`/`git diff` check on 2026-07-22 found it byte-identical to `HEAD`. Cause was never actually identified; don't assume it'll stay clean forever if this file comes up again — re-verify with `git status` rather than trusting this note indefinitely.
+- `src/shared/config/api.ts`'s hardcoded `10.0.2.2` dev-mode `BASE_URL` override — resolved and committed as of 2026-07-21, see §12 (unchanged).
 
 **Founder has installed HeidiSQL** to browse the local MySQL database (`bhav_bhakti_db`) directly. See §8 for the working-style rule on when to use it vs. Claude Code for data questions.
 
@@ -243,3 +242,14 @@ The complete navigation graph (every `router.push`/`router.replace` call site in
 
 **Live test content now exists in the `feeds` table — DONE, COMMITTED** (`bhav-bhakti-be` commit `e4d126f`): **Feed ID 3** (Test Mantra, `type: mantra`, `isRepeatable: true`, `categoryId: 1`/ganesh, `deityId` not set) and **Feed ID 4** (Durga Wallpaper, `type: wallpaper`, no category) were uploaded through the live API via a new reusable script, `bhav-bhakti-be/scripts/test-upload-mantra-wallpaper.js`, following the same upload-then-create-Feed pattern as the earlier ringtone test content (§2) — reusable for adding more test content later, not a one-off. **Note:** the files from this script's first run landed in Firebase Storage's `other/` folder rather than `audio/`/`image/`, because the initial version of the script didn't set a MIME type on the upload — this was fixed in the same file before commit (future runs will file correctly), but the two existing test files themselves remain in `other/`. Cosmetic only (the app resolves media by the Feed/FeedMedia `type` field, not by storage folder — see §2's note on the same non-issue with legacy `cloudfront.net` URLs) — not worth re-uploading and creating duplicate Feed rows just to fix folder placement.
 - **Audio hub navigation restructure** — see the architectural decision above for the recommended (not yet implemented) approach.
+
+## 14. 2026-07-22 session — react-native-track-player evaluated and removed
+
+**Decision: migrate the persistent/background audio player to `expo-audio` instead of `react-native-track-player`.** Not a lightly-rejected idea — re-attempt `react-native-track-player` only if the founder's budget changes, or a future free-tier release fixes the compatibility issue below.
+
+`react-native-track-player` was installed, natively configured (playback service registration, custom entry point, Android manifest/permissions, iOS background audio mode), exercised via a throwaway test screen, then fully removed — all in this same session, after hitting a real, confirmed blocker:
+- The free package (`react-native-track-player`, v4.1.2, Apache-2.0 — the newest release under that free name) has a genuine compile-time incompatibility with this project's toolchain (Expo SDK 54, React Native 0.81.5, New Architecture enabled). Confirmed via an actual Gradle build failure, not just a theoretical warning: `MusicModule.kt:548`/`588` fail to compile with `Argument type mismatch: actual type is 'Bundle?', but 'Bundle' was expected` — a Kotlin nullability mismatch, consistent with this library version being frozen/unmaintained against current Android toolchains. (`npx expo install` had already separately warned "does not support the New Architecture" before this was confirmed at the compile level.)
+- The only version confirmed to work against current toolchains is v5, published under a different package name (`@rntp/player`), which is commercially licensed — €99/month or €999/year minimum (RNTP Pro tier, one commercial app). Not viable given current budget.
+- Removal was verified clean: package uninstalled, all native config reverted (custom entry point deleted, `package.json`'s `main` field restored to `expo-router/entry`, the two `FOREGROUND_SERVICE_MEDIA_PLAYBACK` permission-list entries removed from `app.json`), a real Gradle rebuild came back `BUILD SUCCESSFUL` with zero remaining references anywhere in source or the build log, and `git status` on `bhav-bhakti-fe` came back completely clean afterward — the whole detour left no trace.
+
+**Trade-off of the `expo-audio` decision, to remember when Stories (episodic content) gets built:** `expo-audio` is free, the official Expo-maintained library, confirmed compatible with Expo SDK 54, and does include native lock-screen/notification/background-playback support — but it has no built-in queue/playlist concept the way Track Player does. Multi-episode Stories' "queue + autoplay-next" behavior will need to be hand-built on top of `expo-audio` rather than coming for free from the library.
