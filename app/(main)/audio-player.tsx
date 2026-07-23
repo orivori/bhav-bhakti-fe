@@ -72,9 +72,9 @@ export default function AudioPlayerScreen() {
   const feedIdRef = React.useRef(feedId);
 
   // Animation values
-  const pulseAnim = new Animated.Value(1);
-  const rotateAnim = new Animated.Value(0);
-  const waveAnims = [...Array(20)].map(() => new Animated.Value(1));
+  const pulseAnim = React.useRef(new Animated.Value(1)).current;
+  const rotateAnim = React.useRef(new Animated.Value(0)).current;
+  const waveAnims = React.useRef([...Array(20)].map(() => new Animated.Value(1))).current;
 
   // Interpolate rotation for proper string format
   const rotateInterpolation = rotateAnim.interpolate({
