@@ -73,6 +73,7 @@ export default function MantrasScreen() {
         artist: mantra.user?.name || 'Unknown Artist',
         duration: mantra.media?.[0]?.duration?.toString() || '0',
         isLiked: mantra.isLiked ? 'true' : 'false',
+        autoPlay: 'true',
       },
     });
   }, [viewFeed]);

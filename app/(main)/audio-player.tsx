@@ -34,6 +34,7 @@ const TARGET_COUNT_OPTIONS = [27, 54, 108, 216, 324, 540, 1008];
 export default function AudioPlayerScreen() {
   const params = useLocalSearchParams();
   const feedId = params.feedId?.toString();
+  const autoPlay = params.autoPlay === 'true';
   const { t } = useTranslation();
   const { contentPadding } = useTabBarHeight();
 
@@ -60,6 +61,7 @@ export default function AudioPlayerScreen() {
   const [showVolumeSlider, setShowVolumeSlider] = useState(false);
   const [isAutoLooping, setIsAutoLooping] = useState(false); // Auto-loop until target reached
   const soundRef = React.useRef<Audio.Sound | null>(null); // Ref to maintain current sound instance
+  const autoPlayTriggeredRef = React.useRef(false); // Ensures the autoPlay param only starts playback once
 
   // Bottom sheet refs
   const counterSheetRef = React.useRef<BottomSheetModal>(null);
@@ -497,7 +499,7 @@ export default function AudioPlayerScreen() {
         const { sound: newSound } = await Audio.Sound.createAsync(
           { uri: contentData.audioUrl?.toString() || '' },
           {
-            shouldPlay: false, // Don't auto-play, let user control
+            shouldPlay: autoPlay, // Honor the autoPlay nav param; otherwise wait for user control
             isLooping: isLooping && !shouldAutoLoop, // Only use audio loop for manual loop, not auto-loop
             volume: volume,
             rate: playbackSpeed,
@@ -774,6 +776,16 @@ export default function AudioPlayerScreen() {
       setIsAudioLoading(false);
     }
   };
+
+  // Auto-start playback when navigated here with autoPlay=true (e.g. Home's "Play now").
+  // togglePlayback is otherwise only ever invoked by a user tap, so without this effect
+  // the autoPlay param would have nothing to trigger it.
+  useEffect(() => {
+    if (autoPlay && !autoPlayTriggeredRef.current && !isFeedLoading && contentData.audioUrl && !sound) {
+      autoPlayTriggeredRef.current = true;
+      togglePlayback();
+    }
+  }, [autoPlay, isFeedLoading, contentData.audioUrl, sound]);
 
   const progress = targetCount > 0 ? (chantCount / targetCount) * 100 : 0;
 

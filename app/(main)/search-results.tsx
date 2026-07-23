@@ -84,6 +84,7 @@ export default function SearchResultsScreen() {
             audioUrl: audioMedia.mediaUrl,
             thumbnailUrl: audioMedia.thumbnailUrl,
             tags: feed.tags?.join(',') || '',
+            autoPlay: 'true',
           }
         });
         return;
