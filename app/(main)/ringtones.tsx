@@ -1,4 +1,4 @@
-import React, { useCallback, useRef } from 'react';
+import React, { useCallback } from 'react';
 import {
   View,
   StyleSheet,
@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { router, useFocusEffect } from 'expo-router';
+import { router } from 'expo-router';
 import { Text } from '@/components/atoms';
 import RingtoneFeedCard from '@/components/molecules/RingtoneFeedCard/RingtoneFeedCard';
 import { Feed } from '@/types/feed';
@@ -39,34 +39,10 @@ export default function RingtonesPage() {
     router.back();
   }, []);
 
-  // Tracks whichever single ringtone is currently playing, so a new one can
-  // stop it and screen-blur (tab switch) can stop it too.
-  const activePlaybackRef = useRef<{ feedId: string; stop: () => void } | null>(null);
-
-  const handlePlaybackStart = useCallback((feedId: string, stop: () => void) => {
-    if (activePlaybackRef.current && activePlaybackRef.current.feedId !== feedId) {
-      activePlaybackRef.current.stop();
-    }
-    activePlaybackRef.current = { feedId, stop };
-  }, []);
-
-  const handlePlaybackEnd = useCallback((feedId: string) => {
-    if (activePlaybackRef.current?.feedId === feedId) {
-      activePlaybackRef.current = null;
-    }
-  }, []);
-
-  // Stop whatever's playing when the Ringtones tab loses focus (navigating
-  // to another tab/screen). This does not fire on OS-level backgrounding
-  // (locking the phone, switching apps) - only on in-app navigation.
-  useFocusEffect(
-    useCallback(() => {
-      return () => {
-        activePlaybackRef.current?.stop();
-        activePlaybackRef.current = null;
-      };
-    }, [])
-  );
+  // Stop-on-tab-blur now lives in RingtoneFeedCard itself (see that file) so
+  // it applies correctly regardless of which screen renders the card - Home
+  // and Search Results previously never got this behavior since it used to
+  // live only here.
 
   const renderRingtone = useCallback(({ item: ringtone }: ListRenderItemInfo<Feed>) => (
     <RingtoneFeedCard
@@ -75,10 +51,8 @@ export default function RingtonesPage() {
       onLike={handleLike}
       onShare={handleShare}
       onDownload={handleDownload}
-      onPlaybackStart={handlePlaybackStart}
-      onPlaybackEnd={handlePlaybackEnd}
     />
-  ), [handleLike, handleShare, handleDownload, handlePlaybackStart, handlePlaybackEnd]);
+  ), [handleLike, handleShare, handleDownload]);
 
   const renderFooter = useCallback(() => {
     if (!hasMore) {

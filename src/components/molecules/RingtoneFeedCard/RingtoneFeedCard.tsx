@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   TouchableOpacity,
@@ -12,6 +12,7 @@ import {
   Dimensions,
   AppState} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from 'expo-router';
 
 const { width } = Dimensions.get('window');
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
@@ -23,6 +24,7 @@ import { Feed } from '@/types/feed';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { feedService } from '@/features/feed/services/feedService';
 import { useFeedStore } from '@/store/feedStore';
+import { usePlaybackStore } from '@/store/playbackStore';
 import { useTranslation } from '@/hooks/useTranslation';
 
 interface RingtoneFeedCardProps {
@@ -30,8 +32,6 @@ interface RingtoneFeedCardProps {
   onLike?: (feedId: string) => void;
   onShare?: (feedId: string) => void;
   onDownload?: (feedId: string) => void;
-  onPlaybackStart?: (feedId: string, stop: () => void) => void;
-  onPlaybackEnd?: (feedId: string) => void;
 }
 
 export default function RingtoneFeedCard({
@@ -39,8 +39,6 @@ export default function RingtoneFeedCard({
   onLike,
   onShare,
   onDownload,
-  onPlaybackStart,
-  onPlaybackEnd,
 }: RingtoneFeedCardProps) {
   const { language } = useTranslation();
   const [isLoading, setIsLoading] = useState(false);
@@ -126,8 +124,8 @@ export default function RingtoneFeedCard({
     return downloadResult.uri;
   };
 
-  // Fire onPlaybackEnd if this card had a source loaded when it unmounts, so
-  // the parent's activePlaybackRef doesn't keep pointing at a gone card.
+  // Fire clearNowPlaying if this card had a source loaded when it unmounts,
+  // so the shared playback store doesn't keep pointing at a gone card.
   // player.isLoaded is a live property on the persistent player instance
   // (not a snapshot), so reading it inside the cleanup always reflects the
   // latest state at actual unmount time. The player itself needs no manual
@@ -139,10 +137,10 @@ export default function RingtoneFeedCard({
   useEffect(() => {
     return () => {
       if (player.isLoaded) {
-        onPlaybackEnd?.(feed.id.toString());
+        usePlaybackStore.getState().clearNowPlaying(feed.id.toString());
       }
     };
-  }, [player, onPlaybackEnd, feed.id]);
+  }, [player, feed.id]);
 
   // Reset to 0 on natural end-of-track. Unlike expo-av, expo-audio does not
   // auto-rewind position when playback finishes - didJustFinish only flips
@@ -151,9 +149,9 @@ export default function RingtoneFeedCard({
     if (status.didJustFinish) {
       console.log('🏁 Audio finished playing');
       player.seekTo(0);
-      onPlaybackEnd?.(feed.id.toString());
+      usePlaybackStore.getState().clearNowPlaying(feed.id.toString());
     }
-  }, [status.didJustFinish, player, onPlaybackEnd, feed.id]);
+  }, [status.didJustFinish, player, feed.id]);
 
   // Stop this ringtone if the app is backgrounded/inactive while it's
   // playing. The app-wide session is configured to survive backgrounding
@@ -171,14 +169,37 @@ export default function RingtoneFeedCard({
         console.log('📵 App backgrounded/inactive, stopping ringtone playback...');
         player.pause();
         player.seekTo(0);
-        onPlaybackEnd?.(feed.id.toString());
+        usePlaybackStore.getState().clearNowPlaying(feed.id.toString());
       }
     });
 
     return () => {
       subscription.remove();
     };
-  }, [status.playing, player, onPlaybackEnd, feed.id]);
+  }, [status.playing, player, feed.id]);
+
+  // Stop this ringtone if the screen it's rendered on loses focus via
+  // in-app tab navigation (e.g. Home -> Mantra, or the Ringtones tab
+  // itself -> anywhere else). useFocusEffect works based on the nearest
+  // focused-screen ancestor, so this fires correctly no matter which screen
+  // renders this card - previously this lived only in ringtones.tsx's own
+  // useFocusEffect, so Home/Search Results instances of this card never got
+  // it, which was the actual bug. Guarded to only stop THIS card if it's
+  // genuinely the one currently registered in the store's ephemeral slot -
+  // idle cards in a list all run this hook too, but only the one matching
+  // feedId (if any) ever actually calls stop(). Does not fire on OS-level
+  // backgrounding - the AppState effect above already covers that.
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        const { ephemeral } = usePlaybackStore.getState();
+        if (ephemeral?.nowPlaying.feedId === feed.id.toString()) {
+          ephemeral.controls.stop();
+          usePlaybackStore.getState().clearNowPlaying(feed.id.toString());
+        }
+      };
+    }, [feed.id])
+  );
 
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -190,6 +211,40 @@ export default function RingtoneFeedCard({
     if (count < 1000) return count.toString();
     if (count < 1000000) return `${(count / 1000).toFixed(1)}K`;
     return `${(count / 1000000).toFixed(1)}M`;
+  };
+
+  // Registers this ringtone as the app-wide "now playing" item, purely for
+  // cross-screen exclusivity (a mantra/aarti/bhajan playing elsewhere must
+  // stop, and vice versa) - mode: 'ephemeral' means the shared mini-player
+  // will never render this, per its own render-condition check.
+  const registerRingtonePlayback = () => {
+    const title = feed.title ? (feed.title[language] || feed.title.en || 'Untitled Ringtone') : 'Untitled Ringtone';
+
+    usePlaybackStore.getState().registerPlaybackStart(
+      {
+        feedId: feed.id.toString(),
+        type: feed.type,
+        mode: 'ephemeral',
+        title,
+        thumbnailUrl: audioMedia.thumbnailUrl ?? undefined,
+      },
+      {
+        isPlaying: true,
+        positionSeconds: 0,
+        durationSeconds: audioMedia.duration || 0,
+      },
+      {
+        stop: () => {
+          player.pause();
+          player.seekTo(0);
+        },
+        pause: () => player.pause(),
+        resume: () => player.play(),
+        seekTo: (seconds: number) => {
+          player.seekTo(seconds);
+        },
+      }
+    );
   };
 
   const handlePlayPause = async () => {
@@ -206,13 +261,10 @@ export default function RingtoneFeedCard({
           // left off.
           player.pause();
           await player.seekTo(0);
-          onPlaybackEnd?.(feed.id.toString());
+          usePlaybackStore.getState().clearNowPlaying(feed.id.toString());
         } else {
           console.log('▶️ Resuming audio...');
-          onPlaybackStart?.(feed.id.toString(), () => {
-            player.pause();
-            player.seekTo(0);
-          });
+          registerRingtonePlayback();
           player.play();
         }
         return;
@@ -229,11 +281,7 @@ export default function RingtoneFeedCard({
         player.replace({ uri: localUri });
         player.play();
 
-        onPlaybackStart?.(feed.id.toString(), () => {
-          // pause + seekTo(0), not a stop() - see note on the resume branch above.
-          player.pause();
-          player.seekTo(0);
-        });
+        registerRingtonePlayback();
 
         // Track view
         try {

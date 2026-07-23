@@ -2,11 +2,13 @@ import { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SvgUri } from 'react-native-svg';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
+import MiniPlayer from '@/components/molecules/MiniPlayer';
 
 export default function MainLayout() {
   const insets = useSafeAreaInsets();
 
   return (
+    <>
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: '#D4824A', // Orange color to match design
@@ -181,5 +183,7 @@ export default function MainLayout() {
       />
 
     </Tabs>
+    <MiniPlayer />
+    </>
   );
 }

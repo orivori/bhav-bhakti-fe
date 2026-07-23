@@ -25,6 +25,7 @@ import { Feed } from '@/types/feed';
 import { useTranslation } from '@/shared/i18n/useTranslation';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
 import { CounterSheet, InfoSheet } from '@/components/molecules/AudioPlayerSheets';
+import { usePlaybackStore } from '@/store/playbackStore';
 
 const { width } = Dimensions.get('window');
 
@@ -572,6 +573,100 @@ export default function AudioPlayerScreen() {
       }
     }
   }, [status.didJustFinish, player]);
+
+  // Register with the shared playback coordinator whenever playback
+  // (re)starts - initial load, resume-from-pause, and the auto-loop restart
+  // after a natural finish all flip status.playing false->true, so keying
+  // on that one transition covers all three without extra call sites inside
+  // togglePlayback itself. mode: 'persistent' is unconditional here
+  // (regardless of isRepeatable) - this screen is the shared full-screen
+  // player for any always-on-in-background content (mantra today, aarti/
+  // bhajan later), not just repeatable ones. Re-registering with the same
+  // feedId is harmless - registerPlaybackStart only stops a PREVIOUS
+  // different feedId, so this just refreshes activeControls/nowPlaying.
+  useEffect(() => {
+    if (!status.playing || !feedId) return;
+
+    usePlaybackStore.getState().registerPlaybackStart(
+      {
+        feedId,
+        type: feedData?.type ?? 'mantra',
+        mode: 'persistent',
+        title: contentData.title?.toString() ?? (t('sacredMantra') as string),
+        thumbnailUrl: contentData.thumbnailUrl?.toString(),
+      },
+      {
+        isPlaying: true,
+        positionSeconds: status.currentTime,
+        durationSeconds: status.duration,
+        counter: feedData?.isRepeatable
+          ? { chantCount, targetCount, isAutoLooping }
+          : undefined,
+      },
+      {
+        stop: () => {
+          player.pause();
+          player.seekTo(0);
+        },
+        pause: () => player.pause(),
+        resume: () => player.play(),
+        seekTo: (seconds: number) => {
+          player.seekTo(seconds);
+        },
+      }
+    );
+  }, [status.playing, feedId]);
+
+  // Keep the shared store's mirror of this screen's status fresh (position,
+  // play state, counter) so the mini-player can reflect it. No-ops safely
+  // via updateNowPlayingStatus's own feedId guard if this screen's audio has
+  // been pre-empted by something else in the meantime.
+  useEffect(() => {
+    if (!feedId) return;
+
+    usePlaybackStore.getState().updateNowPlayingStatus(feedId, {
+      isPlaying: status.playing,
+      positionSeconds: status.currentTime,
+      durationSeconds: status.duration,
+      counter: feedData?.isRepeatable
+        ? { chantCount, targetCount, isAutoLooping }
+        : undefined,
+    });
+  }, [feedId, status.playing, status.currentTime, status.duration, chantCount, targetCount, isAutoLooping]);
+
+  // If a different persistent feedId takes over the store's `persistent`
+  // slot while this screen's audio happens to still be playing (e.g. this
+  // screen is sitting mounted-but-unfocused in the background Tabs stack),
+  // pause locally so this screen's own UI correctly reflects "not playing"
+  // rather than silently disagreeing with reality. This is a defensive
+  // backstop, not the primary mechanism: registerPlaybackStart already calls
+  // this screen's own `pause()` via its stored closure during a same-mode
+  // hand-off (a different mantra/aarti/bhajan taking over) - a ringtone
+  // preempting this screen also already calls `pause()` on it directly, not
+  // `stop()`, per the ringtone-preempts-persistent hand-off rule.
+  const preemptedByFeedId = usePlaybackStore((state) =>
+    state.persistent && state.persistent.nowPlaying.feedId !== feedId
+      ? state.persistent.nowPlaying.feedId
+      : null
+  );
+
+  useEffect(() => {
+    if (preemptedByFeedId && status.playing) {
+      console.log('⏸️ Audio Player: preempted by another persistent player, pausing locally:', preemptedByFeedId);
+      player.pause();
+    }
+  }, [preemptedByFeedId, status.playing, player]);
+
+  // Clear this screen's entry from the shared store on unmount (e.g. the
+  // whole (main) tree unmounting on logout - see the coordinator design
+  // notes on why ordinary in-app tab navigation does NOT reach this).
+  useEffect(() => {
+    return () => {
+      if (feedId) {
+        usePlaybackStore.getState().clearNowPlaying(feedId);
+      }
+    };
+  }, [feedId]);
 
   const progress = targetCount > 0 ? (chantCount / targetCount) * 100 : 0;
 
