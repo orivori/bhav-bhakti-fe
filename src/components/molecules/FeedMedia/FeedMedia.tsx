@@ -5,11 +5,9 @@ import {
   TouchableOpacity,
   StyleSheet,
   Dimensions,
-  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Video, ResizeMode } from 'expo-av';
-import { Audio } from 'expo-av';
 import { Text } from '@/components/atoms';
 import { FeedMedia as FeedMediaType } from '@/types/feed';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
@@ -35,72 +33,24 @@ export default function FeedMedia({
   style,
 }: FeedMediaProps) {
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [sound, setSound] = useState<Audio.Sound | null>(null);
 
   const currentMedia = media[currentMediaIndex];
 
   const handleNextMedia = () => {
     if (currentMediaIndex < media.length - 1) {
       setCurrentMediaIndex(currentMediaIndex + 1);
-      setIsPlaying(false);
-      if (sound) {
-        sound.unloadAsync();
-        setSound(null);
-      }
     }
   };
 
   const handlePrevMedia = () => {
     if (currentMediaIndex > 0) {
       setCurrentMediaIndex(currentMediaIndex - 1);
-      setIsPlaying(false);
-      if (sound) {
-        sound.unloadAsync();
-        setSound(null);
-      }
     }
   };
 
   const handleMediaPress = () => {
     if (onMediaPress) {
       onMediaPress(currentMediaIndex);
-    }
-  };
-
-  const handlePlayAudio = async () => {
-    try {
-      if (sound) {
-        await sound.unloadAsync();
-        setSound(null);
-        setIsPlaying(false);
-        return;
-      }
-
-      // For pure audio media, use mediaUrl. For image_audio, use audioUrl
-      const audioUri = currentMedia.audioUrl || currentMedia.mediaUrl;
-
-      if (audioUri) {
-        setIsLoading(true);
-        const { sound: newSound } = await Audio.Sound.createAsync(
-          { uri: audioUri },
-          { shouldPlay: true }
-        );
-        setSound(newSound);
-        setIsPlaying(true);
-
-        newSound.setOnPlaybackStatusUpdate((status) => {
-          if (status.isLoaded && status.didJustFinish) {
-            setIsPlaying(false);
-            setSound(null);
-          }
-        });
-      }
-    } catch (error) {
-      console.error('Error playing audio:', error);
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -164,19 +114,14 @@ export default function FeedMedia({
                     <TouchableOpacity
                       style={styles.mantraPlayButton}
                       onPress={handleMediaPress}
-                      disabled={isLoading}
                       activeOpacity={0.8}
                     >
-                      {isLoading ? (
-                        <ActivityIndicator color="#fff" size="large" />
-                      ) : (
-                        <Ionicons
-                          name="play"
-                          size={32}
-                          color="#fff"
-                          style={{ marginLeft: 4 }}
-                        />
-                      )}
+                      <Ionicons
+                        name="play"
+                        size={32}
+                        color="#fff"
+                        style={{ marginLeft: 4 }}
+                      />
                     </TouchableOpacity>
                   </View>
                 )}
@@ -193,18 +138,13 @@ export default function FeedMedia({
                 </View>
                 <TouchableOpacity
                   style={styles.audioPlayButton}
-                  onPress={handlePlayAudio}
-                  disabled={isLoading}
+                  onPress={handleMediaPress}
                 >
-                  {isLoading ? (
-                    <ActivityIndicator color="#fff" size="small" />
-                  ) : (
-                    <Ionicons
-                      name={isPlaying ? 'pause' : 'play'}
-                      size={28}
-                      color="#fff"
-                    />
-                  )}
+                  <Ionicons
+                    name="play"
+                    size={28}
+                    color="#fff"
+                  />
                 </TouchableOpacity>
                 <Text style={styles.audioLabel}>Sacred Audio</Text>
               </View>
@@ -225,18 +165,13 @@ export default function FeedMedia({
             {currentMedia.audioUrl && (
               <TouchableOpacity
                 style={styles.audioButton}
-                onPress={handlePlayAudio}
-                disabled={isLoading}
+                onPress={handleMediaPress}
               >
-                {isLoading ? (
-                  <ActivityIndicator color="#fff" size="small" />
-                ) : (
-                  <Ionicons
-                    name={isPlaying ? 'pause' : 'play'}
-                    size={24}
-                    color="#fff"
-                  />
-                )}
+                <Ionicons
+                  name="play"
+                  size={24}
+                  color="#fff"
+                />
               </TouchableOpacity>
             )}
           </View>
