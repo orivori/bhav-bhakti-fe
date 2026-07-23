@@ -15,7 +15,7 @@ import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Audio } from 'expo-av';
+import { useAudioPlayer, useAudioPlayerStatus, setAudioModeAsync } from 'expo-audio';
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
@@ -48,20 +48,30 @@ export default function AudioPlayerScreen() {
   const [targetCount, setTargetCount] = useState(108);
   const [showTargetSelector, setShowTargetSelector] = useState(false);
 
-  // Audio state
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [sound, setSound] = useState<Audio.Sound | null>(null);
-  const [duration, setDuration] = useState(0);
-  const [position, setPosition] = useState(0);
+  // Audio state. Playback position/duration/playing/loaded state all come
+  // reactively from `status` below - no local state mirrors them, matching
+  // the pattern already proven in RingtoneFeedCard.tsx (avoids the class of
+  // desync bug where a manually-toggled flag drifts from the real player
+  // state). `isAudioLoading` is the one true local flag: expo-audio's
+  // AudioStatus has no `error` field the way expo-av's did, so there's no
+  // native "it failed" signal to react to - this is purely a "waiting for
+  // status.isLoaded to flip" UI flag, resolved by the effect further down.
   const [isAudioLoading, setIsAudioLoading] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1.0);
   const [isLooping, setIsLooping] = useState(false);
-  const [isSeeking, setIsSeeking] = useState(false);
   const [volume, setVolume] = useState(1.0);
   const [showVolumeSlider, setShowVolumeSlider] = useState(false);
   const [isAutoLooping, setIsAutoLooping] = useState(false); // Auto-loop until target reached
-  const soundRef = React.useRef<Audio.Sound | null>(null); // Ref to maintain current sound instance
   const autoPlayTriggeredRef = React.useRef(false); // Ensures the autoPlay param only starts playback once
+
+  // Player is created once (with no source) for this screen's lifetime.
+  // expo-audio's useAudioPlayer auto-releases the player on unmount via
+  // useReleasingSharedObject - there is no manual unload/release call to
+  // write here, and (importantly) no way to opt out of that auto-release
+  // from within this file. See the migration notes for why that means this
+  // change alone does not make playback survive back-navigation.
+  const player = useAudioPlayer(null);
+  const status = useAudioPlayerStatus(player);
 
   // Bottom sheet refs
   const counterSheetRef = React.useRef<BottomSheetModal>(null);
@@ -237,12 +247,6 @@ export default function AudioPlayerScreen() {
     feedIdRef.current = feedId;
   }, [feedId]);
 
-  // Keep soundRef in sync with sound state
-  useEffect(() => {
-    soundRef.current = sound;
-    console.log('🔧 Updated soundRef to match sound state:', !!sound);
-  }, [sound]);
-
   // Fetch feed data on component mount
   useEffect(() => {
     fetchFeedData();
@@ -278,9 +282,9 @@ export default function AudioPlayerScreen() {
 
   // Wave animation effect - responds to play/pause
   useEffect(() => {
-    console.log('🌊 Wave Effect: isPlaying changed to', isPlaying);
+    console.log('🌊 Wave Effect: playing changed to', status.playing);
 
-    if (isPlaying) {
+    if (status.playing) {
       // Start wave animations
       startWaveAnimations();
     } else {
@@ -292,7 +296,7 @@ export default function AudioPlayerScreen() {
     return () => {
       stopWaveAnimations();
     };
-  }, [isPlaying]);
+  }, [status.playing]);
 
   const startWaveAnimations = () => {
     console.log('🌊 Starting wave animations...');
@@ -302,7 +306,7 @@ export default function AudioPlayerScreen() {
       anim.setValue(0.5 + Math.random() * 0.8);
 
       const animateBar = () => {
-        if (!isPlaying) return;
+        if (!status.playing) return;
 
         Animated.timing(anim, {
           toValue: 0.3 + Math.random() * 1.2, // Random between 0.3 and 1.5
@@ -310,7 +314,7 @@ export default function AudioPlayerScreen() {
           useNativeDriver: false,
         }).start(() => {
           // Continue animating if still playing
-          if (isPlaying) {
+          if (status.playing) {
             setTimeout(animateBar, 50); // Small delay between animations
           }
         });
@@ -334,38 +338,32 @@ export default function AudioPlayerScreen() {
     });
   };
 
-  // Initialize audio session
+  // Initialize audio session for persistent (background-surviving) playback,
+  // unlike Ringtones' deliberately ephemeral, foreground-only mode. Runs
+  // once on mount - no cleanup/unload here, and no [player]-keyed rerun, on
+  // purpose: this only configures the shared native audio session, it does
+  // not own the player's lifecycle (useAudioPlayer already does that).
   useEffect(() => {
     const initializeAudio = async () => {
       try {
-        console.log('🔊 Audio Player: Setting up audio session...');
+        console.log('🔊 Audio Player: Setting up persistent audio session...');
 
-        // Set audio mode to allow playback even when device is on silent
-        await Audio.setAudioModeAsync({
-          allowsRecordingIOS: false,
-          staysActiveInBackground: false,
-          playsInSilentModeIOS: true,  // This is key for iOS
-          shouldDuckAndroid: true,
-          playThroughEarpieceAndroid: false,
-          interruptionModeIOS: 1, // INTERRUPTION_MODE_IOS_MIX_WITH_OTHERS
-          interruptionModeAndroid: 1, // INTERRUPTION_MODE_ANDROID_DO_NOT_MIX
+        await setAudioModeAsync({
+          allowsRecording: false,
+          playsInSilentMode: true,
+          shouldPlayInBackground: true,
+          shouldRouteThroughEarpiece: false,
+          interruptionMode: 'duckOthers',
         });
 
-        console.log('✅ Audio Player: Audio session configured');
+        console.log('✅ Audio Player: Audio session configured for persistent playback');
       } catch (error) {
         console.error('❌ Audio Player: Failed to set audio mode:', error);
       }
     };
 
     initializeAudio();
-
-    return () => {
-      if (sound) {
-        sound.unloadAsync();
-      }
-      // soundRef will be cleared by useEffect when sound becomes null
-    };
-  }, [sound]);
+  }, []);
 
   // Animations
   useEffect(() => {
@@ -383,7 +381,7 @@ export default function AudioPlayerScreen() {
           useNativeDriver: true,
         }),
       ]).start(() => {
-        if (isPlaying) pulse();
+        if (status.playing) pulse();
       });
     };
 
@@ -405,11 +403,9 @@ export default function AudioPlayerScreen() {
       });
     };
 
+    console.log('🎵 Animation Effect: playing =', status.playing, 'isAudioLoading =', isAudioLoading);
 
-
-    console.log('🎵 Animation Effect: isPlaying =', isPlaying, 'isAudioLoading =', isAudioLoading);
-
-    if (isPlaying) {
+    if (status.playing) {
       pulse();
     } else {
       pulseAnim.setValue(1);
@@ -420,360 +416,82 @@ export default function AudioPlayerScreen() {
     } else {
       rotateAnim.setValue(0);
     }
-  }, [isPlaying, isAudioLoading]);
+  }, [status.playing, isAudioLoading]);
+
+  // Resolve isAudioLoading once the player actually finishes loading. There
+  // is no `status.error` field in expo-audio the way expo-av had - so unlike
+  // the old retry/fallback scaffolding this replaces, a load that never
+  // resolves has no distinct failure signal to react to, and this timeout is
+  // the only safety net available for that case.
+  useEffect(() => {
+    if (!isAudioLoading) return;
+
+    if (status.isLoaded) {
+      setIsAudioLoading(false);
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      setIsAudioLoading(false);
+      Alert.alert(t('audioNotAvailableTitle'), t('audioConnectionError'));
+    }, 10000);
+
+    return () => clearTimeout(timeout);
+  }, [isAudioLoading, status.isLoaded]);
 
   // Handle audio playback
-  const togglePlayback = async () => {
+  const togglePlayback = () => {
     try {
-      if (sound) {
-        // Check if sound is properly loaded
-        const status = await sound.getStatusAsync();
-        if (!status.isLoaded) {
-          console.log('⚠️ Audio Player: Sound exists but not loaded, recreating...');
-          await sound.unloadAsync();
-          setSound(null);
-          // soundRef will be cleared by useEffect
-          setIsPlaying(false);
-          // Fall through to create new sound
+      if (status.isLoaded) {
+        if (status.playing) {
+          console.log('⏸️ Pausing audio - stopping auto-loop');
+          player.pause();
+          setIsAutoLooping(false);
         } else {
-          if (isPlaying) {
-            console.log('⏸️ Pausing audio - stopping auto-loop');
-            await sound.pauseAsync();
-            setIsPlaying(false);
-            setIsAutoLooping(false); // Stop auto-loop when user pauses
-          } else {
-            console.log('▶️ Resuming audio');
+          console.log('▶️ Resuming audio');
 
-            // Check if we should restart auto-looping
-            const shouldAutoLoop = chantCount < targetCount && !isLooping;
-            if (shouldAutoLoop) {
-              setIsAutoLooping(true);
-              await sound.setIsLoopingAsync(false); // Don't use built-in loop for auto-loop
-              console.log('🔄 Resuming with auto-loop - Count:', chantCount, 'Target:', targetCount);
-            } else {
-              setIsAutoLooping(false);
-              await sound.setIsLoopingAsync(isLooping); // Use manual loop setting
-            }
+          // Check if we should restart auto-looping
+          const shouldAutoLoop = chantCount < targetCount && !isLooping;
+          setIsAutoLooping(shouldAutoLoop);
+          // Auto-loop always restarts manually on natural finish (see the
+          // didJustFinish effect below) - it never uses the native loop
+          // flag, which is reserved for the manual "repeat" toggle.
+          player.loop = shouldAutoLoop ? false : isLooping;
+          console.log(shouldAutoLoop ? '🔄 Resuming with auto-loop' : '▶️ Resuming with manual loop setting', '- Count:', chantCount, 'Target:', targetCount);
 
-            await sound.playAsync();
-            setIsPlaying(true);
-          }
-          return;
+          player.play();
         }
+        return;
       }
 
-      if (contentData.audioUrl) {
-        console.log('🎵 Audio Player: Attempting to load audio from URL:', contentData.audioUrl);
-
-        // Test URL accessibility first
-        try {
-          console.log('🔍 Audio Player: Testing URL accessibility...');
-          const response = await fetch(contentData.audioUrl?.toString() || '', { method: 'HEAD' });
-          console.log('🔍 Audio Player: URL test response:', {
-            status: response.status,
-            ok: response.ok,
-            headers: Object.fromEntries(response.headers.entries())
-          });
-
-          if (!response.ok) {
-            throw new Error(`URL not accessible: ${response.status} ${response.statusText}`);
-          }
-        } catch (urlError) {
-          console.error('❌ Audio Player: URL accessibility test failed:', urlError);
-          Alert.alert(
-            t('audioNotAvailableTitle'),
-            t('audioConnectionError')
-          );
-          return;
-        }
-
-        setIsAudioLoading(true);
-
-        // Determine if we should auto-loop (when count < target)
-        const shouldAutoLoop = chantCount < targetCount;
-        setIsAutoLooping(shouldAutoLoop);
-
-        console.log('🎵 Audio setup - Count:', chantCount, 'Target:', targetCount, 'Auto-loop:', shouldAutoLoop);
-
-        // Create the sound with initial configuration
-        const { sound: newSound } = await Audio.Sound.createAsync(
-          { uri: contentData.audioUrl?.toString() || '' },
-          {
-            shouldPlay: autoPlay, // Honor the autoPlay nav param; otherwise wait for user control
-            isLooping: isLooping && !shouldAutoLoop, // Only use audio loop for manual loop, not auto-loop
-            volume: volume,
-            rate: playbackSpeed,
-            shouldCorrectPitch: false,
-          }
-        );
-
-        // Debug volume settings
-        const initialStatus = await newSound.getStatusAsync();
-        console.log('🔊 Audio Player: Initial audio status:', {
-          isLoaded: initialStatus.isLoaded,
-          volume: initialStatus.isLoaded ? initialStatus.volume : 'N/A',
-          isMuted: initialStatus.isLoaded ? initialStatus.isMuted : 'N/A'
-        });
-
-        // Wait for the sound to be properly loaded with timeout
-        await new Promise((resolve, reject) => {
-          let attempts = 0;
-          const maxAttempts = 50; // 5 seconds maximum wait time
-
-          const checkStatus = async () => {
-            try {
-              attempts++;
-              const status = await newSound.getStatusAsync();
-
-              if (status.isLoaded) {
-                console.log('✅ Audio Player: Audio loaded successfully');
-                setSound(newSound);
-                // soundRef will be updated by useEffect
-
-                // Set volume to current volume setting
-                await newSound.setVolumeAsync(volume);
-                console.log('🔊 Audio Player: Volume set to', volume);
-
-                // Now start playing
-                console.log('▶️ Audio Player: Starting playback...');
-                const playResult = await newSound.playAsync();
-                console.log('▶️ Audio Player: playAsync() result:', playResult);
-
-                // Wait a moment for playback to actually start
-                await new Promise(resolve => setTimeout(resolve, 100));
-
-                // Double-check playback status
-                const playStatus = await newSound.getStatusAsync();
-                console.log('🔊 Audio Player: Playback status after playAsync():', {
-                  isLoaded: playStatus.isLoaded,
-                  isPlaying: playStatus.isLoaded ? playStatus.isPlaying : 'N/A',
-                  volume: playStatus.isLoaded ? playStatus.volume : 'N/A',
-                  positionMillis: playStatus.isLoaded ? playStatus.positionMillis : 'N/A',
-                  durationMillis: playStatus.isLoaded ? playStatus.durationMillis : 'N/A',
-                  shouldPlay: playStatus.isLoaded ? playStatus.shouldPlay : 'N/A'
-                });
-
-                // If playback didn't start, try different approaches
-                if (playStatus.isLoaded && !playStatus.isPlaying) {
-                  console.log('⚠️ Audio Player: Playback not started, trying alternative method...');
-
-                  // Try method 1: Stop and restart
-                  try {
-                    await newSound.stopAsync();
-                    await newSound.setPositionAsync(0);
-                    await newSound.playAsync();
-
-                    await new Promise(resolve => setTimeout(resolve, 100));
-                    const retryStatus1 = await newSound.getStatusAsync();
-                    console.log('🔄 Audio Player: Method 1 retry status:', {
-                      isPlaying: retryStatus1.isLoaded ? retryStatus1.isPlaying : 'N/A'
-                    });
-
-                    if (!retryStatus1.isLoaded || !retryStatus1.isPlaying) {
-                      // Try method 2: Recreate with shouldPlay: true
-                      console.log('🔄 Audio Player: Method 2 - recreating with shouldPlay: true');
-                      await newSound.unloadAsync();
-
-                      const { sound: retrySound } = await Audio.Sound.createAsync(
-                        { uri: contentData.audioUrl?.toString() || '' },
-                        { shouldPlay: true, volume: 1.0 }
-                      );
-
-                      setSound(retrySound);
-                      // soundRef will be updated by useEffect
-                      setIsPlaying(true);
-                      resolve(status);
-                      return;
-                    }
-                  } catch (retryError) {
-                    console.error('❌ Audio Player: Retry methods failed:', retryError);
-                  }
-                }
-
-                setIsPlaying(playStatus.isLoaded ? playStatus.isPlaying : false);
-                resolve(status);
-              } else if (attempts >= maxAttempts) {
-                reject(new Error('Audio loading timeout - took too long to load'));
-              } else {
-                console.log(`⏳ Audio Player: Still loading... (attempt ${attempts}/${maxAttempts})`);
-                setTimeout(checkStatus, 100); // Check again in 100ms
-              }
-            } catch (error) {
-              reject(error);
-            }
-          };
-          checkStatus();
-        });
-
-        // Set up playback status listener
-        newSound.setOnPlaybackStatusUpdate((status) => {
-          if (status.isLoaded) {
-            setDuration(status.durationMillis || 0);
-            // Only update position if not actively seeking
-            if (!isSeeking) {
-              setPosition(status.positionMillis || 0);
-            }
-
-            if (status.didJustFinish) {
-              console.log('🎵 Audio Player: Audio playback finished');
-              console.log('🔄 Current states:');
-              console.log('   - Count:', chantCount, '/ Target:', targetCount);
-              console.log('   - Auto-looping:', isAutoLooping);
-              console.log('   - Manual looping:', isLooping);
-              console.log('   - Is playing:', isPlaying);
-              console.log('   - Sound ref exists:', !!soundRef.current);
-
-              // Use ref values to get current state (avoiding stale closure)
-              const currentAutoLooping = isAutoLoopingRef.current;
-              const currentCount = chantCountRef.current;
-              const currentTarget = targetCountRef.current;
-              const currentFeedId = feedIdRef.current;
-
-              console.log('🔄 Using ref values:');
-              console.log('   - Auto-looping ref:', currentAutoLooping);
-              console.log('   - Count ref:', currentCount);
-              console.log('   - Target ref:', currentTarget);
-
-              if (currentAutoLooping && currentCount < currentTarget) {
-                // Auto-increment counter and restart audio if target not reached
-                console.log('🔄 Auto-looping active - processing song finish...');
-                console.log('🔄 Sound ref available:', !!soundRef.current);
-
-                // Calculate new count
-                const newCount = currentCount + 1;
-                console.log('🔄 Incrementing count from', currentCount, 'to', newCount);
-
-                // Update counter state immediately
-                setChantCount(newCount);
-
-                // Save progress
-                if (currentFeedId) {
-                  saveCounterProgress(currentFeedId, newCount, currentTarget).catch(console.error);
-                }
-
-                // Check if target reached
-                if (newCount >= currentTarget) {
-                  console.log('🎯 Target reached! Stopping auto-loop');
-                  setIsAutoLooping(false);
-                  setIsPlaying(false);
-
-                  // Show celebration
-                  setTimeout(() => {
-                    Alert.alert(
-                      t('congratulations'),
-                      t('mantraChantCompleted').replace('{count}', currentTarget.toString()),
-                      [
-                        { text: t('continue'), style: 'default' },
-                        { text: t('resetCounter'), onPress: handleResetCounter, style: 'destructive' },
-                      ]
-                    );
-                  }, 500);
-                } else {
-                  // Continue auto-loop: restart audio immediately
-                  console.log('🔄 Target not reached, restarting audio for repetition', newCount);
-
-                  let currentSound = soundRef.current;
-
-                  console.log('🔍 Debug sound references:');
-                  console.log('   - soundRef.current exists:', !!soundRef.current);
-                  console.log('   - sound state exists:', !!sound);
-
-                  // If soundRef is null but sound state exists, update the ref
-                  if (!currentSound && sound) {
-                    console.log('🔧 Updating soundRef from sound state');
-                    soundRef.current = sound;
-                    currentSound = sound;
-                  }
-
-                  if (!currentSound) {
-                    console.error('❌ No sound reference available for restart');
-                    console.error('❌ Sound might have been unloaded - stopping auto-loop');
-                    setIsPlaying(false);
-                    setIsAutoLooping(false);
-                    return;
-                  }
-
-                  // Restart audio immediately
-                  (async () => {
-                    try {
-                      console.log('🔄 Attempting immediate audio restart...');
-
-                      // Reset to beginning and play
-                      await currentSound.setPositionAsync(0);
-                      setPosition(0);
-                      await currentSound.playAsync();
-
-                      console.log('✅ Audio restarted successfully for repetition', newCount);
-
-                    } catch (error) {
-                      console.error('❌ Restart failed, trying alternative method:', error);
-
-                      try {
-                        await currentSound.stopAsync();
-                        await currentSound.setPositionAsync(0);
-                        await currentSound.playAsync();
-                        console.log('✅ Audio restarted with alternative method');
-
-                      } catch (error2) {
-                        console.error('❌ Alternative restart failed, recreating sound:', error2);
-                        try {
-                          await togglePlayback(); // Recreate sound as last resort
-                          console.log('✅ Sound recreated for auto-loop continuation');
-                        } catch (error3) {
-                          console.error('❌ All methods failed:', error3);
-                          setIsPlaying(false);
-                          setIsAutoLooping(false);
-                        }
-                      }
-                    }
-                  })();
-                }
-              } else {
-                // Not auto-looping or target reached
-                console.log('⏹️ Not auto-looping or target reached - stopping playback');
-                setIsPlaying(false);
-                setPosition(0);
-
-                // Manual increment if not looping and count < target
-                if (!isLooping && currentCount < currentTarget) {
-                  console.log('📈 Manual increment after song finish');
-                  handleIncrementCount();
-                }
-              }
-            }
-          } else if (status.error) {
-            console.error('🎵 Audio Player: Playback status error:', status.error);
-          }
-        });
-      } else {
+      if (!contentData.audioUrl) {
         console.log('❌ Audio Player: No audio URL provided');
         Alert.alert(t('audioPlaybackError'), t('noAudioUrlError'));
+        return;
       }
+
+      console.log('🎵 Audio Player: Loading audio from URL:', contentData.audioUrl);
+      setIsAudioLoading(true);
+
+      // Determine if we should auto-loop (when count < target)
+      const shouldAutoLoop = chantCount < targetCount;
+      setIsAutoLooping(shouldAutoLoop);
+      console.log('🎵 Audio setup - Count:', chantCount, 'Target:', targetCount, 'Auto-loop:', shouldAutoLoop);
+
+      player.loop = isLooping && !shouldAutoLoop; // Only the manual loop uses the native loop flag
+      player.volume = volume;
+      player.shouldCorrectPitch = false;
+      player.setPlaybackRate(playbackSpeed); // playbackRate is a getter-only property at runtime - must go through setPlaybackRate()
+      player.replace({ uri: contentData.audioUrl.toString() });
+      player.play();
     } catch (error: any) {
       console.error('❌ Audio Player: Error playing audio:', error);
-      console.error('❌ Audio Player: Error details:', {
-        message: error?.message,
-        code: error?.code,
-        domain: error?.domain,
-        audioUrl: contentData.audioUrl
-      });
-
-      let errorMessage = 'Failed to play audio. Please try again.';
-
-      // Handle specific error codes
-      if (error?.message?.includes('-1200') || error?.code === -1200) {
-        errorMessage = 'Cannot access audio file. This may be due to:\n• Network connectivity issues\n• Server temporarily unavailable\n• Audio file moved or deleted\n\nPlease check your internet connection and try again.';
-        console.log('🔍 Audio Player: -1200 error suggests network/accessibility issue');
-      } else if (error?.message?.includes('sound is not loaded')) {
-        errorMessage = 'Audio failed to load properly. Please try again.';
-      }
-
-      Alert.alert(t('audioPlaybackError'), errorMessage, [
-        { text: t('cancel'), style: 'cancel' },
-        { text: t('retry'), onPress: () => togglePlayback() }
-      ]);
-    } finally {
       setIsAudioLoading(false);
+
+      Alert.alert(t('audioPlaybackError'), 'Failed to play audio. Please try again.', [
+        { text: t('cancel'), style: 'cancel' },
+        { text: t('retry'), onPress: () => togglePlayback() },
+      ]);
     }
   };
 
@@ -781,11 +499,79 @@ export default function AudioPlayerScreen() {
   // togglePlayback is otherwise only ever invoked by a user tap, so without this effect
   // the autoPlay param would have nothing to trigger it.
   useEffect(() => {
-    if (autoPlay && !autoPlayTriggeredRef.current && !isFeedLoading && contentData.audioUrl && !sound) {
+    if (autoPlay && !autoPlayTriggeredRef.current && !isFeedLoading && contentData.audioUrl && !status.isLoaded) {
       autoPlayTriggeredRef.current = true;
       togglePlayback();
     }
-  }, [autoPlay, isFeedLoading, contentData.audioUrl, sound]);
+  }, [autoPlay, isFeedLoading, contentData.audioUrl, status.isLoaded]);
+
+  // Handle natural end-of-track: auto-loop restart + counter increment.
+  // Unlike expo-av, expo-audio does not auto-rewind position on finish, and
+  // there's no setOnPlaybackStatusUpdate registration to close over stale
+  // values - useAudioPlayerStatus already re-renders this effect with fresh
+  // state on every status change, so the ref reads below are a belt-and-
+  // braces match for today's exact logic rather than a strict requirement.
+  useEffect(() => {
+    if (!status.didJustFinish) return;
+
+    console.log('🎵 Audio Player: Audio playback finished');
+
+    const currentAutoLooping = isAutoLoopingRef.current;
+    const currentCount = chantCountRef.current;
+    const currentTarget = targetCountRef.current;
+    const currentFeedId = feedIdRef.current;
+
+    console.log('🔄 Using ref values - Auto-looping:', currentAutoLooping, 'Count:', currentCount, 'Target:', currentTarget);
+
+    if (currentAutoLooping && currentCount < currentTarget) {
+      const newCount = currentCount + 1;
+      console.log('🔄 Auto-looping active - incrementing count from', currentCount, 'to', newCount);
+      setChantCount(newCount);
+
+      if (currentFeedId) {
+        saveCounterProgress(currentFeedId, newCount, currentTarget).catch(console.error);
+      }
+
+      if (newCount >= currentTarget) {
+        console.log('🎯 Target reached! Stopping auto-loop');
+        setIsAutoLooping(false);
+        player.seekTo(0).catch(console.error);
+
+        setTimeout(() => {
+          Alert.alert(
+            t('congratulations'),
+            t('mantraChantCompleted').replace('{count}', currentTarget.toString()),
+            [
+              { text: t('continue'), style: 'default' },
+              { text: t('resetCounter'), onPress: handleResetCounter, style: 'destructive' },
+            ]
+          );
+        }, 500);
+      } else {
+        console.log('🔄 Target not reached, restarting audio for repetition', newCount);
+
+        (async () => {
+          try {
+            await player.seekTo(0);
+            player.play();
+            console.log('✅ Audio restarted successfully for repetition', newCount);
+          } catch (error) {
+            console.error('❌ Restart failed, stopping auto-loop:', error);
+            setIsAutoLooping(false);
+          }
+        })();
+      }
+    } else {
+      console.log('⏹️ Not auto-looping or target reached - stopping playback');
+      player.seekTo(0).catch(console.error);
+
+      // Manual increment if not looping and count < target
+      if (!isLooping && currentCount < currentTarget) {
+        console.log('📈 Manual increment after song finish');
+        handleIncrementCount();
+      }
+    }
+  }, [status.didJustFinish, player]);
 
   const progress = targetCount > 0 ? (chantCount / targetCount) * 100 : 0;
 
@@ -828,13 +614,9 @@ export default function AudioPlayerScreen() {
       }
 
       // If we were auto-looping and count was reduced, ensure auto-loop continues if still below target
-      if (isAutoLooping && newCount < targetCount && sound && !isLooping) {
-        try {
-          await sound.setIsLoopingAsync(false); // Auto-loop uses manual restart, not built-in loop
-          console.log('🔄 Continuing auto-loop from adjusted count:', newCount);
-        } catch (error) {
-          console.error('Error adjusting auto-loop:', error);
-        }
+      if (isAutoLooping && newCount < targetCount && status.isLoaded && !isLooping) {
+        player.loop = false; // Auto-loop uses manual restart, not the native loop flag
+        console.log('🔄 Continuing auto-loop from adjusted count:', newCount);
       } else if (newCount >= targetCount && isAutoLooping) {
         // If count reached target, stop auto-loop
         setIsAutoLooping(false);
@@ -849,19 +631,19 @@ export default function AudioPlayerScreen() {
     setShowTargetSelector(false);
 
     // Check if auto-looping status should change
-    if (isPlaying && sound) {
+    if (status.playing && status.isLoaded) {
       const shouldAutoLoop = chantCount < newTarget;
 
       if (shouldAutoLoop && !isAutoLooping && !isLooping) {
         // Start auto-looping if count < new target
         console.log('🔄 Starting auto-loop due to target change');
         setIsAutoLooping(true);
-        await sound.setIsLoopingAsync(false); // Auto-loop uses manual restart, not built-in loop
+        player.loop = false; // Auto-loop uses manual restart, not the native loop flag
       } else if (!shouldAutoLoop && isAutoLooping) {
         // Stop auto-looping if count >= new target
         console.log('⏹️ Stopping auto-loop - target reached');
         setIsAutoLooping(false);
-        await sound.setIsLoopingAsync(isLooping); // Keep manual loop if enabled
+        player.loop = isLooping; // Keep manual loop if enabled
       }
     }
 
@@ -885,9 +667,9 @@ export default function AudioPlayerScreen() {
             setChantCount(0);
 
             // If audio is playing, restart auto-looping since count is now 0 and target > 0
-            if (isPlaying && sound && targetCount > 0 && !isLooping) {
+            if (status.playing && status.isLoaded && targetCount > 0 && !isLooping) {
               setIsAutoLooping(true);
-              await sound.setIsLoopingAsync(false); // Auto-loop uses manual restart
+              player.loop = false; // Auto-loop uses manual restart
               console.log('🔄 Restarted auto-loop after counter reset');
             }
 
@@ -900,33 +682,37 @@ export default function AudioPlayerScreen() {
     );
   };
 
-  const formatTime = (millis: number) => {
-    const minutes = Math.floor(millis / 60000);
-    const seconds = Math.floor((millis % 60000) / 1000);
+  // expo-audio reports position/duration in seconds, not milliseconds like
+  // expo-av did - converted only here, at the display boundary, matching the
+  // pattern already used in the Ringtones migration.
+  const formatTime = (totalSeconds: number) => {
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = Math.floor(totalSeconds % 60);
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
-  // Seek to position in audio
-  const seekToPosition = async (positionMillis: number) => {
-    if (sound) {
+  // Seek to position in audio. No optimistic local position state is kept
+  // during the seek (unlike the old expo-av code) - status.currentTime is
+  // the single source of truth, so there's up to ~500ms of visual lag before
+  // the thumb reflects a tap-to-seek. Same accepted trade-off as the
+  // Ringtones migration, for the same reason: reintroducing manual position
+  // state would undo the point of the reactive status hook.
+  const seekToPosition = async (positionSeconds: number) => {
+    if (status.isLoaded) {
       try {
-        setIsSeeking(true);
-        await sound.setPositionAsync(positionMillis);
-        setPosition(positionMillis);
+        await player.seekTo(positionSeconds);
         // Haptic feedback for seeking
         await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       } catch (error) {
         console.error('Error seeking audio:', error);
-      } finally {
-        setIsSeeking(false);
       }
     }
   };
 
   // Skip forward by 10 seconds
   const skipForward = async () => {
-    if (sound && duration > 0) {
-      const newPosition = Math.min(position + 10000, duration);
+    if (status.isLoaded && status.duration > 0) {
+      const newPosition = Math.min(status.currentTime + 10, status.duration);
       await seekToPosition(newPosition);
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
@@ -934,22 +720,23 @@ export default function AudioPlayerScreen() {
 
   // Skip backward by 10 seconds
   const skipBackward = async () => {
-    if (sound) {
-      const newPosition = Math.max(position - 10000, 0);
+    if (status.isLoaded) {
+      const newPosition = Math.max(status.currentTime - 10, 0);
       await seekToPosition(newPosition);
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
   };
 
   // Toggle playback speed
-  const togglePlaybackSpeed = async () => {
-    if (sound) {
+  const togglePlaybackSpeed = () => {
+    if (status.isLoaded) {
       try {
         const speeds = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
         const currentIndex = speeds.indexOf(playbackSpeed);
         const nextSpeed = speeds[(currentIndex + 1) % speeds.length];
 
-        await sound.setRateAsync(nextSpeed, true);
+        player.shouldCorrectPitch = true;
+        player.setPlaybackRate(nextSpeed);
         setPlaybackSpeed(nextSpeed);
       } catch (error) {
         console.error('Error changing playback speed:', error);
@@ -958,8 +745,8 @@ export default function AudioPlayerScreen() {
   };
 
   // Toggle loop mode
-  const toggleLoop = async () => {
-    if (sound) {
+  const toggleLoop = () => {
+    if (status.isLoaded) {
       try {
         const newLoopState = !isLooping;
         setIsLooping(newLoopState);
@@ -968,13 +755,13 @@ export default function AudioPlayerScreen() {
           // Manual loop enabled - disable auto-loop
           console.log('🔁 Manual loop enabled - disabling auto-loop');
           setIsAutoLooping(false);
-          await sound.setIsLoopingAsync(true);
+          player.loop = true;
         } else {
           // Manual loop disabled - check if we should enable auto-loop
-          const shouldAutoLoop = chantCount < targetCount && isPlaying;
+          const shouldAutoLoop = chantCount < targetCount && status.playing;
           console.log('🔁 Manual loop disabled - Auto-loop:', shouldAutoLoop);
           setIsAutoLooping(shouldAutoLoop);
-          await sound.setIsLoopingAsync(false); // Auto-loop doesn't use built-in looping
+          player.loop = false; // Auto-loop doesn't use the native loop flag
         }
       } catch (error) {
         console.error('Error toggling loop:', error);
@@ -984,20 +771,20 @@ export default function AudioPlayerScreen() {
 
   // Handle progress bar press for seeking
   const handleProgressBarPress = (event: any) => {
-    if (duration > 0) {
+    if (status.duration > 0) {
       const { locationX } = event.nativeEvent;
       const progressBarWidth = width - 48; // Account for padding
       const percentage = locationX / progressBarWidth;
-      const seekPosition = duration * percentage;
-      seekToPosition(Math.max(0, Math.min(seekPosition, duration)));
+      const seekPosition = status.duration * percentage;
+      seekToPosition(Math.max(0, Math.min(seekPosition, status.duration)));
     }
   };
 
   // Change volume
-  const changeVolume = async (newVolume: number) => {
-    if (sound) {
+  const changeVolume = (newVolume: number) => {
+    if (status.isLoaded) {
       try {
-        await sound.setVolumeAsync(newVolume);
+        player.volume = newVolume;
         setVolume(newVolume);
       } catch (error) {
         console.error('Error changing volume:', error);
@@ -1095,7 +882,7 @@ export default function AudioPlayerScreen() {
               <View style={styles.lyricsContent}>
                 <View style={styles.lyricsHeader}>
                   <Text style={styles.lyricsTitle}>{t('mantraLyrics')}</Text>
-                  {sound && duration > 0 && (
+                  {status.isLoaded && status.duration > 0 && (
                     <View style={styles.audioStatusIndicator}>
                       <View style={styles.audioStatusDot} />
                       <Text style={styles.audioStatusText}>{t('ready')}</Text>
@@ -1117,7 +904,7 @@ export default function AudioPlayerScreen() {
                             outputRange: [6, 30], // Min 6px, Max 30px
                             extrapolate: 'clamp',
                           }),
-                          opacity: isPlaying ? 0.9 : 0.4,
+                          opacity: status.playing ? 0.9 : 0.4,
                         }
                       ]}
                     />
@@ -1134,24 +921,24 @@ export default function AudioPlayerScreen() {
                     <View
                       style={[
                         styles.progressFill,
-                        { width: duration > 0 ? `${(position / duration) * 100}%` : '0%' },
+                        { width: status.duration > 0 ? `${(status.currentTime / status.duration) * 100}%` : '0%' },
                       ]}
                     />
-                    {duration > 0 && (
+                    {status.duration > 0 && (
                       <View
                         style={[
                           styles.progressThumb,
                           {
-                            left: `${(position / duration) * 100}%`,
-                            opacity: isSeeking ? 1 : 0.8
+                            left: `${(status.currentTime / status.duration) * 100}%`,
+                            opacity: 0.8,
                           }
                         ]}
                       />
                     )}
                   </TouchableOpacity>
                   <View style={styles.timeContainer}>
-                    <Text style={styles.timeText}>{formatTime(position)}</Text>
-                    <Text style={styles.timeText}>{formatTime(duration)}</Text>
+                    <Text style={styles.timeText}>{formatTime(status.currentTime)}</Text>
+                    <Text style={styles.timeText}>{formatTime(status.duration)}</Text>
                   </View>
                 </View>
               </View>
@@ -1249,10 +1036,10 @@ export default function AudioPlayerScreen() {
                       </Animated.View>
                     ) : (
                       <Ionicons
-                        name={isPlaying ? 'pause' : 'play'}
+                        name={status.playing ? 'pause' : 'play'}
                         size={40}
                         color="#fff"
-                        style={!isPlaying ? { marginLeft: 4 } : {}}
+                        style={!status.playing ? { marginLeft: 4 } : {}}
                       />
                     )}
                   </LinearGradient>
