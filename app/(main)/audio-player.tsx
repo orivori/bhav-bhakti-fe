@@ -9,6 +9,7 @@ import {
   Animated,
   ActivityIndicator,
   Alert,
+  AppState,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -64,6 +65,16 @@ export default function AudioPlayerScreen() {
   const [showVolumeSlider, setShowVolumeSlider] = useState(false);
   const [isAutoLooping, setIsAutoLooping] = useState(false); // Auto-loop until target reached
   const autoPlayTriggeredRef = React.useRef(false); // Ensures the autoPlay param only starts playback once
+
+  // Tracks whether the app is genuinely, stably foregrounded - guards the
+  // lock-screen activation call below against Android 12+'s
+  // ForegroundServiceStartNotAllowedException, which throws if
+  // startForeground() (which setActiveForLockScreen triggers under the hood
+  // on Android) is called outside a confirmed-foreground window. Concretely
+  // observed: tapping the lock-screen notification to return to the app can
+  // land this call inside that restricted window if it fires around the
+  // same moment as the transition.
+  const isAppActiveRef = React.useRef(AppState.currentState === 'active');
 
   // Player is created once (with no source) for this screen's lifetime.
   // expo-audio's useAudioPlayer auto-releases the player on unmount via
@@ -574,6 +585,37 @@ export default function AudioPlayerScreen() {
     }
   }, [status.didJustFinish, player]);
 
+  // Activates lock-screen/notification controls with fresh metadata - only
+  // ever called when isAppActiveRef confirms the app is genuinely
+  // foregrounded (see the ref's own comment above for why). Wrapped in
+  // try/catch as a defensive backstop: this is a real native call capable of
+  // throwing (confirmed via the ForegroundServiceStartNotAllowedException
+  // crash), and nothing upstream in this app catches a thrown effect
+  // exception - there's no Error Boundary anywhere in the tree, so an
+  // uncaught throw here would blank the screen rather than just skip a
+  // notification. Position and play/pause state on the lock screen update
+  // automatically from here on - expo-audio's native side pushes them on
+  // its own per-tick status loop once active, so there's no separate "push
+  // position to the lock screen" call needed anywhere in this file.
+  const activateLockScreenControls = () => {
+    try {
+      player.setActiveForLockScreen(
+        true,
+        {
+          title: contentData.title?.toString() ?? (t('sacredMantra') as string),
+          artist: contentData.deity?.toString(),
+          artworkUrl: contentData.thumbnailUrl?.toString(),
+        },
+        {
+          showSeekForward: true,
+          showSeekBackward: true,
+        }
+      );
+    } catch (error) {
+      console.error('❌ Audio Player: Failed to activate lock-screen controls:', error);
+    }
+  };
+
   // Register with the shared playback coordinator whenever playback
   // (re)starts - initial load, resume-from-pause, and the auto-loop restart
   // after a natural finish all flip status.playing false->true, so keying
@@ -607,6 +649,7 @@ export default function AudioPlayerScreen() {
         stop: () => {
           player.pause();
           player.seekTo(0);
+          player.clearLockScreenControls();
         },
         pause: () => player.pause(),
         resume: () => player.play(),
@@ -615,6 +658,34 @@ export default function AudioPlayerScreen() {
         },
       }
     );
+
+    // Only activate lock-screen controls if the app is confirmed
+    // foreground right now. If it isn't (e.g. this effect happens to fire
+    // around a background/foreground transition), skip it here - the
+    // AppState-listener effect below will retry once we're confirmed back
+    // in a safe, active window, so the notification still reliably appears
+    // without risking the restricted-window crash.
+    if (isAppActiveRef.current) {
+      activateLockScreenControls();
+    }
+  }, [status.playing, feedId]);
+
+  // Retries lock-screen activation on the transition INTO 'active', for
+  // whichever attempt above was skipped because the app wasn't confirmed
+  // foreground at the time. Also the mechanism that makes returning via the
+  // lock-screen notification itself work: by the time this fires, the app
+  // has fully completed its foreground transition, so it's a safe window.
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      const wasActive = isAppActiveRef.current;
+      isAppActiveRef.current = nextState === 'active';
+
+      if (!wasActive && isAppActiveRef.current && status.playing && feedId) {
+        activateLockScreenControls();
+      }
+    });
+
+    return () => subscription.remove();
   }, [status.playing, feedId]);
 
   // Keep the shared store's mirror of this screen's status fresh (position,
@@ -657,16 +728,18 @@ export default function AudioPlayerScreen() {
     }
   }, [preemptedByFeedId, status.playing, player]);
 
-  // Clear this screen's entry from the shared store on unmount (e.g. the
-  // whole (main) tree unmounting on logout - see the coordinator design
-  // notes on why ordinary in-app tab navigation does NOT reach this).
+  // Clear this screen's entry from the shared store - and its lock-screen
+  // controls, if active - on unmount (e.g. the whole (main) tree unmounting
+  // on logout - see the coordinator design notes on why ordinary in-app tab
+  // navigation does NOT reach this).
   useEffect(() => {
     return () => {
+      player.clearLockScreenControls();
       if (feedId) {
         usePlaybackStore.getState().clearNowPlaying(feedId);
       }
     };
-  }, [feedId]);
+  }, [feedId, player]);
 
   const progress = targetCount > 0 ? (chantCount / targetCount) * 100 : 0;
 
