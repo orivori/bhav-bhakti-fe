@@ -14,7 +14,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 
 const { width } = Dimensions.get('window');
-import { Audio } from 'expo-av';
+import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as MediaLibrary from 'expo-media-library';
 // Removed expo-intent-launcher dependency for smaller bundle size
@@ -43,13 +43,18 @@ export default function RingtoneFeedCard({
   onPlaybackEnd,
 }: RingtoneFeedCardProps) {
   const { language } = useTranslation();
-  const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isSettingRingtone, setIsSettingRingtone] = useState(false);
-  const [sound, setSound] = useState<Audio.Sound | null>(null);
-  const [playbackPosition, setPlaybackPosition] = useState(0);
-  const [duration, setDuration] = useState(0);
+
+  // Player is created once (with no source) for this card's lifetime and
+  // released automatically on unmount by the hook itself. The real source is
+  // only loaded via player.replace() on the first play tap, preserving the
+  // previous lazy-load-on-tap behavior (createAsync was never called until
+  // the user pressed play) instead of eagerly loading audio for every card
+  // as soon as the list renders.
+  const player = useAudioPlayer(null);
+  const status = useAudioPlayerStatus(player);
 
   // Local state for like management
   const [localIsLiked, setLocalIsLiked] = useState(feed.isLiked);
@@ -121,18 +126,34 @@ export default function RingtoneFeedCard({
     return downloadResult.uri;
   };
 
-  // Cleanup sound when component unmounts. Audio session mode (background
-  // playback, ducking, etc.) is configured once, app-wide, in app/_layout.tsx
-  // - this component intentionally does not call setAudioModeAsync, since
-  // that would overwrite the shared session for the whole app.
+  // Fire onPlaybackEnd if this card had a source loaded when it unmounts, so
+  // the parent's activePlaybackRef doesn't keep pointing at a gone card.
+  // player.isLoaded is a live property on the persistent player instance
+  // (not a snapshot), so reading it inside the cleanup always reflects the
+  // latest state at actual unmount time. The player itself needs no manual
+  // unload/release here - useAudioPlayer disposes it automatically. Audio
+  // session mode (background playback, ducking, etc.) is configured once,
+  // app-wide, in app/_layout.tsx - this component intentionally does not
+  // call setAudioModeAsync, since that would overwrite the shared session
+  // for the whole app.
   useEffect(() => {
     return () => {
-      if (sound) {
-        sound.unloadAsync();
+      if (player.isLoaded) {
         onPlaybackEnd?.(feed.id.toString());
       }
     };
-  }, [sound]);
+  }, [player, onPlaybackEnd, feed.id]);
+
+  // Reset to 0 on natural end-of-track. Unlike expo-av, expo-audio does not
+  // auto-rewind position when playback finishes - didJustFinish only flips
+  // true for one status tick, so this only fires once per completed play.
+  useEffect(() => {
+    if (status.didJustFinish) {
+      console.log('🏁 Audio finished playing');
+      player.seekTo(0);
+      onPlaybackEnd?.(feed.id.toString());
+    }
+  }, [status.didJustFinish, player, onPlaybackEnd, feed.id]);
 
   // Stop this ringtone if the app is backgrounded/inactive while it's
   // playing. The app-wide session is configured to survive backgrounding
@@ -141,26 +162,23 @@ export default function RingtoneFeedCard({
   // Scoped to only subscribe while THIS card is actually playing, so idle
   // cards in the list never hold an AppState listener.
   useEffect(() => {
-    if (!isPlaying || !sound) {
+    if (!status.playing) {
       return;
     }
 
     const subscription = AppState.addEventListener('change', (nextAppState) => {
       if (nextAppState !== 'active') {
         console.log('📵 App backgrounded/inactive, stopping ringtone playback...');
-        setIsPlaying(false);
-        setPlaybackPosition(0);
+        player.pause();
+        player.seekTo(0);
         onPlaybackEnd?.(feed.id.toString());
-        sound.unloadAsync().then(() => {
-          setSound(null);
-        });
       }
     });
 
     return () => {
       subscription.remove();
     };
-  }, [isPlaying, sound, onPlaybackEnd, feed.id]);
+  }, [status.playing, player, onPlaybackEnd, feed.id]);
 
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -175,92 +193,46 @@ export default function RingtoneFeedCard({
   };
 
   const handlePlayPause = async () => {
-    console.log('🎵 Play/Pause button pressed, isPlaying:', isPlaying, 'sound exists:', !!sound);
+    console.log('🎵 Play/Pause button pressed, isPlaying:', status.playing, 'loaded:', status.isLoaded);
 
     try {
-      if (sound) {
-        // Check if sound is actually loaded
-        const status = await sound.getStatusAsync();
-        console.log('🔍 Sound status:', status);
-
-        if (status.isLoaded) {
-          if (isPlaying) {
-            console.log('⏸️ Pausing audio, resetting position...');
-            // stopAsync (not pauseAsync) so this behaves as a quick-preview
-            // list, not a resumable player: re-pressing play after a manual
-            // pause starts from 0, it doesn't resume where it left off.
-            await sound.stopAsync();
-            setIsPlaying(false);
-            setPlaybackPosition(0);
-            onPlaybackEnd?.(feed.id.toString());
-          } else {
-            console.log('▶️ Resuming audio...');
-            onPlaybackStart?.(feed.id.toString(), () => {
-              sound.stopAsync();
-              setIsPlaying(false);
-              setPlaybackPosition(0);
-            });
-            await sound.playAsync();
-            setIsPlaying(true);
-          }
-          return;
+      if (status.isLoaded) {
+        if (status.playing) {
+          console.log('⏸️ Pausing audio, resetting position...');
+          // pause + explicit seekTo(0) (expo-audio has no stopAsync, and
+          // unlike expo-av it doesn't auto-rewind) so this behaves as a
+          // quick-preview list, not a resumable player: re-pressing play
+          // after a manual pause starts from 0, it doesn't resume where it
+          // left off.
+          player.pause();
+          await player.seekTo(0);
+          onPlaybackEnd?.(feed.id.toString());
         } else {
-          console.log('🔄 Sound exists but not loaded, recreating...');
-          // Sound exists but not loaded, clean it up and recreate
-          await sound.unloadAsync();
-          setSound(null);
+          console.log('▶️ Resuming audio...');
+          onPlaybackStart?.(feed.id.toString(), () => {
+            player.pause();
+            player.seekTo(0);
+          });
+          player.play();
         }
+        return;
       }
 
-      // Create new sound
+      // No source loaded yet - resolve the cached local file and load it
       setIsLoading(true);
       console.log('🎧 Audio source URI:', audioSourceUri);
       console.log('🎼 Audio media:', audioMedia);
 
       if (audioSourceUri) {
         const localUri = await ensureLocalFile();
-        console.log('📱 Creating new sound instance from local file:', localUri);
-        const { sound: newSound } = await Audio.Sound.createAsync(
-          { uri: localUri },
-          { shouldPlay: true }
-        );
+        console.log('📱 Loading audio into player from local file:', localUri);
+        player.replace({ uri: localUri });
+        player.play();
 
-        console.log('✅ Sound created successfully');
-        setSound(newSound);
-        setIsPlaying(true);
         onPlaybackStart?.(feed.id.toString(), () => {
-          // stopAsync, not pauseAsync - see note on the resume branch above.
-          newSound.stopAsync();
-          setIsPlaying(false);
-          setPlaybackPosition(0);
-        });
-
-        // Set up playback status updates
-        newSound.setOnPlaybackStatusUpdate((status) => {
-          if (status.isLoaded) {
-            setPlaybackPosition(status.positionMillis || 0);
-            setDuration(status.durationMillis || 0);
-
-            // Update playing state based on actual playback status
-            setIsPlaying(status.isPlaying || false);
-
-            if (status.didJustFinish) {
-              console.log('🏁 Audio finished playing');
-              setIsPlaying(false);
-              setPlaybackPosition(0);
-              onPlaybackEnd?.(feed.id.toString());
-              // Clean up the sound when finished
-              newSound.unloadAsync().then(() => {
-                setSound(null);
-              });
-            }
-          } else {
-            console.log('⚠️ Sound became unloaded');
-            setIsPlaying(false);
-            setPlaybackPosition(0);
-            setSound(null);
-            onPlaybackEnd?.(feed.id.toString());
-          }
+          // pause + seekTo(0), not a stop() - see note on the resume branch above.
+          player.pause();
+          player.seekTo(0);
         });
 
         // Track view
@@ -289,7 +261,6 @@ export default function RingtoneFeedCard({
     } catch (error) {
       console.error('❌ Error playing audio:', error);
       Alert.alert('Error', 'Failed to play ringtone. Please try again.');
-      setIsPlaying(false);
     } finally {
       setIsLoading(false);
     }
@@ -508,15 +479,14 @@ export default function RingtoneFeedCard({
 
   // Handle progress bar seeking
   const handleSeek = async (event: any) => {
-    if (sound && duration > 0) {
+    if (status.isLoaded && status.duration > 0) {
       try {
         const { locationX } = event.nativeEvent;
         const progressBarWidth = width - 80; // Account for card padding
         const percentage = Math.max(0, Math.min(locationX / progressBarWidth, 1));
-        const seekPosition = duration * percentage;
-        
-        await sound.setPositionAsync(seekPosition);
-        setPlaybackPosition(seekPosition);
+        const seekPositionSeconds = status.duration * percentage;
+
+        await player.seekTo(seekPositionSeconds);
       } catch (error) {
         console.error('Error seeking:', error);
       }
@@ -574,10 +544,10 @@ export default function RingtoneFeedCard({
                 <ActivityIndicator color="#C41E3A" size="small" />
               ) : (
                 <Ionicons
-                  name={isPlaying ? 'pause' : 'play'}
+                  name={status.playing ? 'pause' : 'play'}
                   size={20}
                   color="#C41E3A"
-                  style={{ marginLeft: isPlaying ? 0 : 2 }}
+                  style={{ marginLeft: status.playing ? 0 : 2 }}
                 />
               )}
             </TouchableOpacity>
@@ -593,15 +563,15 @@ export default function RingtoneFeedCard({
                   <View
                     style={[
                       styles.progressFill,
-                      { width: duration > 0 ? `${(playbackPosition / duration) * 100}%` : '0%' },
+                      { width: status.duration > 0 ? `${(status.currentTime / status.duration) * 100}%` : '0%' },
                     ]}
                   />
-                  {duration > 0 && (
+                  {status.duration > 0 && (
                     <View
                       style={[
                         styles.progressThumb,
                         {
-                          left: `${Math.max(0, Math.min((playbackPosition / duration) * 100, 100))}%`,
+                          left: `${Math.max(0, Math.min((status.currentTime / status.duration) * 100, 100))}%`,
                         }
                       ]}
                     />
@@ -612,7 +582,7 @@ export default function RingtoneFeedCard({
 
             {/* Duration */}
             <Text style={styles.duration}>
-              {formatTime(duration || (audioMedia.duration || 0) * 1000)} sec
+              {formatTime((status.duration || audioMedia.duration || 0) * 1000)} sec
             </Text>
           </View>
 
