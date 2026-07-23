@@ -6,12 +6,24 @@ const getDevBaseUrl = () => {
   // Expo itself uses to reach this machine, so the backend (port 3000) is reachable
   // at the same host with no manually maintained IP.
   const host = Constants.expoConfig?.hostUri?.split(':')[0];
+
   if (!host) {
-    throw new Error(
-      'Could not determine dev server host from Constants.expoConfig.hostUri — is Metro running?'
+    // Don't crash app boot over a dev-only networking convenience — fall back to
+    // the Android emulator's routable host alias, which at least works for that
+    // case, and let real network errors surface per-request for anything else.
+    console.warn(
+      'Could not determine dev server host from Constants.expoConfig.hostUri — ' +
+      "falling back to 10.0.2.2. If you're on a physical device, set EXPO_PUBLIC_DEV_API_HOST."
     );
   }
-  return `http://${host}:3000/api`;
+
+  // A USB-connected dev build reaches Metro through `adb reverse tcp:8081 tcp:8081`,
+  // so hostUri often reports "localhost"/"127.0.0.1" here rather than the LAN IP -
+  // that's correct for reaching Metro, but reaching the backend on port 3000 needs
+  // its own reverse forward too: `adb reverse tcp:3000 tcp:3000` (one-time per session).
+  const resolvedHost = process.env.EXPO_PUBLIC_DEV_API_HOST || host || '10.0.2.2';
+
+  return `http://${resolvedHost}:3000/api`;
 };
 
 export const API_CONFIG = {
