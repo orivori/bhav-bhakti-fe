@@ -238,16 +238,20 @@ export function useFeed(options: UseFeedOptions = {}) {
 }
 
 // Hook for trending feeds
-export function useTrendingFeeds(options: { limit?: number; days?: number; enabled?: boolean } = {}) {
-  const { limit = 20, days = 7, enabled = true } = options;
+export function useTrendingFeeds(options: { limit?: number; days?: number; enabled?: boolean; type?: FeedFilters['type'] } = {}) {
+  const { limit = 20, days = 7, enabled = true, type } = options;
 
   return useInfiniteQuery({
-    queryKey: ['feeds', 'trending', { days }],
+    // type included in the key so different content types (e.g. 'wallpaper'
+    // vs 'ringtone') get separate cache entries instead of colliding on one -
+    // this hook is generic/shared, not scoped to a single consumer.
+    queryKey: ['feeds', 'trending', { days, type }],
     queryFn: async ({ pageParam = 0 }) => {
       return await feedService.getTrendingFeeds({
         limit,
         offset: pageParam as number,
         days,
+        type,
       });
     },
     initialPageParam: 0,
