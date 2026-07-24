@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
+  Image,
   TouchableOpacity,
   StyleSheet,
   Alert,
@@ -24,9 +25,19 @@ interface WallpaperFeedCardProps {
   onShare?: (feedId: string) => void;
   onDownload?: (feedId: string) => void;
   onPress?: (feed: Feed) => void;
+  // 'default' (unchanged) is the existing single-column card used by Home,
+  // Search Results, and daily-status.tsx. 'grid-tile' is new: a compact,
+  // textless tile for the Wallpaper Hub's 2-column grid (Status/Wallpapers/
+  // Thought for the Day sub-tabs). Defaulting to 'default' means every
+  // existing call site keeps rendering exactly as before with zero changes.
+  variant?: 'default' | 'grid-tile';
 }
 
 const { width } = Dimensions.get('window');
+// Container paddingHorizontal:12 on each side (24 total) + this tile's own
+// margin:4 on each side, times 2 tiles per row (16 total) - see the
+// gridTile style comment below for which files this is coupled to.
+const GRID_TILE_WIDTH = (width - 24 - 16) / 2;
 
 export default function WallpaperFeedCard({
   feed,
@@ -34,13 +45,26 @@ export default function WallpaperFeedCard({
   onShare,
   onDownload,
   onPress,
+  variant = 'default',
 }: WallpaperFeedCardProps) {
   const [isLiking, setIsLiking] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  // Guards setState calls in handleLike/handleDownload's async continuations
+  // (after an await) against firing once this component has unmounted - e.g.
+  // a like/download in flight when the user navigates away or the Wallpaper
+  // Hub's grid unmounts this tile on a sub-tab switch.
+  const isMountedRef = useRef(true);
   const { toggleLike, incrementDownload, incrementShare, incrementView } = useFeedStore();
   const { language } = useTranslation();
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   // Auto-slide functionality for multiple images
   useEffect(() => {
@@ -89,7 +113,7 @@ export default function WallpaperFeedCard({
       onLike(feed.id.toString());
     } else {
       if (isLiking) return;
-      setIsLiking(true);
+      if (isMountedRef.current) setIsLiking(true);
 
       const performLike = async () => {
         try {
@@ -103,7 +127,7 @@ export default function WallpaperFeedCard({
           console.error('Error liking wallpaper:', error);
           Alert.alert('Error', 'Failed to like the wallpaper. Please try again.');
         } finally {
-          setIsLiking(false);
+          if (isMountedRef.current) setIsLiking(false);
         }
       };
 
@@ -111,6 +135,10 @@ export default function WallpaperFeedCard({
     }
   };
 
+  // No isMountedRef guard needed here (unlike handleLike/handleDownload) -
+  // this handler has no local setState of its own to protect; incrementShare
+  // is a Zustand store update (safe post-unmount, not a React state setter on
+  // this component) and Alert.alert/Share.share are native imperative calls.
   const handleShare = async () => {
     try {
       await feedService.shareFeed(feed.id.toString(), { platform: 'native_share' });
@@ -136,7 +164,7 @@ export default function WallpaperFeedCard({
   const handleDownload = async () => {
     if (isDownloading || !feed.allowDownloads) return;
 
-    setIsDownloading(true);
+    if (isMountedRef.current) setIsDownloading(true);
     try {
       const { status } = await MediaLibrary.requestPermissionsAsync();
       if (status !== 'granted') {
@@ -165,7 +193,7 @@ export default function WallpaperFeedCard({
       console.error('Error downloading wallpaper:', error);
       Alert.alert('Error', 'Failed to download wallpaper. Please try again.');
     } finally {
-      setIsDownloading(false);
+      if (isMountedRef.current) setIsDownloading(false);
     }
   };
 
@@ -179,6 +207,70 @@ export default function WallpaperFeedCard({
 
     onPress?.(feed);
   };
+
+  if (variant === 'grid-tile') {
+    // Pure visual tile: no title/description, no carousel (always the first
+    // media item - a 2-column grid tile has no room for prev/next controls),
+    // a plain <Image> with resizeMode="contain" inside a 9:16 box so the
+    // photo scales to fit without cropping (unlike the default variant's
+    // FeedMedia, which is hardcoded to resizeMode="cover" - deliberately not
+    // reused here rather than risk changing FeedMedia's shared behavior).
+    const gridMedia = feed.media[0];
+
+    return (
+      <TouchableOpacity
+        style={styles.gridTile}
+        onPress={handlePress}
+        activeOpacity={0.9}
+      >
+        <View style={styles.gridImageBox}>
+          {gridMedia && (
+            <Image
+              source={{ uri: gridMedia.mediaUrl }}
+              style={styles.gridImage}
+              resizeMode="contain"
+            />
+          )}
+
+          <View style={styles.gridActionsOverlay}>
+            <TouchableOpacity
+              style={styles.gridActionIcon}
+              onPress={handleLike}
+              activeOpacity={0.8}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons
+                name={feed.isLiked ? 'heart' : 'heart-outline'}
+                size={18}
+                color={feed.isLiked ? '#C41E3A' : '#fff'}
+              />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.gridActionIcon}
+              onPress={handleShare}
+              activeOpacity={0.8}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="share-outline" size={18} color="#fff" />
+            </TouchableOpacity>
+
+            {feed.allowDownloads && (
+              <TouchableOpacity
+                style={styles.gridActionIcon}
+                onPress={handleDownload}
+                disabled={isDownloading}
+                activeOpacity={0.8}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons name="download-outline" size={18} color="#fff" />
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -424,5 +516,47 @@ const styles = StyleSheet.create({
   },
   navButtonRight: {
     right: 16,
+  },
+  // --- grid-tile variant only, below this point - default variant's styles
+  // above are all untouched. ---
+  // Fixed width, not flex: 1 - with numColumns={2}, FlatList does not insert
+  // filler cells for an incomplete final row, so a lone item with flex:1 and
+  // no sibling to share space with would stretch to the full row width
+  // instead of half. GRID_TILE_WIDTH assumes the containing grid's
+  // listContent paddingHorizontal:12 (StatusTabContent/WallpapersTabContent/
+  // ThoughtTabContent) plus this tile's own margin:4 on each side - if either
+  // changes, this needs recalculating too.
+  gridTile: {
+    width: GRID_TILE_WIDTH,
+    margin: 4,
+  },
+  gridImageBox: {
+    width: '100%',
+    aspectRatio: 9 / 16,
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: '#F5E6D3',
+    position: 'relative',
+  },
+  gridImage: {
+    width: '100%',
+    height: '100%',
+  },
+  gridActionsOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    paddingVertical: 8,
+    // Flat scrim (not per-icon circles) so icons stay legible against
+    // arbitrary image content - relies on gridImageBox's overflow:hidden +
+    // borderRadius to naturally round this bar's bottom corners too.
+    backgroundColor: 'rgba(0, 0, 0, 0.35)',
+  },
+  gridActionIcon: {
+    padding: 4,
   },
 });
