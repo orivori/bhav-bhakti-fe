@@ -36,6 +36,9 @@ class FeedService {
     if (params.categoryId) {
       queryParams.append('categoryId', params.categoryId.toString());
     }
+    if (params.deityId) {
+      queryParams.append('deityId', params.deityId.toString());
+    }
     if (params.search) queryParams.append('search', params.search);
     if (params.sortBy) queryParams.append('sortBy', params.sortBy);
     if (params.sortOrder) queryParams.append('sortOrder', params.sortOrder);
@@ -161,11 +164,12 @@ class FeedService {
   /**
    * Get trending feeds
    */
-  async getTrendingFeeds(params: { limit?: number; offset?: number; days?: number } = {}): Promise<TrendingFeedsResponse> {
+  async getTrendingFeeds(params: { limit?: number; offset?: number; days?: number; type?: string } = {}): Promise<TrendingFeedsResponse> {
     const queryParams = new URLSearchParams();
     if (params.limit) queryParams.append('limit', params.limit.toString());
     if (params.offset) queryParams.append('offset', params.offset.toString());
     if (params.days) queryParams.append('days', params.days.toString());
+    if (params.type) queryParams.append('type', params.type);
 
     const url = `${API_ENDPOINTS.FEED.TRENDING}?${queryParams.toString()}`;
     const apiResponse = await apiClient.get<ApiTrendingFeedsResponse>(url);

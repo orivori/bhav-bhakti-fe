@@ -5,6 +5,8 @@ import { useLocalSearchParams } from 'expo-router';
 import { Text } from '@/components/atoms';
 import RingtonesTabContent from '@/components/molecules/RingtonesTabContent';
 import { usePlaybackStore } from '@/store/playbackStore';
+import DeityFilterRow, { DeityFilterSelection } from '@/components/molecules/DeityFilterRow';
+import { useDeities } from '@/features/feed/hooks/useDeities';
 
 // Route kept as 'ringtones' deliberately (see CLAUDE.md's Audio hub restructure
 // notes) - this used to be a standalone Ringtones screen; it's now the "Audio"
@@ -13,10 +15,17 @@ import { usePlaybackStore } from '@/store/playbackStore';
 // existing router.push/router.replace call site that targets it.
 
 type SubTab = 'ringtones' | 'aarti' | 'bhajan';
-const SUB_TABS: { key: SubTab; label: string }[] = [
-  { key: 'ringtones', label: 'Ringtones' },
-  { key: 'aarti', label: 'Aartis' },
-  { key: 'bhajan', label: 'Bhajans' },
+
+// showDeityFilter is declared right alongside each sub-tab's own registration
+// entry - the same array that's already the single source of truth for "what
+// sub-tabs exist" - rather than as a separate lookup a future sub-tab could
+// forget to update. TypeScript requires the field on every entry, so adding a
+// sub-tab (e.g. a future "Thought for the Day") without deciding this value
+// is a compile error, not a silent default.
+const SUB_TABS: { key: SubTab; label: string; showDeityFilter: boolean }[] = [
+  { key: 'ringtones', label: 'Ringtones', showDeityFilter: true },
+  { key: 'aarti', label: 'Aartis', showDeityFilter: true },
+  { key: 'bhajan', label: 'Bhajans', showDeityFilter: true },
 ];
 
 function isSubTab(value: unknown): value is SubTab {
@@ -26,6 +35,16 @@ function isSubTab(value: unknown): value is SubTab {
 export default function AudioHubScreen() {
   const params = useLocalSearchParams<{ subTab?: string }>();
   const [activeSubTab, setActiveSubTab] = useState<SubTab>('ringtones');
+  const activeTabConfig = SUB_TABS.find((tab) => tab.key === activeSubTab)!;
+
+  // Hub-level, deliberately shared across all sub-tabs (not re-declared inside
+  // RingtonesTabContent or any future AartiTabContent/BhajanTabContent) -
+  // selecting Ganesha must persist when switching sub-tabs, and the hub is the
+  // one screen in this tree that never unmounts, so state held here survives
+  // sub-tab switches for free. Consumed by RingtonesTabContent -> useRingtones()
+  // today; future Aarti/Bhajan content components will read the same value.
+  const [selectedFilter, setSelectedFilter] = useState<DeityFilterSelection>({ kind: 'trending' });
+  const { data: deities = [] } = useDeities();
 
   // Reactive, not once-only (deliberately no ref-guard, unlike audio-player.tsx's
   // autoPlay param): a repeated tap on the same Home quick-link while already
@@ -38,23 +57,23 @@ export default function AudioHubScreen() {
     }
   }, [params.subTab]);
 
-  // Sub-tab-switch stop logic - approved design: touches the `ephemeral` slot
-  // unconditionally by key, never reads or compares `persistent`. This exists
-  // because RingtoneFeedCard's own useFocusEffect-based stop-on-blur only fires
-  // on navigator-level screen focus changes, not on this hub's internal sub-tab
-  // state - switching Ringtones -> Aartis/Bhajans in place would otherwise leave
-  // a ringtone playing with no mini-player and no visible control to stop it.
+  // Stop-on-"leaving the current list behind" logic - approved design: touches
+  // the `ephemeral` slot unconditionally by key, never reads or compares
+  // `persistent`. Fires on either a sub-tab switch (Ringtones -> Aartis/Bhajans)
+  // or a deity-filter change (e.g. tapping a different deity chip while still
+  // on Ringtones) - both represent leaving the current list behind, so both use
+  // the same stop mechanism rather than two separate implementations.
   useEffect(() => {
     const { ephemeral } = usePlaybackStore.getState();
     if (ephemeral) {
       try {
         ephemeral.controls.stop();
       } catch (error) {
-        console.error('Error stopping ringtone during sub-tab switch (player likely already released):', error);
+        console.error('Error stopping ringtone during sub-tab/filter switch (player likely already released):', error);
       }
       usePlaybackStore.setState({ ephemeral: null });
     }
-  }, [activeSubTab]);
+  }, [activeSubTab, selectedFilter]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -63,6 +82,17 @@ export default function AudioHubScreen() {
           Audio
         </Text>
       </View>
+
+      {/* Visibility is declared per sub-tab (see SUB_TABS above), not hardcoded
+          here - a future sub-tab that opts out (e.g. "Thought for the Day")
+          just sets showDeityFilter: false on its own registration entry. */}
+      {activeTabConfig.showDeityFilter && (
+        <DeityFilterRow
+          deities={deities}
+          selected={selectedFilter}
+          onSelect={setSelectedFilter}
+        />
+      )}
 
       <View style={styles.subTabRow}>
         {SUB_TABS.map((tab) => (
@@ -82,7 +112,7 @@ export default function AudioHubScreen() {
       </View>
 
       <View style={styles.content}>
-        {activeSubTab === 'ringtones' && <RingtonesTabContent />}
+        {activeSubTab === 'ringtones' && <RingtonesTabContent filter={selectedFilter} />}
         {activeSubTab === 'aarti' && (
           <View style={styles.placeholderContainer}>
             <Text variant="h4" style={styles.placeholderTitle}>

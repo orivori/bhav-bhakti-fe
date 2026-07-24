@@ -15,12 +15,19 @@ import { Feed } from '@/types/feed';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { useRingtones } from '@/features/feed/hooks/useRingtones';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
+import { DeityFilterSelection } from '@/components/molecules/DeityFilterRow';
+
+interface RingtonesTabContentProps {
+  filter: DeityFilterSelection;
+}
 
 // Extracted from the former standalone app/(main)/ringtones.tsx (see CLAUDE.md's
 // Audio hub restructure notes) so it can be rendered as one sub-tab inside the
 // Audio hub instead of a whole screen. Header/back-button intentionally not
 // included here - that's now the hub's chrome, not this content block's job.
-export default function RingtonesTabContent() {
+// `filter` is owned and shared by the hub (survives switching sub-tabs) - this
+// component just forwards whatever it's given into useRingtones().
+export default function RingtonesTabContent({ filter }: RingtonesTabContentProps) {
   const { contentPadding } = useTabBarHeight();
   const {
     ringtones,
@@ -35,7 +42,7 @@ export default function RingtonesTabContent() {
     handleLike,
     handleShare,
     handleDownload,
-  } = useRingtones();
+  } = useRingtones(filter);
 
   // Stop-on-tab-blur lives in RingtoneFeedCard itself (see that file) so it
   // applies correctly regardless of which screen renders the card. Stop-on-

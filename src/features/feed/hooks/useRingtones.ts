@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Feed, FeedListResponse } from '@/types/feed';
 import { feedService } from '@/features/feed/services/feedService';
+import { DeityFilterSelection } from '@/components/molecules/DeityFilterRow';
 
 export interface UseRingtonesResult {
   ringtones: Feed[];
@@ -17,7 +18,10 @@ export interface UseRingtonesResult {
   handleDownload: (feedId: string) => void;
 }
 
-export function useRingtones(): UseRingtonesResult {
+const PAGE_LIMIT = 20;
+const TRENDING_DAYS = 7;
+
+export function useRingtones(filter: DeityFilterSelection): UseRingtonesResult {
   const [ringtones, setRingtones] = useState<Feed[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -25,6 +29,32 @@ export function useRingtones(): UseRingtonesResult {
   const [hasMore, setHasMore] = useState(true);
   const [nextCursor, setNextCursor] = useState<string | undefined>();
   const [error, setError] = useState<string | null>(null);
+
+  // Trending (a ranking view) and a deity selection (a stored filter) are
+  // different query mechanics hitting different endpoints - kept as two
+  // explicit branches here rather than one fetch function that silently
+  // special-cases a flag, per the approved design.
+  const fetchPage = useCallback(
+    (offset: number): Promise<FeedListResponse> => {
+      if (filter.kind === 'trending') {
+        return feedService.getTrendingFeeds({
+          type: 'ringtone',
+          days: TRENDING_DAYS,
+          limit: PAGE_LIMIT,
+          offset,
+        });
+      }
+      return feedService.getFeeds({
+        type: 'ringtone',
+        deityId: filter.deityId,
+        limit: PAGE_LIMIT,
+        offset,
+        sortBy: 'createdAt',
+        sortOrder: 'DESC',
+      });
+    },
+    [filter.kind, filter.kind === 'deity' ? filter.deityId : undefined]
+  );
 
   const loadRingtones = useCallback(async (cursor?: string, refresh = false) => {
     try {
@@ -38,27 +68,16 @@ export function useRingtones(): UseRingtonesResult {
         setError(null);
       }
 
-      console.log('🎵 Loading ringtones with cursor:', cursor);
+      const offset = cursor ? parseInt(cursor) : 0;
+      const response = await fetchPage(offset);
 
-      // Create query parameters for ringtones
-      const params = {
-        limit: 20,
-        offset: cursor ? parseInt(cursor) : 0,
-        sortBy: 'createdAt' as const,
-        sortOrder: 'DESC' as const,
-      };
-
-      const response = await feedService.getFeeds(params);
-      console.log('✅ Feeds loaded, filtering for ringtones...');
-
-      // Filter for ringtone feeds only
-      const ringtoneFeeds = response.feeds.filter(feed => feed.type === 'ringtone');
-      console.log(`🎼 Found ${ringtoneFeeds.length} ringtones out of ${response.feeds.length} total feeds`);
-
+      // `type: 'ringtone'` is now sent server-side by fetchPage above, so
+      // every row returned is already a ringtone - no client-side filtering
+      // needed (that used to be the only thing scoping this list to ringtones).
       if (refresh || !cursor) {
-        setRingtones(ringtoneFeeds);
+        setRingtones(response.feeds);
       } else {
-        setRingtones(prev => [...prev, ...ringtoneFeeds]);
+        setRingtones(prev => [...prev, ...response.feeds]);
       }
 
       setHasMore(response.hasMore);
@@ -73,7 +92,7 @@ export function useRingtones(): UseRingtonesResult {
       setIsLoadingMore(false);
       setIsRefreshing(false);
     }
-  }, []);
+  }, [fetchPage]);
 
   const handleRefresh = useCallback(() => {
     loadRingtones(undefined, true);
@@ -182,7 +201,15 @@ export function useRingtones(): UseRingtonesResult {
     }
   }, []);
 
+  // Fires on mount and whenever the filter changes (loadRingtones's identity
+  // changes whenever fetchPage does, which changes whenever filter.kind/deityId
+  // does). Resets pagination state synchronously first - trending and
+  // deity-filtered lists are different result sets, not pages of one query,
+  // so switching between them must not append onto the previous list.
   useEffect(() => {
+    setRingtones([]);
+    setHasMore(true);
+    setNextCursor(undefined);
     loadRingtones();
   }, [loadRingtones]);
 

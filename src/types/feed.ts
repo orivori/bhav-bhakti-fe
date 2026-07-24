@@ -133,6 +133,7 @@ export interface CreateFeedRequest {
 export interface FeedFilters {
   type?: 'general' | 'mantra' | 'ringtone' | 'wallpaper' | 'aarti' | 'bhajan';
   categoryId?: number;
+  deityId?: number;
   tags?: string[];
   search?: string;
   sortBy?: 'createdAt' | 'likesCount' | 'downloadsCount' | 'sharesCount' | 'viewsCount';
