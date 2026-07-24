@@ -240,7 +240,7 @@ export default function HomeScreen() {
         router.push('/(main)/horoscope');
         break;
       case 'Status':
-        router.push('/(main)/daily-status');
+        router.push({ pathname: '/(main)/daily-status', params: { subTab: 'status' } });
         break;
       case 'Ringtones':
         router.push({ pathname: '/(main)/ringtones', params: { subTab: 'ringtones' } });

@@ -86,7 +86,7 @@ export default function MainLayout() {
       <Tabs.Screen
         name="daily-status"
         options={{
-          title: 'Status',
+          title: 'Wallpapers',
           headerShown: false,
           tabBarIcon: ({ size, focused }) => (
             <SvgUri
