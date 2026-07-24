@@ -1,4 +1,5 @@
 import Constants from 'expo-constants';
+import * as Device from 'expo-device';
 
 const getDevBaseUrl = () => {
   // hostUri is the Metro dev server's <host>:<port>, e.g. "192.168.1.5:8081" on a
@@ -21,7 +22,15 @@ const getDevBaseUrl = () => {
   // so hostUri often reports "localhost"/"127.0.0.1" here rather than the LAN IP -
   // that's correct for reaching Metro, but reaching the backend on port 3000 needs
   // its own reverse forward too: `adb reverse tcp:3000 tcp:3000` (one-time per session).
-  const resolvedHost = process.env.EXPO_PUBLIC_DEV_API_HOST || host || '10.0.2.2';
+  //
+  // EXPO_PUBLIC_DEV_API_HOST is only honored on a genuine physical device
+  // (Device.isDevice). It's a manually-set LAN IP meant to help a real phone
+  // reach this machine over WiFi - the emulator has its own reliable alias
+  // (10.0.2.2) for the same purpose, and blindly applying the override to it
+  // too was a real, confirmed regression: it made the emulator try to reach
+  // the host's real WiFi LAN IP instead, which isn't guaranteed reachable
+  // from inside the emulator's virtual network the way 10.0.2.2 is.
+  const resolvedHost = (Device.isDevice && process.env.EXPO_PUBLIC_DEV_API_HOST) || host || '10.0.2.2';
 
   return `http://${resolvedHost}:3000/api`;
 };
