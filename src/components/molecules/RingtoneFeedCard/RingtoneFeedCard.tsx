@@ -134,10 +134,29 @@ export default function RingtoneFeedCard({
   // app-wide, in app/_layout.tsx - this component intentionally does not
   // call setAudioModeAsync, since that would overwrite the shared session
   // for the whole app.
+  //
+  // Defensive try/catch, not just belt-and-suspenders: useAudioPlayer's own
+  // internal cleanup (expo-modules-core's useReleasingSharedObject, wired up
+  // via a useEffect declared earlier in this component, at the top of the
+  // file) runs its release() BEFORE this cleanup fires - React runs effect
+  // cleanups in the same order the effects were declared, and useAudioPlayer
+  // is called above this effect. So by the time this cleanup runs, `player`
+  // is already a released native shared object, and merely reading
+  // player.isLoaded throws "Cannot use shared object that was already
+  // released" (it's a native-bridged getter, not a plain JS property - there
+  // is no separate isValid/isReleased flag to pre-check with). This was
+  // always latently possible but never actually fired in practice while
+  // Ringtones was a whole screen (Tabs don't unmount inactive screens, so
+  // cards never unmounted this way) - the Audio hub's sub-tab switch is the
+  // first code path that unmounts every rendered card at once, on demand.
   useEffect(() => {
     return () => {
-      if (player.isLoaded) {
-        usePlaybackStore.getState().clearNowPlaying(feed.id.toString());
+      try {
+        if (player.isLoaded) {
+          usePlaybackStore.getState().clearNowPlaying(feed.id.toString());
+        }
+      } catch (error) {
+        console.error('Error checking player state during unmount cleanup (player likely already released):', error);
       }
     };
   }, [player, feed.id]);
@@ -189,13 +208,27 @@ export default function RingtoneFeedCard({
   // idle cards in a list all run this hook too, but only the one matching
   // feedId (if any) ever actually calls stop(). Does not fire on OS-level
   // backgrounding - the AppState effect above already covers that.
+  //
+  // Also fires on plain unmount, not just navigator blur - react-navigation's
+  // useFocusEffect runs its last-returned cleanup when ITS OWN outer effect
+  // unmounts too (see its source), not only on a 'blur' event. So this hits
+  // the exact same released-player hazard as the cleanup above: if this card
+  // is the currently-playing ephemeral item at the moment of a mass unmount
+  // (e.g. switching away from the Ringtones sub-tab mid-playback),
+  // ephemeral.controls.stop() below calls player.pause()/seekTo() on a
+  // player useAudioPlayer's own cleanup has already released. Same
+  // defensive try/catch for the same reason.
   useFocusEffect(
     useCallback(() => {
       return () => {
-        const { ephemeral } = usePlaybackStore.getState();
-        if (ephemeral?.nowPlaying.feedId === feed.id.toString()) {
-          ephemeral.controls.stop();
-          usePlaybackStore.getState().clearNowPlaying(feed.id.toString());
+        try {
+          const { ephemeral } = usePlaybackStore.getState();
+          if (ephemeral?.nowPlaying.feedId === feed.id.toString()) {
+            ephemeral.controls.stop();
+            usePlaybackStore.getState().clearNowPlaying(feed.id.toString());
+          }
+        } catch (error) {
+          console.error('Error stopping ringtone during unmount cleanup (player likely already released):', error);
         }
       };
     }, [feed.id])

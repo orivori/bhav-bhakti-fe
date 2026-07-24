@@ -47,7 +47,11 @@ export default function AudioHubScreen() {
   useEffect(() => {
     const { ephemeral } = usePlaybackStore.getState();
     if (ephemeral) {
-      ephemeral.controls.stop();
+      try {
+        ephemeral.controls.stop();
+      } catch (error) {
+        console.error('Error stopping ringtone during sub-tab switch (player likely already released):', error);
+      }
       usePlaybackStore.setState({ ephemeral: null });
     }
   }, [activeSubTab]);
