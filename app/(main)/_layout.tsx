@@ -71,7 +71,7 @@ export default function MainLayout() {
       <Tabs.Screen
         name="ringtones"
         options={{
-          title: 'Ringtone',
+          title: 'Audio',
           headerShown: false,
           tabBarIcon: ({ size, focused }) => (
             <SvgUri

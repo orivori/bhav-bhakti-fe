@@ -1,178 +1,105 @@
-import React, { useCallback } from 'react';
-import {
-  View,
-  StyleSheet,
-  FlatList,
-  RefreshControl,
-  ActivityIndicator,
-  TouchableOpacity,
-  ListRenderItemInfo,
-} from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { Text } from '@/components/atoms';
-import RingtoneFeedCard from '@/components/molecules/RingtoneFeedCard/RingtoneFeedCard';
-import { Feed } from '@/types/feed';
-import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
-import { useRingtones } from '@/features/feed/hooks/useRingtones';
-import { useTabBarHeight } from '@/hooks/useTabBarHeight';
+import RingtonesTabContent from '@/components/molecules/RingtonesTabContent';
+import { usePlaybackStore } from '@/store/playbackStore';
 
-export default function RingtonesPage() {
-  const { contentPadding } = useTabBarHeight();
-  const {
-    ringtones,
-    isLoading,
-    isLoadingMore,
-    isRefreshing,
-    hasMore,
-    error,
-    loadRingtones,
-    handleRefresh,
-    handleLoadMore,
-    handleLike,
-    handleShare,
-    handleDownload,
-  } = useRingtones();
+// Route kept as 'ringtones' deliberately (see CLAUDE.md's Audio hub restructure
+// notes) - this used to be a standalone Ringtones screen; it's now the "Audio"
+// hub, with Ringtones as one of several horizontal sub-tabs (Aartis/Bhajans
+// alongside it, more later). Keeping the route name avoids touching any
+// existing router.push/router.replace call site that targets it.
 
-  const handleBack = useCallback(() => {
-    router.back();
-  }, []);
+type SubTab = 'ringtones' | 'aarti' | 'bhajan';
+const SUB_TABS: { key: SubTab; label: string }[] = [
+  { key: 'ringtones', label: 'Ringtones' },
+  { key: 'aarti', label: 'Aartis' },
+  { key: 'bhajan', label: 'Bhajans' },
+];
 
-  // Stop-on-tab-blur now lives in RingtoneFeedCard itself (see that file) so
-  // it applies correctly regardless of which screen renders the card - Home
-  // and Search Results previously never got this behavior since it used to
-  // live only here.
+function isSubTab(value: unknown): value is SubTab {
+  return value === 'ringtones' || value === 'aarti' || value === 'bhajan';
+}
 
-  const renderRingtone = useCallback(({ item: ringtone }: ListRenderItemInfo<Feed>) => (
-    <RingtoneFeedCard
-      key={ringtone.id}
-      feed={ringtone}
-      onLike={handleLike}
-      onShare={handleShare}
-      onDownload={handleDownload}
-    />
-  ), [handleLike, handleShare, handleDownload]);
+export default function AudioHubScreen() {
+  const params = useLocalSearchParams<{ subTab?: string }>();
+  const [activeSubTab, setActiveSubTab] = useState<SubTab>('ringtones');
 
-  const renderFooter = useCallback(() => {
-    if (!hasMore) {
-      return (
-        <View style={styles.endMessage}>
-          <Text variant="caption" style={styles.endText}>
-            🎵 You've heard all the ringtones! 🎵
-          </Text>
-        </View>
-      );
+  // Reactive, not once-only (deliberately no ref-guard, unlike audio-player.tsx's
+  // autoPlay param): a repeated tap on the same Home quick-link while already
+  // sitting on a different sub-tab must still switch tabs every time, and since
+  // expo-router's Tabs don't unmount this screen between navigations, params
+  // changing on an already-mounted screen is exactly what this needs to react to.
+  useEffect(() => {
+    if (isSubTab(params.subTab)) {
+      setActiveSubTab(params.subTab);
     }
+  }, [params.subTab]);
 
-    if (isLoadingMore) {
-      return (
-        <View style={styles.footerLoader}>
-          <ActivityIndicator size="small" color={goldenTempleTheme.colors.primary.DEFAULT} />
-          <Text variant="caption" style={styles.loadingText}>
-            Loading more ringtones...
-          </Text>
-        </View>
-      );
+  // Sub-tab-switch stop logic - approved design: touches the `ephemeral` slot
+  // unconditionally by key, never reads or compares `persistent`. This exists
+  // because RingtoneFeedCard's own useFocusEffect-based stop-on-blur only fires
+  // on navigator-level screen focus changes, not on this hub's internal sub-tab
+  // state - switching Ringtones -> Aartis/Bhajans in place would otherwise leave
+  // a ringtone playing with no mini-player and no visible control to stop it.
+  useEffect(() => {
+    const { ephemeral } = usePlaybackStore.getState();
+    if (ephemeral) {
+      ephemeral.controls.stop();
+      usePlaybackStore.setState({ ephemeral: null });
     }
-
-    return <View style={styles.footerSpacing} />;
-  }, [hasMore, isLoadingMore]);
-
-  const renderEmptyComponent = useCallback(() => {
-    if (isLoading) {
-      return (
-        <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color={goldenTempleTheme.colors.primary.DEFAULT} />
-          <Text variant="body" style={styles.loadingText}>
-            Loading sacred ringtones...
-          </Text>
-        </View>
-      );
-    }
-
-    if (error) {
-      return (
-        <View style={styles.centerContainer}>
-          <View style={styles.errorIcon}>
-            <Ionicons name="musical-notes-outline" size={48} color="#FF6B35" />
-          </View>
-          <Text variant="h4" style={styles.errorTitle}>
-            Oops! Something went wrong
-          </Text>
-          <Text variant="body" style={styles.errorMessage}>
-            {error}
-          </Text>
-          <TouchableOpacity style={styles.retryButton} onPress={() => loadRingtones()}>
-            <Text style={styles.retryText}>Try Again</Text>
-          </TouchableOpacity>
-        </View>
-      );
-    }
-
-    return (
-      <View style={styles.centerContainer}>
-        <View style={styles.emptyIcon}>
-          <Ionicons name="musical-notes" size={48} color="#FF8C42" />
-        </View>
-        <Text variant="h4" style={styles.emptyTitle}>
-          No Ringtones Yet
-        </Text>
-        <Text variant="body" style={styles.emptySubtitle}>
-          Sacred ringtones are coming soon!
-        </Text>
-      </View>
-    );
-  }, [isLoading, error, loadRingtones]);
-
-  const keyExtractor = useCallback((item: Feed) => item.id.toString(), []);
+  }, [activeSubTab]);
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={handleBack}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="arrow-back" size={24} color="#1A1A1A" />
-        </TouchableOpacity>
         <Text variant="h3" style={styles.headerTitle}>
-          Sacred Ringtones
+          Audio
         </Text>
-        <View style={styles.headerSpacer} />
       </View>
 
-      {/* Ringtones List */}
-      <FlatList
-        data={ringtones}
-        renderItem={renderRingtone}
-        keyExtractor={keyExtractor}
-        ListEmptyComponent={renderEmptyComponent}
-        ListFooterComponent={renderFooter}
-        style={styles.list}
-        contentContainerStyle={[{ paddingBottom: contentPadding },
-          styles.listContent,
-          ringtones.length === 0 && styles.emptyContainer,
-        ]}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={handleRefresh}
-            colors={['#FF6B35']}
-            tintColor="#FF6B35"
-          />
-        }
-        onEndReached={handleLoadMore}
-        onEndReachedThreshold={0.7}
-        showsVerticalScrollIndicator={false}
-        removeClippedSubviews={true}
-        maxToRenderPerBatch={10}
-        windowSize={10}
-        initialNumToRender={8}
-        updateCellsBatchingPeriod={16}
-      />
+      <View style={styles.subTabRow}>
+        {SUB_TABS.map((tab) => (
+          <TouchableOpacity
+            key={tab.key}
+            style={[styles.subTabButton, activeSubTab === tab.key && styles.subTabButtonActive]}
+            onPress={() => setActiveSubTab(tab.key)}
+            activeOpacity={0.8}
+          >
+            <Text
+              style={[styles.subTabLabel, activeSubTab === tab.key && styles.subTabLabelActive]}
+            >
+              {tab.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      <View style={styles.content}>
+        {activeSubTab === 'ringtones' && <RingtonesTabContent />}
+        {activeSubTab === 'aarti' && (
+          <View style={styles.placeholderContainer}>
+            <Text variant="h4" style={styles.placeholderTitle}>
+              Aartis Coming Soon
+            </Text>
+            <Text variant="body" style={styles.placeholderSubtitle}>
+              This sub-tab is a placeholder - real Aarti content is separate future work.
+            </Text>
+          </View>
+        )}
+        {activeSubTab === 'bhajan' && (
+          <View style={styles.placeholderContainer}>
+            <Text variant="h4" style={styles.placeholderTitle}>
+              Bhajans Coming Soon
+            </Text>
+            <Text variant="body" style={styles.placeholderSubtitle}>
+              This sub-tab is a placeholder - real Bhajan content is separate future work.
+            </Text>
+          </View>
+        )}
+      </View>
     </SafeAreaView>
   );
 }
@@ -185,137 +112,66 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
     backgroundColor: '#FFFFFF',
-    borderBottomWidth: 0,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,
   },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#F8F9FA',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   headerTitle: {
     fontWeight: '700',
     color: '#1A1A1A',
     letterSpacing: -0.5,
   },
-  headerSpacer: {
-    width: 40,
-  },
-  list: {
-    flex: 1,
-    backgroundColor: 'transparent',
-  },
-  listContent: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    
-  },
-  emptyContainer: {
-    flexGrow: 1,
-    
-  },
-  centerContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 60,
-    paddingHorizontal: 32,
-  },
-  footerLoader: {
+  subTabRow: {
     flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 20,
-    gap: 12,
-  },
-  footerSpacing: {
-    height: 20,
-  },
-  loadingText: {
-    textAlign: 'center',
-    color: '#8E8E93',
-    fontSize: 14,
-  },
-  endMessage: {
-    paddingVertical: 24,
-    alignItems: 'center',
-  },
-  endText: {
-    textAlign: 'center',
-    fontStyle: 'italic',
-    color: '#8E8E93',
-    fontSize: 14,
-  },
-  // Empty State
-  emptyIcon: {
-    width: 100,
-    height: 100,
-    backgroundColor: '#FFF5F0',
-    borderRadius: 50,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  emptyTitle: {
-    textAlign: 'center',
-    marginBottom: 12,
-    color: '#1A1A1A',
-    fontWeight: '700',
-  },
-  emptySubtitle: {
-    textAlign: 'center',
-    maxWidth: 280,
-    color: '#8E8E93',
-    lineHeight: 22,
-  },
-  // Error State
-  errorIcon: {
-    width: 100,
-    height: 100,
-    backgroundColor: '#FFF5F0',
-    borderRadius: 50,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  errorTitle: {
-    textAlign: 'center',
-    marginBottom: 12,
-    color: '#1A1A1A',
-    fontWeight: '700',
-  },
-  errorMessage: {
-    textAlign: 'center',
-    maxWidth: 280,
-    marginBottom: 24,
-    color: '#8E8E93',
-    lineHeight: 22,
-  },
-  retryButton: {
-    backgroundColor: '#FF6B35',
-    paddingHorizontal: 24,
+    gap: 8,
+    paddingHorizontal: 16,
     paddingVertical: 12,
-    borderRadius: 24,
-    shadowColor: '#FF6B35',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
+    backgroundColor: '#FFFFFF',
   },
-  retryText: {
-    color: '#fff',
+  subTabButton: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 20,
+    alignItems: 'center',
+    backgroundColor: '#F8F9FA',
+  },
+  subTabButtonActive: {
+    backgroundColor: '#C41E3A',
+  },
+  subTabLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#8B7355',
+  },
+  subTabLabelActive: {
+    color: '#FFFFFF',
+  },
+  content: {
+    flex: 1,
+  },
+  placeholderContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+    paddingVertical: 60,
+  },
+  placeholderTitle: {
+    textAlign: 'center',
+    marginBottom: 12,
+    color: '#1A1A1A',
     fontWeight: '700',
-    fontSize: 16,
+  },
+  placeholderSubtitle: {
+    textAlign: 'center',
+    maxWidth: 280,
+    color: '#8E8E93',
+    lineHeight: 22,
   },
 });

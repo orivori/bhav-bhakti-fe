@@ -243,7 +243,7 @@ export default function HomeScreen() {
         router.push('/(main)/daily-status');
         break;
       case 'Ringtones':
-        router.push('/(main)/ringtones');
+        router.push({ pathname: '/(main)/ringtones', params: { subTab: 'ringtones' } });
         break;
     }
   };
