@@ -38,11 +38,12 @@ export interface Feed {
   title?: Record<string, string> | null;
   caption?: string;
   location?: string;
-  type: 'general' | 'mantra' | 'ringtone' | 'wallpaper' | 'aarti' | 'bhajan';
+  type: 'general' | 'mantra' | 'ringtone' | 'wallpaper' | 'aarti' | 'bhajan' | 'thought';
   categoryId?: number | null;
   category?: Category | null;
   deityId?: number | null;
   deity?: Deity | null;
+  statusOccasion?: 'good_morning' | 'good_evening' | 'good_night' | 'festive' | null;
   description?: Record<string, string> | null;
   objective?: Record<string, string> | null;
   mediaCount: number;
@@ -111,7 +112,7 @@ export interface FeedListResponse {
 }
 
 export interface CreateFeedRequest {
-  type?: 'general' | 'mantra' | 'ringtone' | 'wallpaper' | 'aarti' | 'bhajan';
+  type?: 'general' | 'mantra' | 'ringtone' | 'wallpaper' | 'aarti' | 'bhajan' | 'thought';
   caption?: string;
   location?: string;
   allowComments?: boolean;
@@ -131,9 +132,13 @@ export interface CreateFeedRequest {
 }
 
 export interface FeedFilters {
-  type?: 'general' | 'mantra' | 'ringtone' | 'wallpaper' | 'aarti' | 'bhajan';
+  type?: 'general' | 'mantra' | 'ringtone' | 'wallpaper' | 'aarti' | 'bhajan' | 'thought';
   categoryId?: number;
   deityId?: number;
+  // 'none' is a sentinel meaning "must have no occasion set" (IS NULL server-side) -
+  // omitting this field entirely means "don't filter by it at all" (the Status
+  // superset case), so a distinct value is needed for the opposite (Wallpapers).
+  statusOccasion?: 'good_morning' | 'good_evening' | 'good_night' | 'festive' | 'none';
   tags?: string[];
   search?: string;
   sortBy?: 'createdAt' | 'likesCount' | 'downloadsCount' | 'sharesCount' | 'viewsCount';
