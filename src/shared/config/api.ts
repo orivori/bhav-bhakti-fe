@@ -87,6 +87,10 @@ export const API_ENDPOINTS = {
     GET_BY_ID: (categoryId: number) => `/v1/categories/${categoryId}`,
     FEEDS: (categoryId: number) => `/v1/categories/${categoryId}/feeds`,
   },
+  DEITIES: {
+    LIST: '/v1/deities',
+    GET_BY_ID: (deityId: number) => `/v1/deities/${deityId}`,
+  },
   QUIZ: {
     GET_QUIZ: (type: string) => `/v1/quiz/${type}`,
     START: (type: string) => `/v1/quiz/${type}/start`,
