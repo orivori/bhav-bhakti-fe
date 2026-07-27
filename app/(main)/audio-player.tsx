@@ -17,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAudioPlayer, useAudioPlayerStatus, setAudioModeAsync } from 'expo-audio';
+import * as FileSystem from 'expo-file-system/legacy';
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
@@ -32,6 +33,54 @@ const { width } = Dimensions.get('window');
 
 // Target count options for mantras
 const TARGET_COUNT_OPTIONS = [27, 54, 108, 216, 324, 540, 1008];
+
+// Pure functions of their arguments (no component state closed over), so
+// these live at module scope rather than being recreated every render.
+
+const getAudioFileExtension = (audioUri: string): string => {
+  const pathWithoutQuery = audioUri.split('?')[0];
+  const urlParts = pathWithoutQuery.split('.');
+  const extension = urlParts.length > 1 ? urlParts[urlParts.length - 1].toLowerCase() : 'mp3';
+  const supportedExtensions = ['mp3', 'wav', 'aac', 'm4a', 'ogg'];
+  return supportedExtensions.includes(extension) ? extension : 'mp3';
+};
+
+// Returns the local cached copy of this feed's audio, downloading it once if
+// it isn't already on disk - mirrors RingtoneFeedCard.tsx's ensureLocalFile()
+// pattern, but keyed by feedId rather than sanitized title text. Title-based
+// keying has a latent collision risk: two different feeds that share (or
+// sanitize down to) the same title would silently share one cache file.
+// feedId is guaranteed unique and is already this screen's own established
+// per-item key elsewhere (see getCounterKey/getTargetKey below), so it's
+// used here too. On a failed/interrupted download, cleans up any partial
+// file before rethrowing, so a retry attempts a real download instead of
+// finding a corrupt file already sitting at the target path and silently
+// treating it as a valid cache hit.
+const ensureLocalFile = async (feedIdForCache: string, audioUri: string): Promise<string> => {
+  const localFileUri = `${FileSystem.documentDirectory}audio_player_${feedIdForCache}.${getAudioFileExtension(audioUri)}`;
+
+  const fileInfo = await FileSystem.getInfoAsync(localFileUri);
+  if (fileInfo.exists) {
+    console.log('📦 Using cached audio file:', localFileUri);
+    return localFileUri;
+  }
+
+  console.log('⬇️ No cached file found, downloading to:', localFileUri);
+  try {
+    const downloadResult = await FileSystem.downloadAsync(audioUri, localFileUri);
+    if (downloadResult.status !== 200) {
+      throw new Error(`Download failed with status ${downloadResult.status}`);
+    }
+    return downloadResult.uri;
+  } catch (error) {
+    try {
+      await FileSystem.deleteAsync(localFileUri, { idempotent: true });
+    } catch (cleanupError) {
+      console.error('Error cleaning up partial audio download:', cleanupError);
+    }
+    throw error;
+  }
+};
 
 export default function AudioPlayerScreen() {
   const params = useLocalSearchParams();
@@ -59,6 +108,11 @@ export default function AudioPlayerScreen() {
   // native "it failed" signal to react to - this is purely a "waiting for
   // status.isLoaded to flip" UI flag, resolved by the effect further down.
   const [isAudioLoading, setIsAudioLoading] = useState(false);
+  // Gates the 10s "did it ever load" timeout below - only flips true once
+  // togglePlayback has actually handed a resolved local URI to the native
+  // player, so a slow cache-miss download isn't unfairly counted against
+  // the same budget as expo-audio's own load time.
+  const [nativeLoadStarted, setNativeLoadStarted] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1.0);
   const [isLooping, setIsLooping] = useState(false);
   const [volume, setVolume] = useState(1.0);
@@ -75,6 +129,23 @@ export default function AudioPlayerScreen() {
   // land this call inside that restricted window if it fires around the
   // same moment as the transition.
   const isAppActiveRef = React.useRef(AppState.currentState === 'active');
+
+  // Tracks whether this screen is still mounted, for togglePlayback's
+  // caching step below: this screen only ever unmounts on a genuine
+  // app-tree unmount (e.g. logout - see the cleanup effect further down),
+  // not on ordinary tab navigation (Tabs don't unmount inactive screens),
+  // but if that unmount happens to land while ensureLocalFile's download is
+  // still in flight, touching `player` after the await resolves would throw
+  // "Cannot use shared object that was already released" - the same class
+  // of crash already found and fixed for RingtoneFeedCard.tsx during the
+  // Audio hub restructure.
+  const isMountedRef = React.useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   // Player is created once (with no source) for this screen's lifetime.
   // expo-audio's useAudioPlayer auto-releases the player on unmount via
@@ -434,9 +505,13 @@ export default function AudioPlayerScreen() {
   // is no `status.error` field in expo-audio the way expo-av had - so unlike
   // the old retry/fallback scaffolding this replaces, a load that never
   // resolves has no distinct failure signal to react to, and this timeout is
-  // the only safety net available for that case.
+  // the only safety net available for that case. Gated on nativeLoadStarted,
+  // not just isAudioLoading, so the 10s budget only starts counting once
+  // togglePlayback has actually handed a resolved local URI to the native
+  // player - not from the top of that function, which would otherwise also
+  // count a slow cache-miss download against the same 10s window.
   useEffect(() => {
-    if (!isAudioLoading) return;
+    if (!isAudioLoading || !nativeLoadStarted) return;
 
     if (status.isLoaded) {
       setIsAudioLoading(false);
@@ -449,10 +524,13 @@ export default function AudioPlayerScreen() {
     }, 10000);
 
     return () => clearTimeout(timeout);
-  }, [isAudioLoading, status.isLoaded]);
+  }, [isAudioLoading, nativeLoadStarted, status.isLoaded]);
 
-  // Handle audio playback
-  const togglePlayback = () => {
+  // Handle audio playback. Async since the "not yet loaded" branch now
+  // resolves a local cached copy of the audio (ensureLocalFile, above)
+  // before attaching it to the player - isMountedRef guards the code that
+  // runs after that await, per its own comment above.
+  const togglePlayback = async () => {
     try {
       if (status.isLoaded) {
         if (status.playing) {
@@ -482,22 +560,43 @@ export default function AudioPlayerScreen() {
         return;
       }
 
+      if (!feedId) {
+        console.log('❌ Audio Player: No feed ID available for caching');
+        Alert.alert(t('audioPlaybackError'), t('noAudioUrlError'));
+        return;
+      }
+
       console.log('🎵 Audio Player: Loading audio from URL:', contentData.audioUrl);
       setIsAudioLoading(true);
+      setNativeLoadStarted(false);
 
       // Determine if we should auto-loop (when count < target)
       const shouldAutoLoop = chantCount < targetCount;
       setIsAutoLooping(shouldAutoLoop);
       console.log('🎵 Audio setup - Count:', chantCount, 'Target:', targetCount, 'Auto-loop:', shouldAutoLoop);
 
+      const localUri = await ensureLocalFile(feedId, contentData.audioUrl.toString());
+
+      if (!isMountedRef.current) {
+        console.log('⚠️ Audio Player: unmounted while caching audio, aborting load');
+        return;
+      }
+
       player.loop = isLooping && !shouldAutoLoop; // Only the manual loop uses the native loop flag
       player.volume = volume;
       player.shouldCorrectPitch = false;
       player.setPlaybackRate(playbackSpeed); // playbackRate is a getter-only property at runtime - must go through setPlaybackRate()
-      player.replace({ uri: contentData.audioUrl.toString() });
+
+      // Only now - once we're handing a resolved local URI to the native
+      // player - start the 10s "did it ever load" timeout (see the effect
+      // above), not from the top of this function.
+      setNativeLoadStarted(true);
+      player.replace({ uri: localUri });
       player.play();
     } catch (error: any) {
       console.error('❌ Audio Player: Error playing audio:', error);
+      if (!isMountedRef.current) return;
+
       setIsAudioLoading(false);
 
       Alert.alert(t('audioPlaybackError'), 'Failed to play audio. Please try again.', [
