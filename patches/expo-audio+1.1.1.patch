@@ -1,0 +1,30 @@
+diff --git a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/AudioModule.kt b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/AudioModule.kt
+index 49a53af..847aa92 100644
+--- a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/AudioModule.kt
++++ b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/AudioModule.kt
+@@ -37,6 +37,7 @@ import expo.modules.kotlin.modules.Module
+ import expo.modules.kotlin.modules.ModuleDefinition
+ import kotlinx.coroutines.launch
+ import kotlinx.coroutines.runBlocking
++import okhttp3.Dispatcher
+ import okhttp3.OkHttpClient
+ import java.io.File
+ import java.util.concurrent.ConcurrentHashMap
+@@ -47,7 +48,16 @@ class AudioModule : Module() {
+   private lateinit var audioManager: AudioManager
+   private val context: Context
+     get() = appContext.reactContext ?: throw Exceptions.ReactContextLost()
+-  private val httpClient = OkHttpClient()
++  // Default OkHttp Dispatcher caps maxRequestsPerHost at 5, shared across
++  // every AudioPlayer instance app-wide. A paused persistent-player track can
++  // keep its connection alive/tearing-down for a noticeable window (worse on
++  // larger files), which can eat one of those 5 slots and starve a
++  // freshly-opened different track's own connection attempt - see the
++  // connection-pool investigation this fix addresses. Raised to 20 so one
++  // slow-releasing paused connection can no longer starve a fresh one.
++  private val httpClient = OkHttpClient.Builder()
++    .dispatcher(Dispatcher().apply { maxRequestsPerHost = 20 })
++    .build()
+ 
+   private val players = ConcurrentHashMap<String, AudioPlayer>()
+   private val recorders = ConcurrentHashMap<String, AudioRecorder>()
