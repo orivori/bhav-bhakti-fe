@@ -63,42 +63,44 @@ export default function SearchResultsScreen() {
     // Track view
     viewFeed(feed.id.toString());
 
-    // Check if feed is repeatable (chant counter) with audio media
-    if (feed.isRepeatable) {
-      console.log('🔍 SearchResults: This is a repeatable feed, checking for audio media');
-      const audioMedia = feed.media.find(media => media.type === 'audio');
+    // Navigate to the shared audio player for ANY feed that has audio media -
+    // matches Home's handleFeedPress (see CLAUDE.md §25), which used to gate
+    // this on feed.isRepeatable the same way this file still did. isRepeatable
+    // only controls whether the chant-counter UI shows once inside the player
+    // (audio-player.tsx reads it off the fetched Feed for that, separately) -
+    // it's not a signal for whether this content is playable at all. Fixes
+    // Aarti/Bhajan search results silently no-opping, since that content is
+    // isRepeatable: false by design (sung-through, not chant-repeated) but
+    // still needs to open in this same shared player.
+    const audioMedia = feed.media?.find(media => media.type === 'audio');
 
-      if (audioMedia) {
-        console.log('✅ SearchResults: Found audio media, navigating to audio player:', {
+    if (audioMedia) {
+      console.log('✅ SearchResults: Found audio media, navigating to audio player:', {
+        feedId: feed.id.toString(),
+        audioUrl: audioMedia.mediaUrl,
+        thumbnailUrl: audioMedia.thumbnailUrl
+      });
+
+      // Navigate to audio player with feed data
+      router.push({
+        pathname: '/(main)/audio-player',
+        params: {
           feedId: feed.id.toString(),
+          title: feed.caption || 'Sacred Mantra',
           audioUrl: audioMedia.mediaUrl,
-          thumbnailUrl: audioMedia.thumbnailUrl
-        });
-
-        // Navigate to audio player with feed data
-        router.push({
-          pathname: '/(main)/audio-player',
-          params: {
-            feedId: feed.id.toString(),
-            title: feed.caption || 'Sacred Mantra',
-            audioUrl: audioMedia.mediaUrl,
-            thumbnailUrl: audioMedia.thumbnailUrl,
-            tags: feed.tags?.join(',') || '',
-            autoPlay: 'true',
-            // See audio-player.tsx's back-button handling - without this,
-            // back falls through to router.back(), the known always-lands-
-            // on-Home bug, instead of back onto Search Results.
-            returnTo: '/(main)/search-results',
-          }
-        });
-        return;
-      } else {
-        console.log('❌ SearchResults: No audio media found in repeatable feed');
-      }
+          thumbnailUrl: audioMedia.thumbnailUrl,
+          tags: feed.tags?.join(',') || '',
+          autoPlay: 'true',
+          // See audio-player.tsx's back-button handling - without this,
+          // back falls through to router.back(), the known always-lands-
+          // on-Home bug, instead of back onto Search Results.
+          returnTo: '/(main)/search-results',
+        }
+      });
+      return;
     }
 
-    // For non-repeatable feeds, you can add different navigation logic
-    console.log('ℹ️ SearchResults: Non-repeatable feed or no audio media found');
+    console.log('ℹ️ SearchResults: No audio media found on this feed');
   };
 
   const renderHeader = () => (
