@@ -45,41 +45,186 @@ const getAudioFileExtension = (audioUri: string): string => {
   return supportedExtensions.includes(extension) ? extension : 'mp3';
 };
 
-// Returns the local cached copy of this feed's audio, downloading it once if
-// it isn't already on disk - mirrors RingtoneFeedCard.tsx's ensureLocalFile()
-// pattern, but keyed by feedId rather than sanitized title text. Title-based
-// keying has a latent collision risk: two different feeds that share (or
-// sanitize down to) the same title would silently share one cache file.
-// feedId is guaranteed unique and is already this screen's own established
-// per-item key elsewhere (see getCounterKey/getTargetKey below), so it's
-// used here too. On a failed/interrupted download, cleans up any partial
-// file before rethrowing, so a retry attempts a real download instead of
-// finding a corrupt file already sitting at the target path and silently
-// treating it as a valid cache hit.
-const ensureLocalFile = async (feedIdForCache: string, audioUri: string): Promise<string> => {
-  const localFileUri = `${FileSystem.documentDirectory}audio_player_${feedIdForCache}.${getAudioFileExtension(audioUri)}`;
+// feedId rather than sanitized title text keys the cache path below -
+// mirrors RingtoneFeedCard.tsx's cache-key choice, but avoids its latent
+// collision risk (two feeds sharing/sanitizing down to the same title would
+// silently share one cache file). feedId is guaranteed unique and is already
+// this screen's own established per-item key elsewhere (see
+// getCounterKey/getTargetKey below).
+const getLocalCachePath = (feedIdForCache: string, audioUri: string): string =>
+  `${FileSystem.documentDirectory}audio_player_${feedIdForCache}.${getAudioFileExtension(audioUri)}`;
 
+// Module-scope (not component state) so it's shared across remounts of this
+// screen (e.g. navigating between two different mantras reuses the same
+// route) and reachable from every place playback for a feedId can stop:
+// togglePlayback's own pause path, the coordinator's stop/pause closures
+// (called externally by the MiniPlayer, which can pause/stop this content
+// without this screen's own handlers ever running), the "preempted by
+// another persistent item" effect, and the unmount cleanup. A plain
+// DownloadResumable handle (not just a boolean/Set entry) is stored per
+// feedId specifically so any of those call sites can cancel it.
+const inFlightBackgroundDownloads = new Map<string, FileSystem.DownloadResumable>();
+
+// Tracks, per feedId, the cleanup Promise for a cancellation that's still
+// settling - cancelAsync() and the partial-file delete it triggers are both
+// async and nothing awaits them at the point cancelBackgroundDownload is
+// called, so without this, a fresh attempt for the SAME feedId landing in
+// that window could either collide with the still-in-flight native cancel
+// (two DownloadResumables racing over the same destination file - this is
+// what produced real "Download failed with status 400" / "Network request
+// failed" errors on-device) or mistake a not-yet-deleted partial file for a
+// valid cache hit. getCachedLocalUri and downloadToCacheInBackground below
+// both check this before touching the same feedId's cache file again.
+// Deliberately a Promise that never rejects (see cancelBackgroundDownload)
+// so awaiting it elsewhere can never throw.
+const inFlightCancellations = new Map<string, Promise<void>>();
+
+// Marks a feedId whose download has been deferred until a pending
+// cancellation clears (see downloadToCacheInBackground below), but hasn't
+// actually started yet - without this, a second call to
+// downloadToCacheInBackground for the same feedId arriving during that same
+// wait would ALSO defer and attach its own start, and both would fire once
+// the cancellation clears, recreating the exact same two-downloads-one-file
+// collision this whole mechanism exists to prevent.
+const queuedForBackgroundDownload = new Set<string>();
+
+// Fast, local-only check - no network involved. Returns the cached URI if
+// this feed's audio is already on disk, or null on a cache miss. Used by
+// togglePlayback's fresh-play path so a miss can fall straight through to
+// streaming the remote URL instead of blocking playback on a download -
+// expo-audio plays a remote https URL directly (this is exactly how this
+// screen worked before local caching was added), so there's no need to wait
+// for a local copy before starting playback.
+const getCachedLocalUri = async (feedIdForCache: string, audioUri: string): Promise<string | null> => {
+  // Only waits when a cancellation for THIS SPECIFIC feedId is still
+  // settling - inFlightCancellations.get() is a synchronous Map lookup, so
+  // for the overwhelming majority of calls (a first-ever play, or a replay
+  // of content that was never actively cancelled) this `if` is false and NO
+  // await ever executes: the function falls straight through to the
+  // getInfoAsync check below exactly as it did before this fix, with zero
+  // added delay on the common path.
+  const pendingCancellation = inFlightCancellations.get(feedIdForCache);
+  if (pendingCancellation) {
+    await pendingCancellation;
+  }
+
+  const localFileUri = getLocalCachePath(feedIdForCache, audioUri);
   const fileInfo = await FileSystem.getInfoAsync(localFileUri);
   if (fileInfo.exists) {
     console.log('📦 Using cached audio file:', localFileUri);
     return localFileUri;
   }
+  return null;
+};
 
-  console.log('⬇️ No cached file found, downloading to:', localFileUri);
-  try {
-    const downloadResult = await FileSystem.downloadAsync(audioUri, localFileUri);
-    if (downloadResult.status !== 200) {
-      throw new Error(`Download failed with status ${downloadResult.status}`);
-    }
-    return downloadResult.uri;
-  } catch (error) {
-    try {
-      await FileSystem.deleteAsync(localFileUri, { idempotent: true });
-    } catch (cleanupError) {
-      console.error('Error cleaning up partial audio download:', cleanupError);
-    }
-    throw error;
+// Fire-and-forget: downloads this feed's audio to the local cache without
+// blocking playback, called on a cache miss right after playback has already
+// started from the remote URL. Deliberately never touches `player` - it only
+// ever writes to the filesystem, so unlike togglePlayback's own cache check,
+// it has no exposure to the "shared object already released" crash class at
+// all, and can safely keep running (or be cancelled and clean up) even after
+// this screen unmounts. Guarded against duplicate concurrent downloads for
+// the same feedId, since backgrounding the download (rather than blocking
+// the UI on it) makes it newly possible for the user to revisit this same
+// content before the first download finishes.
+const downloadToCacheInBackground = (feedIdForCache: string, audioUri: string): void => {
+  if (inFlightBackgroundDownloads.has(feedIdForCache) || queuedForBackgroundDownload.has(feedIdForCache)) {
+    return;
   }
+
+  const startDownload = () => {
+    queuedForBackgroundDownload.delete(feedIdForCache);
+    const localFileUri = getLocalCachePath(feedIdForCache, audioUri);
+    console.log('⬇️ Background download starting:', localFileUri);
+    const resumable = FileSystem.createDownloadResumable(audioUri, localFileUri);
+    inFlightBackgroundDownloads.set(feedIdForCache, resumable);
+
+    resumable
+      .downloadAsync()
+      .then((result) => {
+        // A cancelled resumable download resolves to `undefined` rather
+        // than rejecting (confirmed in expo-file-system's own types) -
+        // cancellation is handled entirely by cancelBackgroundDownload
+        // below, including its own partial-file cleanup, so there's
+        // nothing further to do here.
+        if (!result) {
+          console.log('⏹️ Background cache download cancelled for feed:', feedIdForCache);
+          return;
+        }
+        if (result.status !== 200) {
+          throw new Error(`Download failed with status ${result.status}`);
+        }
+        console.log('✅ Background cache download complete for feed:', feedIdForCache);
+      })
+      .catch((error) => {
+        console.error('Background cache download failed for feed:', feedIdForCache, error);
+        FileSystem.deleteAsync(localFileUri, { idempotent: true }).catch((cleanupError) => {
+          console.error('Error cleaning up partial audio download:', cleanupError);
+        });
+      })
+      .finally(() => {
+        inFlightBackgroundDownloads.delete(feedIdForCache);
+      });
+  };
+
+  // Same reasoning as getCachedLocalUri above, and the same "only waits when
+  // something is actually pending" shape: if this feedId's previous download
+  // was just cancelled, defer starting a NEW DownloadResumable until that
+  // cleanup genuinely finishes, rather than racing it over the same
+  // destination file. queuedForBackgroundDownload is marked BEFORE returning
+  // so a second call for the same feedId arriving during this same wait
+  // bails out via the guard above instead of scheduling its own duplicate
+  // start. When nothing is pending (the common case), this whole block is
+  // skipped and startDownload() runs immediately, synchronously - no added
+  // delay to a normal fresh download.
+  const pendingCancellation = inFlightCancellations.get(feedIdForCache);
+  if (pendingCancellation) {
+    queuedForBackgroundDownload.add(feedIdForCache);
+    pendingCancellation.then(startDownload);
+    return;
+  }
+
+  startDownload();
+};
+
+// Cancels this feed's in-flight background cache download, if any, and
+// deletes the partial file it left behind. cancelAsync() only stops the
+// native transfer - it doesn't clean up after itself, since DownloadResumable
+// is designed around pause/resume, where keeping the partial file around is
+// the whole point. A genuine cancel here means "the user stopped/paused/left
+// - stop spending their bandwidth on this," not "pause for later," so this
+// matches the existing failed-download cleanup instead of leaving a
+// resumable partial file sitting on disk indefinitely.
+//
+// The cleanup work (native cancel + file delete) is stored in
+// inFlightCancellations, keyed by feedId, so getCachedLocalUri and
+// downloadToCacheInBackground can wait for it to actually finish before a
+// fresh attempt for this same feedId touches the same cache file again -
+// this function itself still returns immediately (fire-and-forget), it just
+// now leaves a trace of "still cleaning up" behind for other callers to
+// check. The stored promise deliberately never rejects (both steps catch
+// their own errors) so awaiting it elsewhere can never throw.
+const cancelBackgroundDownload = (feedIdForCache: string): void => {
+  const resumable = inFlightBackgroundDownloads.get(feedIdForCache);
+  if (!resumable) return;
+
+  inFlightBackgroundDownloads.delete(feedIdForCache);
+
+  const cleanup = resumable
+    .cancelAsync()
+    .catch((error) => {
+      console.error('Error cancelling background audio download:', error);
+    })
+    .then(() =>
+      FileSystem.deleteAsync(resumable.fileUri, { idempotent: true }).catch((cleanupError) => {
+        console.error('Error cleaning up cancelled partial audio download:', cleanupError);
+      })
+    )
+    .finally(() => {
+      inFlightCancellations.delete(feedIdForCache);
+    });
+
+  inFlightCancellations.set(feedIdForCache, cleanup);
 };
 
 export default function AudioPlayerScreen() {
@@ -118,7 +263,12 @@ export default function AudioPlayerScreen() {
   const [volume, setVolume] = useState(1.0);
   const [showVolumeSlider, setShowVolumeSlider] = useState(false);
   const [isAutoLooping, setIsAutoLooping] = useState(false); // Auto-loop until target reached
-  const autoPlayTriggeredRef = React.useRef(false); // Ensures the autoPlay param only starts playback once
+  // Keyed by feedId, not a plain boolean - this screen is a reused
+  // Tabs.Screen (see loadedFeedIdRef's comment below), so a plain
+  // "have we ever auto-played" flag would permanently latch true after the
+  // first mantra and silently block autoPlay for every mantra tapped after
+  // it in the same app session.
+  const autoPlayTriggeredForFeedIdRef = React.useRef<string | null>(null);
 
   // Tracks whether the app is genuinely, stably foregrounded - guards the
   // lock-screen activation call below against Android 12+'s
@@ -130,15 +280,17 @@ export default function AudioPlayerScreen() {
   // same moment as the transition.
   const isAppActiveRef = React.useRef(AppState.currentState === 'active');
 
-  // Tracks whether this screen is still mounted, for togglePlayback's
-  // caching step below: this screen only ever unmounts on a genuine
-  // app-tree unmount (e.g. logout - see the cleanup effect further down),
-  // not on ordinary tab navigation (Tabs don't unmount inactive screens),
-  // but if that unmount happens to land while ensureLocalFile's download is
-  // still in flight, touching `player` after the await resolves would throw
-  // "Cannot use shared object that was already released" - the same class
-  // of crash already found and fixed for RingtoneFeedCard.tsx during the
-  // Audio hub restructure.
+  // Tracks whether this screen is still mounted, for togglePlayback's cache
+  // check below: this screen only ever unmounts on a genuine app-tree
+  // unmount (e.g. logout - see the cleanup effect further down), not on
+  // ordinary tab navigation (Tabs don't unmount inactive screens), but if
+  // that unmount happens to land while getCachedLocalUri's await is still in
+  // flight, touching `player` after it resolves would throw "Cannot use
+  // shared object that was already released" - the same class of crash
+  // already found and fixed for RingtoneFeedCard.tsx during the Audio hub
+  // restructure. Note this only guards the (fast, local-only) cache check -
+  // the actual download runs separately in the background and never touches
+  // `player`, so it has no exposure to this crash class at all.
   const isMountedRef = React.useRef(true);
   useEffect(() => {
     isMountedRef.current = true;
@@ -156,6 +308,18 @@ export default function AudioPlayerScreen() {
   const player = useAudioPlayer(null);
   const status = useAudioPlayerStatus(player);
 
+  // Tracks which feedId's audio is actually attached to `player` right now.
+  // status.isLoaded alone only tells us SOMETHING is loaded, not WHETHER
+  // it's the currently-requested content - since this screen is a
+  // Tabs.Screen (registered in app/(main)/_layout.tsx), navigating here
+  // again with a different feedId reuses this exact component instance
+  // rather than remounting it, so `player`/`status.isLoaded` persist
+  // unchanged across a mantra switch on their own. Without this ref,
+  // togglePlayback's `if (status.isLoaded)` branch has no way to tell "a
+  // different mantra is already loaded" apart from "this same mantra is
+  // already loaded," and would just resume/pause whatever was loaded first.
+  const loadedFeedIdRef = React.useRef<string | null>(null);
+
   // Bottom sheet refs
   const counterSheetRef = React.useRef<BottomSheetModal>(null);
   const infoSheetRef = React.useRef<BottomSheetModal>(null);
@@ -169,7 +333,6 @@ export default function AudioPlayerScreen() {
   // Animation values
   const pulseAnim = React.useRef(new Animated.Value(1)).current;
   const rotateAnim = React.useRef(new Animated.Value(0)).current;
-  const waveAnims = React.useRef([...Array(20)].map(() => new Animated.Value(1))).current;
 
   // Interpolate rotation for proper string format
   const rotateInterpolation = rotateAnim.interpolate({
@@ -266,8 +429,22 @@ export default function AudioPlayerScreen() {
   // (or fallback route params before the fetch resolves). Kept as a single
   // generic shape so this screen can serve any repeatable/non-repeatable
   // audio content type (Mantra today, Aarti/Bhajan later) without a rewrite.
+  //
+  // The feedData.id.toString() === feedId check is deliberate, not
+  // redundant: fetchFeedData is async, and since this screen is a reused
+  // Tabs.Screen (see loadedFeedIdRef's comment above), feedData can still
+  // hold the PREVIOUS mantra's data for a brief window after feedId has
+  // already changed to a new one, right up until that fetch resolves.
+  // Without this check, this function would keep returning the old mantra's
+  // title/audioUrl/feedId under the new feedId during that window - which
+  // is exactly what let stale content leak into togglePlayback and the
+  // playback-coordinator registration effect below. Falling back to route
+  // params instead is safe here: every real navigation call site into this
+  // screen (Home, Mantra Explorer, Search Results) already passes
+  // title/audioUrl/thumbnailUrl alongside feedId, so the fallback is
+  // accurate for the new content, not just a placeholder.
   const getContentData = () => {
-    if (feedData && feedData.media && Array.isArray(feedData.media)) {
+    if (feedData && feedData.media && Array.isArray(feedData.media) && feedData.id.toString() === feedId) {
       const audioMedia = feedData.media.find(media =>
         media.type === 'audio' || media.type === 'image_audio'
       );
@@ -309,6 +486,13 @@ export default function AudioPlayerScreen() {
   };
 
   const contentData = getContentData();
+  // Same staleness guard as getContentData above, for the two places below
+  // that read feedData directly (feedData?.type, feedData?.isRepeatable)
+  // instead of through contentData - null during the same brief
+  // feedId-changed-but-not-yet-refetched window, so the coordinator
+  // registration and status-mirroring effects can't attach a previous
+  // mantra's type/counter shape to the newly-requested feedId either.
+  const currentFeedData = feedData && feedData.id.toString() === feedId ? feedData : null;
 
   // Update refs whenever state changes to avoid stale closure issues
   useEffect(() => {
@@ -334,92 +518,6 @@ export default function AudioPlayerScreen() {
   useEffect(() => {
     fetchFeedData();
   }, [feedId]);
-
-  // Test animation on mount to see if bars can animate at all
-  useEffect(() => {
-    console.log('🧪 Testing wave bar animation...');
-
-    // Test first 3 bars with simple animation
-    waveAnims.slice(0, 3).forEach((anim, index) => {
-      setTimeout(() => {
-        console.log(`🧪 Testing bar ${index}`);
-
-        const testAnimation = () => {
-          Animated.timing(anim, {
-            toValue: index === 0 ? 1.5 : index === 1 ? 0.5 : 1.8,
-            duration: 1000,
-            useNativeDriver: false,
-          }).start(() => {
-            Animated.timing(anim, {
-              toValue: 1,
-              duration: 1000,
-              useNativeDriver: false,
-            }).start();
-          });
-        };
-
-        testAnimation();
-      }, index * 500);
-    });
-  }, []);
-
-  // Wave animation effect - responds to play/pause
-  useEffect(() => {
-    console.log('🌊 Wave Effect: playing changed to', status.playing);
-
-    if (status.playing) {
-      // Start wave animations
-      startWaveAnimations();
-    } else {
-      // Stop wave animations
-      stopWaveAnimations();
-    }
-
-    // Cleanup function
-    return () => {
-      stopWaveAnimations();
-    };
-  }, [status.playing]);
-
-  const startWaveAnimations = () => {
-    console.log('🌊 Starting wave animations...');
-
-    waveAnims.forEach((anim, index) => {
-      // Set initial random value
-      anim.setValue(0.5 + Math.random() * 0.8);
-
-      const animateBar = () => {
-        if (!status.playing) return;
-
-        Animated.timing(anim, {
-          toValue: 0.3 + Math.random() * 1.2, // Random between 0.3 and 1.5
-          duration: 400 + Math.random() * 300,
-          useNativeDriver: false,
-        }).start(() => {
-          // Continue animating if still playing
-          if (status.playing) {
-            setTimeout(animateBar, 50); // Small delay between animations
-          }
-        });
-      };
-
-      // Start each bar with delay for wave effect
-      setTimeout(() => {
-        console.log(`🌊 Bar ${index} starting animation`);
-        animateBar();
-      }, index * 30);
-    });
-  };
-
-  const stopWaveAnimations = () => {
-    console.log('🌊 Stopping wave animations...');
-
-    // Reset all bars to normal size immediately
-    waveAnims.forEach(anim => {
-      anim.stopAnimation();
-      anim.setValue(1); // Reset to normal height
-    });
-  };
 
   // Initialize audio session for persistent (background-surviving) playback,
   // unlike Ringtones' deliberately ephemeral, foreground-only mode. Runs
@@ -526,17 +624,25 @@ export default function AudioPlayerScreen() {
     return () => clearTimeout(timeout);
   }, [isAudioLoading, nativeLoadStarted, status.isLoaded]);
 
-  // Handle audio playback. Async since the "not yet loaded" branch now
-  // resolves a local cached copy of the audio (ensureLocalFile, above)
-  // before attaching it to the player - isMountedRef guards the code that
-  // runs after that await, per its own comment above.
+  // Handle audio playback. Async since the "not yet loaded" branch checks the
+  // local cache (getCachedLocalUri, above) before attaching a source to the
+  // player - isMountedRef guards the code that runs after that await, per
+  // its own comment above.
   const togglePlayback = async () => {
     try {
-      if (status.isLoaded) {
+      // Only pause/resume the already-loaded source if it's actually THIS
+      // feedId's content - loadedFeedIdRef is what makes that distinction
+      // (status.isLoaded alone can't, see its own comment above). If
+      // something is loaded but for a DIFFERENT feedId, fall through to the
+      // load path below exactly as if nothing were loaded at all.
+      if (status.isLoaded && loadedFeedIdRef.current === feedId) {
         if (status.playing) {
           console.log('⏸️ Pausing audio - stopping auto-loop');
           player.pause();
           setIsAutoLooping(false);
+          // User showed disinterest (at least for now) - stop spending their
+          // bandwidth on a background cache download for this content.
+          if (feedId) cancelBackgroundDownload(feedId);
         } else {
           console.log('▶️ Resuming audio');
 
@@ -566,6 +672,16 @@ export default function AudioPlayerScreen() {
         return;
       }
 
+      // Switching away from a different mantra that was still loaded (not
+      // just a fresh, never-loaded player) - stop it audibly right away
+      // rather than leaving it playing through the cache-check await below,
+      // and stop spending bandwidth caching content the user just left.
+      if (loadedFeedIdRef.current && loadedFeedIdRef.current !== feedId) {
+        console.log('🔀 Switching mantras - stopping previously loaded feed:', loadedFeedIdRef.current);
+        player.pause();
+        cancelBackgroundDownload(loadedFeedIdRef.current);
+      }
+
       console.log('🎵 Audio Player: Loading audio from URL:', contentData.audioUrl);
       setIsAudioLoading(true);
       setNativeLoadStarted(false);
@@ -575,24 +691,43 @@ export default function AudioPlayerScreen() {
       setIsAutoLooping(shouldAutoLoop);
       console.log('🎵 Audio setup - Count:', chantCount, 'Target:', targetCount, 'Auto-loop:', shouldAutoLoop);
 
-      const localUri = await ensureLocalFile(feedId, contentData.audioUrl.toString());
+      const audioUrl = contentData.audioUrl.toString();
+      // Fast, local-only cache check - not a download. On a miss, play from
+      // the remote URL immediately below and cache in the background instead
+      // of blocking playback on a full download first.
+      const cachedUri = await getCachedLocalUri(feedId, audioUrl);
 
       if (!isMountedRef.current) {
-        console.log('⚠️ Audio Player: unmounted while caching audio, aborting load');
+        console.log('⚠️ Audio Player: unmounted while checking audio cache, aborting load');
         return;
       }
+
+      const sourceUri = cachedUri ?? audioUrl;
 
       player.loop = isLooping && !shouldAutoLoop; // Only the manual loop uses the native loop flag
       player.volume = volume;
       player.shouldCorrectPitch = false;
       player.setPlaybackRate(playbackSpeed); // playbackRate is a getter-only property at runtime - must go through setPlaybackRate()
 
-      // Only now - once we're handing a resolved local URI to the native
+      // Only now - once we're handing a resolved source to the native
       // player - start the 10s "did it ever load" timeout (see the effect
       // above), not from the top of this function.
       setNativeLoadStarted(true);
-      player.replace({ uri: localUri });
+      player.replace({ uri: sourceUri });
       player.play();
+      // Mark this feedId as the one now actually attached to `player`, so
+      // the next tap correctly takes the pause/resume branch above instead
+      // of reloading, and so a LATER switch to yet another mantra can tell
+      // this one apart as "different, needs replacing" too.
+      loadedFeedIdRef.current = feedId;
+
+      if (!cachedUri) {
+        // Cache miss: already streaming from audioUrl above, so this just
+        // primes the cache for next time - not awaited, doesn't block
+        // playback, and doesn't touch `player` at all (see the function's
+        // own comment for why that makes it safe post-unmount too).
+        downloadToCacheInBackground(feedId, audioUrl);
+      }
     } catch (error: any) {
       console.error('❌ Audio Player: Error playing audio:', error);
       if (!isMountedRef.current) return;
@@ -609,12 +744,27 @@ export default function AudioPlayerScreen() {
   // Auto-start playback when navigated here with autoPlay=true (e.g. Home's "Play now").
   // togglePlayback is otherwise only ever invoked by a user tap, so without this effect
   // the autoPlay param would have nothing to trigger it.
+  //
+  // Gated on loadedFeedIdRef, not status.isLoaded: since this screen is a
+  // reused Tabs.Screen, status.isLoaded stays true forever once ANY mantra
+  // has ever been loaded - gating on it alone meant autoPlay silently never
+  // fired for the second (or third...) mantra tapped in a session, because
+  // the guard was already false before this effect even ran. Comparing
+  // against loadedFeedIdRef.current correctly re-opens the gate whenever
+  // feedId points at content that isn't the one actually attached to
+  // `player` yet - the same distinction togglePlayback itself now makes.
   useEffect(() => {
-    if (autoPlay && !autoPlayTriggeredRef.current && !isFeedLoading && contentData.audioUrl && !status.isLoaded) {
-      autoPlayTriggeredRef.current = true;
+    if (
+      autoPlay &&
+      autoPlayTriggeredForFeedIdRef.current !== feedId &&
+      !isFeedLoading &&
+      contentData.audioUrl &&
+      loadedFeedIdRef.current !== feedId
+    ) {
+      autoPlayTriggeredForFeedIdRef.current = feedId ?? null;
       togglePlayback();
     }
-  }, [autoPlay, isFeedLoading, contentData.audioUrl, status.isLoaded]);
+  }, [autoPlay, isFeedLoading, contentData.audioUrl, feedId]);
 
   // Handle natural end-of-track: auto-loop restart + counter increment.
   // Unlike expo-av, expo-audio does not auto-rewind position on finish, and
@@ -731,7 +881,7 @@ export default function AudioPlayerScreen() {
     usePlaybackStore.getState().registerPlaybackStart(
       {
         feedId,
-        type: feedData?.type ?? 'mantra',
+        type: currentFeedData?.type ?? 'mantra',
         mode: 'persistent',
         title: contentData.title?.toString() ?? (t('sacredMantra') as string),
         thumbnailUrl: contentData.thumbnailUrl?.toString(),
@@ -740,17 +890,42 @@ export default function AudioPlayerScreen() {
         isPlaying: true,
         positionSeconds: status.currentTime,
         durationSeconds: status.duration,
-        counter: feedData?.isRepeatable
+        counter: currentFeedData?.isRepeatable
           ? { chantCount, targetCount, isAutoLooping }
           : undefined,
       },
       {
+        // stop/pause below are called externally too (e.g. by the
+        // MiniPlayer's controls), not just from this screen's own UI, so
+        // cancelling any in-flight background cache download has to live
+        // here rather than only inside togglePlayback's own pause branch -
+        // the user stopping/pausing via the mini-player is exactly as much
+        // "not actively interested right now" as pausing from this screen.
+        // Wrapped in try/catch, not AppState-gated: unlike
+        // activateLockScreenControls (which starts a foreground service and
+        // is genuinely restricted by Android 12+ during certain background/
+        // foreground transitions), these calls only ever fail because
+        // `player` itself has already been released - a native shared-object
+        // lifecycle issue, not a timing-window issue, so a try/catch is the
+        // correct guard here, not AppState gating.
         stop: () => {
-          player.pause();
-          player.seekTo(0);
-          player.clearLockScreenControls();
+          try {
+            player.pause();
+            player.seekTo(0);
+            player.clearLockScreenControls();
+          } catch (error) {
+            console.error('Error stopping playback (player likely already released):', error);
+          }
+          if (feedId) cancelBackgroundDownload(feedId);
         },
-        pause: () => player.pause(),
+        pause: () => {
+          try {
+            player.pause();
+          } catch (error) {
+            console.error('Error pausing playback (player likely already released):', error);
+          }
+          if (feedId) cancelBackgroundDownload(feedId);
+        },
         resume: () => player.play(),
         seekTo: (seconds: number) => {
           player.seekTo(seconds);
@@ -798,7 +973,7 @@ export default function AudioPlayerScreen() {
       isPlaying: status.playing,
       positionSeconds: status.currentTime,
       durationSeconds: status.duration,
-      counter: feedData?.isRepeatable
+      counter: currentFeedData?.isRepeatable
         ? { chantCount, targetCount, isAutoLooping }
         : undefined,
     });
@@ -824,18 +999,35 @@ export default function AudioPlayerScreen() {
     if (preemptedByFeedId && status.playing) {
       console.log('⏸️ Audio Player: preempted by another persistent player, pausing locally:', preemptedByFeedId);
       player.pause();
+      // This screen's own content just got bumped - it's no longer the
+      // thing the user is actively listening to, so stop caching it.
+      if (feedId) cancelBackgroundDownload(feedId);
     }
-  }, [preemptedByFeedId, status.playing, player]);
+  }, [preemptedByFeedId, status.playing, player, feedId]);
 
   // Clear this screen's entry from the shared store - and its lock-screen
   // controls, if active - on unmount (e.g. the whole (main) tree unmounting
   // on logout - see the coordinator design notes on why ordinary in-app tab
-  // navigation does NOT reach this).
+  // navigation does NOT reach this). Also cancels any in-flight background
+  // cache download for this feedId - cancelBackgroundDownload only touches
+  // the filesystem, never `player`, so it's safe to call unconditionally
+  // even though this cleanup itself runs after useAudioPlayer's own
+  // release() (see the isMountedRef comment above for why that ordering
+  // matters for code that DOES touch `player`). clearLockScreenControls()
+  // DOES touch `player`, though, and this cleanup is exactly the code path
+  // that ordering hazard describes - wrapped in try/catch for the same
+  // reason as the coordinator's stop/pause closures above, not AppState-
+  // gated (see that comment for why AppState-gating doesn't apply here).
   useEffect(() => {
     return () => {
-      player.clearLockScreenControls();
+      try {
+        player.clearLockScreenControls();
+      } catch (error) {
+        console.error('Error clearing lock-screen controls during unmount cleanup (player likely already released):', error);
+      }
       if (feedId) {
         usePlaybackStore.getState().clearNowPlaying(feedId);
+        cancelBackgroundDownload(feedId);
       }
     };
   }, [feedId, player]);
@@ -1157,26 +1349,6 @@ export default function AudioPlayerScreen() {
                   )}
                 </View>
                 <Text style={styles.lyricsText}>{contentData.title}</Text>
-
-                {/* Single Wave Visualizer - Only one row */}
-                <View style={styles.waveVisualizer}>
-                  {waveAnims.map((anim, index) => (
-                    <Animated.View
-                      key={index}
-                      style={[
-                        styles.waveBar,
-                        {
-                          height: anim.interpolate({
-                            inputRange: [0.2, 1.8],
-                            outputRange: [6, 30], // Min 6px, Max 30px
-                            extrapolate: 'clamp',
-                          }),
-                          opacity: status.playing ? 0.9 : 0.4,
-                        }
-                      ]}
-                    />
-                  ))}
-                </View>
 
                 {/* Audio Progress */}
                 <View style={styles.progressSection}>
@@ -1518,26 +1690,6 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: '#fff',
     fontWeight: '500',
-  },
-  waveVisualizer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 3,
-    marginBottom: 12,
-    height: 25,
-    paddingHorizontal: 15,
-  },
-  waveBar: {
-    width: 3,
-    backgroundColor: '#FFD700',
-    borderRadius: 1.5,
-    opacity: 0.9,
-    shadowColor: '#FFD700',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 3,
-    elevation: 3,
   },
   lyricsText: {
     fontSize: 24,
