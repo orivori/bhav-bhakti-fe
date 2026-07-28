@@ -27,6 +27,87 @@ import { useFeedStore } from '@/store/feedStore';
 import { usePlaybackStore } from '@/store/playbackStore';
 import { useTranslation } from '@/hooks/useTranslation';
 
+// Module-scope (not component state) so it's shared across every rendered
+// RingtoneFeedCard instance and reachable from every place playback for a
+// given cached file can stop: handlePlayPause's own pause branch, the
+// registered playback-coordinator stop/pause closures (called externally -
+// by ringtones.tsx's sub-tab-switch stop effect, and by this card's own
+// useFocusEffect blur cleanup when it's the currently-registered ephemeral
+// item), the AppState backgrounding handler, and the unmount cleanup. Keyed
+// by the target cache file path (localFileUri) - this component's existing
+// per-item key, same as ensureLocalFile below already uses. A plain
+// DownloadResumable handle is stored (not just a boolean) specifically so
+// any of those call sites can cancel it. Mirrors the identical pattern in
+// app/(main)/audio-player.tsx.
+const inFlightBackgroundDownloads = new Map<string, FileSystem.DownloadResumable>();
+
+// Fire-and-forget: downloads to the local cache without blocking playback,
+// called on a cache miss right after playback has already started from the
+// remote URL. Deliberately never touches a player instance - it only writes
+// to the filesystem, so it has no exposure to the "shared object already
+// released" crash class and can safely keep running (or be cancelled and
+// clean up) even after the card that triggered it unmounts. This is new
+// code, unlike the pre-existing ensureLocalFile below (left untouched for
+// handleDownload/handleSetRingtone), so unlike that function it cleans up a
+// failed download's partial file itself rather than leaving it in place.
+const downloadRingtoneInBackground = (cacheKey: string, audioUri: string): void => {
+  if (inFlightBackgroundDownloads.has(cacheKey)) {
+    return;
+  }
+
+  console.log('⬇️ Background ringtone download starting:', cacheKey);
+  const resumable = FileSystem.createDownloadResumable(audioUri, cacheKey);
+  inFlightBackgroundDownloads.set(cacheKey, resumable);
+
+  resumable
+    .downloadAsync()
+    .then((result) => {
+      // A cancelled resumable download resolves to `undefined` rather than
+      // rejecting (confirmed in expo-file-system's own types) -
+      // cancelBackgroundDownload below handles cleanup for that case, so
+      // there's nothing further to do here.
+      if (!result) {
+        console.log('⏹️ Background ringtone download cancelled:', cacheKey);
+        return;
+      }
+      if (result.status !== 200) {
+        throw new Error(`Download failed with status ${result.status}`);
+      }
+      console.log('✅ Background ringtone download complete:', cacheKey);
+    })
+    .catch((error) => {
+      console.error('Background ringtone download failed:', cacheKey, error);
+      FileSystem.deleteAsync(cacheKey, { idempotent: true }).catch((cleanupError) => {
+        console.error('Error cleaning up partial ringtone download:', cleanupError);
+      });
+    })
+    .finally(() => {
+      inFlightBackgroundDownloads.delete(cacheKey);
+    });
+};
+
+// Cancels an in-flight background cache download for this cache path, if
+// any, and deletes the partial file it left behind - cancelAsync() only
+// stops the native transfer, it doesn't clean up (DownloadResumable is
+// designed around pause/resume, where keeping the partial file is the whole
+// point, but a genuine cancel here means "stop spending bandwidth on this,"
+// not "pause for later"). Mirrors the identical function in
+// app/(main)/audio-player.tsx.
+const cancelBackgroundDownload = (cacheKey: string): void => {
+  const resumable = inFlightBackgroundDownloads.get(cacheKey);
+  if (!resumable) return;
+
+  inFlightBackgroundDownloads.delete(cacheKey);
+  resumable
+    .cancelAsync()
+    .catch((error) => console.error('Error cancelling background ringtone download:', error))
+    .finally(() => {
+      FileSystem.deleteAsync(resumable.fileUri, { idempotent: true }).catch((cleanupError) => {
+        console.error('Error cleaning up cancelled partial ringtone download:', cleanupError);
+      });
+    });
+};
+
 interface RingtoneFeedCardProps {
   feed: Feed;
   onLike?: (feedId: string) => void;
@@ -95,16 +176,21 @@ export default function RingtoneFeedCard({
   const localFileUri = FileSystem.documentDirectory + localFileName;
 
   // Returns the local cached copy of this ringtone, downloading it once if
-  // it isn't already on disk. Shared by playback, download, and
-  // set-as-ringtone so they never each create their own separate file.
+  // it isn't already on disk. Used by handleDownload and handleSetRingtone,
+  // which genuinely need a completed local file to hand to MediaLibrary -
+  // handlePlayPause no longer routes through this (see getCachedRingtoneUri
+  // and downloadRingtoneInBackground above instead), since playback itself
+  // shouldn't block on a full download.
   //
-  // Known gap, deliberately deferred: no concurrency guard. If two of the
-  // three callers race before any cache exists (e.g. Download and Play
-  // tapped almost simultaneously), both can pass the getInfoAsync check and
-  // independently downloadAsync to the same path. Low real-world risk at
-  // current scale (worst case is a harmless redundant download, not
-  // corruption) - revisit with an in-flight-download tracker if this ever
-  // becomes a real problem.
+  // Known gap, deliberately deferred: no concurrency guard against Download
+  // and Set-Ringtone racing each other (both can pass the getInfoAsync check
+  // and independently downloadAsync to the same path before either
+  // finishes). Low real-world risk (worst case is a harmless redundant
+  // download, not corruption). Note this is a narrower gap than it used to
+  // be: Play's own download is now tracked in inFlightBackgroundDownloads
+  // above and cancellable, but this function doesn't check that map before
+  // starting its own download - Download/Set-Ringtone tapped while Play's
+  // background download is still in flight can still race it the same way.
   const ensureLocalFile = async (): Promise<string> => {
     const fileInfo = await FileSystem.getInfoAsync(localFileUri);
     if (fileInfo.exists) {
@@ -122,6 +208,20 @@ export default function RingtoneFeedCard({
       throw new Error(`Download failed with status ${downloadResult.status}`);
     }
     return downloadResult.uri;
+  };
+
+  // Fast, local-only check - no network involved. Returns the cached URI if
+  // this ringtone's audio is already on disk, or null on a cache miss. Used
+  // by handlePlayPause so a miss can fall straight through to streaming the
+  // remote URL instead of blocking playback on a download - matches the
+  // identical restructure applied to app/(main)/audio-player.tsx.
+  const getCachedRingtoneUri = async (): Promise<string | null> => {
+    const fileInfo = await FileSystem.getInfoAsync(localFileUri);
+    if (fileInfo.exists) {
+      console.log('📦 Using cached ringtone file:', localFileUri);
+      return localFileUri;
+    }
+    return null;
   };
 
   // Fire clearNowPlaying if this card had a source loaded when it unmounts,
@@ -158,8 +258,12 @@ export default function RingtoneFeedCard({
       } catch (error) {
         console.error('Error checking player state during unmount cleanup (player likely already released):', error);
       }
+      // Unlike the player.isLoaded check above, this never touches the
+      // native player - only the filesystem - so it's safe to call
+      // regardless of whether that check threw.
+      cancelBackgroundDownload(localFileUri);
     };
-  }, [player, feed.id]);
+  }, [player, feed.id, localFileUri]);
 
   // Reset to 0 on natural end-of-track. Unlike expo-av, expo-audio does not
   // auto-rewind position when playback finishes - didJustFinish only flips
@@ -189,13 +293,14 @@ export default function RingtoneFeedCard({
         player.pause();
         player.seekTo(0);
         usePlaybackStore.getState().clearNowPlaying(feed.id.toString());
+        cancelBackgroundDownload(localFileUri);
       }
     });
 
     return () => {
       subscription.remove();
     };
-  }, [status.playing, player, feed.id]);
+  }, [status.playing, player, feed.id, localFileUri]);
 
   // Stop this ringtone if the screen it's rendered on loses focus via
   // in-app tab navigation (e.g. Home -> Mantra, or the Ringtones tab
@@ -267,11 +372,22 @@ export default function RingtoneFeedCard({
         durationSeconds: audioMedia.duration || 0,
       },
       {
+        // stop/pause below are also called externally (e.g. ringtones.tsx's
+        // sub-tab-switch stop effect, and this card's own useFocusEffect
+        // blur cleanup when it's the currently-registered ephemeral item),
+        // not just from this card's own handlePlayPause - cancelling any
+        // in-flight background cache download has to live here too, since
+        // the user leaving/switching away is exactly as much "not actively
+        // interested right now" as pausing from this card directly.
         stop: () => {
           player.pause();
           player.seekTo(0);
+          cancelBackgroundDownload(localFileUri);
         },
-        pause: () => player.pause(),
+        pause: () => {
+          player.pause();
+          cancelBackgroundDownload(localFileUri);
+        },
         resume: () => player.play(),
         seekTo: (seconds: number) => {
           player.seekTo(seconds);
@@ -295,6 +411,9 @@ export default function RingtoneFeedCard({
           player.pause();
           await player.seekTo(0);
           usePlaybackStore.getState().clearNowPlaying(feed.id.toString());
+          // User showed disinterest (at least for now) - stop spending their
+          // bandwidth on a background cache download for this ringtone.
+          cancelBackgroundDownload(localFileUri);
         } else {
           console.log('▶️ Resuming audio...');
           registerRingtonePlayback();
@@ -303,16 +422,29 @@ export default function RingtoneFeedCard({
         return;
       }
 
-      // No source loaded yet - resolve the cached local file and load it
+      // No source loaded yet - check the cache (fast, local-only) but don't
+      // block playback on a full download: play immediately (from cache if
+      // we have it, otherwise streamed directly from the remote URL), and on
+      // a cache miss, download to disk in the background so the *next* play
+      // of this ringtone is instant. Matches the identical restructure
+      // applied to app/(main)/audio-player.tsx.
       setIsLoading(true);
       console.log('🎧 Audio source URI:', audioSourceUri);
       console.log('🎼 Audio media:', audioMedia);
 
       if (audioSourceUri) {
-        const localUri = await ensureLocalFile();
-        console.log('📱 Loading audio into player from local file:', localUri);
-        player.replace({ uri: localUri });
+        const cachedUri = await getCachedRingtoneUri();
+        const sourceUri = cachedUri ?? audioSourceUri;
+        console.log(cachedUri ? '📱 Loading audio into player from local file:' : '🌐 Cache miss - streaming from remote URL:', sourceUri);
+        player.replace({ uri: sourceUri });
         player.play();
+
+        if (!cachedUri) {
+          // Cache miss: already streaming from audioSourceUri above, so this
+          // just primes the cache for next time - not awaited, doesn't
+          // block playback, and doesn't touch `player` at all.
+          downloadRingtoneInBackground(localFileUri, audioSourceUri);
+        }
 
         registerRingtonePlayback();
 
