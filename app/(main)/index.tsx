@@ -291,6 +291,11 @@ export default function HomeScreen() {
           thumbnailUrl: audioMedia.thumbnailUrl,
           tags: feed.tags?.join(',') || '',
           autoPlay: 'true',
+          // See audio-player.tsx's back-button handling - Home is where
+          // router.back()'s old always-lands-on-Home behavior happened to
+          // already be correct, but this keeps it explicit/consistent with
+          // every other entry point rather than relying on that coincidence.
+          returnTo: '/(main)/',
         }
       });
       return;

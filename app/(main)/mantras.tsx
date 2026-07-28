@@ -74,6 +74,10 @@ export default function MantrasScreen() {
         duration: mantra.media?.[0]?.duration?.toString() || '0',
         isLiked: mantra.isLiked ? 'true' : 'false',
         autoPlay: 'true',
+        // See audio-player.tsx's back-button handling - without this, back
+        // falls through to router.back(), which is the known bug (always
+        // lands on Home instead of back onto Mantra Explorer).
+        returnTo: '/(main)/mantras',
       },
     });
   }, [viewFeed]);

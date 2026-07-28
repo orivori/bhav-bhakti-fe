@@ -4,6 +4,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
 import { Text } from '@/components/atoms';
 import RingtonesTabContent from '@/components/molecules/RingtonesTabContent';
+import AartiTabContent from '@/components/molecules/AartiTabContent';
+import BhajanTabContent from '@/components/molecules/BhajanTabContent';
 import { usePlaybackStore } from '@/store/playbackStore';
 import DeityFilterRow, { DeityFilterSelection } from '@/components/molecules/DeityFilterRow';
 import { useDeities } from '@/features/feed/hooks/useDeities';
@@ -38,11 +40,11 @@ export default function AudioHubScreen() {
   const activeTabConfig = SUB_TABS.find((tab) => tab.key === activeSubTab)!;
 
   // Hub-level, deliberately shared across all sub-tabs (not re-declared inside
-  // RingtonesTabContent or any future AartiTabContent/BhajanTabContent) -
-  // selecting Ganesha must persist when switching sub-tabs, and the hub is the
-  // one screen in this tree that never unmounts, so state held here survives
-  // sub-tab switches for free. Consumed by RingtonesTabContent -> useRingtones()
-  // today; future Aarti/Bhajan content components will read the same value.
+  // RingtonesTabContent/AartiTabContent/BhajanTabContent) - selecting Ganesha
+  // must persist when switching sub-tabs, and the hub is the one screen in
+  // this tree that never unmounts, so state held here survives sub-tab
+  // switches for free. Consumed by RingtonesTabContent -> useRingtones() and
+  // Aarti/BhajanTabContent -> useAudioFeed().
   const [selectedFilter, setSelectedFilter] = useState<DeityFilterSelection>({ kind: 'trending' });
   const { data: deities = [] } = useDeities();
 
@@ -113,26 +115,8 @@ export default function AudioHubScreen() {
 
       <View style={styles.content}>
         {activeSubTab === 'ringtones' && <RingtonesTabContent filter={selectedFilter} />}
-        {activeSubTab === 'aarti' && (
-          <View style={styles.placeholderContainer}>
-            <Text variant="h4" style={styles.placeholderTitle}>
-              Aartis Coming Soon
-            </Text>
-            <Text variant="body" style={styles.placeholderSubtitle}>
-              This sub-tab is a placeholder - real Aarti content is separate future work.
-            </Text>
-          </View>
-        )}
-        {activeSubTab === 'bhajan' && (
-          <View style={styles.placeholderContainer}>
-            <Text variant="h4" style={styles.placeholderTitle}>
-              Bhajans Coming Soon
-            </Text>
-            <Text variant="body" style={styles.placeholderSubtitle}>
-              This sub-tab is a placeholder - real Bhajan content is separate future work.
-            </Text>
-          </View>
-        )}
+        {activeSubTab === 'aarti' && <AartiTabContent filter={selectedFilter} />}
+        {activeSubTab === 'bhajan' && <BhajanTabContent filter={selectedFilter} />}
       </View>
     </SafeAreaView>
   );
@@ -188,24 +172,5 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-  },
-  placeholderContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 32,
-    paddingVertical: 60,
-  },
-  placeholderTitle: {
-    textAlign: 'center',
-    marginBottom: 12,
-    color: '#1A1A1A',
-    fontWeight: '700',
-  },
-  placeholderSubtitle: {
-    textAlign: 'center',
-    maxWidth: 280,
-    color: '#8E8E93',
-    lineHeight: 22,
   },
 });

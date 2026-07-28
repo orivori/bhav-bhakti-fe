@@ -85,6 +85,10 @@ export default function SearchResultsScreen() {
             thumbnailUrl: audioMedia.thumbnailUrl,
             tags: feed.tags?.join(',') || '',
             autoPlay: 'true',
+            // See audio-player.tsx's back-button handling - without this,
+            // back falls through to router.back(), the known always-lands-
+            // on-Home bug, instead of back onto Search Results.
+            returnTo: '/(main)/search-results',
           }
         });
         return;

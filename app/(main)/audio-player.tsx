@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -233,6 +233,32 @@ export default function AudioPlayerScreen() {
   const autoPlay = params.autoPlay === 'true';
   const { t } = useTranslation();
   const { contentPadding } = useTabBarHeight();
+
+  // Known bug (see CLAUDE.md): the plain router.back() this screen used to
+  // call unconditionally always landed on Home regardless of which tab the
+  // user actually opened the player from - Mantra Explorer hit this too, not
+  // just Aarti/Bhajan. Rather than relying on the Tabs navigator's implicit
+  // back-history (whatever's misbehaving there isn't diagnosed), every real
+  // entry point now explicitly passes where "back" should go. router.back()
+  // is kept as the fallback for any caller that doesn't pass returnTo, so
+  // this is purely additive - no existing call site regresses.
+  const handleBack = useCallback(() => {
+    const returnTo = params.returnTo?.toString();
+    if (returnTo) {
+      let returnParams: Record<string, string> | undefined;
+      const rawReturnParams = params.returnParams?.toString();
+      if (rawReturnParams) {
+        try {
+          returnParams = JSON.parse(rawReturnParams);
+        } catch (error) {
+          console.error('Failed to parse returnParams, navigating without them:', error);
+        }
+      }
+      router.replace({ pathname: returnTo as any, params: returnParams });
+      return;
+    }
+    router.back();
+  }, [params.returnTo, params.returnParams]);
 
   // Feed data state
   const [feedData, setFeedData] = useState<Feed | null>(null);
@@ -1262,7 +1288,7 @@ export default function AudioPlayerScreen() {
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => router.back()}
+          onPress={handleBack}
           activeOpacity={0.7}
         >
           <Ionicons name="arrow-back" size={24} color={'#5D4E37'} />
