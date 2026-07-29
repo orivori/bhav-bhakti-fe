@@ -672,8 +672,11 @@ export default function AudioPlayerScreen() {
         } else {
           console.log('▶️ Resuming audio');
 
-          // Check if we should restart auto-looping
-          const shouldAutoLoop = chantCount < targetCount && !isLooping;
+          // Check if we should restart auto-looping. Gated on isRepeatable -
+          // auto-loop is mantra's chant-counter behavior; without this gate,
+          // Aarti/Bhajan (isRepeatable: false, chantCount/targetCount just
+          // sitting at their unused defaults) would silently auto-loop too.
+          const shouldAutoLoop = !!currentFeedData?.isRepeatable && chantCount < targetCount && !isLooping;
           setIsAutoLooping(shouldAutoLoop);
           // Auto-loop always restarts manually on natural finish (see the
           // didJustFinish effect below) - it never uses the native loop
@@ -712,8 +715,13 @@ export default function AudioPlayerScreen() {
       setIsAudioLoading(true);
       setNativeLoadStarted(false);
 
-      // Determine if we should auto-loop (when count < target)
-      const shouldAutoLoop = chantCount < targetCount;
+      // Determine if we should auto-loop (when count < target). Gated on
+      // isRepeatable, same reasoning as the resume branch above - without
+      // it, a fresh Aarti/Bhajan play (chantCount/targetCount at their
+      // never-saved defaults of 0/108) would auto-loop by default with no
+      // way to turn it off, since this content type has no counter UI to
+      // even reveal that a "target" is silently driving playback.
+      const shouldAutoLoop = !!currentFeedData?.isRepeatable && chantCount < targetCount;
       setIsAutoLooping(shouldAutoLoop);
       console.log('🎵 Audio setup - Count:', chantCount, 'Target:', targetCount, 'Auto-loop:', shouldAutoLoop);
 
@@ -850,6 +858,11 @@ export default function AudioPlayerScreen() {
       }
     } else {
       console.log('⏹️ Not auto-looping or target reached - stopping playback');
+      // pause() before seekTo(0): ExoPlayer's playWhenReady isn't cleared just
+      // because playbackState reaches STATE_ENDED, so seeking alone would
+      // exit STATE_ENDED and auto-resume playback from 0 - looking exactly
+      // like an unwanted restart instead of a clean stop.
+      player.pause();
       player.seekTo(0).catch(console.error);
 
       // Manual increment if not looping and count < target
