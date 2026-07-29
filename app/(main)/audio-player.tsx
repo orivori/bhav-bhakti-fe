@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   Alert,
   AppState,
+  Share,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -26,7 +27,7 @@ import { feedService } from '@/features/feed/services/feedService';
 import { Feed } from '@/types/feed';
 import { useTranslation } from '@/shared/i18n/useTranslation';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
-import { CounterSheet, InfoSheet } from '@/components/molecules/AudioPlayerSheets';
+import { CounterSheet, InfoSheet, QueueSheet } from '@/components/molecules/AudioPlayerSheets';
 import { usePlaybackStore, QueueItem } from '@/store/playbackStore';
 
 const { width } = Dimensions.get('window');
@@ -301,6 +302,7 @@ export default function AudioPlayerScreen() {
   const [isLooping, setIsLooping] = useState(false);
   const [volume, setVolume] = useState(1.0);
   const [showVolumeSlider, setShowVolumeSlider] = useState(false);
+  const [isLiking, setIsLiking] = useState(false);
   const [isAutoLooping, setIsAutoLooping] = useState(false); // Auto-loop until target reached
   // Keyed by feedId, not a plain boolean - this screen is a reused
   // Tabs.Screen (see loadedFeedIdRef's comment below), so a plain
@@ -362,6 +364,7 @@ export default function AudioPlayerScreen() {
   // Bottom sheet refs
   const counterSheetRef = React.useRef<BottomSheetModal>(null);
   const infoSheetRef = React.useRef<BottomSheetModal>(null);
+  const queueSheetRef = React.useRef<BottomSheetModal>(null);
 
   // Refs to store current state values for callback access (fixes stale closure issue)
   const isAutoLoopingRef = React.useRef(isAutoLooping);
@@ -874,6 +877,29 @@ export default function AudioPlayerScreen() {
     navigateToQueueItem(updatedQueue.originalItems[updatedQueue.playOrder[updatedQueue.position]]);
   }, [canGoNext, navigateToQueueItem]);
 
+  // QueueSheet renders in ACTIVE order (playOrder-resolved, so shuffled when
+  // shuffled) - it's a pure list with no knowledge of originalItems/playOrder
+  // itself, so this is computed here and passed down as plain arrays/index.
+  const queueDisplayItems = queue ? queue.playOrder.map((originalIndex) => queue.originalItems[originalIndex]) : [];
+  const queueDisplayIndex = queue?.position ?? 0;
+
+  // jumpToIndex takes a position WITHIN playOrder (see its own comment in
+  // playbackStore.ts) - exactly what QueueSheet's onSelectIndex reports,
+  // since queueDisplayItems above IS playOrder in list form. Same
+  // read-back-after-write plus navigateToQueueItem pattern as
+  // handlePrevious/handleNext. Deliberately does NOT dismiss the sheet -
+  // the new track loads/plays with the sheet still open, so browsing several
+  // items in a row doesn't mean reopening it each time. QueueSheet's own
+  // `isActive` highlight (keyed off currentIndex, which re-renders from the
+  // reactive `queue` selector once the store updates) is what shows the
+  // selection actually landed, in place of a dismiss-on-tap confirmation.
+  const handleJumpToQueueIndex = useCallback((index: number) => {
+    usePlaybackStore.getState().jumpToIndex(index);
+    const updatedQueue = usePlaybackStore.getState().queue;
+    if (!updatedQueue) return;
+    navigateToQueueItem(updatedQueue.originalItems[updatedQueue.playOrder[updatedQueue.position]]);
+  }, [navigateToQueueItem]);
+
   // Handle natural end-of-track: auto-loop restart + counter increment.
   // Unlike expo-av, expo-audio does not auto-rewind position on finish, and
   // there's no setOnPlaybackStatusUpdate registration to close over stale
@@ -1373,6 +1399,86 @@ export default function AudioPlayerScreen() {
     setShowVolumeSlider(!showVolumeSlider);
   };
 
+  // Mirrors WallpaperFeedCard's handleLike: no pre-call optimism, the local
+  // state only changes once the API call has actually succeeded - reads
+  // currentFeedData (not raw feedData) so this can never act on a stale
+  // previous item's isLiked/likesCount during the brief refetch window a
+  // feedId change opens (same staleness class getContentData's own guard
+  // exists for). feedIdRef is re-checked after the await, not just before -
+  // a skip/auto-advance while this call was in flight means feedData has
+  // already moved on to different content by the time it resolves, and
+  // patching it here would corrupt THAT content's like state instead.
+  const handleLike = () => {
+    if (!currentFeedData || isLiking) return;
+
+    const likedFeedId = currentFeedData.id.toString();
+    const wasLiked = currentFeedData.isLiked;
+    const previousLikesCount = currentFeedData.likesCount;
+
+    setIsLiking(true);
+
+    (async () => {
+      try {
+        if (wasLiked) {
+          await feedService.unlikeFeed(likedFeedId);
+        } else {
+          await feedService.likeFeed(likedFeedId);
+        }
+
+        if (isMountedRef.current && feedIdRef.current === likedFeedId) {
+          setFeedData((prev) =>
+            prev && prev.id.toString() === likedFeedId
+              ? {
+                  ...prev,
+                  isLiked: !wasLiked,
+                  likesCount: Math.max(0, wasLiked ? previousLikesCount - 1 : previousLikesCount + 1),
+                }
+              : prev
+          );
+        }
+      } catch (error) {
+        console.error('❌ Audio Player: Error toggling like:', error);
+        Alert.alert('Error', 'Failed to update like. Please try again.');
+      } finally {
+        if (isMountedRef.current) setIsLiking(false);
+      }
+    })();
+  };
+
+  // Mirrors WallpaperFeedCard's handleShare (call the API, bump the count,
+  // then open the native share sheet) - same staleness guard as handleLike
+  // above around the local setFeedData patch, since (unlike
+  // WallpaperFeedCard's version, which only touches the Zustand feed store)
+  // this one touches this screen's own React state.
+  const handleShare = async () => {
+    if (!currentFeedData) return;
+
+    const sharedFeedId = currentFeedData.id.toString();
+
+    try {
+      await feedService.shareFeed(sharedFeedId, { platform: 'native_share' });
+
+      if (isMountedRef.current && feedIdRef.current === sharedFeedId) {
+        setFeedData((prev) =>
+          prev && prev.id.toString() === sharedFeedId
+            ? { ...prev, sharesCount: prev.sharesCount + 1 }
+            : prev
+        );
+      }
+
+      const shareTitle = contentData.title?.toString();
+      await Share.share({
+        message: shareTitle
+          ? `Check out this: ${shareTitle}\n\nShared from Bhav Bhakti App`
+          : 'Check out this amazing content from Bhav Bhakti App!',
+        url: contentData.audioUrl?.toString(),
+      });
+    } catch (error) {
+      console.error('❌ Audio Player: Error sharing:', error);
+      Alert.alert('Error', 'Failed to share. Please try again.');
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Header with Back Button */}
@@ -1418,13 +1524,46 @@ export default function AudioPlayerScreen() {
               <Text numberOfLines={1} style={styles.contentTitleCompact}>{contentData.title}</Text>
               <Text numberOfLines={1} style={styles.contentSubtitleCompact}>{contentData.deity}</Text>
             </View>
-            <TouchableOpacity
-              onPress={() => infoSheetRef.current?.present()}
-              style={styles.headerIconButton}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="information-circle-outline" size={22} color={'#5D4E37'} />
-            </TouchableOpacity>
+            <View style={styles.headerIconsRow}>
+              <TouchableOpacity
+                onPress={handleLike}
+                disabled={isLiking}
+                style={styles.headerIconButton}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name={currentFeedData?.isLiked ? 'heart' : 'heart-outline'}
+                  size={22}
+                  color={currentFeedData?.isLiked ? '#C41E3A' : '#8B7355'}
+                />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={handleShare}
+                style={styles.headerIconButton}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="share-outline" size={22} color="#8B7355" />
+              </TouchableOpacity>
+
+              {showTrackNav && (
+                <TouchableOpacity
+                  onPress={() => queueSheetRef.current?.present()}
+                  style={styles.headerIconButton}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="list-outline" size={22} color={'#5D4E37'} />
+                </TouchableOpacity>
+              )}
+
+              <TouchableOpacity
+                onPress={() => infoSheetRef.current?.present()}
+                style={styles.headerIconButton}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="information-circle-outline" size={22} color={'#5D4E37'} />
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* Visual Area - flexible, fills remaining space */}
@@ -1560,6 +1699,15 @@ export default function AudioPlayerScreen() {
             <View style={styles.primaryControls}>
               {showTrackNav && (
                 <TouchableOpacity
+                  onPress={() => usePlaybackStore.getState().toggleShuffle()}
+                  style={styles.trackNavButton}
+                >
+                  <Ionicons name="shuffle" size={22} color={queue?.isShuffled ? '#FF5722' : '#5D4E37'} />
+                </TouchableOpacity>
+              )}
+
+              {showTrackNav && (
+                <TouchableOpacity
                   onPress={handlePrevious}
                   disabled={!canGoPrevious}
                   style={[styles.trackNavButton, !canGoPrevious && styles.trackNavButtonDisabled]}
@@ -1633,6 +1781,14 @@ export default function AudioPlayerScreen() {
         deity={contentData.deity as string}
         objective={contentData.objective as string}
         tags={(contentData.tags as string[]) || []}
+      />
+
+      {/* Active queue (aarti/bhajan only), moved off-screen into an overlay sheet */}
+      <QueueSheet
+        ref={queueSheetRef}
+        items={queueDisplayItems}
+        currentIndex={queueDisplayIndex}
+        onSelectIndex={handleJumpToQueueIndex}
       />
 
       {/* Target Count Selector Modal */}
@@ -1732,6 +1888,10 @@ const styles = StyleSheet.create({
   },
   headerIconButton: {
     padding: 6,
+  },
+  headerIconsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   // Lyrics Section - flexible visual area
   lyricsSection: {

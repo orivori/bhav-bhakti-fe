@@ -16,6 +16,7 @@ export const translations = {
     deity: 'Deity',
     objective: 'Objective',
     contentDetails: 'Details',
+    upNext: 'Up Next',
     // Audio Controls
     playbackSpeed: 'Speed',
     volume: 'Volume',
@@ -64,6 +65,7 @@ export const translations = {
     deity: 'देवता',
     objective: 'उद्देश्य',
     contentDetails: 'विवरण',
+    upNext: 'आगे बजेगा',
     // Audio Controls
     playbackSpeed: 'गति',
     volume: 'आवाज़',
@@ -111,6 +113,7 @@ export const translations = {
     deity: 'દેવતા',
     objective: 'ઉદ્દેશ્ય',
     contentDetails: 'વિગતો',
+    upNext: 'આગળ વાગશે',
     // Audio Controls
     playbackSpeed: 'ઝડપ',
     volume: 'અવાજ',
@@ -158,6 +161,7 @@ export const translations = {
     deity: 'দেবতা',
     objective: 'উদ্দেশ্য',
     contentDetails: 'বিবরণ',
+    upNext: 'পরবর্তী বাজবে',
     // Audio Controls
     playbackSpeed: 'গতি',
     volume: 'শব্দ',
