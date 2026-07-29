@@ -27,7 +27,7 @@ import { Feed } from '@/types/feed';
 import { useTranslation } from '@/shared/i18n/useTranslation';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
 import { CounterSheet, InfoSheet } from '@/components/molecules/AudioPlayerSheets';
-import { usePlaybackStore } from '@/store/playbackStore';
+import { usePlaybackStore, QueueItem } from '@/store/playbackStore';
 
 const { width } = Dimensions.get('window');
 
@@ -44,6 +44,19 @@ const getAudioFileExtension = (audioUri: string): string => {
   const supportedExtensions = ['mp3', 'wav', 'aac', 'm4a', 'ogg'];
   return supportedExtensions.includes(extension) ? extension : 'mp3';
 };
+
+// Confirmed via a real on-device crash: expo-audio's native lock-screen
+// metadata (setActiveForLockScreen) tries to parse artworkUrl as a URL and
+// throws MalformedURLException on Android if it's an empty string - which is
+// exactly what contentData.thumbnailUrl resolves to for queue items with no
+// thumbnail (route params carry '' rather than undefined for a missing
+// value, see AudioContentCard/navigateToQueueItem's `|| ''` fallback), not
+// undefined. A plain truthy/falsy check would treat '' correctly but so
+// would `!!url`, without confirming it's actually URL-shaped - this checks
+// both, since any other malformed-but-truthy string would hit the exact same
+// native crash.
+const isValidArtworkUrl = (url: string | undefined): url is string =>
+  !!url && /^https?:\/\/.+/i.test(url);
 
 // feedId rather than sanitized title text keys the cache path below -
 // mirrors RingtoneFeedCard.tsx's cache-key choice, but avoids its latent
@@ -800,6 +813,67 @@ export default function AudioPlayerScreen() {
     }
   }, [autoPlay, isFeedLoading, contentData.audioUrl, feedId]);
 
+  // Reactive so the Previous/Next buttons' disabled state (and the row
+  // itself, if the queue clears) updates live as position changes -
+  // computing the "current" item requires the same originalItems[playOrder
+  // [position]] resolution playbackStore.ts documents, not just `position`
+  // alone, so this subscribes to the whole queue slot rather than picking
+  // out individual fields. Declared here (rather than nearer the JSX that
+  // also uses it, further down) because the didJustFinish effect below
+  // needs it too - a `const` referenced by an effect defined earlier in this
+  // function body must itself be declared even earlier, or TypeScript
+  // (correctly) flags a temporal-dead-zone violation.
+  const queue = usePlaybackStore((state) => state.queue);
+
+  // One derived flag, not scattered type checks - see CLAUDE.md's
+  // player-cleanup notes for why (mirrors the existing feedData?.isRepeatable
+  // gate already used for the counter button below). Mantra never has a
+  // queue (Phase 3 never calls setQueue for it), so gating on type alone -
+  // rather than on `queue` being present - is what keeps this hidden for
+  // mantra even in a hypothetical future where queue ends up non-null there.
+  const showTrackNav = currentFeedData?.type === 'aarti' || currentFeedData?.type === 'bhajan';
+  const canGoPrevious = !!queue && queue.position > 0;
+  const canGoNext = !!queue && queue.position < queue.playOrder.length - 1;
+
+  // Shared by handlePrevious/handleNext and the didJustFinish auto-advance
+  // branch below - reuses the exact same load path any other tap into this
+  // screen already uses (fetchFeedData/loadedFeedIdRef/autoPlay effect all
+  // key off feedId route params changing), so no new playback logic is
+  // needed here. router.replace, not push, so repeated skips/auto-advances
+  // don't grow the back stack - handleBack's returnTo/returnParams still
+  // point at the ORIGINAL entry screen either way, re-passed through
+  // unchanged on every hop.
+  const navigateToQueueItem = useCallback((item: QueueItem) => {
+    router.replace({
+      pathname: '/(main)/audio-player',
+      params: {
+        feedId: item.feedId,
+        title: item.title,
+        audioUrl: item.audioUrl,
+        thumbnailUrl: item.thumbnailUrl || '',
+        autoPlay: 'true',
+        ...(params.returnTo ? { returnTo: params.returnTo.toString() } : {}),
+        ...(params.returnParams ? { returnParams: params.returnParams.toString() } : {}),
+      },
+    });
+  }, [params.returnTo, params.returnParams]);
+
+  const handlePrevious = useCallback(() => {
+    if (!canGoPrevious) return;
+    usePlaybackStore.getState().goToPrevious();
+    const updatedQueue = usePlaybackStore.getState().queue;
+    if (!updatedQueue) return;
+    navigateToQueueItem(updatedQueue.originalItems[updatedQueue.playOrder[updatedQueue.position]]);
+  }, [canGoPrevious, navigateToQueueItem]);
+
+  const handleNext = useCallback(() => {
+    if (!canGoNext) return;
+    usePlaybackStore.getState().advanceQueue();
+    const updatedQueue = usePlaybackStore.getState().queue;
+    if (!updatedQueue) return;
+    navigateToQueueItem(updatedQueue.originalItems[updatedQueue.playOrder[updatedQueue.position]]);
+  }, [canGoNext, navigateToQueueItem]);
+
   // Handle natural end-of-track: auto-loop restart + counter increment.
   // Unlike expo-av, expo-audio does not auto-rewind position on finish, and
   // there's no setOnPlaybackStatusUpdate registration to close over stale
@@ -810,6 +884,23 @@ export default function AudioPlayerScreen() {
     if (!status.didJustFinish) return;
 
     console.log('🎵 Audio Player: Audio playback finished');
+
+    // Aarti/Bhajan only, and only early-returns when there's actually
+    // somewhere to advance to - showTrackNav is false for mantra (see its
+    // own definition below), so this can never fire for mantra content and
+    // the untouched auto-loop/counter logic beneath it. A queue with nothing
+    // left (or no queue at all - e.g. reached via Search/Home, which never
+    // call setQueue) falls straight through to the existing clean-stop
+    // behavior in the unchanged branches below, unchanged.
+    if (showTrackNav && queue && queue.position < queue.playOrder.length - 1) {
+      console.log('⏭️ Audio Player: track finished, advancing queue');
+      usePlaybackStore.getState().advanceQueue();
+      const updatedQueue = usePlaybackStore.getState().queue;
+      if (updatedQueue) {
+        navigateToQueueItem(updatedQueue.originalItems[updatedQueue.playOrder[updatedQueue.position]]);
+      }
+      return;
+    }
 
     const currentAutoLooping = isAutoLoopingRef.current;
     const currentCount = chantCountRef.current;
@@ -871,7 +962,7 @@ export default function AudioPlayerScreen() {
         handleIncrementCount();
       }
     }
-  }, [status.didJustFinish, player]);
+  }, [status.didJustFinish, player, showTrackNav, queue, navigateToQueueItem]);
 
   // Activates lock-screen/notification controls with fresh metadata - only
   // ever called when isAppActiveRef confirms the app is genuinely
@@ -887,12 +978,17 @@ export default function AudioPlayerScreen() {
   // position to the lock screen" call needed anywhere in this file.
   const activateLockScreenControls = () => {
     try {
+      const artworkUrl = contentData.thumbnailUrl?.toString();
+
       player.setActiveForLockScreen(
         true,
         {
           title: contentData.title?.toString() ?? (t('sacredMantra') as string),
           artist: contentData.deity?.toString(),
-          artworkUrl: contentData.thumbnailUrl?.toString(),
+          // Omitted entirely (not passed as '' or undefined) when it isn't a
+          // genuine URL - see isValidArtworkUrl's comment for why an empty
+          // string specifically crashes the native side.
+          ...(isValidArtworkUrl(artworkUrl) ? { artworkUrl } : {}),
         },
         {
           showSeekForward: true,
@@ -1207,24 +1303,6 @@ export default function AudioPlayerScreen() {
     }
   };
 
-  // Skip forward by 10 seconds
-  const skipForward = async () => {
-    if (status.isLoaded && status.duration > 0) {
-      const newPosition = Math.min(status.currentTime + 10, status.duration);
-      await seekToPosition(newPosition);
-      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    }
-  };
-
-  // Skip backward by 10 seconds
-  const skipBackward = async () => {
-    if (status.isLoaded) {
-      const newPosition = Math.max(status.currentTime - 10, 0);
-      await seekToPosition(newPosition);
-      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    }
-  };
-
   // Toggle playback speed
   const togglePlaybackSpeed = () => {
     if (status.isLoaded) {
@@ -1378,15 +1456,6 @@ export default function AudioPlayerScreen() {
 
               {/* Content */}
               <View style={styles.lyricsContent}>
-                <View style={styles.lyricsHeader}>
-                  <Text style={styles.lyricsTitle}>{t('mantraLyrics')}</Text>
-                  {status.isLoaded && status.duration > 0 && (
-                    <View style={styles.audioStatusIndicator}>
-                      <View style={styles.audioStatusDot} />
-                      <Text style={styles.audioStatusText}>{t('ready')}</Text>
-                    </View>
-                  )}
-                </View>
                 <Text style={styles.lyricsText}>{contentData.title}</Text>
 
                 {/* Audio Progress */}
@@ -1489,9 +1558,15 @@ export default function AudioPlayerScreen() {
 
             {/* Primary Controls Row */}
             <View style={styles.primaryControls}>
-              <TouchableOpacity onPress={skipBackward} style={styles.skipButton}>
-                <Ionicons name="play-skip-back" size={28} color={'#5D4E37'} />
-              </TouchableOpacity>
+              {showTrackNav && (
+                <TouchableOpacity
+                  onPress={handlePrevious}
+                  disabled={!canGoPrevious}
+                  style={[styles.trackNavButton, !canGoPrevious && styles.trackNavButtonDisabled]}
+                >
+                  <Ionicons name="play-skip-back" size={28} color={'#5D4E37'} />
+                </TouchableOpacity>
+              )}
 
               <Animated.View
                 style={[
@@ -1524,15 +1599,15 @@ export default function AudioPlayerScreen() {
                 </TouchableOpacity>
               </Animated.View>
 
-              <TouchableOpacity onPress={skipForward} style={styles.skipButton}>
-                <Ionicons name="play-skip-forward" size={28} color={'#5D4E37'} />
-              </TouchableOpacity>
-            </View>
-
-            {/* Skip Indicators */}
-            <View style={styles.skipIndicators}>
-              <Text style={styles.skipText}>-10s</Text>
-              <Text style={styles.skipText}>+10s</Text>
+              {showTrackNav && (
+                <TouchableOpacity
+                  onPress={handleNext}
+                  disabled={!canGoNext}
+                  style={[styles.trackNavButton, !canGoNext && styles.trackNavButtonDisabled]}
+                >
+                  <Ionicons name="play-skip-forward" size={28} color={'#5D4E37'} />
+                </TouchableOpacity>
+              )}
             </View>
           </View>
         </View>
@@ -1694,42 +1769,6 @@ const styles = StyleSheet.create({
     right: 0,
     padding: 24,
   },
-  lyricsHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  lyricsTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#fff',
-    textShadowColor: 'rgba(0,0,0,0.7)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 3,
-  },
-  audioStatusIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,255,0,0.2)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(0,255,0,0.3)',
-  },
-  audioStatusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#00FF00',
-    marginRight: 4,
-  },
-  audioStatusText: {
-    fontSize: 10,
-    color: '#fff',
-    fontWeight: '500',
-  },
   lyricsText: {
     fontSize: 24,
     fontWeight: 'bold',
@@ -1826,13 +1865,19 @@ const styles = StyleSheet.create({
     gap: 30,
     marginBottom: 12,
   },
-  skipButton: {
+  // Same position/style as the old 10s-seek buttons Phase 1 removed - now a
+  // real track-skip, not a seek, so play-skip-back/forward are no longer an
+  // ambiguous icon choice on this screen.
+  trackNavButton: {
     padding: 14,
     backgroundColor: '#F5E6D3',
     borderRadius: 25,
     borderWidth: 0,
     borderColor: 'rgba(218, 165, 32, 0.5)',
     ...goldenTempleTheme.shadows.sm,
+  },
+  trackNavButtonDisabled: {
+    opacity: 0.4,
   },
   playButtonContainer: {
     alignItems: 'center',
@@ -1848,17 +1893,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  skipIndicators: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: 180,
-    paddingHorizontal: 20,
-  },
-  skipText: {
-    fontSize: 10,
-    color: '#8B7355',
-    fontWeight: '500',
   },
   volumeContainer: {
     backgroundColor: '#FFFFFF',

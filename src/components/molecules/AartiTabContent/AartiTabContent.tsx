@@ -40,9 +40,9 @@ export default function AartiTabContent({ filter }: AartiTabContentProps) {
     handleLoadMore,
   } = useAudioFeed('aarti', filter);
 
-  const renderItem = useCallback(({ item }: ListRenderItemInfo<Feed>) => (
-    <AudioContentCard feed={item} subTab="aarti" />
-  ), []);
+  const renderItem = useCallback(({ item, index }: ListRenderItemInfo<Feed>) => (
+    <AudioContentCard feed={item} subTab="aarti" queueItems={aartis} queueIndex={index} />
+  ), [aartis]);
 
   const renderFooter = useCallback(() => {
     if (!hasMore) {

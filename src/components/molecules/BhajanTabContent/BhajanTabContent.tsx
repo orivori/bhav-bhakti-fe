@@ -39,9 +39,9 @@ export default function BhajanTabContent({ filter }: BhajanTabContentProps) {
     handleLoadMore,
   } = useAudioFeed('bhajan', filter);
 
-  const renderItem = useCallback(({ item }: ListRenderItemInfo<Feed>) => (
-    <AudioContentCard feed={item} subTab="bhajan" />
-  ), []);
+  const renderItem = useCallback(({ item, index }: ListRenderItemInfo<Feed>) => (
+    <AudioContentCard feed={item} subTab="bhajan" queueItems={bhajans} queueIndex={index} />
+  ), [bhajans]);
 
   const renderFooter = useCallback(() => {
     if (!hasMore) {

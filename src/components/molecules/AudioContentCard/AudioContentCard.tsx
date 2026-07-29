@@ -6,6 +6,25 @@ import { Text } from '@/components/atoms';
 import { Feed } from '@/types/feed';
 import { useTranslation } from '@/hooks/useTranslation';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
+import { usePlaybackStore, QueueItem } from '@/store/playbackStore';
+
+// Shared by both this card's own display fields and the queue-item mapping
+// in handlePress below - kept as one function so a list of N cards resolving
+// title/audio/thumbnail for themselves and handlePress resolving the same
+// fields for all N feeds (to seed the queue) can never drift apart into two
+// slightly different definitions of "this feed's title."
+//
+// Matches audio-player.tsx's own getContentData() media lookup (checks both
+// 'audio' and 'image_audio'), not the narrower 'audio'-only checks in
+// index.tsx/search-results.tsx - Aarti/Bhajan content may use either shape.
+const resolveQueueItem = (feed: Feed, language: string): QueueItem => {
+  const title = feed.title?.[language] || feed.title?.en || feed.caption || 'Untitled';
+  const audioMedia = feed.media?.find(m => m.type === 'audio' || m.type === 'image_audio');
+  const audioUrl = audioMedia?.mediaUrl || audioMedia?.audioUrl || '';
+  const thumbnailUrl = audioMedia?.thumbnailUrl || (audioMedia?.mediaUrl !== audioUrl ? audioMedia?.mediaUrl : undefined);
+
+  return { feedId: feed.id.toString(), title, audioUrl, thumbnailUrl };
+};
 
 interface AudioContentCardProps {
   feed: Feed;
@@ -13,6 +32,14 @@ interface AudioContentCardProps {
   // audio-player.tsx's back button which sub-tab to return to (see
   // CLAUDE.md's back-navigation notes). Not used for anything else here.
   subTab: 'aarti' | 'bhajan';
+  // The full currently-loaded list this card belongs to, and this card's
+  // position within it - used only to seed the playback queue on tap (see
+  // playbackStore.ts's queue state). AartiTabContent/BhajanTabContent pass
+  // their live `items`/index straight from FlatList's renderItem, so a tap
+  // always queues whatever's actually loaded right now (post-refresh/
+  // pagination), never a stale snapshot from an earlier render.
+  queueItems: Feed[];
+  queueIndex: number;
 }
 
 // Deliberately basic, unlike RingtoneFeedCard - functional first, no design
@@ -21,19 +48,21 @@ interface AudioContentCardProps {
 // survives backgrounding, shows in the MiniPlayer), so tapping this card
 // navigates into the shared audio-player.tsx screen rather than playing
 // in-list, matching how mantra cards already behave.
-export default function AudioContentCard({ feed, subTab }: AudioContentCardProps) {
+export default function AudioContentCard({ feed, subTab, queueItems, queueIndex }: AudioContentCardProps) {
   const { language } = useTranslation();
 
-  const title = feed.title?.[language] || feed.title?.en || feed.caption || 'Untitled';
-
-  // Matches audio-player.tsx's own getContentData() media lookup (checks
-  // both 'audio' and 'image_audio'), not the narrower 'audio'-only checks in
-  // index.tsx/search-results.tsx - Aarti/Bhajan content may use either shape.
-  const audioMedia = feed.media?.find(m => m.type === 'audio' || m.type === 'image_audio');
-  const audioUrl = audioMedia?.mediaUrl || audioMedia?.audioUrl || '';
-  const thumbnailUrl = audioMedia?.thumbnailUrl || (audioMedia?.mediaUrl !== audioUrl ? audioMedia?.mediaUrl : undefined);
+  const { title, audioUrl, thumbnailUrl } = resolveQueueItem(feed, language);
 
   const handlePress = useCallback(() => {
+    // Seed the queue from the full list as it stands right now, before
+    // navigating - mantra entry points (mantras.tsx, index.tsx,
+    // search-results.tsx) deliberately never call this, so mantra playback
+    // stays queue-less (see playbackStore.ts's `queue` field comment).
+    usePlaybackStore.getState().setQueue(
+      queueItems.map((item) => resolveQueueItem(item, language)),
+      queueIndex
+    );
+
     router.push({
       pathname: '/(main)/audio-player',
       params: {
@@ -49,7 +78,7 @@ export default function AudioContentCard({ feed, subTab }: AudioContentCardProps
         returnParams: JSON.stringify({ subTab }),
       },
     });
-  }, [feed.id, title, audioUrl, thumbnailUrl, subTab]);
+  }, [feed.id, title, audioUrl, thumbnailUrl, subTab, queueItems, queueIndex, language]);
 
   return (
     <TouchableOpacity style={styles.card} onPress={handlePress} activeOpacity={0.8}>
