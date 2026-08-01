@@ -1,10 +1,10 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { View, StyleSheet, Image, TouchableOpacity, Alert, Share, Dimensions, Platform, Linking } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { View, StyleSheet, Image, TouchableOpacity, Alert, Share, Dimensions, Platform, Linking, AppState } from 'react-native';
 import { Video, ResizeMode } from 'expo-av';
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as MediaLibrary from 'expo-media-library';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '@/components/atoms';
@@ -179,6 +179,50 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
     };
   }, []);
 
+  // Stop-on-blur: `isActive` only tracks election WITHIN Home (FeedList's
+  // viewability logic, see CLAUDE.md §30) - it says nothing about whether
+  // Home itself is the focused screen. Without this, navigating to a
+  // different tab left the elected card's isActive untouched, so its
+  // audio/video kept playing off-screen. Mirrors RingtoneFeedCard.tsx's
+  // identical useFocusEffect stop-on-blur pattern - fires on tab-navigation
+  // blur and on unmount (react-navigation runs the last-returned cleanup for
+  // both, per that component's own comment on the same hook). This only
+  // covers in-app navigation - OS-level backgrounding is a separate signal,
+  // handled by the isAppActive tracking right below.
+  const [isScreenFocused, setIsScreenFocused] = useState(true);
+  useFocusEffect(
+    useCallback(() => {
+      setIsScreenFocused(true);
+      return () => {
+        setIsScreenFocused(false);
+      };
+    }, [])
+  );
+
+  // Stop-on-background: mirrors RingtoneFeedCard.tsx's AppState listener -
+  // without this, minimizing the app or switching to a different app left a
+  // playing card's audio/video running, since isActive/isScreenFocused above
+  // have no visibility into OS-level backgrounding at all. Scoped to
+  // subscribe only while this card is the elected one (isActive), same
+  // reasoning RingtoneFeedCard uses for scoping on status.playing - idle
+  // cards in the list shouldn't each hold their own AppState listener. Synced
+  // fresh off AppState.currentState whenever isActive flips true (rather than
+  // trusting whatever isAppActive was last set to) so a stale value from a
+  // previous active stint can't leak in.
+  const [isAppActive, setIsAppActive] = useState(true);
+  useEffect(() => {
+    if (!isActive) return;
+    setIsAppActive(AppState.currentState === 'active');
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      setIsAppActive(nextAppState === 'active');
+    });
+    return () => {
+      subscription.remove();
+    };
+  }, [isActive]);
+
+  const isEffectivelyActive = isActive && isScreenFocused && isAppActive;
+
   const feedIdStr = feed.id.toString();
   const usableViewportHeight = windowHeight - insets.top - tabBarHeight;
 
@@ -243,7 +287,7 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
       cancelBackgroundDownload(feedIdStr);
     };
 
-    if (isActive) {
+    if (isEffectivelyActive) {
       activate();
     } else {
       deactivate();
@@ -252,12 +296,12 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
     return () => {
       isEffectCurrent = false;
     };
-  }, [isActive, hasAudioMedia, audioSourceUri, feedIdStr, player, incrementView]);
+  }, [isEffectivelyActive, hasAudioMedia, audioSourceUri, feedIdStr, player, incrementView]);
 
   // 30s-or-natural-length cap, audio only - pauses, no further prompt (the
   // CTA pill already covers "want more").
   useEffect(() => {
-    if (!hasAudioMedia || !isActive || !status.playing) return;
+    if (!hasAudioMedia || !isEffectivelyActive || !status.playing) return;
     const cap = status.duration > 0 ? Math.min(AUDIO_PLAYBACK_CAP_SECONDS, status.duration) : AUDIO_PLAYBACK_CAP_SECONDS;
     if (status.currentTime >= cap) {
       try {
@@ -266,7 +310,7 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
         console.error('AutoplayFeedCard: error pausing at playback cap:', error);
       }
     }
-  }, [status.currentTime, status.playing, status.duration, hasAudioMedia, isActive, player]);
+  }, [status.currentTime, status.playing, status.duration, hasAudioMedia, isEffectivelyActive, player]);
 
   // Track a view once when visual (non-audio) content becomes active -
   // audio's own view tracking already happens above, tied to its first load.
@@ -298,11 +342,12 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
     };
   }, [player, feedIdStr]);
 
-  // Manual play/pause tap, independent of the isActive-driven autoplay effect
-  // above - since neither `isActive` nor any of that effect's other deps
-  // change when the user taps this, the effect never refires and doesn't
-  // fight this. Scrolling away and back still resets to 0 and autoplays
-  // again as before (unrelated to this manual override).
+  // Manual play/pause tap, independent of the isEffectivelyActive-driven
+  // autoplay effect above - since neither `isEffectivelyActive` nor any of
+  // that effect's other deps change when the user taps this, the effect
+  // never refires and doesn't fight this. Scrolling away and back still
+  // resets to 0 and autoplays again as before (unrelated to this manual
+  // override).
   const handleToggleAudioPlayPause = () => {
     try {
       if (status.playing) {
@@ -557,7 +602,7 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
             style={StyleSheet.absoluteFill}
             resizeMode={ResizeMode.COVER}
             isLooping
-            shouldPlay={isActive}
+            shouldPlay={isEffectivelyActive}
             isMuted={isVideoMuted}
             posterSource={visualMedia.thumbnailUrl ? { uri: visualMedia.thumbnailUrl } : undefined}
           />
@@ -594,7 +639,7 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
         )}
 
         {/* Play/pause overlay - audio content only. Manual override on top of
-            the isActive-driven autoplay, per handleToggleAudioPlayPause above. */}
+            the isEffectivelyActive-driven autoplay, per handleToggleAudioPlayPause above. */}
         {hasAudioMedia && (
           <TouchableOpacity
             style={styles.playPauseOverlay}
