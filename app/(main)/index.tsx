@@ -467,6 +467,7 @@ export default function HomeScreen() {
         emptySubtitle="Be the first to share something spiritual!"
         onRetry={retry}
         autoPlayVideo={true}
+        enableViewportAutoplay={true}
         ListHeaderComponent={renderHeader}
         contentContainerStyle={{
           paddingBottom: contentPadding

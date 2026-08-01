@@ -1,6 +1,7 @@
 export { default as PhoneInput } from './PhoneInput/PhoneInput';
 export { default as OTPInput } from './OTPInput/OTPInput';
 export { default as RingtoneFeedCard } from './RingtoneFeedCard/RingtoneFeedCard';
+export { default as AutoplayFeedCard } from './AutoplayFeedCard/AutoplayFeedCard';
 export { default as WallpaperFeedCard } from './WallpaperFeedCard/WallpaperFeedCard';
 export { default as FeedCard } from './FeedCard/FeedCard';
 export { default as MantraCard } from './MantraCard/MantraCard';

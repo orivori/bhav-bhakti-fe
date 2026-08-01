@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   FlatList,
   View,
@@ -7,10 +7,12 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   ListRenderItemInfo,
+  ViewToken,
 } from 'react-native';
 import { Text } from '@/components/atoms';
 import FeedCard from '../FeedCard/FeedCard';
 import RingtoneFeedCard from '../RingtoneFeedCard/RingtoneFeedCard';
+import AutoplayFeedCard from '../AutoplayFeedCard/AutoplayFeedCard';
 import { Feed, FeedFilters } from '@/types/feed';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { useFeedStore } from '@/store/feedStore';
@@ -36,6 +38,12 @@ interface FeedListProps {
   estimatedItemSize?: number;
   ListHeaderComponent?: React.ComponentType<any> | React.ReactElement | null;
   contentContainerStyle?: any;
+  /**
+   * Opt-in, Home-scoped viewport autoplay election (Phase 1 infra only).
+   * When false (default), no viewability tracking is attached at all —
+   * every other FeedList consumer is completely unaffected.
+   */
+  enableViewportAutoplay?: boolean;
 }
 
 export default function FeedList({
@@ -59,9 +67,117 @@ export default function FeedList({
   estimatedItemSize = 600,
   ListHeaderComponent,
   contentContainerStyle,
+  enableViewportAutoplay = false,
 }: FeedListProps) {
 
+  // --- Viewport autoplay election (Phase 1 — infra only, no card wiring yet) ---
+  // One shared "elected" feedId: the topmost item currently ≥60% visible for ≥400ms.
+  const ELECTION_DEBOUNCE_MS = 200; // hold time before committing a visibility change
+  const MIN_NEW_PLAYER_INTERVAL_MS = 500; // hard floor: don't start a new player within this window of the last start (connection-pool sensitivity, see §25/§26)
+
+  const enableViewportAutoplayRef = useRef(enableViewportAutoplay);
+  useEffect(() => {
+    enableViewportAutoplayRef.current = enableViewportAutoplay;
+  }, [enableViewportAutoplay]);
+
+  const [electedFeedId, setElectedFeedId] = useState<string | null>(null);
+  const electedFeedIdRef = useRef<string | null>(null);
+  const pendingCandidateRef = useRef<string | null>(null);
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastNewPlayerStartRef = useRef<number>(0);
+
+  const commitElection = useCallback((candidateId: string | null) => {
+    if (candidateId === electedFeedIdRef.current) return;
+
+    const now = Date.now();
+    // The floor only guards STARTING a new player — clearing (candidateId === null,
+    // e.g. nothing visible) is never delayed.
+    if (candidateId !== null) {
+      const sinceLastStart = now - lastNewPlayerStartRef.current;
+      if (sinceLastStart < MIN_NEW_PLAYER_INTERVAL_MS) {
+        const remaining = MIN_NEW_PLAYER_INTERVAL_MS - sinceLastStart;
+        if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+        debounceTimerRef.current = setTimeout(() => {
+          // Only proceed if this candidate is still the current pending one —
+          // a later scroll may have already superseded it.
+          if (pendingCandidateRef.current === candidateId) {
+            commitElection(candidateId);
+          }
+        }, remaining);
+        return;
+      }
+      lastNewPlayerStartRef.current = now;
+    }
+
+    electedFeedIdRef.current = candidateId;
+    setElectedFeedId(candidateId);
+
+    if (__DEV__) {
+      console.log('[FeedList][viewportAutoplay] elected feedId:', candidateId);
+    }
+  }, []);
+
+  // Stable function identity across renders (required — FlatList throws if
+  // viewabilityConfigCallbackPairs changes after the initial render). Reads
+  // live state only through refs, so it never needs to be recreated.
+  const handleViewableItemsChangedRef = useRef((info: { viewableItems: ViewToken[] }) => {
+    if (!enableViewportAutoplayRef.current) return;
+
+    const topVisible = info.viewableItems.find((v) => v.isViewable);
+    const candidateId = topVisible?.item ? String((topVisible.item as Feed).id) : null;
+
+    pendingCandidateRef.current = candidateId;
+    if (candidateId === electedFeedIdRef.current) return;
+
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    debounceTimerRef.current = setTimeout(() => {
+      if (pendingCandidateRef.current === candidateId) {
+        commitElection(candidateId);
+      }
+    }, ELECTION_DEBOUNCE_MS);
+  });
+
+  const viewabilityConfigCallbackPairsRef = useRef([
+    {
+      viewabilityConfig: {
+        itemVisiblePercentThreshold: 60,
+        minimumViewTime: 400,
+      },
+      onViewableItemsChanged: (info: { viewableItems: ViewToken[] }) =>
+        handleViewableItemsChangedRef.current(info),
+    },
+  ]);
+
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    };
+  }, []);
+
   const renderFeedItem = useCallback(({ item: feed, index }: ListRenderItemInfo<Feed>) => {
+    const isActive = enableViewportAutoplay && String(feed.id) === electedFeedId;
+
+    if (__DEV__ && isActive) {
+      console.log('[FeedList][viewportAutoplay] active item rendered:', feed.id, feed.type);
+    }
+
+    // Phase 2: viewport-autoplay routing, gated on the opt-in prop so every other
+    // FeedList consumer (Ringtones tab, Mantra Explorer, Wallpaper Hub, Search Results)
+    // is completely unchanged — this branch is unreachable there since
+    // enableViewportAutoplay is always false for them, leaving the existing
+    // RingtoneFeedCard/FeedCard path as the only path, exactly as before Phase 2.
+    // Routes on "has any media" rather than an enumerated type/audio check - video
+    // isn't its own Feed.type (it's a FeedMedia.type value), so this already covers
+    // wallpaper/thought/future-video with no per-type whitelist to maintain.
+    if (enableViewportAutoplay) {
+      const hasAnyMedia = feed.media && feed.media.length > 0;
+      if (hasAnyMedia) {
+        return <AutoplayFeedCard feed={feed} isActive={isActive} />;
+      }
+      // Feeds with zero media (defensive fallback only - not a designed case)
+      // fall through to the existing path below, unchanged.
+    }
+
     // Use RingtoneFeedCard for ringtone feeds, regular FeedCard for others
     if (feed.type === 'ringtone') {
       return (
@@ -84,7 +200,7 @@ export default function FeedList({
         autoPlayVideo={autoPlayVideo && index === 0} // Auto-play only first video
       />
     );
-  }, [onFeedPress, onLike, onShare, onDownload, autoPlayVideo]);
+  }, [onFeedPress, onLike, onShare, onDownload, autoPlayVideo, enableViewportAutoplay, electedFeedId]);
 
   const renderFooter = useCallback(() => {
     if (!hasMore) {
@@ -197,6 +313,9 @@ export default function FeedList({
       }
       onEndReached={handleEndReached}
       onEndReachedThreshold={0.7}
+      {...(enableViewportAutoplay
+        ? { viewabilityConfigCallbackPairs: viewabilityConfigCallbackPairsRef.current }
+        : {})}
       showsVerticalScrollIndicator={false}
       contentContainerStyle={[
         !ListHeaderComponent && styles.container,
@@ -208,7 +327,14 @@ export default function FeedList({
       windowSize={10}
       initialNumToRender={5}
       updateCellsBatchingPeriod={16}
-      getItemLayout={getItemLayout}
+      // Phase 3: getItemLayout's estimatedItemSize assumption is wrong for
+      // AutoplayFeedCard's two real shapes (fixed-height audio vs. 16:9-driven
+      // visual) - passing a mismatched estimate was the root cause of the
+      // pagination-blank-scroll bug found in Phase 2 testing (FlatList trusted a
+      // fixed 600px/item virtual content size that no longer matched real
+      // rendered heights). Dropped only for this path; every other consumer
+      // keeps the existing fixed-size optimization unchanged.
+      getItemLayout={enableViewportAutoplay ? undefined : getItemLayout}
       maintainVisibleContentPosition={{
         minIndexForVisible: 0,
         autoscrollToTopThreshold: 10,
