@@ -7,6 +7,7 @@ import {
   Alert,
   Share,
   Linking,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -19,6 +20,7 @@ import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { feedService } from '@/features/feed/services/feedService';
 import { useFeedStore } from '@/store/feedStore';
 import { useTranslation } from '@/hooks/useTranslation';
+import { getMediaFileExtension } from '@/utils/getMediaFileExtension';
 
 interface FeedCardProps {
   feed: Feed;
@@ -115,7 +117,12 @@ export default function FeedCard({
       const mediaToDownload = feed.media[0];
       if (!mediaToDownload) return;
 
-      const fileUri = FileSystem?.documentDirectory + `feed_${feed.id}_${mediaToDownload.id}.jpg`;
+      const extension = getMediaFileExtension(mediaToDownload.mediaUrl, mediaToDownload.type);
+      // Timestamp suffix guarantees a unique local path on every attempt -
+      // see useWallpaperActions.ts's handleDownload for the full explanation
+      // (MediaStore's own collision handling otherwise silently reused an
+      // existing gallery entry for a repeated deterministic filename).
+      const fileUri = FileSystem?.documentDirectory + `feed_${feed.id}_${mediaToDownload.id}_${Date.now()}.${extension}`;
       const downloadResult = await FileSystem.downloadAsync(
         mediaToDownload.mediaUrl,
         fileUri
@@ -124,6 +131,10 @@ export default function FeedCard({
       if (downloadResult.status === 200) {
         // Save to media library
         await MediaLibrary.saveToLibraryAsync(downloadResult.uri);
+        // Clean up the local staging copy now that it's safely in the
+        // gallery - best-effort, since the gallery save already succeeded
+        // either way.
+        FileSystem.deleteAsync(downloadResult.uri, { idempotent: true }).catch(() => {});
         Alert.alert('Success', 'Media saved to your gallery!');
 
         // Track download
@@ -335,11 +346,15 @@ export default function FeedCard({
                 onPress={handleDownload}
                 disabled={isDownloading}
               >
-                <Ionicons
-                  name="download-outline"
-                  size={24}
-                  color="#6B7280"
-                />
+                {isDownloading ? (
+                  <ActivityIndicator size="small" color="#6B7280" />
+                ) : (
+                  <Ionicons
+                    name="download-outline"
+                    size={24}
+                    color="#6B7280"
+                  />
+                )}
                 {feed.downloadsCount > 0 && (
                   <Text variant="caption" style={styles.actionCount}>
                     {formatCount(feed.downloadsCount)}

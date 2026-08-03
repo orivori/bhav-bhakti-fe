@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, StyleSheet, Image, TouchableOpacity, Alert, Share, Dimensions, Platform, Linking, AppState } from 'react-native';
+import { View, StyleSheet, Image, TouchableOpacity, Alert, Share, Dimensions, Platform, Linking, AppState, ActivityIndicator } from 'react-native';
 import { Video, ResizeMode } from 'expo-av';
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -16,6 +16,7 @@ import { feedService } from '@/features/feed/services/feedService';
 import { useFeedStore } from '@/store/feedStore';
 import { useSoundPreferenceStore } from '@/store/soundPreferenceStore';
 import { formatCount } from '@/utils/formatCount';
+import { getMediaFileExtension } from '@/utils/getMediaFileExtension';
 
 interface AutoplayFeedCardProps {
   feed: Feed;
@@ -434,10 +435,19 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
         Alert.alert('Permission Required', 'Please allow access to save this to your gallery.');
         return;
       }
-      const fileUri = `${FileSystem.documentDirectory}autoplay_visual_${feed.id}.jpg`;
+      const extension = getMediaFileExtension(visualMedia.mediaUrl, visualMedia.type);
+      // Timestamp suffix guarantees a unique local path on every attempt -
+      // see useWallpaperActions.ts's handleDownload for the full explanation
+      // (MediaStore's own collision handling otherwise silently reused an
+      // existing gallery entry for a repeated deterministic filename).
+      const fileUri = `${FileSystem.documentDirectory}autoplay_visual_${feed.id}_${Date.now()}.${extension}`;
       const downloadResult = await FileSystem.downloadAsync(visualMedia.mediaUrl, fileUri);
       if (downloadResult.status === 200) {
         await MediaLibrary.saveToLibraryAsync(downloadResult.uri);
+        // Clean up the local staging copy now that it's safely in the
+        // gallery - best-effort, since the gallery save already succeeded
+        // either way.
+        FileSystem.deleteAsync(downloadResult.uri, { idempotent: true }).catch(() => {});
         // No OS-level "set wallpaper" API exists anywhere in this app yet
         // (same honest limitation RingtoneFeedCard's "Set as ringtone" already
         // has for iOS) - this saves to the gallery and hands off manually,
@@ -664,7 +674,11 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
             disabled={ctaDisabled}
             activeOpacity={0.85}
           >
-            <Ionicons name={ctaIcon} size={16} color="#fff" />
+            {!hasAudioMedia && isSettingWallpaper ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Ionicons name={ctaIcon} size={16} color="#fff" />
+            )}
             <Text style={styles.ctaPillText}>{ctaLabel}</Text>
           </TouchableOpacity>
         </View>
