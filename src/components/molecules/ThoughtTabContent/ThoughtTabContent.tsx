@@ -17,6 +17,7 @@ import { useFeed } from '@/features/feed/hooks';
 import { Feed } from '@/types/feed';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
+import { useViewingWindow } from '@/hooks/useViewingWindow';
 
 // Extracted alongside StatusTabContent/WallpapersTabContent (see CLAUDE.md's
 // Wallpaper Hub notes) so it can be rendered as one sub-tab inside the new
@@ -60,10 +61,18 @@ export default function ThoughtTabContent() {
     },
   });
 
+  const { open: openViewingWindow, ViewingWindow } = useViewingWindow({
+    feeds,
+    onLike: likeFeed,
+    onShare: shareFeed,
+    onDownload: downloadFeed,
+  });
+
   const handleFeedPress = useCallback((feed: Feed) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     viewFeed(feed.id.toString());
-  }, [viewFeed]);
+    openViewingWindow(feed);
+  }, [viewFeed, openViewingWindow]);
 
   const renderItem = useCallback(({ item }: ListRenderItemInfo<Feed>) => (
     <WallpaperFeedCard
@@ -120,27 +129,30 @@ export default function ThoughtTabContent() {
   const keyExtractor = useCallback((item: Feed) => item.id.toString(), []);
 
   return (
-    <FlatList
-      data={feeds}
-      renderItem={renderItem}
-      keyExtractor={keyExtractor}
-      numColumns={2}
-      ListEmptyComponent={renderEmptyComponent}
-      ListFooterComponent={renderFooter}
-      contentContainerStyle={[
-        { paddingBottom: contentPadding },
-        styles.listContent,
-        feeds.length === 0 && styles.emptyContainer,
-      ]}
-      columnWrapperStyle={styles.columnWrapper}
-      refreshControl={
-        <RefreshControl refreshing={isRefreshing} onRefresh={refresh} colors={['#FF6B35']} tintColor="#FF6B35" />
-      }
-      onEndReached={loadMore}
-      onEndReachedThreshold={0.7}
-      showsVerticalScrollIndicator={false}
-      removeClippedSubviews={true}
-    />
+    <>
+      <FlatList
+        data={feeds}
+        renderItem={renderItem}
+        keyExtractor={keyExtractor}
+        numColumns={2}
+        ListEmptyComponent={renderEmptyComponent}
+        ListFooterComponent={renderFooter}
+        contentContainerStyle={[
+          { paddingBottom: contentPadding },
+          styles.listContent,
+          feeds.length === 0 && styles.emptyContainer,
+        ]}
+        columnWrapperStyle={styles.columnWrapper}
+        refreshControl={
+          <RefreshControl refreshing={isRefreshing} onRefresh={refresh} colors={['#FF6B35']} tintColor="#FF6B35" />
+        }
+        onEndReached={loadMore}
+        onEndReachedThreshold={0.7}
+        showsVerticalScrollIndicator={false}
+        removeClippedSubviews={true}
+      />
+      {ViewingWindow}
+    </>
   );
 }
 

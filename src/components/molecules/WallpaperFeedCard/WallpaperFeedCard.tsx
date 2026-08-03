@@ -4,13 +4,11 @@ import {
   Image,
   TouchableOpacity,
   StyleSheet,
-  Alert,
-  Share,
   Dimensions,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import * as FileSystem from 'expo-file-system/legacy';
-import * as MediaLibrary from 'expo-media-library';
+import { Video, ResizeMode } from 'expo-av';
 import { Text } from '@/components/atoms';
 import FeedMedia from '../FeedMedia/FeedMedia';
 import { Feed } from '@/types/feed';
@@ -18,6 +16,7 @@ import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { feedService } from '@/features/feed/services/feedService';
 import { useFeedStore } from '@/store/feedStore';
 import { useTranslation } from '@/hooks/useTranslation';
+import { useWallpaperActions } from './useWallpaperActions';
 
 interface WallpaperFeedCardProps {
   feed: Feed;
@@ -47,24 +46,16 @@ export default function WallpaperFeedCard({
   onPress,
   variant = 'default',
 }: WallpaperFeedCardProps) {
-  const [isLiking, setIsLiking] = useState(false);
-  const [isDownloading, setIsDownloading] = useState(false);
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
-  // Guards setState calls in handleLike/handleDownload's async continuations
-  // (after an await) against firing once this component has unmounted - e.g.
-  // a like/download in flight when the user navigates away or the Wallpaper
-  // Hub's grid unmounts this tile on a sub-tab switch.
-  const isMountedRef = useRef(true);
-  const { toggleLike, incrementDownload, incrementShare, incrementView } = useFeedStore();
+  const { incrementView } = useFeedStore();
   const { language } = useTranslation();
-
-  useEffect(() => {
-    isMountedRef.current = true;
-    return () => {
-      isMountedRef.current = false;
-    };
-  }, []);
+  const { isLiking, isDownloading, handleLike, handleShare, handleDownload } = useWallpaperActions({
+    feed,
+    onLike,
+    onShare,
+    onDownload,
+  });
 
   // Auto-slide functionality for multiple images
   useEffect(() => {
@@ -106,97 +97,6 @@ export default function WallpaperFeedCard({
     }
   };
 
-  const handleLike = () => {
-    console.log('❤️ Heart button pressed for wallpaper:', feed.id, 'isLiked:', feed.isLiked);
-
-    if (onLike) {
-      onLike(feed.id.toString());
-    } else {
-      if (isLiking) return;
-      if (isMountedRef.current) setIsLiking(true);
-
-      const performLike = async () => {
-        try {
-          if (feed.isLiked) {
-            await feedService.unlikeFeed(feed.id.toString());
-          } else {
-            await feedService.likeFeed(feed.id.toString());
-          }
-          toggleLike(feed.id.toString());
-        } catch (error) {
-          console.error('Error liking wallpaper:', error);
-          Alert.alert('Error', 'Failed to like the wallpaper. Please try again.');
-        } finally {
-          if (isMountedRef.current) setIsLiking(false);
-        }
-      };
-
-      performLike();
-    }
-  };
-
-  // No isMountedRef guard needed here (unlike handleLike/handleDownload) -
-  // this handler has no local setState of its own to protect; incrementShare
-  // is a Zustand store update (safe post-unmount, not a React state setter on
-  // this component) and Alert.alert/Share.share are native imperative calls.
-  const handleShare = async () => {
-    try {
-      await feedService.shareFeed(feed.id.toString(), { platform: 'native_share' });
-      incrementShare(feed.id.toString());
-
-      const title = feed.title ? (feed.title[language] || feed.title.en || '') : '';
-      const result = await Share.share({
-        message: title
-          ? `Check out this beautiful wallpaper: ${title}\n\nShared from Bhav Bhakti App`
-          : 'Check out this amazing wallpaper from Bhav Bhakti App!',
-        url: feed.media[0]?.mediaUrl,
-      });
-
-      if (result.action === Share.sharedAction) {
-        onShare?.(feed.id.toString());
-      }
-    } catch (error) {
-      console.error('Error sharing wallpaper:', error);
-      Alert.alert('Error', 'Failed to share the wallpaper. Please try again.');
-    }
-  };
-
-  const handleDownload = async () => {
-    if (isDownloading || !feed.allowDownloads) return;
-
-    if (isMountedRef.current) setIsDownloading(true);
-    try {
-      const { status } = await MediaLibrary.requestPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission Required', 'Please allow access to save wallpaper to your gallery.');
-        return;
-      }
-
-      const mediaToDownload = feed.media[0];
-      if (!mediaToDownload) return;
-
-      const fileUri = FileSystem?.documentDirectory + `wallpaper_${feed.id}_${mediaToDownload.id}.jpg`;
-      const downloadResult = await FileSystem.downloadAsync(
-        mediaToDownload.mediaUrl,
-        fileUri
-      );
-
-      if (downloadResult.status === 200) {
-        await MediaLibrary.saveToLibraryAsync(downloadResult.uri);
-        Alert.alert('Success', 'Wallpaper saved to your gallery!');
-
-        await feedService.downloadFeed(feed.id.toString());
-        incrementDownload(feed.id.toString());
-        onDownload?.(feed.id.toString());
-      }
-    } catch (error) {
-      console.error('Error downloading wallpaper:', error);
-      Alert.alert('Error', 'Failed to download wallpaper. Please try again.');
-    } finally {
-      if (isMountedRef.current) setIsDownloading(false);
-    }
-  };
-
   const handlePress = async () => {
     try {
       await feedService.viewFeed(feed.id.toString());
@@ -224,7 +124,24 @@ export default function WallpaperFeedCard({
         activeOpacity={0.9}
       >
         <View style={styles.gridImageBox}>
-          {gridMedia && (
+          {gridMedia && gridMedia.type === 'video' ? (
+            // Instagram-grid-thumbnail behavior: loops continuously,
+            // UNCONDITIONALLY silent - deliberately hardcoded `true`, not
+            // read from the shared soundPreferenceStore, so the grid can
+            // never end up audible regardless of whatever mute preference is
+            // set on Home or anywhere else. No play/pause or isActive/
+            // viewability gating - a grid tile has no exclusivity concern the
+            // way a single full-bleed autoplay card does.
+            <Video
+              source={{ uri: gridMedia.mediaUrl }}
+              style={styles.gridImage}
+              resizeMode={ResizeMode.CONTAIN}
+              isLooping
+              shouldPlay
+              isMuted={true}
+              posterSource={gridMedia.thumbnailUrl ? { uri: gridMedia.thumbnailUrl } : undefined}
+            />
+          ) : gridMedia && (
             <Image
               source={{ uri: gridMedia.mediaUrl }}
               style={styles.gridImage}
@@ -263,7 +180,11 @@ export default function WallpaperFeedCard({
                 activeOpacity={0.8}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
-                <Ionicons name="download-outline" size={18} color="#fff" />
+                {isDownloading ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Ionicons name="download-outline" size={18} color="#fff" />
+                )}
               </TouchableOpacity>
             )}
           </View>
@@ -381,11 +302,15 @@ export default function WallpaperFeedCard({
               disabled={isDownloading}
               activeOpacity={0.8}
             >
-              <Ionicons
-                name="download-outline"
-                size={22}
-                color="#8B7355"
-              />
+              {isDownloading ? (
+                <ActivityIndicator size="small" color="#8B7355" />
+              ) : (
+                <Ionicons
+                  name="download-outline"
+                  size={22}
+                  color="#8B7355"
+                />
+              )}
             </TouchableOpacity>
           )}
         </View>
