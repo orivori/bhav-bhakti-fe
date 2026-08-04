@@ -81,7 +81,19 @@
           "microphonePermission": "Allow this app to access your microphone for audio playback."
         }
       ],
-      "expo-audio"
+      "expo-audio",
+      "expo-build-properties",
+      [
+        "react-native-share",
+        {
+          "android": [
+            "com.whatsapp",
+            "com.instagram.android",
+            "com.facebook.katana"
+          ],
+          "ios": []
+        }
+      ]
     ],
     "extra": {
       "router": {},
