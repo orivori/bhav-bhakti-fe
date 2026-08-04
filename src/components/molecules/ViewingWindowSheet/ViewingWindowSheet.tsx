@@ -49,7 +49,7 @@ export default function ViewingWindowSheet({
   onDownload,
 }: ViewingWindowSheetProps) {
   const isEffectivelyActive = useEffectivelyActive(visible);
-  const { isDownloading, handleLike, handleShare, handleDownload } = useWallpaperActions({
+  const { isDownloading, isSharing, handleLike, handleShare, handleDownload } = useWallpaperActions({
     feed,
     onLike,
     onShare,
@@ -139,10 +139,15 @@ export default function ViewingWindowSheet({
               <TouchableOpacity
                 style={styles.actionIcon}
                 onPress={handleShare}
+                disabled={isSharing}
                 activeOpacity={0.8}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
-                <Ionicons name="share-outline" size={22} color="#fff" />
+                {isSharing ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Ionicons name="share-outline" size={22} color="#fff" />
+                )}
               </TouchableOpacity>
 
               {feed.allowDownloads && (

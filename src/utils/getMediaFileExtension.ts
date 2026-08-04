@@ -23,3 +23,22 @@ export function getMediaFileExtension(mediaUrl: string, mediaType?: string): str
 
   return allowedExtensions.includes(extension) ? extension : fallback;
 }
+
+const MIME_TYPES: Record<string, string> = {
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+  webp: 'image/webp',
+  mp4: 'video/mp4',
+  mov: 'video/quicktime',
+  webm: 'video/webm',
+};
+
+// Companion to getMediaFileExtension above - needed by react-native-share's
+// Share.open(), which requires a real MIME `type` (not just a file
+// extension) to correctly attach a local image/video file to the share
+// intent alongside caption text.
+export function getMediaMimeType(mediaUrl: string, mediaType?: string): string {
+  const extension = getMediaFileExtension(mediaUrl, mediaType);
+  return MIME_TYPES[extension] ?? (mediaType === 'video' ? 'video/mp4' : 'image/jpeg');
+}

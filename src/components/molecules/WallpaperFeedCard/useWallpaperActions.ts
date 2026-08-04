@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Share } from 'react-native';
+import { Alert } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as MediaLibrary from 'expo-media-library';
 import { Feed } from '@/types/feed';
 import { feedService } from '@/features/feed/services/feedService';
 import { useFeedStore } from '@/store/feedStore';
-import { useTranslation } from '@/hooks/useTranslation';
 import { getMediaFileExtension } from '@/utils/getMediaFileExtension';
+import { shareContent } from '@/utils/shareContent';
 
 interface UseWallpaperActionsArgs {
   // Nullable so ViewingWindowSheet (Phase 2 of the Viewing Window feature)
@@ -27,14 +27,14 @@ interface UseWallpaperActionsArgs {
 export function useWallpaperActions({ feed, onLike, onShare, onDownload }: UseWallpaperActionsArgs) {
   const [isLiking, setIsLiking] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
   // Guards setState calls in handleLike/handleDownload's async continuations
   // (after an await) against firing once the calling component has
   // unmounted - e.g. a like/download in flight when the user navigates away,
   // the Wallpaper Hub's grid unmounts this tile on a sub-tab switch, or the
   // Viewing Window is dismissed mid-request.
   const isMountedRef = useRef(true);
-  const { toggleLike, incrementDownload, incrementShare } = useFeedStore();
-  const { language } = useTranslation();
+  const { toggleLike, incrementDownload } = useFeedStore();
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -73,32 +73,27 @@ export function useWallpaperActions({ feed, onLike, onShare, onDownload }: UseWa
     }
   };
 
-  // No isMountedRef guard needed here (unlike handleLike/handleDownload) -
-  // this handler has no local setState of its own to protect; incrementShare
-  // is a Zustand store update (safe post-unmount, not a React state setter on
-  // the calling component) and Alert.alert/Share.share are native imperative
-  // calls.
   const handleShare = async () => {
-    if (!feed) return;
-    try {
-      await feedService.shareFeed(feed.id.toString(), { platform: 'native_share' });
-      incrementShare(feed.id.toString());
+    if (!feed || isSharing) return;
+    if (isMountedRef.current) setIsSharing(true);
 
-      const title = feed.title ? (feed.title[language] || feed.title.en || '') : '';
-      const result = await Share.share({
-        message: title
-          ? `Check out this beautiful wallpaper: ${title}\n\nShared from Bhav Bhakti App`
-          : 'Check out this amazing wallpaper from Bhav Bhakti App!',
-        url: feed.media[0]?.mediaUrl,
-      });
+    await shareContent(feed, {
+      // Reverts the loading state as soon as the OS share sheet is about to
+      // present, rather than waiting for Share.open()'s own promise (which
+      // only resolves once the user dismisses that sheet - could be a
+      // while, and a spinner has no business running through that).
+      onSharePresenting: () => {
+        if (isMountedRef.current) setIsSharing(false);
+      },
+      onShared: (feedId) => onShare?.(feedId),
+    });
 
-      if (result.action === Share.sharedAction) {
-        onShare?.(feed.id.toString());
-      }
-    } catch (error) {
-      console.error('Error sharing wallpaper:', error);
-      Alert.alert('Error', 'Failed to share the wallpaper. Please try again.');
-    }
+    // Safety net: guarantees isSharing reverts even on a path that never
+    // reaches onSharePresenting (e.g. the feed has nothing shareable at
+    // all) - shareContent's own promise always eventually settles (it
+    // swallows its own errors), so this always runs. A no-op if
+    // onSharePresenting already flipped it.
+    if (isMountedRef.current) setIsSharing(false);
   };
 
   const handleDownload = async () => {
@@ -151,5 +146,5 @@ export function useWallpaperActions({ feed, onLike, onShare, onDownload }: UseWa
     }
   };
 
-  return { isLiking, isDownloading, handleLike, handleShare, handleDownload };
+  return { isLiking, isDownloading, isSharing, handleLike, handleShare, handleDownload };
 }

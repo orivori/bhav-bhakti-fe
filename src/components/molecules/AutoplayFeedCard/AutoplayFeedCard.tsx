@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, StyleSheet, Image, TouchableOpacity, Alert, Share, Dimensions, Platform, Linking, AppState, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, Image, TouchableOpacity, Alert, Dimensions, Platform, Linking, AppState, ActivityIndicator } from 'react-native';
 import { Video, ResizeMode } from 'expo-av';
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -17,6 +17,7 @@ import { useFeedStore } from '@/store/feedStore';
 import { useSoundPreferenceStore } from '@/store/soundPreferenceStore';
 import { formatCount } from '@/utils/formatCount';
 import { getMediaFileExtension } from '@/utils/getMediaFileExtension';
+import { shareContent } from '@/utils/shareContent';
 
 interface AutoplayFeedCardProps {
   feed: Feed;
@@ -168,7 +169,7 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
   const { language } = useTranslation();
   const insets = useSafeAreaInsets();
   const { tabBarHeight } = useTabBarHeight();
-  const { toggleLike, incrementDownload, incrementShare, incrementView } = useFeedStore();
+  const { toggleLike, incrementDownload, incrementView } = useFeedStore();
   const isVideoMuted = useSoundPreferenceStore((s) => s.isVideoMuted);
   const setVideoMuted = useSoundPreferenceStore((s) => s.setVideoMuted);
 
@@ -393,19 +394,28 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
     }
   };
 
+  // shareContent resolves audio-vs-visual and thumbnail-vs-file itself from
+  // feed.media - no need to pass hasAudioMedia/audioSourceUri/visualMedia
+  // through, and it already handles its own errors (see its own doc
+  // comment), so no try/catch needed here either.
+  const [isSharing, setIsSharing] = useState(false);
   const handleShare = async () => {
-    try {
-      await feedService.shareFeed(feedIdStr, { platform: 'native_share' });
-      incrementShare(feedIdStr);
-      const shareUrl = hasAudioMedia ? audioSourceUri : visualMedia?.mediaUrl;
-      await Share.share({
-        message: `Check out this: ${title}\n\nShared from Bhav Bhakti App`,
-        url: shareUrl,
-      });
-    } catch (error) {
-      console.error('AutoplayFeedCard: error sharing feed:', error);
-      Alert.alert('Error', 'Failed to share. Please try again.');
-    }
+    if (isSharing) return;
+    if (isMountedRef.current) setIsSharing(true);
+
+    await shareContent(feed, {
+      // Reverts the loading state once the OS share sheet is about to
+      // present, rather than waiting for Share.open()'s own promise (which
+      // only resolves once the user dismisses that sheet).
+      onSharePresenting: () => {
+        if (isMountedRef.current) setIsSharing(false);
+      },
+    });
+
+    // Safety net for any path that never reaches onSharePresenting (e.g.
+    // nothing shareable on this feed) - shareContent's promise always
+    // eventually settles, so this always runs; a no-op if already reverted.
+    if (isMountedRef.current) setIsSharing(false);
   };
 
   // --- CTA pill ---
@@ -698,8 +708,12 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
           )}
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.footerAction} onPress={handleShare} activeOpacity={0.7}>
-          <Ionicons name="share-social-outline" size={22} color={goldenTempleTheme.colors.text.secondary} />
+        <TouchableOpacity style={styles.footerAction} onPress={handleShare} disabled={isSharing} activeOpacity={0.7}>
+          {isSharing ? (
+            <ActivityIndicator size="small" color={goldenTempleTheme.colors.text.secondary} />
+          ) : (
+            <Ionicons name="share-social-outline" size={22} color={goldenTempleTheme.colors.text.secondary} />
+          )}
           {feed.sharesCount > 0 && (
             <Text variant="caption" style={styles.footerActionCount}>
               {formatCount(feed.sharesCount)}

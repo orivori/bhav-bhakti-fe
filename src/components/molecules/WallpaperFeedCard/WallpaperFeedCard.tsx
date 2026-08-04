@@ -50,7 +50,7 @@ export default function WallpaperFeedCard({
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const { incrementView } = useFeedStore();
   const { language } = useTranslation();
-  const { isLiking, isDownloading, handleLike, handleShare, handleDownload } = useWallpaperActions({
+  const { isLiking, isDownloading, isSharing, handleLike, handleShare, handleDownload } = useWallpaperActions({
     feed,
     onLike,
     onShare,
@@ -166,10 +166,15 @@ export default function WallpaperFeedCard({
             <TouchableOpacity
               style={styles.gridActionIcon}
               onPress={handleShare}
+              disabled={isSharing}
               activeOpacity={0.8}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <Ionicons name="share-outline" size={18} color="#fff" />
+              {isSharing ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Ionicons name="share-outline" size={18} color="#fff" />
+              )}
             </TouchableOpacity>
 
             {feed.allowDownloads && (
@@ -289,9 +294,14 @@ export default function WallpaperFeedCard({
           <TouchableOpacity
             style={styles.actionButton}
             onPress={handleShare}
+            disabled={isSharing}
             activeOpacity={0.8}
           >
-            <Ionicons name="share-outline" size={22} color="#8B7355" />
+            {isSharing ? (
+              <ActivityIndicator size="small" color="#8B7355" />
+            ) : (
+              <Ionicons name="share-outline" size={22} color="#8B7355" />
+            )}
           </TouchableOpacity>
 
           {/* Download Button */}
