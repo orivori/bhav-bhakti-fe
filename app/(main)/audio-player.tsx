@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useId } from 'react';
 import {
   View,
   Text,
@@ -348,6 +348,15 @@ export default function AudioPlayerScreen() {
   // change alone does not make playback survive back-navigation.
   const player = useAudioPlayer(null);
   const status = useAudioPlayerStatus(player);
+
+  // Identifies THIS mounted player instance (not the content playing on it)
+  // to the playback coordinator - see playbackStore.ts's NowPlayingIdentity
+  // comment. Stable across every feedId change on this screen (Tabs don't
+  // unmount it - same reasoning as loadedFeedIdRef just below), so the
+  // coordinator can tell "a skip within this same shared player" apart from
+  // "a genuinely different player instance took over," and only stop()/
+  // clearLockScreenControls() in the latter case.
+  const playerInstanceId = useId();
 
   // Tracks which feedId's audio is actually attached to `player` right now.
   // status.isLoaded alone only tells us SOMETHING is loaded, not WHETHER
@@ -1046,6 +1055,7 @@ export default function AudioPlayerScreen() {
         mode: 'persistent',
         title: contentData.title?.toString() ?? (t('sacredMantra') as string),
         thumbnailUrl: contentData.thumbnailUrl?.toString(),
+        instanceId: playerInstanceId,
       },
       {
         isPlaying: true,
@@ -1103,7 +1113,7 @@ export default function AudioPlayerScreen() {
     if (isAppActiveRef.current) {
       activateLockScreenControls();
     }
-  }, [status.playing, feedId]);
+  }, [status.playing, feedId, playerInstanceId]);
 
   // Retries lock-screen activation on the transition INTO 'active', for
   // whichever attempt above was skipped because the app wasn't confirmed
@@ -1186,8 +1196,18 @@ export default function AudioPlayerScreen() {
   // hand-off (a different mantra/aarti/bhajan taking over) - a ringtone
   // preempting this screen also already calls `pause()` on it directly, not
   // `stop()`, per the ringtone-preempts-persistent hand-off rule.
+  //
+  // The instanceId check matters for the same reason it does in
+  // playbackStore.ts's same-mode hand-off: during a skip, this screen's own
+  // `feedId` (route param) updates before the store's `persistent.nowPlaying
+  // .feedId` catches up (that only happens once registerPlaybackStart
+  // re-fires for the new content). Without the instanceId check, that brief
+  // window looks identical to a genuine preemption by something else and
+  // would incorrectly pause this screen's own just-started new track.
   const preemptedByFeedId = usePlaybackStore((state) =>
-    state.persistent && state.persistent.nowPlaying.feedId !== feedId
+    state.persistent &&
+    state.persistent.nowPlaying.feedId !== feedId &&
+    state.persistent.nowPlaying.instanceId !== playerInstanceId
       ? state.persistent.nowPlaying.feedId
       : null
   );

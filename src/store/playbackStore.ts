@@ -15,6 +15,15 @@ export interface NowPlayingIdentity {
   mode: PlaybackMode;
   title: string;
   thumbnailUrl?: string;
+  // Identifies the underlying PLAYER, not the content - lets the same-mode
+  // hand-off below tell "a genuinely different player instance" (e.g. a
+  // ringtone card handing off to a different ringtone card) apart from "the
+  // same player instance is just switching to different content" (a skip
+  // within audio-player.tsx's single shared persistent player). Ephemeral
+  // registrations (RingtoneFeedCard) never set this - each card has its own
+  // player, so leaving it undefined there always falls through to the
+  // existing stop() behavior, unchanged.
+  instanceId?: string;
 }
 
 export interface NowPlayingCounter {
@@ -199,9 +208,19 @@ export const usePlaybackStore = create<PlaybackCoordinatorState>()((set, get) =>
       set({ ephemeral: newSlot, persistent: nextPersistent });
     } else {
       // Same-mode hand-off: a different persistent feedId was already
-      // registered - fully stop/replace it. Unchanged from before this
-      // session's fixes.
-      if (persistent && persistent.nowPlaying.feedId !== identity.feedId) {
+      // registered - fully stop/replace it, UNLESS it's the same underlying
+      // player instance just switching content (a skip within
+      // audio-player.tsx's single shared persistent player, identified via
+      // instanceId - see NowPlayingIdentity's comment). Calling stop() in
+      // that case was a real bug: it tore down the native lock-screen
+      // session and paused/reset the position of the track that had just
+      // started, since "outgoing" and "incoming" registrations share the
+      // literal same player object there.
+      const isSamePlayerInstance =
+        persistent?.nowPlaying.instanceId !== undefined &&
+        persistent.nowPlaying.instanceId === identity.instanceId;
+
+      if (persistent && persistent.nowPlaying.feedId !== identity.feedId && !isSamePlayerInstance) {
         try {
           persistent.controls.stop();
         } catch (error) {
