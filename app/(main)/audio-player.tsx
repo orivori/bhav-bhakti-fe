@@ -1123,6 +1123,42 @@ export default function AudioPlayerScreen() {
     return () => subscription.remove();
   }, [status.playing, feedId]);
 
+  // Lock-screen/notification Previous/Next buttons - a native SessionCommand
+  // patch (see patches/expo-audio+1.1.1.patch), since expo-audio's own API
+  // only ever exposed seek forward/backward, never real track navigation.
+  // The native side (AudioMediaSessionCallback/AudioControlsService) only
+  // notifies which direction was tapped - it makes no boundary decision of
+  // its own. Deliberately reuses the SAME handleNext/handlePrevious the
+  // in-app buttons already call, so there's no second boundary check to
+  // keep in sync: both paths run through the identical canGoNext/
+  // canGoPrevious-gated functions, which already no-op correctly at either
+  // end of the queue, or when there's no queue at all (e.g. a single
+  // mantra). Per a deliberate scope decision, the lock-screen buttons always
+  // show rather than graying out at a boundary - a silent no-op tap there,
+  // same as this screen's own buttons would produce if they weren't
+  // visually disabled.
+  // 'skipCommand' isn't part of expo-audio's own AudioEvents type (it only
+  // exists on this patched native build), hence the narrow cast below rather
+  // than widening the library's real type declarations.
+  useEffect(() => {
+    const subscription = (
+      player as unknown as {
+        addListener: (
+          eventName: 'skipCommand',
+          listener: (direction: 'next' | 'previous') => void
+        ) => { remove: () => void };
+      }
+    ).addListener('skipCommand', (direction) => {
+      if (direction === 'next') {
+        handleNext();
+      } else {
+        handlePrevious();
+      }
+    });
+
+    return () => subscription.remove();
+  }, [player, handleNext, handlePrevious]);
+
   // Keep the shared store's mirror of this screen's status fresh (position,
   // play state, counter) so the mini-player can reflect it. No-ops safely
   // via updateNowPlayingStatus's own feedId guard if this screen's audio has

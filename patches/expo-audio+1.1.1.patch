@@ -28,3 +28,139 @@ index 49a53af..847aa92 100644
  
    private val players = ConcurrentHashMap<String, AudioPlayer>()
    private val recorders = ConcurrentHashMap<String, AudioRecorder>()
+diff --git a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/AudioPlayer.kt b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/AudioPlayer.kt
+index 320062e..b75b8c1 100644
+--- a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/AudioPlayer.kt
++++ b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/AudioPlayer.kt
+@@ -32,6 +32,7 @@ import java.util.UUID
+ 
+ private const val PLAYBACK_STATUS_UPDATE = "playbackStatusUpdate"
+ private const val AUDIO_SAMPLE_UPDATE = "audioSampleUpdate"
++private const val SKIP_COMMAND = "skipCommand"
+ private const val SEEK_JUMP_INTERVAL_MS: Long = 10_000
+ 
+ @UnstableApi
+@@ -122,6 +123,15 @@ class AudioPlayer(
+     }
+   }
+ 
++  // Called when the notification-shade/lock-screen Previous/Next button is
++  // tapped. Reuses the existing ACTION_SEEK_FORWARD/ACTION_SEEK_BACKWARD
++  // SessionCommands for this - no new commands are registered. Deliberately
++  // just notifies JS of which direction was tapped and nothing else; JS's
++  // existing handleNext/handlePrevious own the actual boundary decision.
++  fun notifySkipCommand(direction: String) {
++    emit(SKIP_COMMAND, direction)
++  }
++
+   private fun startUpdating() {
+     updateJob?.cancel()
+     updateJob = flow {
+diff --git a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioControlsService.kt b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioControlsService.kt
+index 04486e2..8bd1179 100644
+--- a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioControlsService.kt
++++ b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioControlsService.kt
+@@ -61,13 +61,14 @@ class AudioControlsService : MediaSessionService() {
+         if (player.isPlaying) player.pause() else player.play()
+       }
+ 
+-      ACTION_SEEK_FORWARD -> withPlayerOnAppThread { player ->
+-        player.seekTo(player.currentPosition + SEEK_INTERVAL_MS)
+-      }
+-
+-      ACTION_SEEK_BACKWARD -> withPlayerOnAppThread { player ->
+-        player.seekTo(player.currentPosition - SEEK_INTERVAL_MS)
+-      }
++      // Reused, not new: ACTION_SEEK_FORWARD/ACTION_SEEK_BACKWARD now mean
++      // skip-next/skip-previous (see notifySkipCommandInternal). This
++      // intent-based path mirrors onCustomCommand below for consistency but
++      // isn't actually exercised by the current notification (dispatches
++      // through onCustomCommand, not Intents) - kept so this action isn't
++      // silently unhandled if that ever changes.
++      ACTION_SEEK_FORWARD -> notifySkipCommandInternal("next")
++      ACTION_SEEK_BACKWARD -> notifySkipCommandInternal("previous")
+     }
+ 
+     // Ensure channel exists and update current notification
+@@ -136,11 +137,13 @@ class AudioControlsService : MediaSessionService() {
+     val session = mediaSession ?: return
+     val customLayout = mutableListOf<CommandButton>()
+ 
+-    // Add seek backward button if enabled
++    // ACTION_SEEK_BACKWARD is reused to mean skip-previous - same
++    // SessionCommand/showSeekBackward gate as before, only the icon/label
++    // and tap behavior changed to match.
+     if (currentOptions?.showSeekBackward == true) {
+       customLayout.add(
+-        CommandButton.Builder(CommandButton.ICON_SKIP_BACK)
+-          .setDisplayName("Seek Backward")
++        CommandButton.Builder(CommandButton.ICON_PREVIOUS)
++          .setDisplayName("Previous")
+           .setEnabled(true)
+           .setSessionCommand(SessionCommand(ACTION_SEEK_BACKWARD, Bundle.EMPTY))
+           .build()
+@@ -156,11 +159,12 @@ class AudioControlsService : MediaSessionService() {
+         .build()
+     )
+ 
+-    // Add seek forward button if enabled
++    // ACTION_SEEK_FORWARD is reused to mean skip-next - see the backward
++    // button's comment above.
+     if (currentOptions?.showSeekForward == true) {
+       customLayout.add(
+-        CommandButton.Builder(CommandButton.ICON_SKIP_FORWARD)
+-          .setDisplayName("Seek Forward")
++        CommandButton.Builder(CommandButton.ICON_NEXT)
++          .setDisplayName("Next")
+           .setEnabled(true)
+           .setSessionCommand(SessionCommand(ACTION_SEEK_FORWARD, Bundle.EMPTY))
+           .build()
+@@ -170,6 +174,10 @@ class AudioControlsService : MediaSessionService() {
+     session.setCustomLayout(customLayout)
+   }
+ 
++  private fun notifySkipCommandInternal(direction: String) {
++    currentPlayer?.notifySkipCommand(direction)
++  }
++
+   private fun postOrStartForegroundNotification(startInForeground: Boolean) {
+     val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+     val notification = buildNotification() ?: return
+@@ -378,6 +386,13 @@ class AudioControlsService : MediaSessionService() {
+       getInstance()?.updateMetadataInternal(player, metadata)
+     }
+ 
++    // Called from AudioMediaSessionCallback.onCustomCommand, which only has
++    // a MediaSession/raw Player, not a reference to this service or the
++    // AudioPlayer SharedObject that owns emit().
++    fun notifySkipCommand(direction: String) {
++      getInstance()?.notifySkipCommandInternal(direction)
++    }
++
+     fun clearSession() {
+       getInstance()?.clearSessionInternal()
+     }
+diff --git a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioMediaSessionCallback.kt b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioMediaSessionCallback.kt
+index 839aaef..a08b7e2 100644
+--- a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioMediaSessionCallback.kt
++++ b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioMediaSessionCallback.kt
+@@ -50,11 +50,17 @@ class AudioMediaSessionCallback : MediaSession.Callback {
+     args: Bundle
+   ): ListenableFuture<SessionResult> {
+     when (command.customAction) {
++      // Reused, not new: these now mean skip-next/skip-previous. Unlike a
++      // real seek, this can't be resolved with just session.player - "next"
++      // only has meaning as JS-side queue state, which this native layer
++      // has no visibility into. Only notifies JS of the tap direction; JS's
++      // existing handleNext/handlePrevious own the actual boundary
++      // decision.
+       AudioControlsService.ACTION_SEEK_FORWARD -> {
+-        session.player.seekTo(session.player.currentPosition + AudioControlsService.SEEK_INTERVAL_MS)
++        AudioControlsService.notifySkipCommand("next")
+       }
+       AudioControlsService.ACTION_SEEK_BACKWARD -> {
+-        session.player.seekTo(session.player.currentPosition - AudioControlsService.SEEK_INTERVAL_MS)
++        AudioControlsService.notifySkipCommand("previous")
+       }
+     }
+     return super.onCustomCommand(session, controller, command, args)
