@@ -999,6 +999,21 @@ export default function AudioPlayerScreen() {
     }
   }, [status.didJustFinish, player, showTrackNav, queue, navigateToQueueItem]);
 
+  // Tracks whether THIS player instance already has an active native
+  // lock-screen/notification session, so activateLockScreenControls (below)
+  // can update it in place on subsequent skips instead of unconditionally
+  // tearing down and rebuilding the whole MediaSession every time - that
+  // rebuild (release + new MediaSession.Builder + hideNotification()'s
+  // unconditional cancel) is what caused the remaining, legitimate
+  // vanish-and-reappear on skip, separate from the coordinator's own
+  // spurious-stop bug fixed earlier. Reset to false wherever
+  // clearLockScreenControls() is called, so a later reactivation correctly
+  // goes through the full setActiveForLockScreen path again rather than
+  // silently no-opping against a session that no longer exists (see
+  // updateLockScreenMetadata's own doc comment: "only has an effect if this
+  // player is currently active for lock screen controls").
+  const hasActiveLockScreenSessionRef = React.useRef(false);
+
   // Activates lock-screen/notification controls with fresh metadata - only
   // ever called when isAppActiveRef confirms the app is genuinely
   // foregrounded (see the ref's own comment above for why). Wrapped in
@@ -1014,22 +1029,29 @@ export default function AudioPlayerScreen() {
   const activateLockScreenControls = () => {
     try {
       const artworkUrl = contentData.thumbnailUrl?.toString();
+      const metadata = {
+        title: contentData.title?.toString() ?? (t('sacredMantra') as string),
+        artist: contentData.deity?.toString(),
+        // Omitted entirely (not passed as '' or undefined) when it isn't a
+        // genuine URL - see isValidArtworkUrl's comment for why an empty
+        // string specifically crashes the native side.
+        ...(isValidArtworkUrl(artworkUrl) ? { artworkUrl } : {}),
+      };
 
-      player.setActiveForLockScreen(
-        true,
-        {
-          title: contentData.title?.toString() ?? (t('sacredMantra') as string),
-          artist: contentData.deity?.toString(),
-          // Omitted entirely (not passed as '' or undefined) when it isn't a
-          // genuine URL - see isValidArtworkUrl's comment for why an empty
-          // string specifically crashes the native side.
-          ...(isValidArtworkUrl(artworkUrl) ? { artworkUrl } : {}),
-        },
-        {
+      if (hasActiveLockScreenSessionRef.current) {
+        // Same player instance, already active - update metadata in place.
+        // The Player.Listener attached during the original activation below
+        // is still attached (same player.ref throughout, never torn down),
+        // so play/pause icon updates keep working correctly with nothing
+        // further to re-wire here.
+        player.updateLockScreenMetadata(metadata);
+      } else {
+        player.setActiveForLockScreen(true, metadata, {
           showSeekForward: true,
           showSeekBackward: true,
-        }
-      );
+        });
+        hasActiveLockScreenSessionRef.current = true;
+      }
     } catch (error) {
       console.error('❌ Audio Player: Failed to activate lock-screen controls:', error);
     }
@@ -1084,6 +1106,7 @@ export default function AudioPlayerScreen() {
             player.pause();
             player.seekTo(0);
             player.clearLockScreenControls();
+            hasActiveLockScreenSessionRef.current = false;
           } catch (error) {
             console.error('Error stopping playback (player likely already released):', error);
           }
@@ -1132,6 +1155,45 @@ export default function AudioPlayerScreen() {
 
     return () => subscription.remove();
   }, [status.playing, feedId]);
+
+  // Auto-dismisses the lock-screen/notification entry after a long enough
+  // pause that the user has likely moved on, rather than leaving it sitting
+  // in the notification shade indefinitely. Deliberately native-only:
+  // clears the lock-screen session via clearLockScreenControls() but does
+  // NOT touch the playbackStore `persistent` slot or the mini-player - the
+  // in-app resumable state stays exactly as it was, this is purely about
+  // not leaving an OS notification around forever. Cancelled on any resume
+  // or feedId change (a skip while paused restarts the clock rather than
+  // dismissing mid-transition to different content), and on unmount, so a
+  // stale timer from a previous pause can never fire late.
+  const PAUSED_LOCK_SCREEN_DISMISS_MS = 30 * 60 * 1000; // 30 minutes
+  const pausedDismissTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (pausedDismissTimerRef.current) {
+      clearTimeout(pausedDismissTimerRef.current);
+      pausedDismissTimerRef.current = null;
+    }
+
+    if (!status.playing && hasActiveLockScreenSessionRef.current) {
+      pausedDismissTimerRef.current = setTimeout(() => {
+        try {
+          player.clearLockScreenControls();
+        } catch (error) {
+          console.error('Error auto-dismissing paused lock-screen controls (player likely already released):', error);
+        }
+        hasActiveLockScreenSessionRef.current = false;
+        pausedDismissTimerRef.current = null;
+      }, PAUSED_LOCK_SCREEN_DISMISS_MS);
+    }
+
+    return () => {
+      if (pausedDismissTimerRef.current) {
+        clearTimeout(pausedDismissTimerRef.current);
+        pausedDismissTimerRef.current = null;
+      }
+    };
+  }, [status.playing, feedId, player]);
 
   // Lock-screen/notification Previous/Next buttons - a native SessionCommand
   // patch (see patches/expo-audio+1.1.1.patch), since expo-audio's own API
@@ -1239,6 +1301,7 @@ export default function AudioPlayerScreen() {
     return () => {
       try {
         player.clearLockScreenControls();
+        hasActiveLockScreenSessionRef.current = false;
       } catch (error) {
         console.error('Error clearing lock-screen controls during unmount cleanup (player likely already released):', error);
       }
