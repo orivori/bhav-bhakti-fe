@@ -768,11 +768,24 @@ export default function AudioPlayerScreen() {
       player.shouldCorrectPitch = false;
       player.setPlaybackRate(playbackSpeed); // playbackRate is a getter-only property at runtime - must go through setPlaybackRate()
 
+      // Declared at load time so the native MediaItem - and therefore the
+      // system lock screen - starts with correct data instead of empty.
+      // Same title/artist/artwork mapping and the same isValidArtworkUrl
+      // guard as activateLockScreenControls below, kept deliberately
+      // consistent. `as any`: expo-audio's shipped TS types don't yet
+      // reflect this patched native field.
+      const artworkUrlForLoad = contentData.thumbnailUrl?.toString();
+      const nativeMetadata = {
+        title: contentData.title?.toString() ?? (t('sacredMantra') as string),
+        artist: contentData.deity?.toString(),
+        ...(isValidArtworkUrl(artworkUrlForLoad) ? { artworkUrl: artworkUrlForLoad } : {}),
+      };
+
       // Only now - once we're handing a resolved source to the native
       // player - start the 10s "did it ever load" timeout (see the effect
       // above), not from the top of this function.
       setNativeLoadStarted(true);
-      player.replace({ uri: sourceUri });
+      player.replace({ uri: sourceUri, metadata: nativeMetadata } as any);
       player.play();
       // Mark this feedId as the one now actually attached to `player`, so
       // the next tap correctly takes the pause/resume branch above instead
