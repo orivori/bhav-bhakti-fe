@@ -1,19 +1,13 @@
 {
   "expo": {
-    "name": "bhavbhakti",
+    "name": "Bhav Bhakti",
     "slug": "bhavbhakti",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/images/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "scheme": "bhavbhakti",
-    "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff",
-      "hideAsync": true
-    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.vivekpandit.bhavbhakti",
@@ -30,7 +24,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/images/icon.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
@@ -83,6 +77,15 @@
       ],
       "expo-audio",
       "expo-build-properties",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash-icon.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#ffffff",
+          "imageWidth": 210
+        }
+      ],
       [
         "react-native-share",
         {
