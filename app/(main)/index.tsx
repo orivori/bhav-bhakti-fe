@@ -16,6 +16,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 import { Text } from '@/components/atoms';
 import FeedList from '@/components/molecules/FeedList';
+import BirthdateModal from '@/components/molecules/BirthdateModal/BirthdateModal';
 import { useFeed } from '@/features/feed/hooks';
 import { Feed } from '@/types/feed';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
@@ -23,6 +24,8 @@ import { useTranslation as useI18n } from '@/shared/i18n/useTranslation';
 import { SvgUri } from 'react-native-svg';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
 import * as Haptics from 'expo-haptics';
+import { profileService } from '@/features/profile/services/profileService';
+import type { ZodiacSign } from '@/types/horoscope';
 
 type ContentCategory = 'Mantras' | 'Rashifal' | 'Status' | 'Ringtones';
 
@@ -180,6 +183,9 @@ export default function HomeScreen() {
   });
 
 
+  const [showBirthdateModal, setShowBirthdateModal] = React.useState(false);
+  const [isCheckingHoroscopeProfile, setIsCheckingHoroscopeProfile] = React.useState(false);
+
   const handleSearchSubmit = (query: string) => {
     if (query.trim()) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -304,6 +310,49 @@ export default function HomeScreen() {
     console.log('ℹ️ Home: No audio media found on this feed');
   };
 
+  // "Today's Horoscope" card only (see handleCategoryPress's separate
+  // 'Rashifal' case, above - that quick-link pill is untouched and always
+  // goes straight to the 12-sign grid). First-ever tap collects a real
+  // birthdate via BirthdateModal; once dateOfBirth/zodiacSign already exist
+  // on the profile, subsequent taps skip the modal and go straight to the
+  // user's own sign. skipPaywall is forwarded to horoscope-detail.tsx as a
+  // marker for whichever paywall gate Phase 4 eventually adds to the grid
+  // path - this Home path must never be caught by it.
+  const handleHoroscopeCardPress = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    if (isCheckingHoroscopeProfile) return;
+    setIsCheckingHoroscopeProfile(true);
+
+    try {
+      const profile = await profileService.getProfile();
+      if (profile.profile?.dateOfBirth && profile.profile?.zodiacSign) {
+        router.push({
+          pathname: '/(main)/horoscope-detail',
+          params: { zodiacSign: profile.profile.zodiacSign, skipPaywall: 'true' },
+        });
+      } else {
+        setShowBirthdateModal(true);
+      }
+    } catch (error) {
+      console.error('Failed to check horoscope profile:', error);
+      // Network/auth failure on the check - fall back to the modal rather
+      // than dead-ending the tap. Worst case for a user who already has a
+      // birthdate saved is re-entering it, which is harmless.
+      setShowBirthdateModal(true);
+    } finally {
+      setIsCheckingHoroscopeProfile(false);
+    }
+  };
+
+  const handleBirthdateSuccess = (zodiacSign: ZodiacSign) => {
+    setShowBirthdateModal(false);
+    router.push({
+      pathname: '/(main)/horoscope-detail',
+      params: { zodiacSign, skipPaywall: 'true' },
+    });
+  };
+
   const renderHeader = () => (
     <View>
       {/* App Title Header with Profile */}
@@ -379,10 +428,7 @@ export default function HomeScreen() {
 
         <TouchableOpacity
           style={styles.todayHoroscopeCard}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            router.push('/(main)/horoscope');
-          }}
+          onPress={handleHoroscopeCardPress}
           activeOpacity={0.7}
         >
           <View style={styles.horoscopeCardContent}>
@@ -472,6 +518,11 @@ export default function HomeScreen() {
         contentContainerStyle={{
           paddingBottom: contentPadding
         }}
+      />
+      <BirthdateModal
+        visible={showBirthdateModal}
+        onDismiss={() => setShowBirthdateModal(false)}
+        onSuccess={handleBirthdateSuccess}
       />
     </SafeAreaView>
   );

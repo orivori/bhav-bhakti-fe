@@ -22,7 +22,13 @@ import { LanguageToggle } from '@/components/molecules/LanguageToggle';
 import type { ZodiacSign } from '@/types/horoscope';
 
 export default function HoroscopeDetailScreen() {
-  const { zodiacSign } = useLocalSearchParams<{ zodiacSign: ZodiacSign }>();
+  // skipPaywall is set by Home's "Today's Horoscope" card flow (the
+  // birthdate-collection modal) - that entry point must never be paywalled.
+  // Not read yet: this screen has zero paywall logic today (confirmed via
+  // grep - no PremiumPaywall/usePremiumStore/isPremiumUser anywhere here).
+  // Whichever gate Phase 4 adds to the 12-sign grid's entry into this screen
+  // MUST check this param and bypass itself when it's 'true'.
+  const { zodiacSign, skipPaywall } = useLocalSearchParams<{ zodiacSign: ZodiacSign; skipPaywall?: string }>();
   const { t, language } = useTranslation();
   const { contentPadding } = useTabBarHeight();
 

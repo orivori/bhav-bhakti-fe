@@ -96,7 +96,8 @@
           ],
           "ios": []
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker"
     ],
     "extra": {
       "router": {},

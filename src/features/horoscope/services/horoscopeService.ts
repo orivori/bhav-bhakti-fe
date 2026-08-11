@@ -21,11 +21,16 @@ class HoroscopeService {
    * Calculate zodiac from birth details
    */
   async calculateZodiac(data: CalculateZodiacRequest): Promise<CalculateZodiacResponse> {
+    // apiClient.post already unwraps the axios response, so `response` here
+    // IS the backend's {success, message, data} envelope - response.data is
+    // the CalculateZodiacResponse itself. The previous response.data.data
+    // was one level too deep and always evaluated to undefined; it went
+    // unnoticed because this method had zero real callers until now.
     const response = await apiClient.post<{ data: CalculateZodiacResponse }>(
       API_ENDPOINTS.HOROSCOPE.CALCULATE_ZODIAC,
       data
     );
-    return response.data.data;
+    return response.data;
   }
 
   /**
