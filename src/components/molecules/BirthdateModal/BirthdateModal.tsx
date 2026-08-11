@@ -9,6 +9,7 @@ import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { useTranslation as useI18n } from '@/shared/i18n/useTranslation';
 import { horoscopeService } from '@/features/horoscope/services/horoscopeService';
 import { profileService } from '@/features/profile/services/profileService';
+import { getLocalDateString } from '@/shared/utils/dateUtil';
 import type { ZodiacSign } from '@/types/horoscope';
 
 interface BirthdateModalProps {
@@ -19,18 +20,6 @@ interface BirthdateModalProps {
 
 const MIN_DATE = new Date();
 MIN_DATE.setFullYear(MIN_DATE.getFullYear() - 120);
-
-// Extracts calendar-local Y/M/D rather than going through toISOString(),
-// which converts to UTC first - for a birthdate near local midnight in an
-// ahead-of-UTC timezone (e.g. IST, UTC+5:30) that conversion can roll the
-// date back by one day, silently submitting the wrong birthdate and
-// potentially the wrong zodiac sign at sign-boundary dates.
-const toISODateString = (date: Date): string => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
 
 // Centered floating modal, mirroring ViewingWindowSheet's convention (plain
 // RN Modal + custom backdrop TouchableOpacity for tap-outside-to-dismiss)
@@ -58,7 +47,7 @@ export default function BirthdateModal({ visible, onDismiss, onSuccess }: Birthd
     setError(null);
 
     try {
-      const dateOfBirth = toISODateString(selectedDate);
+      const dateOfBirth = getLocalDateString(selectedDate);
 
       // Sequence matters: calculate first via zodiac.util.js's audited logic,
       // then submit dateOfBirth + the resulting zodiacSign together. Sending

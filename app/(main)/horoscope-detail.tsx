@@ -19,6 +19,7 @@ import { useTranslation } from '@/hooks/useTranslation';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
 import { getZodiacBySign } from '@/data/zodiacData';
 import { LanguageToggle } from '@/components/molecules/LanguageToggle';
+import { getLocalDateString } from '@/shared/utils/dateUtil';
 import type { ZodiacSign } from '@/types/horoscope';
 
 export default function HoroscopeDetailScreen() {
@@ -34,8 +35,13 @@ export default function HoroscopeDetailScreen() {
 
   const [selectedDate, setSelectedDate] = useState(new Date());
 
-  // Fetch horoscope data for selected sign and date
-  const dateString = selectedDate.toISOString().split('T')[0];
+  // Fetch horoscope data for selected sign and date. Deliberately
+  // getLocalDateString(selectedDate), NOT selectedDate.toISOString().split
+  // ('T')[0] - the latter converts to UTC first and was rolling this back to
+  // the previous calendar day for the first ~5.5 hours of every day in IST,
+  // silently fetching yesterday's horoscope. formatDisplayDate() below
+  // (toLocaleDateString) was never affected - it's untouched.
+  const dateString = getLocalDateString(selectedDate);
   const { data: horoscope, isLoading, error, refetch } = useHoroscopeBySign(
     zodiacSign as ZodiacSign,
     dateString
