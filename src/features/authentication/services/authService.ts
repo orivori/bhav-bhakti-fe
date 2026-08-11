@@ -18,7 +18,15 @@ class AuthService {
   }
 
   async getUserProfile(): Promise<User> {
-    return apiClient.get<User>(API_ENDPOINTS.USER.PROFILE);
+    // Same envelope-unwrapping bug class as horoscopeService.calculateZodiac
+    // (see that file), opposite direction: sendOTP/verifyOTP above are
+    // correctly NOT unwrapped because their declared types ARE the
+    // {success, message, data} envelope - but User isn't, so this was
+    // silently returning the whole envelope instead of the user. Still
+    // unused (zero call sites) - fixed alongside the URL fix since it's the
+    // same root cause (this endpoint was never actually exercised).
+    const response = await apiClient.get<{ data: User }>(API_ENDPOINTS.USER.PROFILE);
+    return response.data;
   }
 
   async logout(): Promise<void> {

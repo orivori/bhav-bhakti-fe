@@ -48,8 +48,13 @@ export const API_ENDPOINTS = {
     LOGOUT: '/v1/auth/logout',
   },
   USER: {
-    PROFILE: '/v1/user/profile',
-    UPDATE_PROFILE: '/v1/user/profile',
+    // Real backend mount point is /api/v1/profile (src/routes/index.js:22 -
+    // router.use('/profile', profileRoutes)), NOT /v1/user/profile - that
+    // path was never a real route. Confirmed via a real 404 in testing;
+    // isolated to profileService.ts and the never-called authService
+    // .getUserProfile() (see git history for the full audit).
+    PROFILE: '/v1/profile',
+    UPDATE_PROFILE: '/v1/profile',
   },
   HOROSCOPE: {
     CALCULATE_ZODIAC: '/v1/horoscope/zodiac/calculate',
