@@ -15,6 +15,7 @@ import { useTranslation } from '@/hooks/useTranslation';
 import { feedService } from '@/features/feed/services/feedService';
 import { useFeedStore } from '@/store/feedStore';
 import { useSoundPreferenceStore } from '@/store/soundPreferenceStore';
+import { usePremiumStore } from '@/store/premiumStore';
 import { formatCount } from '@/utils/formatCount';
 import { getMediaFileExtension } from '@/utils/getMediaFileExtension';
 import { shareContent } from '@/utils/shareContent';
@@ -31,12 +32,6 @@ const FOOTER_HEIGHT = 56;
 
 // --- Playback ---
 const AUDIO_PLAYBACK_CAP_SECONDS = 30;
-
-// TEMPORARY/PLACEHOLDER - there is no real entitlement/paywall system
-// anywhere in this app yet. This hardcoded flag is a clearly-marked seam so
-// the real paywall check can be wired in here later without touching this
-// card (or its callers) again. Do not read this constant from anywhere else.
-const isPremiumUser = false;
 
 const { width: screenWidth, height: windowHeight } = Dimensions.get('window');
 // All cards (audio and visual alike) now share the same horizontal gutter -
@@ -172,6 +167,11 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
   const { toggleLike, incrementDownload, incrementView } = useFeedStore();
   const isVideoMuted = useSoundPreferenceStore((s) => s.isVideoMuted);
   const setVideoMuted = useSoundPreferenceStore((s) => s.setVideoMuted);
+  // Consolidated onto the shared store - see premiumStore.ts's
+  // DEV_OVERRIDE_IS_PREMIUM comment. Was a local `const isPremiumUser =
+  // false;` here; the store's own default is also false, so this is a
+  // behavior-identical swap.
+  const { isPremium: isPremiumUser } = usePremiumStore();
 
   const isMountedRef = useRef(true);
   useEffect(() => {

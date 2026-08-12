@@ -20,21 +20,20 @@ import { useTranslation } from '@/hooks/useTranslation';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
 import { ZODIAC_SIGNS } from '@/data/zodiacData';
 import { LanguageToggle } from '@/components/molecules/LanguageToggle';
+import { usePremiumStore } from '@/store/premiumStore';
 import type { ZodiacSign } from '@/types/horoscope';
 
 const { width } = Dimensions.get('window');
 const ITEM_WIDTH = (width - 48) / 2; // 2 columns with padding
 
-// TEMPORARY/PLACEHOLDER - there is no real entitlement/paywall system
-// anywhere in this app yet. This hardcoded flag is a clearly-marked seam so
-// the real paywall check can be wired in here later without touching this
-// screen again. Do not read this constant from anywhere else. Mirrors the
-// same pattern used in AutoplayFeedCard.tsx.
-const isPremiumUser = false;
-
 export default function HoroscopeScreen() {
   const { t, language } = useTranslation();
   const { contentPadding } = useTabBarHeight();
+  // Consolidated onto the shared store - see premiumStore.ts's
+  // DEV_OVERRIDE_IS_PREMIUM comment. Was a local `const isPremiumUser =
+  // false;` here; the store's own default is also false, so this is a
+  // behavior-identical swap.
+  const { isPremium: isPremiumUser } = usePremiumStore();
 
   const showPaywallPlaceholder = () => {
     // TEMPORARY/PLACEHOLDER - stands in for the real paywall/upsell screen.

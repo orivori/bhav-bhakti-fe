@@ -2,16 +2,7 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { Alert } from 'react-native';
 import ViewingWindowSheet from '@/components/molecules/ViewingWindowSheet/ViewingWindowSheet';
 import { Feed } from '@/types/feed';
-
-// TEMPORARY/PLACEHOLDER - mirrors the identical seam in AutoplayFeedCard.tsx
-// (Home feed autoplay cards). There is no real entitlement/paywall system
-// anywhere in this app yet. This is its own local copy, not an import of that
-// file's constant - that file's own comment says "do not read this constant
-// from anywhere else," so the two features can be wired to a real paywall
-// independently later without one accidentally changing the other's gating.
-// TEMPORARILY forced true for on-device testing of the sheet itself - MUST be
-// flipped back to false before committing anything (founder's own request).
-const isPremiumUser = true;
+import { usePremiumStore } from '@/store/premiumStore';
 
 interface UseViewingWindowArgs {
   // The SAME live array each hub tab already renders its grid from
@@ -50,6 +41,12 @@ export function useViewingWindow({ feeds, onLike, onShare, onDownload }: UseView
   // `feeds` below on every render, so it can never go stale the way a
   // captured object reference would.
   const [feedId, setFeedId] = useState<string | null>(null);
+  // Consolidated onto the shared store - see premiumStore.ts's
+  // DEV_OVERRIDE_IS_PREMIUM comment. Was a local `const isPremiumUser =
+  // true;` here, which had drifted to disagree with every other gate in the
+  // app - the store's default is false, so this closes the Viewing Window
+  // gate to match the app's actual intended (and everywhere-else) behavior.
+  const { isPremium: isPremiumUser } = usePremiumStore();
 
   const feed = useMemo(
     () => (feedId ? feeds.find((f) => f.id.toString() === feedId) ?? null : null),
@@ -65,7 +62,7 @@ export function useViewingWindow({ feeds, onLike, onShare, onDownload }: UseView
       return;
     }
     setFeedId(targetFeed.id.toString());
-  }, []);
+  }, [isPremiumUser]);
 
   // Fires on backdrop tap and Android hardware-back alike (both handled by
   // ViewingWindowSheet's Modal) - the single place feed state gets cleared
