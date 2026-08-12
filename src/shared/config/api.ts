@@ -43,8 +43,12 @@ export const API_CONFIG = {
 
 export const API_ENDPOINTS = {
   AUTH: {
+    // SEND_OTP/VERIFY_OTP are the old OTPless-backed endpoints - left
+    // untouched as a rollback path until Phase 5. FIREBASE_VERIFY is the
+    // real replacement, now what useAuth.tsx actually calls.
     SEND_OTP: '/v1/auth/send-otp',
     VERIFY_OTP: '/v1/auth/verify-otp',
+    FIREBASE_VERIFY: '/v1/auth/firebase/verify',
     LOGOUT: '/v1/auth/logout',
   },
   USER: {

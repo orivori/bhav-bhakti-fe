@@ -207,13 +207,6 @@ export default function VerifyOTPScreen() {
               <Text variant="caption" color="secondary" align="center">
                 Please enter the code to continue
               </Text>
-
-              {/* Test OTP Message */}
-              <View style={styles.testOtpContainer}>
-                <Text variant="caption" weight="medium" style={styles.testOtpText}>
-                  For testing, use OTP: 123456
-                </Text>
-              </View>
             </View>
 
             {/* OTP Input */}
@@ -262,18 +255,6 @@ export default function VerifyOTPScreen() {
                 </Text>
               )}
             </View>
-
-            {/* Development Note */}
-            {__DEV__ && (
-              <View style={styles.devNote}>
-                <Text variant="caption" weight="medium" style={styles.devNoteTitle}>
-                  Development Mode
-                </Text>
-                <Text variant="caption" style={styles.devNoteText}>
-                  Use OTP: 123456 for testing
-                </Text>
-              </View>
-            )}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -328,19 +309,6 @@ const styles = StyleSheet.create({
   phoneNumber: {
     marginBottom: 16,
   },
-  testOtpContainer: {
-    backgroundColor: '#e0f2fe',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    marginTop: 16,
-    borderWidth: 1,
-    borderColor: '#0284c7',
-  },
-  testOtpText: {
-    color: '#0369a1',
-    textAlign: 'center',
-  },
   otpInput: {
     marginBottom: 32,
   },
@@ -364,20 +332,5 @@ const styles = StyleSheet.create({
   },
   resendingText: {
     opacity: 0.5,
-  },
-  devNote: {
-    marginTop: 32,
-    padding: 16,
-    backgroundColor: '#dbeafe',
-    borderWidth: 1,
-    borderColor: '#93c5fd',
-    borderRadius: 8,
-  },
-  devNoteTitle: {
-    color: '#1e40af',
-    marginBottom: 4,
-  },
-  devNoteText: {
-    color: '#1d4ed8',
   },
 });

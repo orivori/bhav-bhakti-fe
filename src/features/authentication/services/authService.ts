@@ -5,16 +5,27 @@ import {
   SendOTPResponse,
   VerifyOTPRequest,
   VerifyOTPResponse,
+  VerifyFirebasePhoneAuthRequest,
   User,
 } from '../types';
 
 class AuthService {
+  // OTPless-backed - left untouched, same rollback path documented in
+  // api.ts, retired in Phase 5, not this one.
   async sendOTP(data: SendOTPRequest): Promise<SendOTPResponse> {
     return apiClient.post<SendOTPResponse>(API_ENDPOINTS.AUTH.SEND_OTP, data);
   }
 
   async verifyOTP(data: VerifyOTPRequest): Promise<VerifyOTPResponse> {
     return apiClient.post<VerifyOTPResponse>(API_ENDPOINTS.AUTH.VERIFY_OTP, data);
+  }
+
+  // Real Firebase phone-auth path - what useAuth.tsx actually calls now.
+  // Response envelope is identical in shape to VerifyOTPResponse (both wrap
+  // {token, sessionId, user, isNewUser}), so it's reused rather than
+  // duplicated under a new name.
+  async verifyFirebasePhoneAuth(data: VerifyFirebasePhoneAuthRequest): Promise<VerifyOTPResponse> {
+    return apiClient.post<VerifyOTPResponse>(API_ENDPOINTS.AUTH.FIREBASE_VERIFY, data);
   }
 
   async getUserProfile(): Promise<User> {

@@ -1,8 +1,35 @@
 import React, { createContext, useContext, useEffect } from 'react';
 import { router } from 'expo-router';
+import { getAuth, signInWithPhoneNumber } from '@react-native-firebase/auth';
 import { useAuthStore } from '@/shared/stores/authStore';
 import { authService } from '../services/authService';
-import { SendOTPRequest, VerifyOTPRequest, ApiError, AuthTokens } from '../types';
+import { SendOTPRequest, VerifyOTPRequest, AuthTokens } from '../types';
+import {
+  setFirebaseConfirmation,
+  getFirebaseConfirmation,
+  clearFirebaseConfirmation,
+} from '../utils/firebaseConfirmation';
+
+// A handful of the Firebase phone-auth error codes actually likely to be hit
+// in practice (invalid number, wrong/expired code, rate limiting) mapped to
+// readable messages; anything else falls back to Firebase's own message
+// rather than trying to enumerate every possible code up front.
+const getFirebaseAuthErrorMessage = (error: any): string => {
+  switch (error?.code) {
+    case 'auth/invalid-phone-number':
+      return "That phone number doesn't look valid. Please check and try again.";
+    case 'auth/too-many-requests':
+    case 'auth/quota-exceeded':
+      return 'Too many attempts. Please wait a while before trying again.';
+    case 'auth/invalid-verification-code':
+      return 'Incorrect code. Please check and try again.';
+    case 'auth/session-expired':
+    case 'auth/code-expired':
+      return 'This code has expired. Please request a new one.';
+    default:
+      return error?.message || 'Something went wrong. Please try again.';
+  }
+};
 
 interface AuthContextType {
   // State
@@ -36,18 +63,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const sendOTP = async (data: SendOTPRequest) => {
     try {
       setLoading(true);
-      // Use mock service for development
-      const response = await authService.sendOTP(data);
-      console.log("====>",response?.data)
+
+      // Firebase needs a single E.164 string; the UI still collects/sends
+      // these as separate fields (see verifyOTP below for why that split is
+      // kept, not just here).
+      const fullPhoneNumber = `${data.countryCode}${data.phoneNumber.replace(/\D/g, '')}`;
+      const confirmation = await signInWithPhoneNumber(getAuth(), fullPhoneNumber);
+      setFirebaseConfirmation(confirmation);
 
       return {
-        success: response.success,
-        sessionId: '', // API doesn't return sessionId
-        orderId: response.data.orderId,
+        success: true,
+        sessionId: '', // vestigial - API never returned this even before Firebase
+        orderId: '', // vestigial - OTPless-specific, Firebase has no equivalent; the confirmation object itself is what verifyOTP now needs, held via firebaseConfirmation.ts instead of passed through here
       };
     } catch (error) {
-      const apiError = error as ApiError;
-      throw new Error(apiError.message || 'Failed to send OTP');
+      throw new Error(getFirebaseAuthErrorMessage(error));
     } finally {
       setLoading(false);
     }
@@ -57,7 +87,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       setLoading(true);
       console.log('🔄 Starting OTP verification...');
-      const response = await authService.verifyOTP(data);
+
+      const confirmation = getFirebaseConfirmation();
+      if (!confirmation) {
+        throw new Error('Verification session expired. Please request a new code.');
+      }
+
+      const userCredential = await confirmation.confirm(data.otp);
+      if (!userCredential?.user) {
+        throw new Error('Firebase did not return a verified user.');
+      }
+      const idToken = await userCredential.user.getIdToken();
+      // Cleared as soon as it's been consumed - a confirmation is single-use
+      // by nature (Firebase invalidates the verification session on
+      // confirm() either way), so nothing legitimate needs it held any
+      // longer, success or failure.
+      clearFirebaseConfirmation();
+
+      const response = await authService.verifyFirebasePhoneAuth({
+        idToken,
+        countryCode: data.countryCode,
+      });
       console.log('📨 OTP verification response:', response);
 
       if (response.success) {
@@ -83,8 +133,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (error) {
       console.error('💥 OTP verification error:', error);
-      const apiError = error as ApiError;
-      throw new Error(apiError.message || 'Failed to verify OTP');
+      // Covers all three real error shapes here: a missing-confirmation
+      // Error, a Firebase auth/* error from confirm(), or an ApiError from
+      // the backend call - the helper's fallback branch (error?.message)
+      // handles ApiError and any unrecognized shape identically.
+      throw new Error(getFirebaseAuthErrorMessage(error));
     } finally {
       setLoading(false);
       console.log('🏁 OTP verification process finished');

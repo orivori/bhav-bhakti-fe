@@ -205,18 +205,6 @@ export default function PhoneLoginScreen() {
                 By continuing, you agree to our Terms of Service and Privacy Policy
               </Text>
             </View>
-
-            {/* Development Note */}
-            {__DEV__ && (
-              <View style={styles.devNote}>
-                <Text variant="caption" weight="medium" style={styles.devNoteTitle}>
-                  Development Mode
-                </Text>
-                <Text variant="caption" style={styles.devNoteText}>
-                  Use OTP: 123456 for testing
-                </Text>
-              </View>
-            )}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -273,20 +261,5 @@ const styles = StyleSheet.create({
   },
   terms: {
     paddingHorizontal: 16,
-  },
-  devNote: {
-    marginTop: 32,
-    padding: 16,
-    backgroundColor: '#fef3c7',
-    borderWidth: 1,
-    borderColor: '#fde68a',
-    borderRadius: 8,
-  },
-  devNoteTitle: {
-    color: '#92400e',
-    marginBottom: 4,
-  },
-  devNoteText: {
-    color: '#b45309',
   },
 });

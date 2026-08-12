@@ -39,6 +39,11 @@ export interface VerifyOTPRequest {
   orderId: string;
 }
 
+export interface VerifyFirebasePhoneAuthRequest {
+  idToken: string;
+  countryCode: string;
+}
+
 export interface VerifyOTPResponse {
   success: boolean;
   message: string;
