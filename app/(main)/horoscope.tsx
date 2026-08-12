@@ -6,6 +6,7 @@ import {
   ScrollView,
   FlatList,
   Dimensions,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -24,12 +25,33 @@ import type { ZodiacSign } from '@/types/horoscope';
 const { width } = Dimensions.get('window');
 const ITEM_WIDTH = (width - 48) / 2; // 2 columns with padding
 
+// TEMPORARY/PLACEHOLDER - there is no real entitlement/paywall system
+// anywhere in this app yet. This hardcoded flag is a clearly-marked seam so
+// the real paywall check can be wired in here later without touching this
+// screen again. Do not read this constant from anywhere else. Mirrors the
+// same pattern used in AutoplayFeedCard.tsx.
+const isPremiumUser = false;
+
 export default function HoroscopeScreen() {
   const { t, language } = useTranslation();
   const { contentPadding } = useTabBarHeight();
 
+  const showPaywallPlaceholder = () => {
+    // TEMPORARY/PLACEHOLDER - stands in for the real paywall/upsell screen.
+    Alert.alert('Premium Feature', 'This will be available with Bhav Bhakti Premium. Stay tuned!');
+  };
+
   const handleZodiacPress = (zodiacSign: ZodiacSign) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    if (!isPremiumUser) {
+      showPaywallPlaceholder();
+      return;
+    }
+
+    // Deliberately no skipPaywall param here - this is the grid entry point,
+    // which the paywall gate above already applies to. Only Home's
+    // birthdate-collection flow (index.tsx) sets skipPaywall: 'true'.
     router.push({
       pathname: '/(main)/horoscope-detail',
       params: { zodiacSign }

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   StyleSheet,
@@ -10,7 +10,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import * as Haptics from 'expo-haptics';
 
 import { Text } from '@/components/atoms';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
@@ -25,22 +24,26 @@ import type { ZodiacSign } from '@/types/horoscope';
 export default function HoroscopeDetailScreen() {
   // skipPaywall is set by Home's "Today's Horoscope" card flow (the
   // birthdate-collection modal) - that entry point must never be paywalled.
-  // Not read yet: this screen has zero paywall logic today (confirmed via
-  // grep - no PremiumPaywall/usePremiumStore/isPremiumUser anywhere here).
-  // Whichever gate Phase 4 adds to the 12-sign grid's entry into this screen
-  // MUST check this param and bypass itself when it's 'true'.
+  // Phase 4's paywall gate lives on the 12-sign grid itself (horoscope.tsx),
+  // before navigation ever happens, so this screen still doesn't need to
+  // read skipPaywall to enforce anything - by construction, every real nav
+  // call site that reaches this screen is already allowed to be here. The
+  // param is kept only so a future entry point can't accidentally forget it.
   const { zodiacSign, skipPaywall } = useLocalSearchParams<{ zodiacSign: ZodiacSign; skipPaywall?: string }>();
   const { t, language } = useTranslation();
   const { contentPadding } = useTabBarHeight();
 
-  const [selectedDate, setSelectedDate] = useState(new Date());
+  // Rashifal is today-only for MVP - no past/future browsing, so this is a
+  // plain constant now, not state (the date-navigation pill that used to
+  // change it was removed).
+  const selectedDate = new Date();
 
   // Fetch horoscope data for selected sign and date. Deliberately
   // getLocalDateString(selectedDate), NOT selectedDate.toISOString().split
   // ('T')[0] - the latter converts to UTC first and was rolling this back to
   // the previous calendar day for the first ~5.5 hours of every day in IST,
-  // silently fetching yesterday's horoscope. formatDisplayDate() below
-  // (toLocaleDateString) was never affected - it's untouched.
+  // silently fetching yesterday's horoscope. handleShare()'s own
+  // toLocaleDateString call below was never affected - it's untouched.
   const dateString = getLocalDateString(selectedDate);
   const { data: horoscope, isLoading, error, refetch } = useHoroscopeBySign(
     zodiacSign as ZodiacSign,
@@ -83,13 +86,6 @@ export default function HoroscopeDetailScreen() {
       default:
         return ['#8B5A2B', '#A0522D', '#D4AF37'];
     }
-  };
-
-  const formatDisplayDate = () => {
-    return selectedDate.toLocaleDateString(
-      language === 'hi' ? 'hi-IN' : 'en-US',
-      { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }
-    );
   };
 
   const isToday = () => {
@@ -156,46 +152,6 @@ export default function HoroscopeDetailScreen() {
             onPress={handleShare}
           >
             <Ionicons name="share-outline" size={24} color="#374151" />
-          </TouchableOpacity>
-        </View>
-
-        {/* Date Selector */}
-        <View style={styles.dateSelector}>
-          <TouchableOpacity
-            style={styles.dateNavButton}
-            onPress={() => {
-              const prevDay = new Date(selectedDate);
-              prevDay.setDate(prevDay.getDate() - 1);
-              setSelectedDate(prevDay);
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            }}
-            disabled={selectedDate <= new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)}
-          >
-            <Ionicons name="chevron-back" size={20} color={goldenTempleTheme.colors.primary[600]} />
-          </TouchableOpacity>
-
-          <View style={styles.dateDisplay}>
-            <Text variant="body" weight="medium" style={styles.dateSelectorText}>
-              {formatDisplayDate()}
-            </Text>
-            {isToday() && (
-              <Text variant="caption" style={styles.todayLabel}>
-                {language === 'hi' ? 'आज' : 'Today'}
-              </Text>
-            )}
-          </View>
-
-          <TouchableOpacity
-            style={styles.dateNavButton}
-            onPress={() => {
-              const nextDay = new Date(selectedDate);
-              nextDay.setDate(nextDay.getDate() + 1);
-              setSelectedDate(nextDay);
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            }}
-            disabled={selectedDate >= new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)}
-          >
-            <Ionicons name="chevron-forward" size={20} color={goldenTempleTheme.colors.primary[600]} />
           </TouchableOpacity>
         </View>
 
@@ -413,38 +369,6 @@ const styles = StyleSheet.create({
     padding: goldenTempleTheme.spacing.sm,
     borderRadius: goldenTempleTheme.borderRadius.md,
     backgroundColor: goldenTempleTheme.colors.primary[50],
-  },
-  dateSelector: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginHorizontal: goldenTempleTheme.spacing.md,
-    marginTop: goldenTempleTheme.spacing.lg,
-    backgroundColor: '#fff',
-    borderRadius: goldenTempleTheme.borderRadius.lg,
-    padding: goldenTempleTheme.spacing.md,
-    ...goldenTempleTheme.shadows.sm,
-  },
-  dateNavButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: goldenTempleTheme.colors.primary[50],
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dateDisplay: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  dateSelectorText: {
-    color: goldenTempleTheme.colors.text.primary,
-    textAlign: 'center',
-  },
-  todayLabel: {
-    color: goldenTempleTheme.colors.primary[600],
-    fontSize: 12,
-    marginTop: 2,
   },
   zodiacCard: {
     marginHorizontal: goldenTempleTheme.spacing.md,
