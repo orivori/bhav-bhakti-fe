@@ -3,6 +3,13 @@
 # dependencies
 node_modules/
 .env
+
+# Firebase - inherently public Android API key but no reason to keep
+# committing it; same treatment as bhav-bhakti-be's firebase-service-account.json.
+# Present on disk locally, referenced by app.json's android.googleServicesFile,
+# and consumed by the @react-native-firebase/app config plugin at prebuild
+# time - stays fully usable for local/CI builds without being tracked.
+google-services.json
 # Expo
 .expo/
 dist/
