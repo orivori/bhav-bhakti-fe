@@ -6,28 +6,24 @@ import {
   StyleSheet,
   ImageBackground,
   TextInput,
-  Animated,
   Pressable,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
 
 import { Text } from '@/components/atoms';
 import FeedList from '@/components/molecules/FeedList';
 import BirthdateModal from '@/components/molecules/BirthdateModal/BirthdateModal';
+import QuickLinkCard, { QUICK_LINK_CATEGORIES, QuickLinkCategory } from '@/components/molecules/QuickLinkCard';
 import { useFeed } from '@/features/feed/hooks';
 import { Feed } from '@/types/feed';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { useTranslation as useI18n } from '@/shared/i18n/useTranslation';
-import { SvgUri } from 'react-native-svg';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
 import * as Haptics from 'expo-haptics';
 import { profileService } from '@/features/profile/services/profileService';
 import type { ZodiacSign } from '@/types/horoscope';
-
-type ContentCategory = 'Mantras' | 'Rashifal' | 'Status' | 'Ringtones';
 
 
 // Isolated Search Component to prevent keyboard disappearing
@@ -77,92 +73,6 @@ export default function HomeScreen() {
   const { contentPadding } = useTabBarHeight();
   const { t: ti, currentLanguage } = useI18n();
 
-  // Animated Category Button Component
-  const AnimatedCategoryButton = ({
-    category,
-    categoryInfo,
-    onPress
-  }: {
-    category: ContentCategory;
-    categoryInfo: any;
-    onPress: () => void;
-  }) => {
-    const scaleAnim = React.useRef(new Animated.Value(1)).current;
-    const opacityAnim = React.useRef(new Animated.Value(1)).current;
-
-    const handlePressIn = () => {
-      // Scale down and reduce opacity when pressed
-      Animated.parallel([
-        Animated.spring(scaleAnim, {
-          toValue: 0.95,
-          useNativeDriver: true,
-          tension: 300,
-          friction: 10,
-        }),
-        Animated.timing(opacityAnim, {
-          toValue: 0.7,
-          duration: 100,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    };
-
-    const handlePressOut = () => {
-      // Scale back up and restore opacity when released
-      Animated.parallel([
-        Animated.spring(scaleAnim, {
-          toValue: 1,
-          useNativeDriver: true,
-          tension: 300,
-          friction: 10,
-        }),
-        Animated.timing(opacityAnim, {
-          toValue: 1,
-          duration: 150,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    };
-
-    return (
-      <TouchableOpacity
-        onPress={onPress}
-        onPressIn={handlePressIn}
-        onPressOut={handlePressOut}
-        activeOpacity={1} // Disable default opacity change
-        style={styles.categoryGridItem}
-      >
-        <Animated.View
-          style={[
-            styles.categoryGridCard,
-            {
-              transform: [{ scale: scaleAnim }],
-              opacity: opacityAnim,
-            }
-          ]}
-        >
-          {/* Icon */}
-          <View style={styles.iconContainer}>
-            <SvgUri
-              uri={categoryInfo.iconUrl}
-              width={56}
-              height={56}
-            />
-          </View>
-
-          {/* Label */}
-          <Text
-            variant="body"
-            weight="semibold"
-            style={styles.categoryCardText}
-          >
-            {categoryInfo.name}
-          </Text>
-        </Animated.View>
-      </TouchableOpacity>
-    );
-  };
-
   // Initialize feed data
   const {
     feeds,
@@ -196,59 +106,22 @@ export default function HomeScreen() {
     }
   };
 
-  const categories: ContentCategory[] = ['Mantras', 'Rashifal', 'Status', 'Ringtones'];
-
-  const getCategoryInfo = (category: ContentCategory) => {
-    switch (category) {
-      case 'Mantras':
-        return {
-          name: currentLanguage === 'hi' ? 'मंत्र' : 'Mantra',
-          iconUrl: 'https://d12b36sm0rczqk.cloudfront.net/app-assets/mantras.svg',
-          gradient: ['#E8D5C4', '#F5E6D3'] as const, // Light cream gradient
-        };
-      case 'Rashifal':
-        return {
-          name: currentLanguage === 'hi' ? 'राशिफल' : 'Rashifal',
-          iconUrl: 'https://d12b36sm0rczqk.cloudfront.net/app-assets/rashifal.svg',
-          gradient: ['#E8D5C4', '#F5E6D3'] as const, // Light cream gradient
-        };
-      case 'Status':
-        return {
-          name: currentLanguage === 'hi' ? 'स्टेटस' : 'Status',
-          iconUrl: 'https://d12b36sm0rczqk.cloudfront.net/app-assets/status.svg',
-          gradient: ['#E8D5C4', '#F5E6D3'] as const, // Light cream gradient
-        };
-      case 'Ringtones':
-        return {
-          name: currentLanguage === 'hi' ? 'रिंगटोन' : 'Ringtone',
-          iconUrl: 'https://d12b36sm0rczqk.cloudfront.net/app-assets/ringtones.svg',
-          gradient: ['#E8D5C4', '#F5E6D3'] as const, // Light cream gradient
-        };
-      default:
-        return {
-          name: category,
-          iconUrl: 'https://d12b36sm0rczqk.cloudfront.net/app-assets/mantras.svg',
-          gradient: ['#E8D5C4', '#F5E6D3'] as const,
-        };
-    }
-  };
-
-  const handleCategoryPress = (category: ContentCategory) => {
+  const handleCategoryPress = (categoryId: QuickLinkCategory['id']) => {
     // Add haptic feedback for button press
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     // Navigate to category screen
-    switch (category) {
-      case 'Mantras':
+    switch (categoryId) {
+      case 'mantras':
         router.push('/(main)/mantras');
         break;
-      case 'Rashifal':
+      case 'rashifal':
         router.push('/(main)/horoscope');
         break;
-      case 'Status':
+      case 'status':
         router.push({ pathname: '/(main)/daily-status', params: { subTab: 'status' } });
         break;
-      case 'Ringtones':
+      case 'ringtones':
         router.push({ pathname: '/(main)/ringtones', params: { subTab: 'ringtones' } });
         break;
     }
@@ -407,17 +280,13 @@ export default function HomeScreen() {
 
       {/* Category Cards Grid */}
       <View style={styles.categoriesGrid}>
-        {categories.map((category) => {
-          const categoryInfo = getCategoryInfo(category);
-          return (
-            <AnimatedCategoryButton
-              key={category}
-              category={category}
-              categoryInfo={categoryInfo}
-              onPress={() => handleCategoryPress(category)}
-            />
-          );
-        })}
+        {QUICK_LINK_CATEGORIES.map((category) => (
+          <QuickLinkCard
+            key={category.id}
+            category={category}
+            onPress={() => handleCategoryPress(category.id)}
+          />
+        ))}
       </View>
 
       {/* Today's Horoscope Section */}
@@ -647,36 +516,10 @@ const styles = StyleSheet.create({
   // Categories grid styles
   categoriesGrid: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     paddingHorizontal: goldenTempleTheme.spacing.lg,
     marginBottom: goldenTempleTheme.spacing.sm,
-    gap: 0,
+    gap: 10,
   },
-  categoryGridItem: {
-    flex: 1,
-  },
-  categoryGridCard: {
-    height: 100,
-    padding: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 8,
-  },
-  categoryCardText: {
-    color: '#1E1E1E',
-    fontSize: 13,
-    fontWeight: '600',
-    textAlign: 'center',
-    lineHeight: 18,
-  },
-
-  iconContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 6,
-    flex: 1,
-  },
-
   // Today's Horoscope Section Styles
   horoscopeSectionContainer: {
     paddingHorizontal: goldenTempleTheme.spacing.lg,
