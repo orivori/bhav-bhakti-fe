@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
   View,
+  Image,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
@@ -25,13 +26,12 @@ type PhoneFormData = {
   phoneNumber: string;
 };
 
+// India-only for now - no country picker (see PhoneInput.tsx, same constant).
+const COUNTRY_CODE = '+91';
+
 export default function PhoneLoginScreen() {
   const { showToast } = useToast();
-  const params = useLocalSearchParams<{ phoneNumber?: string; countryCode?: string }>();
-  const [selectedCountry, setSelectedCountry] = useState({
-    code: 'IND',
-    callingCode: '+91',
-  });
+  const params = useLocalSearchParams<{ phoneNumber?: string }>();
   const [isLoading, setIsLoading] = useState(false);
 
   const { sendOTP } = useAuth();
@@ -51,38 +51,29 @@ export default function PhoneLoginScreen() {
 
   const phoneNumber = watch('phoneNumber');
 
-  // Initialize form with pre-filled data or saved data
+  // Pre-fill the phone number field - from back-navigation params if present,
+  // otherwise from the last number saved to device storage. Country is no
+  // longer part of this (see COUNTRY_CODE above), only the number itself.
   React.useEffect(() => {
     const initializePhoneData = async () => {
-      let initialPhoneData = null;
-      
-      // First check if data came from back navigation
-      if (params.phoneNumber && params.countryCode) {
-        initialPhoneData = {
-          phoneNumber: params.phoneNumber,
-          countryCode: params.countryCode
-        };
-      } else {
-        // Check saved phone data
-        initialPhoneData = await PhoneStorageService.getLastPhoneNumber();
+      if (params.phoneNumber) {
+        setValue('phoneNumber', params.phoneNumber);
+        return;
       }
-      
-      if (initialPhoneData) {
-        setValue('phoneNumber', initialPhoneData.phoneNumber);
-        setSelectedCountry({
-          code: initialPhoneData.countryCode === '+91'? 'IND' : 'USA',
-          callingCode: initialPhoneData.countryCode
-        });
+
+      const savedPhoneData = await PhoneStorageService.getLastPhoneNumber();
+      if (savedPhoneData) {
+        setValue('phoneNumber', savedPhoneData.phoneNumber);
       }
     };
-    
+
     initializePhoneData();
-  }, [params.phoneNumber, params.countryCode]);
+  }, [params.phoneNumber]);
 
   const validatePhoneWithCountry = (phone: string) => {
     if (!phone) return false;
     try {
-      return validatePhoneNumber(phone, selectedCountry.callingCode);
+      return validatePhoneNumber(phone, COUNTRY_CODE);
     } catch {
       return false;
     }
@@ -100,14 +91,14 @@ export default function PhoneLoginScreen() {
 
       const response = await sendOTP({
         phoneNumber: data.phoneNumber,
-        countryCode: selectedCountry.callingCode,
+        countryCode: COUNTRY_CODE,
       });
       console.log(response);
 
       if (response.success) {
         // Save phone number for back navigation
-        await PhoneStorageService.savePhoneNumber(data.phoneNumber, selectedCountry.callingCode);
-        
+        await PhoneStorageService.savePhoneNumber(data.phoneNumber, COUNTRY_CODE);
+
         // Show success toast
         showToast({
           type: 'success',
@@ -119,7 +110,7 @@ export default function PhoneLoginScreen() {
           pathname: '/(auth)/verify-otp',
           params: {
             phoneNumber: data.phoneNumber,
-            countryCode: selectedCountry.callingCode,
+            countryCode: COUNTRY_CODE,
             ...(response.sessionId && { sessionId: response.sessionId }),
             orderId: response.orderId,
           },
@@ -147,63 +138,67 @@ export default function PhoneLoginScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.container}>
-            {/* Header */}
-            <View style={styles.header}>
-              <View style={styles.iconContainer}>
-                <Text style={styles.icon}>📱</Text>
-              </View>
-              <Text variant="h2" weight="bold" align="center" style={styles.title}>
-                Welcome Back
-              </Text>
-              <Text variant="body" color="secondary" align="center" style={styles.subtitle}>
-                Enter your phone number to receive a verification code
-              </Text>
-            </View>
-
-            {/* Form */}
-            <View style={styles.form}>
-              <Controller
-                control={control}
-                name="phoneNumber"
-                rules={{
-                  required: 'Phone number is required',
-                  minLength: {
-                    value: 6,
-                    message: 'Phone number must be at least 6 digits'
-                  },
-                  validate: (value) => {
-                    if (!value) return 'Phone number is required';
-                    return value.length >= 6 || 'Please enter a valid phone number';
-                  }
-                }}
-                render={({ field: { onChange, value } }) => (
-                  <PhoneInput
-                    label="Phone Number"
-                    placeholder="Enter your phone number"
-                    value={value}
-                    onChangeText={onChange}
-                    onCountryChange={setSelectedCountry}
-                    selectedCountry={selectedCountry}
-                    error={errors.phoneNumber?.message}
-                    disabled={isLoading}
-                    style={styles.phoneInput}
+            {/* Content block - logo, title, subtitle, form, terms - centered together as one group */}
+            <View style={styles.contentBlock}>
+              <View style={styles.header}>
+                {/* Logo sits a line space above the title, not pinned to a fixed top position */}
+                <View style={styles.logoContainer}>
+                  <Image
+                    source={require('../../assets/images/splash-icon.png')}
+                    style={styles.logo}
+                    resizeMode="contain"
                   />
-                )}
-              />
+                </View>
+                <Text variant="h2" weight="bold" align="center" style={styles.title}>
+                  Welcome Back
+                </Text>
+                <Text variant="h5" color="secondary" align="center" style={styles.subtitle}>
+                  Enter your phone number to receive a verification code
+                </Text>
+              </View>
 
-              <Button
-                title="Send Verification Code"
-                onPress={handleSubmit(onSubmit)}
-                loading={isLoading}
-                disabled={!phoneNumber || isLoading}
-                fullWidth
-                style={styles.button}
-              />
+              <View style={styles.form}>
+                <Controller
+                  control={control}
+                  name="phoneNumber"
+                  rules={{
+                    required: 'Phone number is required',
+                    minLength: {
+                      value: 6,
+                      message: 'Phone number must be at least 6 digits'
+                    },
+                    validate: (value) => {
+                      if (!value) return 'Phone number is required';
+                      return value.length >= 6 || 'Please enter a valid phone number';
+                    }
+                  }}
+                  render={({ field: { onChange, value } }) => (
+                    <PhoneInput
+                      label="Phone Number"
+                      placeholder="Enter your phone number"
+                      value={value}
+                      onChangeText={onChange}
+                      error={errors.phoneNumber?.message}
+                      disabled={isLoading}
+                      style={styles.phoneInput}
+                    />
+                  )}
+                />
 
-              {/* Terms and Privacy */}
-              <Text variant="caption" color="secondary" align="center" style={styles.terms}>
-                By continuing, you agree to our Terms of Service and Privacy Policy
-              </Text>
+                <Button
+                  title="Send Verification Code"
+                  onPress={handleSubmit(onSubmit)}
+                  loading={isLoading}
+                  disabled={!validatePhoneWithCountry(phoneNumber) || isLoading}
+                  fullWidth
+                  style={styles.button}
+                />
+
+                {/* Terms and Privacy */}
+                <Text variant="caption" color="secondary" align="center" style={styles.terms}>
+                  By continuing, you agree to our Terms of Service and Privacy Policy
+                </Text>
+              </View>
             </View>
           </View>
         </ScrollView>
@@ -226,23 +221,33 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: 24,
-    paddingTop: 48,
+    paddingTop: 24,
+  },
+  logoContainer: {
+    width: 120,
+    height: 120,
+    backgroundColor: 'transparent',
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+    marginBottom: 16, // roughly a line space above the title
+  },
+  logo: {
+    width: 120,
+    height: 120,
+  },
+  contentBlock: {
+    flex: 1,
+    justifyContent: 'center',
+    // Shifted up ~2 line-spaces from dead-center via transform (not padding -
+    // padding would only move the visual center by half its own value here,
+    // since justifyContent:'center' splits it evenly above/below; transform
+    // applies the exact offset directly, after centering is computed).
+    transform: [{ translateY: -40 }],
   },
   header: {
     alignItems: 'center',
     marginBottom: 48,
-  },
-  iconContainer: {
-    width: 80,
-    height: 80,
-    backgroundColor: '#dbeafe',
-    borderRadius: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 24,
-  },
-  icon: {
-    fontSize: 48,
   },
   title: {
     marginBottom: 12,
@@ -250,9 +255,7 @@ const styles = StyleSheet.create({
   subtitle: {
     paddingHorizontal: 16,
   },
-  form: {
-    flex: 1,
-  },
+  form: {},
   phoneInput: {
     marginBottom: 24,
   },

@@ -1,27 +1,15 @@
-import React, { useState } from 'react';
-import { View, TouchableOpacity, Modal, FlatList, StyleSheet, ViewStyle, TextInput } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import React from 'react';
+import { View, StyleSheet, ViewStyle, TextInput } from 'react-native';
 import { Text } from '@/components/atoms';
 
-// Sample country data - in a real app, you'd import this from a library
-const COUNTRIES = [
-   { code: 'IN', name: 'India', callingCode: '+91', flag: '🇮🇳' },
-  { code: 'US', name: 'United States', callingCode: '+1', flag: '🇺🇸' },
-  { code: 'GB', name: 'United Kingdom', callingCode: '+44', flag: '🇬🇧' },
-  { code: 'CA', name: 'Canada', callingCode: '+1', flag: '🇨🇦' },
-  { code: 'AU', name: 'Australia', callingCode: '+61', flag: '🇦🇺' },
-  { code: 'DE', name: 'Germany', callingCode: '+49', flag: '🇩🇪' },
-  { code: 'FR', name: 'France', callingCode: '+33', flag: '🇫🇷' },
-  { code: 'JP', name: 'Japan', callingCode: '+81', flag: '🇯🇵' },
-  { code: 'CN', name: 'China', callingCode: '+86', flag: '🇨🇳' },
-  { code: 'BR', name: 'Brazil', callingCode: '+55', flag: '🇧🇷' },
-];
+// India-only for now - no country picker. See CLAUDE.md if this ever needs
+// to support other countries again (the removed picker/COUNTRIES-array
+// version is in git history).
+const CALLING_CODE = '+91';
 
 interface PhoneInputProps {
   value: string;
   onChangeText: (phoneNumber: string) => void;
-  onCountryChange: (country: { code: string; callingCode: string }) => void;
-  selectedCountry?: { code: string; callingCode: string };
   error?: string;
   label?: string;
   placeholder?: string;
@@ -32,42 +20,12 @@ interface PhoneInputProps {
 const PhoneInput: React.FC<PhoneInputProps> = ({
   value,
   onChangeText,
-  onCountryChange,
-  selectedCountry = { code: 'US', callingCode: '+1' },
   error,
   label = 'Phone Number',
   placeholder = 'Enter your phone number',
   disabled = false,
   style,
 }) => {
-  const [isCountryPickerVisible, setIsCountryPickerVisible] = useState(false);
-
-  const selectedCountryData = COUNTRIES.find(
-    country => country.code === selectedCountry.code
-  ) || COUNTRIES[0];
-
-  const handleCountrySelect = (country: typeof COUNTRIES[0]) => {
-    onCountryChange({
-      code: country.code,
-      callingCode: country.callingCode,
-    });
-    setIsCountryPickerVisible(false);
-  };
-
-  const CountryPicker = () => (
-    <TouchableOpacity
-      style={[styles.countryPicker, disabled && styles.countryPickerDisabled]}
-      onPress={() => !disabled && setIsCountryPickerVisible(true)}
-      disabled={disabled}
-    >
-      <Text style={styles.flag}>{selectedCountryData.flag}</Text>
-      <Text weight="medium" style={styles.callingCode}>
-        {selectedCountryData.callingCode}
-      </Text>
-      <Ionicons name="chevron-down" size={16} color="#6b7280" />
-    </TouchableOpacity>
-  );
-
   const inputWrapperStyle = [
     styles.inputWrapper,
     error && styles.inputWrapperError,
@@ -83,7 +41,11 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
       )}
 
       <View style={inputWrapperStyle}>
-        <CountryPicker />
+        <View style={styles.callingCodeContainer}>
+          <Text weight="medium" style={styles.callingCode}>
+            {CALLING_CODE}
+          </Text>
+        </View>
 
         <TextInput
           style={styles.input}
@@ -101,50 +63,6 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
           {error}
         </Text>
       )}
-
-      <Modal
-        visible={isCountryPickerVisible}
-        animationType="slide"
-        presentationStyle="pageSheet"
-      >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <Text weight="semibold" style={styles.modalTitle}>
-              Select Country
-            </Text>
-            <TouchableOpacity
-              onPress={() => setIsCountryPickerVisible(false)}
-              style={styles.closeButton}
-            >
-              <Ionicons name="close" size={24} color="#6b7280" />
-            </TouchableOpacity>
-          </View>
-
-          <FlatList
-            data={COUNTRIES}
-            keyExtractor={(item) => item.code}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                style={styles.countryItem}
-                onPress={() => handleCountrySelect(item)}
-              >
-                <Text style={styles.countryFlag}>{item.flag}</Text>
-                <View style={styles.countryInfo}>
-                  <Text weight="medium" style={styles.countryName}>
-                    {item.name}
-                  </Text>
-                  <Text style={styles.countryCode}>
-                    {item.callingCode}
-                  </Text>
-                </View>
-                {selectedCountryData.code === item.code && (
-                  <Ionicons name="checkmark" size={20} color="#3b82f6" />
-                )}
-              </TouchableOpacity>
-            )}
-          />
-        </View>
-      </Modal>
     </View>
   );
 };
@@ -174,7 +92,7 @@ const styles = StyleSheet.create({
   inputWrapperDisabled: {
     backgroundColor: '#f3f4f6',
   },
-  countryPicker: {
+  callingCodeContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
@@ -182,17 +100,9 @@ const styles = StyleSheet.create({
     borderRightWidth: 1,
     borderRightColor: '#d1d5db',
   },
-  countryPickerDisabled: {
-    opacity: 0.5,
-  },
-  flag: {
-    fontSize: 24,
-    marginRight: 8,
-  },
   callingCode: {
     color: '#111827',
     fontWeight: '500',
-    marginRight: 4,
     fontSize: 16,
   },
   input: {
@@ -206,51 +116,6 @@ const styles = StyleSheet.create({
     color: '#ef4444',
     fontSize: 14,
     marginTop: 4,
-  },
-  modalContainer: {
-    flex: 1,
-    backgroundColor: '#ffffff',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#111827',
-  },
-  closeButton: {
-    padding: 8,
-  },
-  countryItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
-  },
-  countryFlag: {
-    fontSize: 24,
-    marginRight: 12,
-  },
-  countryInfo: {
-    flex: 1,
-  },
-  countryName: {
-    color: '#111827',
-    fontWeight: '500',
-    fontSize: 16,
-  },
-  countryCode: {
-    color: '#6b7280',
-    fontSize: 14,
   },
 });
 
