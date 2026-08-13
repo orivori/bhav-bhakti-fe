@@ -51,4 +51,13 @@ config.resolver.platforms = ['native', 'android', 'ios'];
 config.resolver.assetExts.push('lottie');
 config.transformer.assetPlugins = ['expo-asset/tools/hashAssetFiles'];
 
+// Local SVG-as-component support (react-native-svg-transformer) - lets
+// `import Icon from '../assets/icons/foo.svg'` render Icon as a real
+// component (fill/stroke props work), instead of Metro treating it as a
+// static asset. Unrelated to react-native-svg's SvgUri (remote-URL SVG
+// loading), which keeps working as before.
+config.transformer.babelTransformerPath = require.resolve('react-native-svg-transformer');
+config.resolver.assetExts = config.resolver.assetExts.filter((ext) => ext !== 'svg');
+config.resolver.sourceExts = [...config.resolver.sourceExts, 'svg'];
+
 module.exports = config;

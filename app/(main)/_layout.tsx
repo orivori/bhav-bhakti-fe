@@ -1,8 +1,13 @@
 import { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { SvgUri } from 'react-native-svg';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import MiniPlayer from '@/components/molecules/MiniPlayer';
+import HomeIcon from '../../assets/icons/home.svg';
+import MantraIcon from '../../assets/icons/om.svg';
+import AudioIcon from '../../assets/icons/audio.svg';
+import WallpapersIcon from '../../assets/icons/sun_solid.svg';
+// TEMPORARY: Rashifal is borrowing sun.svg until this tab becomes Stories.
+import RashifalIcon from '../../assets/icons/sun.svg';
 
 export default function MainLayout() {
   const insets = useSafeAreaInsets();
@@ -11,7 +16,7 @@ export default function MainLayout() {
     <>
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: '#D4824A', // Orange color to match design
+        tabBarActiveTintColor: '#FF6B00', // Orange color to match design
         tabBarInactiveTintColor: '#666666', // Darker gray for inactive items
         tabBarStyle: {
           backgroundColor: goldenTempleTheme.colors.background, // Cream background to match app theme
@@ -44,11 +49,10 @@ export default function MainLayout() {
           title: 'Home',
           headerShown: false,
           tabBarIcon: ({ size, focused }) => (
-            <SvgUri
-              uri="https://d12b36sm0rczqk.cloudfront.net/app-assets/icons/home_icon.svg"
+            <HomeIcon
               width={size}
               height={size}
-              fill={focused ? '#D4824A' : '#666666'}
+              fill={focused ? '#FF6B00' : '#666666'}
             />
           ),
         }}
@@ -59,11 +63,10 @@ export default function MainLayout() {
           title: 'Mantra',
           headerShown: false,
           tabBarIcon: ({ size, focused }) => (
-            <SvgUri
-              uri="https://d12b36sm0rczqk.cloudfront.net/app-assets/icons/mantra_icon.svg"
+            <MantraIcon
               width={size}
               height={size}
-              fill={focused ? '#D4824A' : '#666666'}
+              fill={focused ? '#FF6B00' : '#666666'}
             />
           ),
         }}
@@ -74,11 +77,10 @@ export default function MainLayout() {
           title: 'Audio',
           headerShown: false,
           tabBarIcon: ({ size, focused }) => (
-            <SvgUri
-              uri="https://d12b36sm0rczqk.cloudfront.net/app-assets/icons/ringtone_icon.svg"
+            <AudioIcon
               width={size}
               height={size}
-              fill={focused ? '#D4824A' : '#666666'}
+              fill={focused ? '#FF6B00' : '#666666'}
             />
           ),
         }}
@@ -89,11 +91,10 @@ export default function MainLayout() {
           title: 'Wallpapers',
           headerShown: false,
           tabBarIcon: ({ size, focused }) => (
-            <SvgUri
-              uri="https://d12b36sm0rczqk.cloudfront.net/app-assets/icons/status_icon.svg"
+            <WallpapersIcon
               width={size}
               height={size}
-              fill={focused ? '#D4824A' : '#666666'}
+              fill={focused ? '#FF6B00' : '#666666'}
             />
           ),
         }}
@@ -104,11 +105,10 @@ export default function MainLayout() {
           title: 'Rashifal',
           headerShown: false,
           tabBarIcon: ({ size, focused }) => (
-            <SvgUri
-              uri="https://d12b36sm0rczqk.cloudfront.net/app-assets/icons/sun_icon.svg"
+            <RashifalIcon
               width={size}
               height={size}
-              fill={focused ? '#D4824A' : '#666666'}
+              fill={focused ? '#FF6B00' : '#666666'}
             />
           ),
         }}
