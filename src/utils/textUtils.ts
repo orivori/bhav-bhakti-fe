@@ -4,6 +4,26 @@ import { Platform, TextStyle } from 'react-native';
  * Utility functions for improved text rendering, especially for Devanagari script
  */
 
+export type FontWeightVariant = 'normal' | 'medium' | 'semibold' | 'bold';
+
+/**
+ * The Devanagari font family names, one per weight, as registered by the
+ * useFonts() call in app/_layout.tsx - these four keys must exactly match the
+ * four keys loaded there. This is the single source of truth for these
+ * strings - every other place that needs to render Devanagari text
+ * (getOptimizedFontFamily below, HindiText.tsx) imports this map rather than
+ * hardcoding its own copy, so they can't drift apart.
+ */
+export const NOTO_SANS_DEVANAGARI_FONT_FAMILIES: Record<FontWeightVariant, string> = {
+  normal: 'NotoSansDevanagari_400Regular',
+  medium: 'NotoSansDevanagari_500Medium',
+  semibold: 'NotoSansDevanagari_600SemiBold',
+  bold: 'NotoSansDevanagari_700Bold',
+};
+
+/** Back-compat default (Regular weight) for call sites that don't specify a weight. */
+export const NOTO_SANS_DEVANAGARI_FONT_FAMILY = NOTO_SANS_DEVANAGARI_FONT_FAMILIES.normal;
+
 /**
  * Checks if the given text contains Devanagari characters
  * Devanagari Unicode range: U+0900-U+097F
@@ -25,17 +45,11 @@ export const needsComplexScriptSupport = (text: any): boolean => {
 /**
  * Gets the appropriate font family for the given text content
  */
-export const getOptimizedFontFamily = (text: any): string => {
+export const getOptimizedFontFamily = (text: any, weight: FontWeightVariant = 'normal'): string => {
   const hasDevanagari = containsDevanagari(text);
 
   if (hasDevanagari) {
-    // Use platform-specific fonts with better Devanagari support
-    if (Platform.OS === 'android') {
-      // Better Android fonts for Devanagari in order of preference
-      return 'sans-serif-medium'; // Better Devanagari rendering with proper matra spacing
-    } else if (Platform.OS === 'ios') {
-      return 'Devanagari Sangam MN'; // iOS system Devanagari font
-    }
+    return NOTO_SANS_DEVANAGARI_FONT_FAMILIES[weight];
   }
 
   return 'System'; // Default system font for non-Devanagari text
@@ -44,9 +58,9 @@ export const getOptimizedFontFamily = (text: any): string => {
 /**
  * Gets optimized text style for better rendering of complex scripts
  */
-export const getOptimizedTextStyle = (text: any, fontSize: number = 14): TextStyle => {
+export const getOptimizedTextStyle = (text: any, fontSize: number = 14, weight: FontWeightVariant = 'normal'): TextStyle => {
   const baseStyle: TextStyle = {
-    fontFamily: getOptimizedFontFamily(text),
+    fontFamily: getOptimizedFontFamily(text, weight),
   };
 
   // Add platform-specific optimizations for complex scripts

@@ -105,8 +105,11 @@ const Text: React.FC<TextProps> = ({
   // Get enhanced text props for Hindi text
   const optimizedTextProps = getHindiTextProps(children);
 
-  // Get optimized text style for current text and font size
-  const optimizedTextStyle = getOptimizedTextStyle(children, fontSize);
+  // Get optimized text style for current text and font size - weight is
+  // threaded through so Devanagari text loads the matching bold/semibold/etc.
+  // font file instead of always the Regular weight (RN can't fake weight on
+  // top of a single-weight custom font the way it can with system fonts).
+  const optimizedTextStyle = getOptimizedTextStyle(children, fontSize, weight);
 
   // Additional style for heading compound words like "मंत्ररिंगटोन"
   const headingEnhancement = hasHindiText && isHeading ? {

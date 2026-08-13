@@ -1,6 +1,7 @@
 import React from 'react';
 import { Text as RNText, TextProps as RNTextProps, StyleSheet, Platform } from 'react-native';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
+import { NOTO_SANS_DEVANAGARI_FONT_FAMILIES } from '@/utils/textUtils';
 
 interface HindiTextProps extends RNTextProps {
   fontSize?: number;
@@ -50,7 +51,7 @@ const HindiText: React.FC<HindiTextProps> = ({
 
   // Enhanced styling specifically for Hindi text with matras
   const hindiTextStyle = {
-    fontFamily: Platform.OS === 'android' ? 'sans-serif-medium' : 'Devanagari Sangam MN',
+    fontFamily: NOTO_SANS_DEVANAGARI_FONT_FAMILIES[weight],
     fontSize,
     fontWeight: weightMap[weight] as any,
     color,

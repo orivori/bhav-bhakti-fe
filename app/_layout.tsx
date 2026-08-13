@@ -12,6 +12,14 @@ import { ToastProvider } from '@/components/atoms/Toast';
 import { Audio } from 'expo-av';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
+import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
+import {
+  useFonts,
+  NotoSansDevanagari_400Regular,
+  NotoSansDevanagari_500Medium,
+  NotoSansDevanagari_600SemiBold,
+  NotoSansDevanagari_700Bold,
+} from '@expo-google-fonts/noto-sans-devanagari';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -30,13 +38,25 @@ const MyTheme = {
   ...DefaultTheme,
   colors: {
     ...DefaultTheme.colors,
-    background: '#fff6da', // Warm cream/ivory background from your CSS
+    background: goldenTempleTheme.colors.background, // Warm cream/ivory background from your CSS
   },
 };
 
 export default function RootLayout() {
   // Enable screenshot protection globally (non-blocking)
   useScreenshotProtection();
+
+  // Loads the app's Devanagari font, one file per weight. The keys here are
+  // load-time identifiers that expo-font resolves `fontFamily` styles against
+  // by exact string match - see textUtils.ts's NOTO_SANS_DEVANAGARI_FONT_FAMILIES,
+  // the single source of truth every fontFamily reference in the app reads
+  // from, whose four values must name these same four keys.
+  const [fontsLoaded, fontError] = useFonts({
+    NotoSansDevanagari_400Regular,
+    NotoSansDevanagari_500Medium,
+    NotoSansDevanagari_600SemiBold,
+    NotoSansDevanagari_700Bold,
+  });
 
   React.useEffect(() => {
     // Initialize audio session for background playback
@@ -58,10 +78,20 @@ export default function RootLayout() {
     };
 
     initializeAudioSession();
-
-    // Hide splash screen immediately since we're not loading fonts
-    SplashScreen.hideAsync();
   }, []);
+
+  React.useEffect(() => {
+    // Don't reveal the app until the Devanagari font is ready (or has failed
+    // to load) - hiding the splash screen earlier would let Hindi text flash
+    // in the wrong font for a frame on every cold start.
+    if (fontsLoaded || fontError) {
+      SplashScreen.hideAsync();
+    }
+  }, [fontsLoaded, fontError]);
+
+  if (!fontsLoaded && !fontError) {
+    return null;
+  }
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -71,7 +101,7 @@ export default function RootLayout() {
             <AuthProvider>
               <View style={styles.container}>
                 <NavigationThemeProvider value={MyTheme}>
-                  <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#fff6da' } }}>
+                  <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: goldenTempleTheme.colors.background } }}>
                     <Stack.Screen name="(auth)" options={{ headerShown: false }} />
                     <Stack.Screen name="(main)" options={{ headerShown: false }} />
                   </Stack>
@@ -90,6 +120,6 @@ export default function RootLayout() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff6da', // Warm cream/ivory background
+    backgroundColor: goldenTempleTheme.colors.background, // Warm cream/ivory background
   },
 });
