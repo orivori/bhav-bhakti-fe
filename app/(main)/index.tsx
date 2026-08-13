@@ -531,7 +531,7 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff6da', // Cream background like the design
+    backgroundColor: goldenTempleTheme.colors.background, // Cream background like the design
   },
   content: {
     flex: 1,

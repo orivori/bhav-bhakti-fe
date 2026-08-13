@@ -14,8 +14,11 @@ Extracted: 2026-07-21.
 |---|---|---|
 | Primary color | `#E76A4A` | terracotta / burnt-orange |
 | Secondary color | `#FFE8D1` | pale peach |
+| Universal background | `#FEF6DA` | warm cream/ivory — confirmed app-wide screen background, 2026-08-13 |
 
-Only these two colors are labeled on the frame. No accent, success/error/warning, neutral/gray scale, or dark-mode colors are documented here. Text elsewhere on the frame is plain black (`#000000`) and the background is plain white (`#FFFFFF`), but neither is called out as an explicit design-system token — treat those as incidental, not confirmed tokens.
+Only the first two colors above are labeled on the Figma frame itself. No accent, success/error/warning, neutral/gray scale, or dark-mode colors are documented here. Text elsewhere on the frame is plain black (`#000000`) and the background is plain white (`#FFFFFF`), but neither is called out as an explicit design-system token — treat those as incidental, not confirmed tokens.
+
+**Universal background — `#FEF6DA` (confirmed decision, 2026-08-13):** not part of the original Figma frame extraction; added as a separate confirmed product decision. In code today this is almost exactly matched by the existing hardcoded value `#fff6da` (differs by 1 in the red channel — visually indistinguishable) sprinkled across ~14 screen files and a same-valued, unused `goldenTempleTheme.colors.background` token. See the investigation findings below (§7) before changing this in code.
 
 No Figma **variables** are bound to this frame (`get_variable_defs` returned empty) — these are raw hex fills, not design tokens/variables in the Figma sense. If the team wants swappable theming later, these would need to be converted to variables at the source.
 
@@ -99,3 +102,34 @@ All are outline or filled single-color icons (no documented color token for icon
 - Font-size-to-role mapping (which size is for headings vs. body vs. labels) is inferred, not labeled
 
 Re-run this extraction (or check other pages/frames in the file) if the design system gets fleshed out further — this file is a snapshot, not a live sync.
+
+---
+
+## 7. Universal background color — investigated 2026-08-13, CENTRALIZED same day
+
+**RESOLVED, same day.** The investigation below found the color was not centralized; it has since been fixed — `goldenTempleTheme.ts`'s three background tokens are now the real `#FEF6DA` value, and every screen listed in the table below was switched from a hardcoded literal to `goldenTempleTheme.colors.background` (adding the import where a file didn't already have it: `app/_layout.tsx`, `daily-status.tsx`, `ringtones.tsx`, `MiniPlayer.tsx`). A future screen that needs this background should import `goldenTempleTheme` and reference `.colors.background` — never hardcode the hex value directly. Original investigation preserved below for reference; **note the occurrence count below was later corrected from an initial miscount of "21 call sites" to the accurate 19** (13 non-theme files, summing the per-file counts in the table).
+
+**Not centralized (as found).** `goldenTempleTheme.ts` (`src/styles/goldenTempleTheme.ts`) defined the cream background value in three separate places — `colors.background`, `colors.sacredCream`, and `colors.backgrounds.primary` — all set to `'#fff6da'`. **None of these three tokens were referenced anywhere else in the codebase** (confirmed via repo-wide grep) — they were dead theme values. Every screen instead hardcoded the literal string `'#fff6da'` directly in its own `StyleSheet.create()`, independently of the theme file.
+
+**22 hardcoded occurrences across 14 files carried this value (as found):**
+
+| File | Occurrences |
+|---|---|
+| `app/_layout.tsx` (root Stack `contentStyle` + a style block) | 3 |
+| `app/(main)/mantras.tsx` | 3 |
+| `app/(main)/audio-player.tsx` | 2 |
+| `app/(main)/search-results.tsx` | 2 |
+| `app/(main)/_layout.tsx` (Tabs `screenOptions`) | 1 |
+| `app/(main)/index.tsx` (Home) | 1 |
+| `app/(main)/horoscope.tsx` | 1 |
+| `app/(main)/horoscope-detail.tsx` | 1 |
+| `app/(main)/daily-status.tsx` (Wallpaper Hub) | 1 |
+| `app/(main)/ringtones.tsx` (Audio hub) | 1 |
+| `app/(main)/mantra-quiz.tsx` | 1 |
+| `app/(main)/choose-start.tsx` | 1 |
+| `src/components/molecules/MiniPlayer/MiniPlayer.tsx` | 1 |
+| `src/styles/goldenTempleTheme.ts` (the 3 dead tokens) | 3 |
+
+**To actually change the universal background to `#FEF6DA` (as scoped):** not a single, small change — it needed a find/replace of the literal `#fff6da` string (case-insensitive) across the 13 non-theme files above (19 call sites), since nothing read from the theme token. Updating the theme file's 3 tokens alone would have changed nothing visible, since no screen consumed them. The genuine one-place fix — screens reading `goldenTempleTheme.colors.background` instead of hardcoding — is the larger refactor that was actually done; see the RESOLVED note above.
+
+**Note on the value itself:** the current `#fff6da` and the requested `#FEF6DA` differ by 1 in the red channel (`FF` vs `FE`) — visually indistinguishable. The practical effect of this change would be near-zero on-screen; it's really a code-cleanliness/precision change more than a visual one.

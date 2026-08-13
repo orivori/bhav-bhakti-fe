@@ -1965,7 +1965,7 @@ export default function AudioPlayerScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff6da', // Light cream background
+    backgroundColor: goldenTempleTheme.colors.background, // Light cream background
   },
   // Header with Back Button
   header: {
@@ -1973,7 +1973,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: goldenTempleTheme.spacing.lg,
     paddingVertical: goldenTempleTheme.spacing.md,
-    backgroundColor: '#fff6da',
+    backgroundColor: goldenTempleTheme.colors.background,
   },
   backButton: {
     flexDirection: 'row',

@@ -14,7 +14,7 @@ export default function MainLayout() {
         tabBarActiveTintColor: '#D4824A', // Orange color to match design
         tabBarInactiveTintColor: '#666666', // Darker gray for inactive items
         tabBarStyle: {
-          backgroundColor: '#fff6da', // Cream background to match app theme
+          backgroundColor: goldenTempleTheme.colors.background, // Cream background to match app theme
           borderTopWidth: 1,
           borderTopColor: 'rgba(139, 115, 85, 0.3)', // Light border
           paddingBottom: Math.max(insets.bottom, 8), // Safe area padding

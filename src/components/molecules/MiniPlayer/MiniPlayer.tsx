@@ -5,6 +5,7 @@ import { router, usePathname } from 'expo-router';
 import { Text } from '@/components/atoms';
 import { usePlaybackStore } from '@/store/playbackStore';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
+import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 
 export default function MiniPlayer() {
   const { tabBarHeight } = useTabBarHeight();
@@ -89,7 +90,7 @@ const styles = StyleSheet.create({
     right: 0,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff6da',
+    backgroundColor: goldenTempleTheme.colors.background,
     borderTopWidth: 1,
     borderTopColor: 'rgba(139, 115, 85, 0.3)',
     paddingHorizontal: 12,

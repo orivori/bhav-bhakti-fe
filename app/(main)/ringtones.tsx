@@ -9,6 +9,7 @@ import BhajanTabContent from '@/components/molecules/BhajanTabContent';
 import { usePlaybackStore } from '@/store/playbackStore';
 import DeityFilterRow, { DeityFilterSelection } from '@/components/molecules/DeityFilterRow';
 import { useDeities } from '@/features/feed/hooks/useDeities';
+import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 
 // Route kept as 'ringtones' deliberately (see CLAUDE.md's Audio hub restructure
 // notes) - this used to be a standalone Ringtones screen; it's now the "Audio"
@@ -125,7 +126,7 @@ export default function AudioHubScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff6da',
+    backgroundColor: goldenTempleTheme.colors.background,
   },
   header: {
     flexDirection: 'row',

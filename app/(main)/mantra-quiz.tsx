@@ -178,7 +178,7 @@ export default function MantraQuizScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff6da', // Cream background like in image
+    backgroundColor: goldenTempleTheme.colors.background, // Cream background like in image
   },
   loadingContainer: {
     flex: 1,

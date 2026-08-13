@@ -8,6 +8,7 @@ import ThoughtTabContent from '@/components/molecules/ThoughtTabContent';
 import WallpapersTabContent from '@/components/molecules/WallpapersTabContent';
 import DeityFilterRow, { DeityFilterSelection } from '@/components/molecules/DeityFilterRow';
 import { useDeities } from '@/features/feed/hooks/useDeities';
+import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 
 // Route kept as 'daily-status' deliberately (see CLAUDE.md's Wallpaper Hub
 // notes, mirroring the Audio hub restructure) - this used to be a standalone
@@ -114,7 +115,7 @@ export default function WallpaperHubScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff6da',
+    backgroundColor: goldenTempleTheme.colors.background,
   },
   header: {
     flexDirection: 'row',

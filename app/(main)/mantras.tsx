@@ -154,7 +154,7 @@ export default function MantrasScreen() {
       activeOpacity={0.8}
     >
       <LinearGradient
-        colors={['#fff6da', '#f5ebc7']}
+        colors={[goldenTempleTheme.colors.background, '#f5ebc7']}
         style={styles.categoryGradient}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
@@ -348,12 +348,12 @@ export default function MantrasScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff6da',
+    backgroundColor: goldenTempleTheme.colors.background,
   },
   header: {
     paddingHorizontal: goldenTempleTheme.spacing.md,
     paddingVertical: goldenTempleTheme.spacing.md,
-    backgroundColor: '#fff6da',
+    backgroundColor: goldenTempleTheme.colors.background,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(0, 0, 0, 0.1)',
   },
