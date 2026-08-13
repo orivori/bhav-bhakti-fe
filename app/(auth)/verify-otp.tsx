@@ -36,14 +36,12 @@ export default function VerifyOTPScreen() {
   const { verifyOTP, sendOTP } = useAuth();
   const { showToast } = useToast();
 
-  // Show initial OTP sent toast when screen loads
-  useEffect(() => {
-    showToast({
-      type: 'success',
-      message: 'Verification Code Sent',
-      duration: 2000
-    });
-  }, []);
+  // No mount-time "Verification Code Sent" toast here - phone-login.tsx
+  // already shows it at the actual moment the send succeeds. Firing it again
+  // here unconditionally on every mount was both redundant (a second toast
+  // landing mid-transition looked like a jarring flash) and wrong on its own
+  // terms (it re-fired on any remount of this screen, e.g. back-then-forward
+  // navigation, even when no code had actually just been sent).
 
   // Countdown timer for resend
   useEffect(() => {

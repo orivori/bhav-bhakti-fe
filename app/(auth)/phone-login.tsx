@@ -7,6 +7,7 @@ import {
   Platform,
   Alert,
   StyleSheet,
+  Keyboard,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useForm, Controller } from 'react-hook-form';
@@ -105,6 +106,10 @@ export default function PhoneLoginScreen() {
           message: 'Verification Code Sent',
           duration: 2000
         });
+        // Dismiss the keyboard before navigating - otherwise it's still
+        // open (or mid-close) while verify-otp's auto-focused OTP box pops
+        // it back open, racing the slide transition and making it jittery.
+        Keyboard.dismiss();
         // Navigate to OTP verification screen with phone data
         router.push({
           pathname: '/(auth)/verify-otp',
