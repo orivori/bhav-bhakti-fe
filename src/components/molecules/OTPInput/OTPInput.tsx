@@ -1,5 +1,6 @@
 import React, { useRef, useEffect } from 'react';
-import { View, TextInput, Text, StyleSheet, ViewStyle } from 'react-native';
+import { View, TextInput, StyleSheet, ViewStyle } from 'react-native';
+import { Text } from '@/components/atoms';
 
 interface OTPInputProps {
   value: string;
@@ -76,7 +77,7 @@ const OTPInput: React.FC<OTPInputProps> = ({
   return (
     <View style={[styles.container, style]}>
       {label && (
-        <Text style={styles.label}>
+        <Text weight="medium" style={styles.label}>
           {label}
         </Text>
       )}

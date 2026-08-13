@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, Text, StyleSheet, Animated, PanResponder } from 'react-native';
+import { View, StyleSheet, Animated, PanResponder } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import Text from '@/components/atoms/Text/Text';
 
 export interface ToastProps {
   type?: 'success' | 'error' | 'info' | 'warning';
@@ -158,7 +159,7 @@ const Toast: React.FC<ToastProps> = ({
         />
         <View style={styles.textContainer}>
           {title && (
-            <Text style={styles.title} numberOfLines={1}>
+            <Text weight="semibold" style={styles.title} numberOfLines={1}>
               {title}
             </Text>
           )}

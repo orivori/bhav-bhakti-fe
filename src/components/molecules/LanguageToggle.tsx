@@ -1,8 +1,9 @@
 import React from 'react';
-import { TouchableOpacity, StyleSheet, View, Text as RNText } from 'react-native';
+import { TouchableOpacity, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from '@/hooks/useTranslation';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
+import { Text } from '@/components/atoms';
 import * as Haptics from 'expo-haptics';
 
 export const LanguageToggle = () => {
@@ -25,9 +26,9 @@ export const LanguageToggle = () => {
           size={16}
           color={goldenTempleTheme.colors.primary[600]}
         />
-        <RNText style={styles.toggleText}>
+        <Text weight="medium" style={styles.toggleText}>
           {language === 'en' ? 'हिं' : 'EN'}
-        </RNText>
+        </Text>
       </View>
     </TouchableOpacity>
   );

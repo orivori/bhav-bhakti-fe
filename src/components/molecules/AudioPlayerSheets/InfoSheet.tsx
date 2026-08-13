@@ -1,5 +1,6 @@
 import React, { forwardRef, useCallback } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { Text } from '@/components/atoms';
 import {
   BottomSheetModal,
   BottomSheetView,
@@ -44,9 +45,9 @@ export const InfoSheet = forwardRef<BottomSheetModal, InfoSheetProps>(
         backgroundStyle={styles.sheetBackground}
       >
         <BottomSheetView style={styles.content}>
-          <Text style={styles.sheetTitle}>{t('contentDetails')}</Text>
+          <Text weight="semibold" style={styles.sheetTitle}>{t('contentDetails')}</Text>
 
-          <Text style={styles.contentTitle}>{title}</Text>
+          <Text weight="bold" style={styles.contentTitle}>{title}</Text>
 
           {!!description && <Text style={styles.description}>{description}</Text>}
 
@@ -54,7 +55,7 @@ export const InfoSheet = forwardRef<BottomSheetModal, InfoSheetProps>(
             <View style={styles.tagsContainer}>
               {tags.map((tag, index) => (
                 <View key={index} style={styles.tag}>
-                  <Text style={styles.tagText}>{tag}</Text>
+                  <Text weight="medium" style={styles.tagText}>{tag}</Text>
                 </View>
               ))}
             </View>
@@ -63,11 +64,11 @@ export const InfoSheet = forwardRef<BottomSheetModal, InfoSheetProps>(
           <View style={styles.infoRow}>
             <View style={styles.infoItem}>
               <Text style={styles.infoLabel}>{t('deity')}</Text>
-              <Text style={styles.infoValue}>{deity}</Text>
+              <Text weight="semibold" style={styles.infoValue}>{deity}</Text>
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoLabel}>{t('objective')}</Text>
-              <Text style={styles.infoValue}>{objective}</Text>
+              <Text weight="semibold" style={styles.infoValue}>{objective}</Text>
             </View>
           </View>
         </BottomSheetView>

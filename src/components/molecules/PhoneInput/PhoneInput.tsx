@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, Modal, FlatList, StyleSheet, ViewStyle, TextInput } from 'react-native';
+import { View, TouchableOpacity, Modal, FlatList, StyleSheet, ViewStyle, TextInput } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Text } from '@/components/atoms';
 
 // Sample country data - in a real app, you'd import this from a library
 const COUNTRIES = [
@@ -60,7 +61,7 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
       disabled={disabled}
     >
       <Text style={styles.flag}>{selectedCountryData.flag}</Text>
-      <Text style={styles.callingCode}>
+      <Text weight="medium" style={styles.callingCode}>
         {selectedCountryData.callingCode}
       </Text>
       <Ionicons name="chevron-down" size={16} color="#6b7280" />
@@ -76,7 +77,7 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
   return (
     <View style={[styles.container, style]}>
       {label && (
-        <Text style={styles.label}>
+        <Text weight="medium" style={styles.label}>
           {label}
         </Text>
       )}
@@ -108,7 +109,7 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
       >
         <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>
+            <Text weight="semibold" style={styles.modalTitle}>
               Select Country
             </Text>
             <TouchableOpacity
@@ -129,7 +130,7 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
               >
                 <Text style={styles.countryFlag}>{item.flag}</Text>
                 <View style={styles.countryInfo}>
-                  <Text style={styles.countryName}>
+                  <Text weight="medium" style={styles.countryName}>
                     {item.name}
                   </Text>
                   <Text style={styles.countryCode}>

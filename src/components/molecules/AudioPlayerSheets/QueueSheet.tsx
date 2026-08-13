@@ -1,5 +1,6 @@
 import React, { forwardRef, useCallback } from 'react';
-import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Image, TouchableOpacity, StyleSheet } from 'react-native';
+import { Text } from '@/components/atoms';
 import {
   BottomSheetModal,
   BottomSheetFlatList,
@@ -60,6 +61,7 @@ export const QueueSheet = forwardRef<BottomSheetModal, QueueSheetProps>(
 
             <Text
               numberOfLines={1}
+              weight={isActive ? 'bold' : 'normal'}
               style={[styles.title, isActive && styles.titleActive]}
             >
               {item.title}
@@ -86,7 +88,7 @@ export const QueueSheet = forwardRef<BottomSheetModal, QueueSheetProps>(
         backgroundStyle={styles.sheetBackground}
       >
         <View style={styles.header}>
-          <Text style={styles.sheetTitle}>{t('upNext')}</Text>
+          <Text weight="semibold" style={styles.sheetTitle}>{t('upNext')}</Text>
         </View>
 
         <BottomSheetFlatList

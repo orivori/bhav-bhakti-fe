@@ -1,6 +1,7 @@
 import React from 'react';
-import { TouchableOpacity, Text, ActivityIndicator, View, StyleSheet, ViewStyle, TextStyle } from 'react-native';
+import { TouchableOpacity, ActivityIndicator, View, StyleSheet, ViewStyle, TextStyle } from 'react-native';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
+import Text from '@/components/atoms/Text/Text';
 
 interface ButtonProps {
   title: string;
@@ -82,7 +83,7 @@ const Button: React.FC<ButtonProps> = ({
       ) : (
         <>
           {icon && <View style={styles.iconContainer}>{icon}</View>}
-          <Text style={textStyle}>{title}</Text>
+          <Text weight="semibold" style={textStyle}>{title}</Text>
         </>
       )}
     </TouchableOpacity>

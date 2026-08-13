@@ -1,5 +1,6 @@
 import React, { forwardRef, useCallback } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, TouchableOpacity, StyleSheet } from 'react-native';
+import { Text } from '@/components/atoms';
 import {
   BottomSheetModal,
   BottomSheetView,
@@ -61,7 +62,7 @@ export const CounterSheet = forwardRef<BottomSheetModal, CounterSheetProps>(
         backgroundStyle={styles.sheetBackground}
       >
         <BottomSheetView style={styles.content}>
-          <Text style={styles.title}>{t('target')}</Text>
+          <Text weight="semibold" style={styles.title}>{t('target')}</Text>
 
           <View style={styles.counterRow}>
             <TouchableOpacity onPress={onDecrement} style={styles.counterButton} activeOpacity={0.7}>
@@ -76,7 +77,7 @@ export const CounterSheet = forwardRef<BottomSheetModal, CounterSheetProps>(
                 ]}
               />
               <View style={styles.progressInner}>
-                <Text style={styles.currentCount}>{chantCount}</Text>
+                <Text weight="bold" style={styles.currentCount}>{chantCount}</Text>
                 <Text style={styles.targetCountText}>/ {targetCount}</Text>
               </View>
             </View>
@@ -88,7 +89,7 @@ export const CounterSheet = forwardRef<BottomSheetModal, CounterSheetProps>(
 
           {isAutoLooping && (
             <View style={styles.autoLoopIndicator}>
-              <Text style={styles.autoLoopText}>{t('autoLoopActive')}</Text>
+              <Text weight="semibold" style={styles.autoLoopText}>{t('autoLoopActive')}</Text>
             </View>
           )}
 
@@ -101,6 +102,7 @@ export const CounterSheet = forwardRef<BottomSheetModal, CounterSheetProps>(
                 activeOpacity={0.7}
               >
                 <Text
+                  weight="semibold"
                   style={[
                     styles.targetChipText,
                     targetCount === count && styles.targetChipTextSelected,

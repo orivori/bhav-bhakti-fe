@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback, useId } from 'react';
 import {
   View,
-  Text,
   TouchableOpacity,
   StyleSheet,
   Dimensions,
@@ -21,6 +20,7 @@ import { useAudioPlayer, useAudioPlayerStatus, setAudioModeAsync } from 'expo-au
 import * as FileSystem from 'expo-file-system/legacy';
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Text } from '@/components/atoms';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { designSystemTheme } from '@/styles/designSystemTheme';
 import { feedService } from '@/features/feed/services/feedService';
@@ -1621,7 +1621,7 @@ export default function AudioPlayerScreen() {
           activeOpacity={0.7}
         >
           <Ionicons name="arrow-back" size={24} color={'#5D4E37'} />
-          <Text style={styles.backButtonText}>{t('back')}</Text>
+          <Text weight="medium" style={styles.backButtonText}>{t('back')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -1642,7 +1642,7 @@ export default function AudioPlayerScreen() {
           <Ionicons name="alert-circle" size={50} color={goldenTempleTheme.colors.error} />
           <Text style={styles.errorText}>{feedError}</Text>
           <TouchableOpacity onPress={fetchFeedData} style={styles.retryButton}>
-            <Text style={styles.retryButtonText}>{t('retryButtonText')}</Text>
+            <Text weight="semibold" style={styles.retryButtonText}>{t('retryButtonText')}</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -1653,7 +1653,7 @@ export default function AudioPlayerScreen() {
           {/* Compact content header strip */}
           <View style={styles.contentHeaderStrip}>
             <View style={styles.contentHeaderTextBlock}>
-              <Text numberOfLines={1} style={styles.contentTitleCompact}>{contentData.title}</Text>
+              <Text weight="bold" numberOfLines={1} style={styles.contentTitleCompact}>{contentData.title}</Text>
               <Text numberOfLines={1} style={styles.contentSubtitleCompact}>{contentData.deity}</Text>
             </View>
             <View style={styles.headerIconsRow}>
@@ -1727,7 +1727,7 @@ export default function AudioPlayerScreen() {
 
               {/* Content */}
               <View style={styles.lyricsContent}>
-                <Text style={styles.lyricsText}>{contentData.title}</Text>
+                <Text weight="bold" style={styles.lyricsText}>{contentData.title}</Text>
 
                 {/* Audio Progress */}
                 <View style={styles.progressSection}>
@@ -1755,8 +1755,8 @@ export default function AudioPlayerScreen() {
                     )}
                   </TouchableOpacity>
                   <View style={styles.timeContainer}>
-                    <Text style={styles.timeText}>{formatTime(status.currentTime)}</Text>
-                    <Text style={styles.timeText}>{formatTime(status.duration)}</Text>
+                    <Text weight="medium" style={styles.timeText}>{formatTime(status.currentTime)}</Text>
+                    <Text weight="medium" style={styles.timeText}>{formatTime(status.duration)}</Text>
                   </View>
                 </View>
               </View>
@@ -1776,7 +1776,7 @@ export default function AudioPlayerScreen() {
               </TouchableOpacity>
 
               <TouchableOpacity onPress={togglePlaybackSpeed} style={styles.secondaryControlButton}>
-                <Text style={styles.speedText}>{playbackSpeed}x</Text>
+                <Text weight="semibold" style={styles.speedText}>{playbackSpeed}x</Text>
               </TouchableOpacity>
 
               {/* Counter sheet trigger - only for content flagged as repeatable */}
@@ -1787,7 +1787,7 @@ export default function AudioPlayerScreen() {
                 >
                   <Ionicons name="stats-chart-outline" size={20} color={designSystemTheme.colors.primary} />
                   <View style={styles.counterBadge}>
-                    <Text style={styles.counterBadgeText}>{chantCount}/{targetCount}</Text>
+                    <Text weight="semibold" style={styles.counterBadgeText}>{chantCount}/{targetCount}</Text>
                   </View>
                 </TouchableOpacity>
               )}
@@ -1796,7 +1796,7 @@ export default function AudioPlayerScreen() {
             {/* Volume Slider */}
             {showVolumeSlider && (
               <View style={styles.volumeContainer}>
-                <Text style={styles.volumeLabel}>Volume</Text>
+                <Text weight="semibold" style={styles.volumeLabel}>Volume</Text>
                 <View style={styles.volumeSliderContainer}>
                   <TouchableOpacity
                     style={styles.volumeSlider}
@@ -1927,7 +1927,7 @@ export default function AudioPlayerScreen() {
       {showTargetSelector && (
         <View style={styles.targetSelectorOverlay}>
           <View style={styles.targetSelectorModal}>
-            <Text style={styles.targetSelectorTitle}>Select Target Count</Text>
+            <Text weight="semibold" style={styles.targetSelectorTitle}>Select Target Count</Text>
             <View style={styles.targetOptionsContainer}>
               {TARGET_COUNT_OPTIONS.map((count) => (
                 <TouchableOpacity
@@ -1939,6 +1939,7 @@ export default function AudioPlayerScreen() {
                   ]}
                 >
                   <Text
+                    weight="semibold"
                     style={[
                       styles.targetOptionText,
                       targetCount === count && styles.targetOptionTextSelected,
@@ -1953,7 +1954,7 @@ export default function AudioPlayerScreen() {
               onPress={() => setShowTargetSelector(false)}
               style={styles.targetSelectorCancel}
             >
-              <Text style={styles.targetSelectorCancelText}>{t('cancel')}</Text>
+              <Text weight="medium" style={styles.targetSelectorCancelText}>{t('cancel')}</Text>
             </TouchableOpacity>
           </View>
         </View>
