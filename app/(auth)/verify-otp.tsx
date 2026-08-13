@@ -190,12 +190,8 @@ export default function VerifyOTPScreen() {
               </Text>
             </View>
 
-            {/* Verification Icon and Info */}
+            {/* Verification Info */}
             <View style={styles.infoContainer}>
-              <View style={styles.iconContainer}>
-                <Text style={styles.icon}>📨</Text>
-              </View>
-
               <Text variant="body" color="secondary" align="center" style={styles.infoText}>
                 We've sent a 6-digit verification code to
               </Text>
@@ -288,18 +284,6 @@ const styles = StyleSheet.create({
   infoContainer: {
     alignItems: 'center',
     marginBottom: 48,
-  },
-  iconContainer: {
-    width: 80,
-    height: 80,
-    backgroundColor: '#d1fae5',
-    borderRadius: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 24,
-  },
-  icon: {
-    fontSize: 48,
   },
   infoText: {
     marginBottom: 8,
