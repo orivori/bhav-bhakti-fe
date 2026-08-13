@@ -15,10 +15,20 @@ Extracted: 2026-07-21.
 | Primary color | `#E76A4A` | terracotta / burnt-orange |
 | Secondary color | `#FFE8D1` | pale peach |
 | Universal background | `#FEF6DA` | warm cream/ivory — confirmed app-wide screen background, 2026-08-13 |
+| Button active-state ("Saffron") | `#FF6B00` | vivid saffron/deep orange — the `Button` atom's `primary` (default) filled/active state, `goldenTempleTheme.colors.primary.DEFAULT`; was already live in code but undocumented until confirmed 2026-08-13 |
+| Sub-header / accent color | `#CA3500` | deep orange-red — confirmed from Figma, 2026-08-13 |
+| Text — primary (headings) | `#4A2C2A` | deep brown — `goldenTempleTheme.colors.text.primary`; the shared `Text` atom's default color, confirmed live via the phone-login investigation, 2026-08-13 |
+| Text — secondary (body/subtitle) | `#8B6F47` | muted brown — `goldenTempleTheme.colors.text.secondary`, the `Text` atom's `color="secondary"` |
 
 Only the first two colors above are labeled on the Figma frame itself. No accent, success/error/warning, neutral/gray scale, or dark-mode colors are documented here. Text elsewhere on the frame is plain black (`#000000`) and the background is plain white (`#FFFFFF`), but neither is called out as an explicit design-system token — treat those as incidental, not confirmed tokens.
 
 **Universal background — `#FEF6DA` (confirmed decision, 2026-08-13):** not part of the original Figma frame extraction; added as a separate confirmed product decision. In code today this is almost exactly matched by the existing hardcoded value `#fff6da` (differs by 1 in the red channel — visually indistinguishable) sprinkled across ~14 screen files and a same-valued, unused `goldenTempleTheme.colors.background` token. See the investigation findings below (§7) before changing this in code.
+
+**Three distinct oranges now confirmed live/intended, not one — worth keeping straight:** `#E76A4A` (primary, the original Figma swatch), `#FF6B00` (Saffron, the button's actual active-state color in code), and `#CA3500` (sub-header/accent, confirmed from Figma). These are three separate, deliberate roles, not drift/inconsistency to be merged — don't substitute one for another without confirming which role is intended.
+
+**Primary gradient — `#E76A4A` → `#FFA241` (confirmed, 2026-08-13):** the two stop colors are fixed; the exact direction/order (e.g. top-left→bottom-right vs. left→right, or which end each color anchors) can vary by context/component — treat direction as a per-use styling choice, not itself a fixed token.
+
+**Text color palette — `#4A2C2A`/`#8B6F47` — a separate concern from the three oranges above, don't conflate them.** The oranges are accent/interactive colors (buttons, sub-headers, gradients); `#4A2C2A`/`#8B6F47` are the actual heading/body text colors used app-wide via the shared `Text` atom's default and `color="secondary"`. Neither is black or gray, despite the Figma frame's own incidental text rendering in plain `#000000` (see below) — the real app text color is a warm brown, matching the temple theme rather than a neutral scale.
 
 No Figma **variables** are bound to this frame (`get_variable_defs` returned empty) — these are raw hex fills, not design tokens/variables in the Figma sense. If the team wants swappable theming later, these would need to be converted to variables at the source.
 
@@ -28,7 +38,20 @@ No Figma **variables** are bound to this frame (`get_variable_defs` returned emp
 
 **Font family:** `Noto Sans Devanagari` (Bold weight shown) — this is the only font explicitly labeled as *the* documented font ("Font" section → "Noto Sans Devanagari"). Devanagari-script support makes sense given the app's Hindi-first content.
 
-**Font size scale** (labeled under "Font size," left to right on the frame):
+**Font size scale — CONFIRMED, 2026-08-13: the real, complete scale is the 7-variant scale already implemented in the shared `Text` atom** (`src/components/atoms/Text/Text.tsx`), which every screen in the app renders through as of the Text-atom conversion (§46 in CLAUDE.md). This supersedes the incomplete 4-number reading below, which was only ever an inference from the raw Figma frame and never matched what's actually implemented.
+
+| Variant | Font size | Notes |
+|---|---|---|
+| `h1` | 36px | |
+| `h2` | 30px | |
+| `h3` | 24px | |
+| `h4` | 20px | |
+| `h5` | 18px | |
+| `body` | 14px | |
+| `caption` | 14px | Currently identical to `body` — two names sharing one size, not two distinct sizes; worth deciding whether that's intentional or `caption` should get its own smaller size |
+| `overline` | 12px | uppercase, `letterSpacing: 1.5` — an 8th variant outside the h1→caption range, included here for completeness |
+
+**Original Figma frame reading (superseded, kept for history only — do not use):** the frame's "Font size" section showed 4 numbers, left to right: 32px, 24px, 20px, 16px, with no role labels attached. The original inference below (H1/H2/emphasis/body) does not match the real, confirmed scale above and should not be used for any future work.
 
 | Size | Suggested role (inferred from left→right descending order — not explicitly labeled) |
 |---|---|
@@ -36,8 +59,6 @@ No Figma **variables** are bound to this frame (`get_variable_defs` returned emp
 | 24px | Likely a sub-heading (H2) |
 | 20px | Likely body-emphasis or card titles |
 | 16px | Likely body/default text |
-
-⚠️ The frame shows only four numbers with no heading/body/label role labels attached — the "suggested role" column above is my inference from the size ordering, not something Figma states. Don't treat it as authoritative; confirm actual usage against real screens (or ask the design intern) before hard-coding role→size mappings.
 
 **Weight:** Only Bold is shown for both the "Noto Sans Devanagari" sample text and the section headers. No Regular/Medium/SemiBold weight samples are documented on this frame.
 
@@ -95,11 +116,11 @@ All are outline or filled single-color icons (no documented color token for icon
 
 - No spacing/grid scale
 - No component specs (buttons, cards, inputs, headers)
-- No color tokens beyond 2 swatches (no error/success/warning, no gray/neutral scale, no dark-mode variants)
+- No color tokens beyond 2 swatches (no error/success/warning, no gray/neutral scale, no dark-mode variants) — **partially resolved 2026-08-13:** universal background, button active-state (Saffron), sub-header/accent, the primary gradient, and the primary/secondary text colors are now also documented (§1); still no error/success/warning/gray-scale/dark-mode tokens
 - No line-height/letter-spacing typography detail
 - No Figma variables — everything is a raw hex/px value, not a swappable token
 - Ambiguity between "Noto Sans Devanagari" (documented font) and "Inter" (used for the frame's own labels) — resolve with the design intern if a second UI typeface was actually intended
-- Font-size-to-role mapping (which size is for headings vs. body vs. labels) is inferred, not labeled
+- ~~Font-size-to-role mapping (which size is for headings vs. body vs. labels) is inferred, not labeled~~ — **RESOLVED 2026-08-13:** the real, confirmed 7-variant scale (§2) supersedes this; the original inferred mapping was wrong and is kept only for history
 
 Re-run this extraction (or check other pages/frames in the file) if the design system gets fleshed out further — this file is a snapshot, not a live sync.
 
