@@ -26,7 +26,20 @@ interface AutoplayFeedCardProps {
 }
 
 // --- Sizing (Phase 3, reworked) ---
-const AUDIO_CONTENT_HEIGHT_RATIO = 0.88; // of the usable viewport
+// Reduced from 0.88 as part of the audio-card redesign (blur background +
+// centered square thumbnail + controls row needs far less height than the
+// old thumbnail-fills-the-card layout). Kept as the SAME kind of formula
+// (a fixed % of usable viewport) rather than switching to a content-derived
+// sum - deliberately, for simplicity and a uniform card height regardless of
+// thumbnail content. 0.75 was chosen (not the originally-proposed 0.65)
+// after checking real device-height math: FeedList's viewport-autoplay
+// election (FeedList.tsx) picks the topmost item that's ≥60% visible: two
+// cards can simultaneously satisfy that threshold whenever
+// cardHeight ≤ usableViewportHeight / 1.2 (≈0.833). At 0.65 this held on
+// every common device checked (iPhone SE through Pro Max, mid-range
+// Android) - a real, non-edge-case risk of a second card looking visible
+// but staying inert. 0.75 stays safely under that risk on all of them.
+const AUDIO_CONTENT_HEIGHT_RATIO = 0.75; // of the usable viewport
 const VISUAL_ASPECT_RATIO = 16 / 9; // height = width * this, for wallpaper/thought/video
 // Header row's own footprint (added this session, above contentArea): 20px
 // text line height + 8px (styles.headerRow's marginBottom, spacing.sm).
@@ -57,6 +70,22 @@ const { width: screenWidth, height: windowHeight } = Dimensions.get('window');
 // search bar/quick-links grid/horoscope card alignment above it in the same
 // scroll view (those all use spacing.lg; this was the one outlier at .md).
 const CARD_WIDTH = screenWidth - goldenTempleTheme.spacing.lg * 2;
+
+// Audio cards' centered thumbnail - proportional to CARD_WIDTH (screen
+// width varies far less across devices than screen height does), not to
+// contentAreaHeight/viewport. It's a fixed floating square now, not
+// something the card's own height is derived from - contentAreaHeight for
+// audio still comes from AUDIO_CONTENT_HEIGHT_RATIO above, just a smaller %.
+// 0.66, not the originally-proposed 0.62 - a slight bump for more presence.
+// Still comfortably fits the smallest realistic device's budget alongside
+// the controls row below it (checked: ~84px of vertical slack remains on
+// an iPhone SE-class screen even after this bump).
+const THUMBNAIL_SIZE = CARD_WIDTH * 0.66;
+
+// Native RN Image blurRadius (no new dependency - see the earlier
+// investigation this session). Applied only to the full-bleed background
+// copy of the thumbnail, never the sharp centered one.
+const AUDIO_BACKGROUND_BLUR_RADIUS = 20;
 
 const getAudioFileExtension = (audioUri: string): string => {
   const pathWithoutQuery = audioUri.split('?')[0];
@@ -277,6 +306,16 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
       ? usableViewportHeight * AUDIO_CONTENT_HEIGHT_RATIO
       : CARD_WIDTH * VISUAL_ASPECT_RATIO) - HEADER_ROW_HEIGHT;
 
+  // Audio only: the thumbnail is centered on its OWN (both axes) within
+  // contentArea - NOT as part of a combined thumbnail+controls block. The
+  // controls row just sits directly below wherever the thumbnail lands,
+  // aligned to its left/right edges, uninvolved in the centering itself.
+  // Computed here rather than in StyleSheet since contentAreaHeight is a
+  // per-render value (driven by usableViewportHeight).
+  const audioThumbnailTop = (contentAreaHeight - THUMBNAIL_SIZE) / 2;
+  const audioThumbnailLeft = (CARD_WIDTH - THUMBNAIL_SIZE) / 2;
+  const audioControlsRowTop = audioThumbnailTop + THUMBNAIL_SIZE + goldenTempleTheme.spacing.md;
+
   // --- Isolated audio player (mantra/ringtone/aarti/bhajan only) ---
   const player = useAudioPlayer(null);
   const status = useAudioPlayerStatus(player);
@@ -332,12 +371,17 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
     };
   }, [isEffectivelyActive, hasAudioMedia, audioSourceUri, feedIdStr, player, incrementView]);
 
+  // Shared with handleToggleAudioPlayPause below - both need the exact same
+  // "has this track reached its cap" definition, kept as one function so
+  // the two can't drift apart.
+  const getPlaybackCapSeconds = () =>
+    status.duration > 0 ? Math.min(AUDIO_PLAYBACK_CAP_SECONDS, status.duration) : AUDIO_PLAYBACK_CAP_SECONDS;
+
   // 30s-or-natural-length cap, audio only - pauses, no further prompt (the
   // CTA pill already covers "want more").
   useEffect(() => {
     if (!hasAudioMedia || !isEffectivelyActive || !status.playing) return;
-    const cap = status.duration > 0 ? Math.min(AUDIO_PLAYBACK_CAP_SECONDS, status.duration) : AUDIO_PLAYBACK_CAP_SECONDS;
-    if (status.currentTime >= cap) {
+    if (status.currentTime >= getPlaybackCapSeconds()) {
       try {
         player.pause();
       } catch (error) {
@@ -387,6 +431,16 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
       if (status.playing) {
         player.pause();
       } else {
+        // If the cap already fired, currentTime is parked at/past the cap -
+        // calling play() alone would immediately get paused right back by
+        // the cap effect above (its guard sees currentTime >= cap again the
+        // instant playing flips true), making the button look unresponsive.
+        // Seek to 0 first so this is a genuine restart. A normal mid-track
+        // manual pause (currentTime still under the cap) is untouched -
+        // resumes exactly where it left off, same as before.
+        if (status.currentTime >= getPlaybackCapSeconds()) {
+          player.seekTo(0);
+        }
         player.play();
       }
     } catch (error) {
@@ -654,13 +708,78 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
 
       <View style={[styles.contentArea, { height: contentAreaHeight }]}>
         {hasAudioMedia ? (
-          audioMedia?.thumbnailUrl ? (
-            <Image source={{ uri: audioMedia.thumbnailUrl }} style={StyleSheet.absoluteFill} resizeMode="cover" />
-          ) : (
-            <View style={[StyleSheet.absoluteFill, styles.audioFallback]}>
-              <Ionicons name="musical-notes" size={48} color={goldenTempleTheme.colors.primary.DEFAULT} />
+          <>
+            {/* Blurred background - same thumbnail, scaled to fill, blurred.
+                Falls back to a flat color (no image to blur) when there's no
+                thumbnail at all. */}
+            {audioMedia?.thumbnailUrl ? (
+              <Image
+                source={{ uri: audioMedia.thumbnailUrl }}
+                style={StyleSheet.absoluteFill}
+                resizeMode="cover"
+                blurRadius={AUDIO_BACKGROUND_BLUR_RADIUS}
+              />
+            ) : (
+              <View style={[StyleSheet.absoluteFill, styles.audioFallback]} />
+            )}
+
+            {/* Sharp thumbnail - centered on both axes within contentArea,
+                independent of the controls row below it (see
+                audioThumbnailTop/Left above). */}
+            {audioMedia?.thumbnailUrl ? (
+              <Image
+                source={{ uri: audioMedia.thumbnailUrl }}
+                style={[styles.audioThumbnail, { top: audioThumbnailTop, left: audioThumbnailLeft }]}
+                resizeMode="cover"
+              />
+            ) : (
+              <View
+                style={[
+                  styles.audioThumbnail,
+                  styles.audioFallback,
+                  { top: audioThumbnailTop, left: audioThumbnailLeft },
+                ]}
+              >
+                <Ionicons name="musical-notes" size={40} color={goldenTempleTheme.colors.primary.DEFAULT} />
+              </View>
+            )}
+
+            {/* Controls row - anchored directly below the thumbnail's own
+                bottom edge, aligned to its left/right edges (width matches
+                THUMBNAIL_SIZE exactly). Not part of any centering
+                calculation of its own - it just follows the thumbnail. */}
+            <View
+              style={[
+                styles.audioControlsRow,
+                { top: audioControlsRowTop, left: audioThumbnailLeft, width: THUMBNAIL_SIZE },
+              ]}
+            >
+              {/* Manual override on top of the isEffectivelyActive-driven
+                  autoplay, per handleToggleAudioPlayPause above. */}
+              <TouchableOpacity
+                style={styles.audioPlayPauseButton}
+                onPress={handleToggleAudioPlayPause}
+                activeOpacity={0.8}
+              >
+                <Ionicons
+                  name={status.playing ? 'pause' : 'play'}
+                  size={26}
+                  color="#fff"
+                  style={status.playing ? undefined : styles.playIconNudge}
+                />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.audioCtaPill}
+                onPress={handleCtaPress}
+                disabled={ctaDisabled}
+                activeOpacity={0.85}
+              >
+                <Ionicons name={ctaIcon} size={16} color="#fff" />
+                <Text style={styles.ctaPillText}>{ctaLabel}</Text>
+              </TouchableOpacity>
             </View>
-          )
+          </>
         ) : visualMedia?.type === 'video' ? (
           <Video
             source={{ uri: visualMedia.mediaUrl }}
@@ -690,40 +809,26 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
           </TouchableOpacity>
         )}
 
-        {/* Play/pause overlay - audio content only. Manual override on top of
-            the isEffectivelyActive-driven autoplay, per handleToggleAudioPlayPause above. */}
-        {hasAudioMedia && (
-          <TouchableOpacity
-            style={styles.playPauseOverlay}
-            onPress={handleToggleAudioPlayPause}
-            activeOpacity={0.8}
-          >
-            <Ionicons
-              name={status.playing ? 'pause' : 'play'}
-              size={32}
-              color="#fff"
-              style={status.playing ? undefined : styles.playIconNudge}
-            />
-          </TouchableOpacity>
+        {/* CTA pill - visual content only (Set as Wallpaper). Audio has its
+            own inline CTA pill inside audioControlsRow above, no longer
+            this shared centered-overlay version. */}
+        {!hasAudioMedia && (
+          <View style={styles.ctaPillWrapper} pointerEvents="box-none">
+            <TouchableOpacity
+              style={styles.ctaPill}
+              onPress={handleCtaPress}
+              disabled={ctaDisabled}
+              activeOpacity={0.85}
+            >
+              {isSettingWallpaper ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Ionicons name={ctaIcon} size={16} color="#fff" />
+              )}
+              <Text style={styles.ctaPillText}>{ctaLabel}</Text>
+            </TouchableOpacity>
+          </View>
         )}
-
-        {/* CTA pill - centered, ~70% of card width, same styling across all
-            three variants (Listen / Set as Ringtone / Set as Wallpaper) */}
-        <View style={styles.ctaPillWrapper} pointerEvents="box-none">
-          <TouchableOpacity
-            style={styles.ctaPill}
-            onPress={handleCtaPress}
-            disabled={ctaDisabled}
-            activeOpacity={0.85}
-          >
-            {!hasAudioMedia && isSettingWallpaper ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <Ionicons name={ctaIcon} size={16} color="#fff" />
-            )}
-            <Text style={styles.ctaPillText}>{ctaLabel}</Text>
-          </TouchableOpacity>
-        </View>
       </View>
 
       <View style={[styles.footer, { height: FOOTER_HEIGHT }]}>
@@ -827,18 +932,47 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  playPauseOverlay: {
+  audioThumbnail: {
     position: 'absolute',
-    top: '50%',
-    left: '50%',
-    marginTop: -30,
-    marginLeft: -30,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: THUMBNAIL_SIZE,
+    height: THUMBNAIL_SIZE,
+    borderRadius: goldenTempleTheme.borderRadius.sm,
+    overflow: 'hidden',
+  },
+  // top/left/width are all supplied per-render (audioThumbnailTop/Left,
+  // audioControlsRowTop in the component body) - width matches
+  // THUMBNAIL_SIZE exactly so the row's edges align with the thumbnail's,
+  // not the card's.
+  audioControlsRow: {
+    position: 'absolute',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  audioPlayPauseButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: 'rgba(0, 0, 0, 0.4)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  audioCtaPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    // Slightly taller than the original 10 - closer to (but still under)
+    // audioPlayPauseButton's 48px, for a more balanced controls row.
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: goldenTempleTheme.borderRadius.full,
+    backgroundColor: goldenTempleTheme.colors.primary.DEFAULT,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
   },
   playIconNudge: {
     marginLeft: 3, // optically centers the play triangle within the circle
