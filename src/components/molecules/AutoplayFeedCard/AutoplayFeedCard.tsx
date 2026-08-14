@@ -19,6 +19,7 @@ import { usePremiumStore } from '@/store/premiumStore';
 import { formatCount } from '@/utils/formatCount';
 import { getMediaFileExtension } from '@/utils/getMediaFileExtension';
 import { shareContent } from '@/utils/shareContent';
+import WhatsAppIcon from '../../../../assets/icons/whatsapp.svg';
 
 interface AutoplayFeedCardProps {
   feed: Feed;
@@ -836,7 +837,9 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
           <Ionicons
             name={localIsLiked ? 'heart' : 'heart-outline'}
             size={24}
-            color={localIsLiked ? '#FF4444' : goldenTempleTheme.colors.text.secondary}
+            // Red-on-like unchanged; default (unliked) color moved to
+            // literal black, matching the Share/Views icons.
+            color={localIsLiked ? '#FF4444' : '#000000'}
           />
           {localLikesCount > 0 && (
             <Text variant="caption" style={styles.footerActionCount}>
@@ -847,9 +850,9 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
 
         <TouchableOpacity style={styles.footerAction} onPress={handleShare} disabled={isSharing} activeOpacity={0.7}>
           {isSharing ? (
-            <ActivityIndicator size="small" color={goldenTempleTheme.colors.text.secondary} />
+            <ActivityIndicator size="small" color="#000000" />
           ) : (
-            <Ionicons name="share-social-outline" size={22} color={goldenTempleTheme.colors.text.secondary} />
+            <WhatsAppIcon width={22} height={22} fill="#000000" />
           )}
           {feed.sharesCount > 0 && (
             <Text variant="caption" style={styles.footerActionCount}>
@@ -859,7 +862,7 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
         </TouchableOpacity>
 
         <View style={styles.footerAction}>
-          <Ionicons name="eye-outline" size={20} color={goldenTempleTheme.colors.text.muted} />
+          <Ionicons name="eye-outline" size={20} color="#000000" />
           {feed.viewsCount > 0 && (
             <Text variant="caption" style={styles.footerActionCount}>
               {formatCount(feed.viewsCount)}
