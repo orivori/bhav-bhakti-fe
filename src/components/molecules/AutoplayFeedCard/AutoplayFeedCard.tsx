@@ -8,7 +8,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '@/components/atoms';
-import { Feed, FeedMedia } from '@/types/feed';
+import { Feed } from '@/types/feed';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -38,7 +38,10 @@ const { width: screenWidth, height: windowHeight } = Dimensions.get('window');
 // wallpaper/video cards are no longer full-bleed. This also feeds the 16:9
 // height math below, so visual cards are proportionally shorter than before
 // (a direct, intended side effect: better "next card peeks" behavior).
-const CARD_WIDTH = screenWidth - goldenTempleTheme.spacing.md * 2;
+// Bumped from spacing.md to spacing.lg so the card's edges match Home's
+// search bar/quick-links grid/horoscope card alignment above it in the same
+// scroll view (those all use spacing.lg; this was the one outlier at .md).
+const CARD_WIDTH = screenWidth - goldenTempleTheme.spacing.lg * 2;
 
 const getAudioFileExtension = (audioUri: string): string => {
   const pathWithoutQuery = audioUri.split('?')[0];
@@ -134,26 +137,31 @@ const cancelBackgroundDownload = (feedId: string): void => {
   inFlightCancellations.set(feedId, cleanup);
 };
 
-// Top-left overlay is a per-TYPE descriptor (informational, "plain text not a
-// button"). Now that the CTA pill also branches ringtone vs. other-audio
-// (see ctaLabel below), this label and the pill text agree for every type.
-const getTypeMeta = (
-  feed: Feed,
-  hasAudioMedia: boolean,
-  visualMediaType: FeedMedia['type'] | undefined
-): { icon: keyof typeof Ionicons.glyphMap; label: string } => {
-  if (hasAudioMedia) {
-    return feed.type === 'ringtone'
-      ? { icon: 'notifications-outline', label: 'Set as Ringtone' }
-      : { icon: 'musical-notes-outline', label: 'Listen' };
-  }
-  if (visualMediaType === 'video') {
-    return { icon: 'videocam-outline', label: 'Video' };
-  }
-  if (feed.type === 'thought') {
-    return { icon: 'chatbox-ellipses-outline', label: 'Thought' };
-  }
-  return { icon: 'image-outline', label: 'Wallpaper' };
+// Header row (above the thumbnail): plain content-type identity, not an
+// action description - deliberately separate from the CTA pill's own
+// verb-based label ("Listen"/"Set as Ringtone"/"Set as Wallpaper" below),
+// which describes what tapping the pill does, not what this content is.
+const CONTENT_TYPE_LABELS: Record<Feed['type'], string> = {
+  general: 'General',
+  mantra: 'Mantra',
+  ringtone: 'Ringtone',
+  wallpaper: 'Wallpaper',
+  aarti: 'Aarti',
+  bhajan: 'Bhajan',
+  thought: 'Thought',
+};
+
+// 'See all' target per content type - reuses the exact same hub routes/subTab
+// params Home's own quick-links already navigate to (app/(main)/index.tsx).
+// 'general' has no matching hub screen, so it deliberately has no entry here;
+// the header row hides the 'See all' link for it (see seeAllTarget below).
+const SEE_ALL_TARGETS: Partial<Record<Feed['type'], { pathname: string; params?: Record<string, string> }>> = {
+  mantra: { pathname: '/(main)/mantras' },
+  ringtone: { pathname: '/(main)/ringtones', params: { subTab: 'ringtones' } },
+  aarti: { pathname: '/(main)/ringtones', params: { subTab: 'aarti' } },
+  bhajan: { pathname: '/(main)/ringtones', params: { subTab: 'bhajan' } },
+  wallpaper: { pathname: '/(main)/daily-status', params: { subTab: 'wallpapers' } },
+  thought: { pathname: '/(main)/daily-status', params: { subTab: 'thought' } },
 };
 
 /**
@@ -239,7 +247,15 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
     feed.media?.find((m) => m.type === 'video') || feed.media?.find((m) => m.type === 'image') || feed.media?.[0];
 
   const title = feed.title?.[language] || feed.title?.en || feed.caption || 'Untitled';
-  const typeMeta = getTypeMeta(feed, hasAudioMedia, hasAudioMedia ? undefined : visualMedia?.type);
+
+  const contentTypeLabel = CONTENT_TYPE_LABELS[feed.type];
+  const seeAllTarget = SEE_ALL_TARGETS[feed.type];
+  const handleSeeAllPress = () => {
+    if (!seeAllTarget) return;
+    // Cast needed: SEE_ALL_TARGETS is a plain lookup table, so its pathname
+    // strings aren't narrowed to expo-router's generated typed-route union.
+    router.push(seeAllTarget as any);
+  };
 
   const contentAreaHeight = hasAudioMedia
     ? usableViewportHeight * AUDIO_CONTENT_HEIGHT_RATIO
@@ -607,6 +623,19 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
     // Audio and visual cards now share the same horizontal gutter (styles.card) -
     // see CARD_WIDTH above for how that feeds the visual branch's height math.
     <View style={styles.card}>
+      <View style={styles.headerRow}>
+        <Text style={styles.headerTypeLabel}>{contentTypeLabel}</Text>
+        {seeAllTarget && (
+          <TouchableOpacity
+            onPress={handleSeeAllPress}
+            activeOpacity={0.7}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Text style={styles.headerSeeAllText}>See all</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
       <View style={[styles.contentArea, { height: contentAreaHeight }]}>
         {hasAudioMedia ? (
           audioMedia?.thumbnailUrl ? (
@@ -633,19 +662,6 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
             <Ionicons name="image" size={48} color={goldenTempleTheme.colors.primary.DEFAULT} />
           </View>
         )}
-
-        {/* Top-left overlay: plain text, not a button */}
-        <View style={styles.topLeftOverlay} pointerEvents="none">
-          <View style={styles.typeRow}>
-            <View style={styles.typeIconCircle}>
-              <Ionicons name={typeMeta.icon} size={14} color="#fff" />
-            </View>
-            <Text style={styles.typeLabel}>{typeMeta.label}</Text>
-          </View>
-          <Text style={styles.titleText} numberOfLines={1}>
-            {title}
-          </Text>
-        </View>
 
         {/* Mute toggle - video content only */}
         {!hasAudioMedia && visualMedia?.type === 'video' && (
@@ -737,52 +753,47 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
 const styles = StyleSheet.create({
   card: {
     marginBottom: goldenTempleTheme.spacing.md,
-    marginHorizontal: goldenTempleTheme.spacing.md,
+    // Bumped from spacing.md - matches the search bar/quick-links grid/
+    // horoscope card edge alignment above this list on Home.
+    marginHorizontal: goldenTempleTheme.spacing.lg,
+    paddingBottom: goldenTempleTheme.spacing.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: goldenTempleTheme.colors.border,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: goldenTempleTheme.spacing.sm,
+    // Matches Home's chooseStartHeader/recommendedHeader 'See all' link's own
+    // paddingHorizontal (index.tsx's styles.seeAllButton, 8 === spacing.sm) -
+    // without this the type label/See all text sit flush against the card's
+    // now-rounded edges.
+    paddingHorizontal: goldenTempleTheme.spacing.sm,
+  },
+  headerTypeLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: goldenTempleTheme.colors.text.primary,
+  },
+  headerSeeAllText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: goldenTempleTheme.colors.primary.DEFAULT,
   },
   contentArea: {
     overflow: 'hidden',
     backgroundColor: goldenTempleTheme.colors.muted[200],
+    // Rounds only the thumbnail/media area - header/footer stay square,
+    // since neither has a background fill to clash against (see the
+    // investigation this session: partial rounding only reads cleanly when
+    // the surrounding regions are transparent, which they are here).
+    borderRadius: goldenTempleTheme.borderRadius.md,
   },
   audioFallback: {
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: goldenTempleTheme.colors.primary[100],
-  },
-  topLeftOverlay: {
-    position: 'absolute',
-    top: goldenTempleTheme.spacing.md,
-    left: goldenTempleTheme.spacing.md,
-    maxWidth: '65%',
-  },
-  typeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 2,
-  },
-  typeIconCircle: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  typeLabel: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '700',
-    textShadowColor: 'rgba(0, 0, 0, 0.5)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
-  },
-  titleText: {
-    color: '#fff',
-    fontSize: 13,
-    fontWeight: '400',
-    textShadowColor: 'rgba(0, 0, 0, 0.5)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
   },
   muteButton: {
     position: 'absolute',
