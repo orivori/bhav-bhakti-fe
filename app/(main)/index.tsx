@@ -291,10 +291,6 @@ export default function HomeScreen() {
 
       {/* Today's Horoscope Section */}
       <View style={styles.horoscopeSectionContainer}>
-        <Text style={styles.horoscopeSectionTitle}>
-          {currentLanguage === 'hi' ? 'आज का राशिफल' : "Today's Horoscope"}
-        </Text>
-
         <TouchableOpacity
           style={styles.todayHoroscopeCard}
           onPress={handleHoroscopeCardPress}
@@ -340,23 +336,6 @@ export default function HomeScreen() {
           <Text style={styles.recommendedTitle}>
             {currentLanguage === 'hi' ? 'आपके लिए सुझाया गया' : 'Recommended for You'}
           </Text>
-          <Pressable
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              // Add navigation logic here if needed
-            }}
-            style={({ pressed }) => [
-              styles.seeAllButton,
-              {
-                opacity: pressed ? 0.7 : 1,
-                transform: [{ scale: pressed ? 0.95 : 1 }]
-              }
-            ]}
-          >
-            <Text style={styles.seeAllText}>
-              {currentLanguage === 'hi' ? 'सभी देखें' : 'See All'}
-            </Text>
-          </Pressable>
         </View>
       )}
 
@@ -517,7 +496,10 @@ const styles = StyleSheet.create({
   categoriesGrid: {
     flexDirection: 'row',
     paddingHorizontal: goldenTempleTheme.spacing.lg,
-    marginBottom: goldenTempleTheme.spacing.sm,
+    // Bumped from spacing.sm (8px) to spacing.md (16px) - the gap to the
+    // horoscope card below, now that its header title is gone (RN doesn't
+    // collapse adjacent margins, so this value is the full visible gap).
+    marginBottom: goldenTempleTheme.spacing.md,
     gap: 10,
   },
   // Today's Horoscope Section Styles
@@ -525,12 +507,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: goldenTempleTheme.spacing.lg,
     marginTop: 0,
     marginBottom: goldenTempleTheme.spacing.lg,
-  },
-  horoscopeSectionTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#C41E3A',
-    marginBottom: goldenTempleTheme.spacing.md,
   },
   todayHoroscopeCard: {
     backgroundColor: '#f7ebc4',
