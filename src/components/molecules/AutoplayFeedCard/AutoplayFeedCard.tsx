@@ -28,6 +28,21 @@ interface AutoplayFeedCardProps {
 // --- Sizing (Phase 3, reworked) ---
 const AUDIO_CONTENT_HEIGHT_RATIO = 0.88; // of the usable viewport
 const VISUAL_ASPECT_RATIO = 16 / 9; // height = width * this, for wallpaper/thought/video
+// Header row's own footprint (added this session, above contentArea): 20px
+// text line height + 8px (styles.headerRow's marginBottom, spacing.sm).
+// The 20 is deterministic, not an estimate - both header texts go through
+// the shared Text atom with no explicit lineHeight override, so they inherit
+// its 'body' variant's lineHeight: 20 (Text.tsx), and since CONTENT_TYPE_LABELS
+// and "See all" are always hardcoded English (never resolved through the
+// language system), the atom's Hindi-aware dynamic line-height path never
+// triggers - this can't drift per-device or per-language the way raw
+// unstyled Text would. Subtracted from contentAreaHeight below so adding the
+// header didn't grow the card's total height (and shrink next-card-peek) -
+// audio's ratio was tuned against the pre-header pixel budget, so this
+// restores it exactly; visual's 16:9 becomes a smaller, no-longer-exact
+// ratio, an accepted trade-off (consistent peek across all card types over
+// aspect-ratio purity - real content doesn't hit 16:9 exactly anyway).
+const HEADER_ROW_HEIGHT = 28;
 const FOOTER_HEIGHT = 56;
 
 // --- Playback ---
@@ -257,9 +272,10 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
     router.push(seeAllTarget as any);
   };
 
-  const contentAreaHeight = hasAudioMedia
-    ? usableViewportHeight * AUDIO_CONTENT_HEIGHT_RATIO
-    : CARD_WIDTH * VISUAL_ASPECT_RATIO;
+  const contentAreaHeight =
+    (hasAudioMedia
+      ? usableViewportHeight * AUDIO_CONTENT_HEIGHT_RATIO
+      : CARD_WIDTH * VISUAL_ASPECT_RATIO) - HEADER_ROW_HEIGHT;
 
   // --- Isolated audio player (mantra/ringtone/aarti/bhajan only) ---
   const player = useAudioPlayer(null);
@@ -756,7 +772,12 @@ const styles = StyleSheet.create({
     // Bumped from spacing.md - matches the search bar/quick-links grid/
     // horoscope card edge alignment above this list on Home.
     marginHorizontal: goldenTempleTheme.spacing.lg,
-    paddingBottom: goldenTempleTheme.spacing.md,
+    // Minimum gap before the divider - the footer's own fixed 56px height
+    // already centers its icons with ~16px of empty space above/below them,
+    // so the hairline doesn't need much added room to read as deliberate
+    // rather than cramped. Was spacing.md (16px), which ate into the
+    // next-card-peek spacing tuned into contentAreaHeight's viewport math.
+    paddingBottom: goldenTempleTheme.spacing.xs,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: goldenTempleTheme.colors.border,
   },
