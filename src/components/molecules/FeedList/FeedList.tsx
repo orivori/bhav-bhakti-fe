@@ -46,7 +46,7 @@ interface FeedListProps {
   enableViewportAutoplay?: boolean;
 }
 
-export default function FeedList({
+function FeedList({
   feeds,
   onLoadMore,
   onRefresh,
@@ -68,7 +68,7 @@ export default function FeedList({
   ListHeaderComponent,
   contentContainerStyle,
   enableViewportAutoplay = false,
-}: FeedListProps) {
+}: FeedListProps, ref: React.Ref<FlatList>) {
 
   // --- Viewport autoplay election (Phase 1 — infra only, no card wiring yet) ---
   // One shared "elected" feedId: the topmost item currently ≥60% visible for ≥400ms.
@@ -296,6 +296,7 @@ export default function FeedList({
 
   return (
     <FlatList
+      ref={ref}
       data={feeds}
       renderItem={renderFeedItem}
       keyExtractor={keyExtractor}
@@ -342,6 +343,8 @@ export default function FeedList({
     />
   );
 }
+
+export default React.forwardRef(FeedList);
 
 const styles = StyleSheet.create({
   flatListStyle: {

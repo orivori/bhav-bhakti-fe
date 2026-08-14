@@ -42,7 +42,7 @@ interface WallpapersTabContentProps {
 // StatusTabContent which applies no statusOccasion filter at all. `filter` is
 // owned and shared by the hub (survives switching sub-tabs) - this component
 // just forwards whatever it's given into useWallpaperFeed().
-export default function WallpapersTabContent({ filter }: WallpapersTabContentProps) {
+function WallpapersTabContent({ filter }: WallpapersTabContentProps, ref: React.Ref<FlatList>) {
   const { contentPadding } = useTabBarHeight();
 
   const {
@@ -131,6 +131,7 @@ export default function WallpapersTabContent({ filter }: WallpapersTabContentPro
   return (
     <>
       <FlatList
+        ref={ref}
         data={feeds}
         renderItem={renderItem}
         keyExtractor={keyExtractor}
@@ -155,6 +156,8 @@ export default function WallpapersTabContent({ filter }: WallpapersTabContentPro
     </>
   );
 }
+
+export default React.forwardRef(WallpapersTabContent);
 
 const styles = StyleSheet.create({
   listContent: {

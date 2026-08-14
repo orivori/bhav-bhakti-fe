@@ -25,7 +25,7 @@ interface BhajanTabContentProps {
 // loading/error/empty states, driven by useAudioFeed('bhajan', filter).
 // Cards navigate into the shared audio-player.tsx screen (persistent
 // playback) rather than playing inline - see AudioContentCard.
-export default function BhajanTabContent({ filter }: BhajanTabContentProps) {
+function BhajanTabContent({ filter }: BhajanTabContentProps, ref: React.Ref<FlatList>) {
   const { contentPadding } = useTabBarHeight();
   const {
     items: bhajans,
@@ -118,6 +118,7 @@ export default function BhajanTabContent({ filter }: BhajanTabContentProps) {
 
   return (
     <FlatList
+      ref={ref}
       data={bhajans}
       renderItem={renderItem}
       keyExtractor={keyExtractor}
@@ -147,6 +148,8 @@ export default function BhajanTabContent({ filter }: BhajanTabContentProps) {
     />
   );
 }
+
+export default React.forwardRef(BhajanTabContent);
 
 const styles = StyleSheet.create({
   list: {

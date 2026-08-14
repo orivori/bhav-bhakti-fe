@@ -7,6 +7,7 @@ import {
   ImageBackground,
   TextInput,
   Pressable,
+  FlatList,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -21,6 +22,7 @@ import { Feed } from '@/types/feed';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { useTranslation as useI18n } from '@/shared/i18n/useTranslation';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
+import { useScrollToTopOnTabPress } from '@/hooks/useScrollToTopOnTabPress';
 import * as Haptics from 'expo-haptics';
 import { profileService } from '@/features/profile/services/profileService';
 import type { ZodiacSign } from '@/types/horoscope';
@@ -95,6 +97,11 @@ export default function HomeScreen() {
 
   const [showBirthdateModal, setShowBirthdateModal] = React.useState(false);
   const [isCheckingHoroscopeProfile, setIsCheckingHoroscopeProfile] = React.useState(false);
+  const feedListRef = React.useRef<FlatList>(null);
+
+  useScrollToTopOnTabPress(React.useCallback(() => {
+    feedListRef.current?.scrollToOffset({ offset: 0, animated: true });
+  }, []));
 
   const handleSearchSubmit = (query: string) => {
     if (query.trim()) {
@@ -345,6 +352,7 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <FeedList
+        ref={feedListRef}
         feeds={feeds}
         onLoadMore={loadMore}
         onRefresh={refresh}

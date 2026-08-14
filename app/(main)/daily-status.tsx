@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
+import { View, StyleSheet, TouchableOpacity, FlatList } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
 import { Text } from '@/components/atoms';
@@ -9,6 +9,7 @@ import WallpapersTabContent from '@/components/molecules/WallpapersTabContent';
 import DeityFilterRow, { DeityFilterSelection } from '@/components/molecules/DeityFilterRow';
 import { useDeities } from '@/features/feed/hooks/useDeities';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
+import { useScrollToTopOnTabPress } from '@/hooks/useScrollToTopOnTabPress';
 
 // Route kept as 'daily-status' deliberately (see CLAUDE.md's Wallpaper Hub
 // notes, mirroring the Audio hub restructure) - this used to be a standalone
@@ -48,6 +49,15 @@ export default function WallpaperHubScreen() {
   // sub-tab switches for free.
   const [selectedFilter, setSelectedFilter] = useState<DeityFilterSelection>({ kind: 'trending' });
   const { data: deities = [] } = useDeities();
+
+  // Only one of StatusTabContent/ThoughtTabContent/WallpapersTabContent is
+  // ever mounted at a time (see the conditional render below), so one shared
+  // ref safely tracks whichever sub-tab's FlatList is currently active.
+  const activeListRef = useRef<FlatList>(null);
+
+  useScrollToTopOnTabPress(useCallback(() => {
+    activeListRef.current?.scrollToOffset({ offset: 0, animated: true });
+  }, []));
 
   // Reactive, not once-only (deliberately no ref-guard, unlike audio-player.tsx's
   // autoPlay param): a repeated tap on the same Home quick-link while already
@@ -104,9 +114,9 @@ export default function WallpaperHubScreen() {
       </View>
 
       <View style={styles.content}>
-        {activeSubTab === 'status' && <StatusTabContent filter={selectedFilter} />}
-        {activeSubTab === 'thought' && <ThoughtTabContent />}
-        {activeSubTab === 'wallpapers' && <WallpapersTabContent filter={selectedFilter} />}
+        {activeSubTab === 'status' && <StatusTabContent ref={activeListRef} filter={selectedFilter} />}
+        {activeSubTab === 'thought' && <ThoughtTabContent ref={activeListRef} />}
+        {activeSubTab === 'wallpapers' && <WallpapersTabContent ref={activeListRef} filter={selectedFilter} />}
       </View>
     </SafeAreaView>
   );

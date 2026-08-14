@@ -26,7 +26,7 @@ interface AartiTabContentProps {
 // instead of useRingtones(filter). Cards navigate into the shared
 // audio-player.tsx screen (persistent playback) rather than playing inline,
 // unlike RingtoneFeedCard - see AudioContentCard for why.
-export default function AartiTabContent({ filter }: AartiTabContentProps) {
+function AartiTabContent({ filter }: AartiTabContentProps, ref: React.Ref<FlatList>) {
   const { contentPadding } = useTabBarHeight();
   const {
     items: aartis,
@@ -119,6 +119,7 @@ export default function AartiTabContent({ filter }: AartiTabContentProps) {
 
   return (
     <FlatList
+      ref={ref}
       data={aartis}
       renderItem={renderItem}
       keyExtractor={keyExtractor}
@@ -148,6 +149,8 @@ export default function AartiTabContent({ filter }: AartiTabContentProps) {
     />
   );
 }
+
+export default React.forwardRef(AartiTabContent);
 
 const styles = StyleSheet.create({
   list: {

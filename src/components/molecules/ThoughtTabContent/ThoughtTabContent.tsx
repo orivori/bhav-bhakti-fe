@@ -37,7 +37,7 @@ import { useViewingWindow } from '@/hooks/useViewingWindow';
 // Status/Wallpapers, no separate card component or text rendering needed.
 // No statusOccasion filter applies here - that field is specific to the
 // Status/Wallpapers wallpaper-type buckets, not this type.
-export default function ThoughtTabContent() {
+function ThoughtTabContent(_props: {}, ref: React.Ref<FlatList>) {
   const { contentPadding } = useTabBarHeight();
 
   const {
@@ -131,6 +131,7 @@ export default function ThoughtTabContent() {
   return (
     <>
       <FlatList
+        ref={ref}
         data={feeds}
         renderItem={renderItem}
         keyExtractor={keyExtractor}
@@ -155,6 +156,8 @@ export default function ThoughtTabContent() {
     </>
   );
 }
+
+export default React.forwardRef(ThoughtTabContent);
 
 const styles = StyleSheet.create({
   listContent: {

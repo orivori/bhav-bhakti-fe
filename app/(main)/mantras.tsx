@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import {
   View,
   StyleSheet,
@@ -19,6 +19,7 @@ import { useFeed } from '@/features/feed/hooks/useFeed';
 import { useMantraCategories } from '@/features/feed/hooks/useCategories';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
+import { useScrollToTopOnTabPress } from '@/hooks/useScrollToTopOnTabPress';
 import type { Feed, Category } from '@/types/feed';
 
 
@@ -26,6 +27,11 @@ export default function MantrasScreen() {
   const { t, language } = useTranslation();
   const { contentPadding } = useTabBarHeight();
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
+  const scrollViewRef = useRef<ScrollView>(null);
+
+  useScrollToTopOnTabPress(useCallback(() => {
+    scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+  }, []));
 
   // Fetch mantra categories
   const {
@@ -210,6 +216,7 @@ export default function MantrasScreen() {
       </View>
 
       <ScrollView
+        ref={scrollViewRef}
         style={styles.scrollView}
         contentContainerStyle={{ paddingBottom: contentPadding }}
         showsVerticalScrollIndicator={false}

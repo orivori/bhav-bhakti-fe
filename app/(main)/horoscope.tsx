@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import {
   View,
   StyleSheet,
@@ -21,6 +21,7 @@ import { useTabBarHeight } from '@/hooks/useTabBarHeight';
 import { ZODIAC_SIGNS } from '@/data/zodiacData';
 import { LanguageToggle } from '@/components/molecules/LanguageToggle';
 import { usePremiumStore } from '@/store/premiumStore';
+import { useScrollToTopOnTabPress } from '@/hooks/useScrollToTopOnTabPress';
 import type { ZodiacSign } from '@/types/horoscope';
 
 const { width } = Dimensions.get('window');
@@ -34,6 +35,11 @@ export default function HoroscopeScreen() {
   // false;` here; the store's own default is also false, so this is a
   // behavior-identical swap.
   const { isPremium: isPremiumUser } = usePremiumStore();
+  const scrollViewRef = useRef<ScrollView>(null);
+
+  useScrollToTopOnTabPress(useCallback(() => {
+    scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+  }, []));
 
   const showPaywallPlaceholder = () => {
     // TEMPORARY/PLACEHOLDER - stands in for the real paywall/upsell screen.
@@ -117,6 +123,7 @@ export default function HoroscopeScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView
+        ref={scrollViewRef}
         style={styles.scrollView}
         contentContainerStyle={{ paddingBottom: contentPadding }}
         showsVerticalScrollIndicator={false}
