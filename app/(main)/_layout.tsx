@@ -134,12 +134,6 @@ export default function MainLayout() {
         }}
       />
       <Tabs.Screen
-        name="wallpaper-detail"
-        options={{
-          href: null, // Hide from tabs
-        }}
-      />
-      <Tabs.Screen
         name="zodiac-selection"
         options={{
           href: null, // Hide from tabs

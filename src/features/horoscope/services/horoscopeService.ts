@@ -41,7 +41,7 @@ class HoroscopeService {
       const response = await apiClient.get<{ data: { zodiac: UserZodiac } }>(
         API_ENDPOINTS.HOROSCOPE.GET_MY_ZODIAC
       );
-      return response.data.data.zodiac;
+      return response.data.zodiac;
     } catch (error: any) {
       if (error.response?.status === 404) {
         return null; // User hasn't set up zodiac yet
@@ -58,7 +58,7 @@ class HoroscopeService {
       API_ENDPOINTS.HOROSCOPE.SET_MY_ZODIAC,
       data
     );
-    return response.data.data.zodiac;
+    return response.data.zodiac;
   }
 
   /**
@@ -69,7 +69,7 @@ class HoroscopeService {
       API_ENDPOINTS.HOROSCOPE.UPDATE_PREFERENCES,
       data
     );
-    return response.data.data;
+    return response.data;
   }
 
   /**
@@ -84,7 +84,7 @@ class HoroscopeService {
       API_ENDPOINTS.HOROSCOPE.TODAY,
       { params }
     );
-    return response.data.data.horoscope;
+    return response.data.horoscope;
   }
 
   /**
@@ -124,7 +124,7 @@ class HoroscopeService {
       API_ENDPOINTS.HOROSCOPE.BY_DATE(date),
       { params }
     );
-    return response.data.data.horoscope;
+    return response.data.horoscope;
   }
 
   /**
@@ -138,7 +138,7 @@ class HoroscopeService {
       API_ENDPOINTS.HOROSCOPE.WEEKLY,
       { params }
     );
-    return response.data.data.horoscopes;
+    return response.data.horoscopes;
   }
 
   /**
@@ -152,7 +152,7 @@ class HoroscopeService {
       API_ENDPOINTS.HOROSCOPE.ALL_SIGNS,
       { params }
     );
-    return response.data.data.horoscopes;
+    return response.data.horoscopes;
   }
 
   /**
@@ -170,7 +170,7 @@ class HoroscopeService {
       API_ENDPOINTS.HOROSCOPE.SUBMIT_FEEDBACK,
       data
     );
-    return response.data.data.feedback;
+    return response.data.feedback;
   }
 
   /**
@@ -181,7 +181,7 @@ class HoroscopeService {
       API_ENDPOINTS.HOROSCOPE.HISTORY,
       { params: { limit, offset } }
     );
-    return response.data.data.history;
+    return response.data.history;
   }
 
   /**
@@ -192,7 +192,7 @@ class HoroscopeService {
       API_ENDPOINTS.HOROSCOPE.COMPATIBILITY,
       { params: { sign1, sign2 } }
     );
-    return response.data.data;
+    return response.data;
   }
 }
 

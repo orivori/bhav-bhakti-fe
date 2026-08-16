@@ -10,7 +10,6 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
 
 import { Text } from '@/components/atoms';
 import { mockWallpapers } from '@/data/mockWallpapers';
@@ -72,12 +71,7 @@ export default function WallpapersScreen() {
   const handleWallpaperPress = (wallpaper: any) => {
     if (wallpaper.isPremium && !isPremium) {
       setShowPaywall(true);
-      return;
     }
-    router.push({
-      pathname: '/(main)/wallpaper-detail',
-      params: { id: wallpaper.id },
-    });
   };
 
   return (
