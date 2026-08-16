@@ -17,7 +17,6 @@ import { useAuth } from '@/features/authentication/hooks/useAuth';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useToast } from '@/components/atoms/Toast';
 import { PhoneStorageService } from '@/utils/phoneStorage';
-import { SMSDetectionService } from '@/utils/smsDetection';
 
 export default function VerifyOTPScreen() {
   const { phoneNumber, countryCode, sessionId, orderId } = useLocalSearchParams<{
@@ -63,35 +62,6 @@ export default function VerifyOTPScreen() {
       if (interval) clearInterval(interval);
     };
   }, [resendTimer, canResend]);
-
-  // SMS Auto-detection
-  useEffect(() => {
-    let smsCleanup: (() => void) | null = null;
-    
-    const setupSMSDetection = async () => {
-      const isAvailable = await SMSDetectionService.checkSMSAvailability();
-      if (isAvailable) {
-        smsCleanup = await SMSDetectionService.startSMSListener((detectedOTP) => {
-          if (detectedOTP && detectedOTP.length === 6) {
-            setOtp(detectedOTP);
-            showToast({
-              type: 'success',
-              message: 'OTP auto-detected from SMS',
-              duration: 2000
-            });
-          }
-        });
-      }
-    };
-    
-    setupSMSDetection();
-    
-    return () => {
-      if (smsCleanup) {
-        smsCleanup();
-      }
-    };
-  }, []);
 
   // Auto-submit when OTP is complete
   useEffect(() => {
