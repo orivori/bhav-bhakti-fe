@@ -94,7 +94,7 @@ const OTPInput: React.FC<OTPInputProps> = ({
           return (
             <TextInput
               key={index}
-              ref={(ref) => (inputRefs.current[index] = ref)}
+              ref={(ref) => { inputRefs.current[index] = ref; }}
               style={inputStyle}
               value={value[index] || ''}
               onChangeText={(text) => handleChangeText(text, index)}
