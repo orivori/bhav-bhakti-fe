@@ -20,6 +20,8 @@ import {
   NotoSansDevanagari_600SemiBold,
   NotoSansDevanagari_700Bold,
 } from '@expo-google-fonts/noto-sans-devanagari';
+import i18n from '@/shared/i18n';
+import { useI18nStore } from '@/shared/stores/i18nStore';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -45,6 +47,14 @@ const MyTheme = {
 export default function RootLayout() {
   // Enable screenshot protection globally (non-blocking)
   useScreenshotProtection();
+
+  // Bridges useI18nStore (the real language-selection source of truth) into
+  // react-i18next's resolver. Re-fires on the zustand-persist rehydration
+  // update too, since that's a normal state change through the same selector.
+  const i18nLanguage = useI18nStore((state) => state.language);
+  React.useEffect(() => {
+    i18n.changeLanguage(i18nLanguage);
+  }, [i18nLanguage]);
 
   // Loads the app's Devanagari font, one file per weight. The keys here are
   // load-time identifiers that expo-font resolves `fontFamily` styles against
