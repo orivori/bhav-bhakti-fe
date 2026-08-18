@@ -243,5 +243,10 @@
     "noZodiacSet": "कृपया राशि सेट करें",
     "networkError": "नेटवर्क त्रुटि",
     "somethingWrong": "कुछ गलत हो गया"
+  },
+  "success": {
+    "zodiacSaved": "राशि सफलतापूर्वक सहेजी गई!",
+    "feedbackSubmitted": "आपकी प्रतिक्रिया के लिए धन्यवाद!",
+    "preferencesSaved": "प्राथमिकताएं सफलतापूर्वक सहेजी गईं!"
   }
 }

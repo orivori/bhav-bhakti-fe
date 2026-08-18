@@ -105,7 +105,7 @@ export default function HoroscopeScreen() {
     );
   };
 
-  const getGradientByElement = (element: string) => {
+  const getGradientByElement = (element: string): readonly [string, string, string] => {
     switch (element) {
       case 'Fire':
         return ['#FF6B00', '#FF8533', '#FFA500'];

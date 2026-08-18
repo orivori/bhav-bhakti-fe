@@ -47,7 +47,7 @@ export default function WallpaperFeedCard({
   variant = 'default',
 }: WallpaperFeedCardProps) {
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const { incrementView } = useFeedStore();
   const { language } = useTranslation();
   const { isLiking, isDownloading, isSharing, handleLike, handleShare, handleDownload } = useWallpaperActions({

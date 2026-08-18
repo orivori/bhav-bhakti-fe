@@ -71,7 +71,7 @@ export default function HoroscopeDetailScreen() {
     }
   };
 
-  const getGradientColors = () => {
+  const getGradientColors = (): readonly [string, string, string] => {
     if (!zodiacData) return ['#8B5A2B', '#A0522D', '#D4AF37'];
 
     switch (zodiacData.element) {

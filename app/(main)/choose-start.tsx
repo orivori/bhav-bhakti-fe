@@ -25,7 +25,7 @@ interface CategoryOption {
   titleEn: string;
   titleHi: string;
   iconUrl: string;
-  gradient: readonly string[];
+  gradient: readonly [string, string];
 }
 
 const categoryOptions: CategoryOption[] = [
