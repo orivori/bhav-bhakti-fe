@@ -14,12 +14,12 @@ import FeedList from '@/components/molecules/FeedList';
 import { useFeed } from '@/features/feed/hooks';
 import { Feed } from '@/types/feed';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
-import { useI18nStore } from '@/shared/stores/i18nStore';
+import { useTranslation } from 'react-i18next';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
 
 export default function SearchResultsScreen() {
   const { contentPadding } = useTabBarHeight();
-  const { language: currentLanguage } = useI18nStore();
+  const { t } = useTranslation();
   const { query } = useLocalSearchParams<{ query: string }>();
 
   // Initialize feed data with search query
@@ -113,7 +113,7 @@ export default function SearchResultsScreen() {
         >
           <Ionicons name="chevron-back" size={24} color="#5D4E37" />
           <Text style={styles.backButtonText}>
-            {currentLanguage === 'hi' ? 'वापस' : 'Back'}
+            {t('searchResults.back')}
           </Text>
         </TouchableOpacity>
       </View>
@@ -121,9 +121,7 @@ export default function SearchResultsScreen() {
       {/* Search Results Header */}
       <View style={styles.searchResultsHeader}>
         <Text style={styles.searchResultsText}>
-          {currentLanguage === 'hi'
-            ? `"${query}" के लिए परिणाम`
-            : `Results for "${query}"`}
+          {t('searchResults.resultsFor', { query })}
         </Text>
         {feeds.length > 0 && (
           <Text style={styles.searchResultsCount}>
@@ -149,8 +147,8 @@ export default function SearchResultsScreen() {
         isLoadingMore={isLoadingMore}
         isRefreshing={isRefreshing}
         error={error}
-        emptyTitle={currentLanguage === 'hi' ? 'कोई परिणाम नहीं मिला' : 'No results found'}
-        emptySubtitle={currentLanguage === 'hi' ? 'अपनी खोज बदलने का प्रयास करें' : 'Try adjusting your search terms'}
+        emptyTitle={t('searchResults.emptyTitle')}
+        emptySubtitle={t('searchResults.emptySubtitle')}
         onRetry={retry}
         autoPlayVideo={true}
         ListHeaderComponent={renderHeader}

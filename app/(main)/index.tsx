@@ -20,6 +20,7 @@ import QuickLinkCard, { QUICK_LINK_CATEGORIES, QuickLinkCategory } from '@/compo
 import { useFeed } from '@/features/feed/hooks';
 import { Feed } from '@/types/feed';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
+import { useTranslation } from 'react-i18next';
 import { useI18nStore } from '@/shared/stores/i18nStore';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
 import { useScrollToTopOnTabPress } from '@/hooks/useScrollToTopOnTabPress';
@@ -29,10 +30,10 @@ import type { ZodiacSign } from '@/types/horoscope';
 
 
 // Isolated Search Component to prevent keyboard disappearing
-const IsolatedSearchBar = ({ onSearchSubmit, currentLanguage }: {
+const IsolatedSearchBar = ({ onSearchSubmit }: {
   onSearchSubmit: (query: string) => void;
-  currentLanguage: string;
 }) => {
+  const { t } = useTranslation();
   const [localSearchText, setLocalSearchText] = React.useState('');
 
   const handleSubmit = () => {
@@ -49,7 +50,7 @@ const IsolatedSearchBar = ({ onSearchSubmit, currentLanguage }: {
       />
       <TextInput
         style={styles.searchInput}
-        placeholder={currentLanguage === 'hi' ? 'आरती, भजन या चालीसा खोजें...' : 'Search for Aarti, Bhajan, or Chalisa...'}
+        placeholder={t('home.searchPlaceholder')}
         placeholderTextColor="#8B7355"
         value={localSearchText}
         onChangeText={setLocalSearchText}
@@ -73,6 +74,7 @@ const IsolatedSearchBar = ({ onSearchSubmit, currentLanguage }: {
 
 export default function HomeScreen() {
   const { contentPadding } = useTabBarHeight();
+  const { t } = useTranslation();
   const { language: currentLanguage } = useI18nStore();
 
   // Initialize feed data
@@ -256,14 +258,13 @@ export default function HomeScreen() {
       <View style={styles.searchSection}>
         <IsolatedSearchBar
           onSearchSubmit={handleSearchSubmit}
-          currentLanguage={currentLanguage}
         />
       </View>
 
       {/* Choose where to start Header */}
       <View style={styles.chooseStartHeader}>
         <Text style={styles.chooseStartTitle}>
-          {currentLanguage === 'hi' ? 'कहां से शुरू करना है चुनें' : 'Choose where to start'}
+          {t('chooseStart.headerTitle')}
         </Text>
         <Pressable
           onPress={() => {
@@ -280,7 +281,7 @@ export default function HomeScreen() {
           ]}
         >
           <Text style={styles.seeAllText}>
-            {currentLanguage === 'hi' ? 'सभी देखें' : 'See all'}
+            {t('chooseStart.seeAll')}
           </Text>
         </Pressable>
       </View>
@@ -318,15 +319,12 @@ export default function HomeScreen() {
                     day: 'numeric'
                   };
 
-                  if (currentLanguage === 'hi') {
-                    return `आज, ${today.toLocaleDateString('hi-IN', options)}`;
-                  } else {
-                    return `Today, ${today.toLocaleDateString('en-US', options)}`;
-                  }
+                  const localeCode = currentLanguage === 'hi' ? 'hi-IN' : 'en-US';
+                  return `${t('home.today')}, ${today.toLocaleDateString(localeCode, options)}`;
                 })()}
               </Text>
               <Text style={styles.horoscopeSubText} numberOfLines={1}>
-                {currentLanguage === 'hi' ? 'आज के लिए अपना राशिफल जानें' : 'Know your rashifal for today'}
+                {t('home.knowRashifalToday')}
               </Text>
             </View>
 
@@ -341,7 +339,7 @@ export default function HomeScreen() {
       {feeds.length > 0 && (
         <View style={styles.recommendedHeader}>
           <Text style={styles.recommendedTitle}>
-            {currentLanguage === 'hi' ? 'आपके लिए सुझाया गया' : 'Recommended for You'}
+            {t('home.recommendedForYou')}
           </Text>
         </View>
       )}

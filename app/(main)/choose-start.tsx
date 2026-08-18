@@ -14,6 +14,7 @@ import { SvgUri } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 
 import { Text } from '@/components/atoms';
+import { useTranslation } from 'react-i18next';
 import { useI18nStore } from '@/shared/stores/i18nStore';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 
@@ -133,7 +134,7 @@ const AnimatedCategoryCard = ({ category, onPress }: {
 };
 
 export default function ChooseStartScreen() {
-  const { language: currentLanguage } = useI18nStore();
+  const { t } = useTranslation();
 
   const handleCategoryPress = (category: CategoryOption) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -157,8 +158,8 @@ export default function ChooseStartScreen() {
     }
   };
 
-  const headerTitle = currentLanguage === 'hi' ? 'कहां से शुरू करना है चुनें' : 'Choose where to start';
-  const seeAllText = currentLanguage === 'hi' ? 'सभी देखें' : 'See all';
+  const headerTitle = t('chooseStart.headerTitle');
+  const seeAllText = t('chooseStart.seeAll');
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>

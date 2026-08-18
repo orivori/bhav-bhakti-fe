@@ -29,7 +29,28 @@
     "checkDailyPrediction": "Check your daily prediction",
     "explorePremium": "Explore Premium",
     "getPremiumFeatures": "Get access to exclusive wallpapers and content",
-    "upgradeToPremium": "Upgrade to Premium"
+    "upgradeToPremium": "Upgrade to Premium",
+    "searchPlaceholder": "Search for Aarti, Bhajan, or Chalisa...",
+    "today": "Today",
+    "knowRashifalToday": "Know your rashifal for today",
+    "recommendedForYou": "Recommended for You"
+  },
+  "chooseStart": {
+    "headerTitle": "Choose where to start",
+    "seeAll": "See all"
+  },
+  "searchResults": {
+    "back": "Back",
+    "resultsFor": "Results for \"{{query}}\"",
+    "emptyTitle": "No results found",
+    "emptySubtitle": "Try adjusting your search terms"
+  },
+  "birthdateModal": {
+    "somethingWrongRetry": "Something went wrong, please try again",
+    "title": "When were you born?",
+    "subtitle": "We need your birthdate to show your personal horoscope",
+    "selectDate": "Select date",
+    "continue": "Continue"
   },
   "wallpapers": {
     "title": "Browse Wallpapers",

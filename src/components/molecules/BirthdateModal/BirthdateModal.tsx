@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Text } from '@/components/atoms';
 import { designSystemTheme } from '@/styles/designSystemTheme';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
+import { useTranslation } from 'react-i18next';
 import { useI18nStore } from '@/shared/stores/i18nStore';
 import { horoscopeService } from '@/features/horoscope/services/horoscopeService';
 import { profileService } from '@/features/profile/services/profileService';
@@ -26,6 +27,7 @@ MIN_DATE.setFullYear(MIN_DATE.getFullYear() - 120);
 // rather than the @gorhom/bottom-sheet pattern used for CounterSheet/
 // InfoSheet - this is a one-off form, not a bottom-anchored contextual sheet.
 export default function BirthdateModal({ visible, onDismiss, onSuccess }: BirthdateModalProps) {
+  const { t } = useTranslation();
   const { language: currentLanguage } = useI18nStore();
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [showPicker, setShowPicker] = useState(false);
@@ -65,11 +67,7 @@ export default function BirthdateModal({ visible, onDismiss, onSuccess }: Birthd
       setSelectedDate(null);
     } catch (err) {
       console.error('Failed to save birthdate:', err);
-      setError(
-        currentLanguage === 'hi'
-          ? 'कुछ गलत हो गया, कृपया पुनः प्रयास करें'
-          : 'Something went wrong, please try again'
-      );
+      setError(t('birthdateModal.somethingWrongRetry'));
     } finally {
       setIsSubmitting(false);
     }
@@ -104,12 +102,10 @@ export default function BirthdateModal({ visible, onDismiss, onSuccess }: Birthd
           </TouchableOpacity>
 
           <Text style={styles.title}>
-            {currentLanguage === 'hi' ? 'आपका जन्मदिन कब है?' : 'When were you born?'}
+            {t('birthdateModal.title')}
           </Text>
           <Text style={styles.subtitle}>
-            {currentLanguage === 'hi'
-              ? 'सटीक राशिफल के लिए हमें आपकी जन्मतिथि चाहिए'
-              : "We need your birthdate to show your personal horoscope"}
+            {t('birthdateModal.subtitle')}
           </Text>
 
           <TouchableOpacity
@@ -119,7 +115,7 @@ export default function BirthdateModal({ visible, onDismiss, onSuccess }: Birthd
           >
             <Ionicons name="calendar-outline" size={20} color={designSystemTheme.colors.primary} />
             <Text style={styles.dateButtonText}>
-              {formattedDate || (currentLanguage === 'hi' ? 'तारीख चुनें' : 'Select date')}
+              {formattedDate || t('birthdateModal.selectDate')}
             </Text>
           </TouchableOpacity>
 
@@ -146,7 +142,7 @@ export default function BirthdateModal({ visible, onDismiss, onSuccess }: Birthd
               <ActivityIndicator size="small" color="#fff" />
             ) : (
               <Text style={styles.confirmButtonText}>
-                {currentLanguage === 'hi' ? 'जारी रखें' : 'Continue'}
+                {t('birthdateModal.continue')}
               </Text>
             )}
           </TouchableOpacity>

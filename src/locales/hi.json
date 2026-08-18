@@ -29,7 +29,28 @@
     "checkDailyPrediction": "अपनी दैनिक भविष्यवाणी देखें",
     "explorePremium": "प्रीमियम देखें",
     "getPremiumFeatures": "विशेष वॉलपेपर और सामग्री तक पहुंच प्राप्त करें",
-    "upgradeToPremium": "प्रीमियम में अपग्रेड करें"
+    "upgradeToPremium": "प्रीमियम में अपग्रेड करें",
+    "searchPlaceholder": "आरती, भजन या चालीसा खोजें...",
+    "today": "आज",
+    "knowRashifalToday": "आज के लिए अपना राशिफल जानें",
+    "recommendedForYou": "आपके लिए सुझाया गया"
+  },
+  "chooseStart": {
+    "headerTitle": "कहां से शुरू करना है चुनें",
+    "seeAll": "सभी देखें"
+  },
+  "searchResults": {
+    "back": "वापस",
+    "resultsFor": "\"{{query}}\" के लिए परिणाम",
+    "emptyTitle": "कोई परिणाम नहीं मिला",
+    "emptySubtitle": "अपनी खोज बदलने का प्रयास करें"
+  },
+  "birthdateModal": {
+    "somethingWrongRetry": "कुछ गलत हो गया, कृपया पुनः प्रयास करें",
+    "title": "आपका जन्मदिन कब है?",
+    "subtitle": "सटीक राशिफल के लिए हमें आपकी जन्मतिथि चाहिए",
+    "selectDate": "तारीख चुनें",
+    "continue": "जारी रखें"
   },
   "wallpapers": {
     "title": "वॉलपेपर ब्राउज़ करें",
