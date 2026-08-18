@@ -15,7 +15,7 @@ import { Text } from '@/components/atoms';
 import { mockWallpapers } from '@/data/mockWallpapers';
 import { WallpaperCategory } from '@/types/wallpaper';
 import { usePremiumStore } from '@/store/premiumStore';
-import { useTranslation } from '@/hooks/useTranslation';
+import { useTranslation } from 'react-i18next';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 
 const { width } = Dimensions.get('window');

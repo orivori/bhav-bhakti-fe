@@ -4,12 +4,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Text } from '@/components/atoms';
-import { useTranslation } from '@/hooks/useTranslation';
+import { useTranslation } from 'react-i18next';
+import { useI18nStore } from '@/shared/stores/i18nStore';
 import { useZodiacStore } from '@/store/zodiacStore';
 import { ZODIAC_SIGNS } from '@/data/zodiacData';
 
 export default function ZodiacSelectionScreen() {
-  const { t, language } = useTranslation();
+  const { t } = useTranslation();
+  const { language } = useI18nStore();
   const { selectedZodiac, setZodiac, initializeZodiac } = useZodiacStore();
 
   useEffect(() => {

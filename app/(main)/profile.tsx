@@ -6,15 +6,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, Text } from '@/components/atoms';
 import { useAuth } from '@/features/authentication/hooks/useAuth';
 import { usePremiumStore } from '@/store/premiumStore';
-import { useTranslation } from '@/hooks/useTranslation';
+import { useTranslation } from 'react-i18next';
 import { useI18nStore } from '@/shared/stores/i18nStore';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
 
 export default function ProfileScreen() {
   const { user, logout } = useAuth();
   const { isPremium, setShowPaywall } = usePremiumStore();
-  const { t, language } = useTranslation();
-  const { setLanguage, getLanguageLabel } = useI18nStore();
+  const { t } = useTranslation();
+  const { language, setLanguage, getLanguageLabel } = useI18nStore();
   const { contentPadding } = useTabBarHeight();
   const [showLanguageModal, setShowLanguageModal] = useState(false);
 

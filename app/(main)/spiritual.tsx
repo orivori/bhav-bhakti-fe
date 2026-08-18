@@ -16,7 +16,8 @@ import { Text } from '@/components/atoms';
 import { mockSpiritualContent } from '@/data/mockSpiritual';
 import { ContentType, Language } from '@/types/spiritual';
 import { usePremiumStore } from '@/store/premiumStore';
-import { useTranslation } from '@/hooks/useTranslation';
+import { useTranslation } from 'react-i18next';
+import { useI18nStore } from '@/shared/stores/i18nStore';
 
 export default function SpiritualScreen() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -25,7 +26,8 @@ export default function SpiritualScreen() {
   const [playingId, setPlayingId] = useState<string | null>(null);
   const soundRef = useRef<Audio.Sound | null>(null);
   const { isPremium, setShowPaywall } = usePremiumStore();
-  const { t, language } = useTranslation();
+  const { t } = useTranslation();
+  const { language } = useI18nStore();
 
   const types: Array<ContentType | 'All'> = ['All', 'Aarti', 'Bhajan', 'Mantra'];
   const languages: Array<Language | 'All'> = ['All', 'Hindi', 'Sanskrit', 'English'];

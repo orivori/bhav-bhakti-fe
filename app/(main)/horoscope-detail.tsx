@@ -14,7 +14,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Text } from '@/components/atoms';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { useHoroscopeBySign } from '@/features/horoscope/hooks/useHoroscope';
-import { useTranslation } from '@/hooks/useTranslation';
+import { useTranslation } from 'react-i18next';
+import { useI18nStore } from '@/shared/stores/i18nStore';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
 import { getZodiacBySign } from '@/data/zodiacData';
 import { LanguageToggle } from '@/components/molecules/LanguageToggle';
@@ -30,7 +31,8 @@ export default function HoroscopeDetailScreen() {
   // call site that reaches this screen is already allowed to be here. The
   // param is kept only so a future entry point can't accidentally forget it.
   const { zodiacSign, skipPaywall } = useLocalSearchParams<{ zodiacSign: ZodiacSign; skipPaywall?: string }>();
-  const { t, language } = useTranslation();
+  const { t } = useTranslation();
+  const { language } = useI18nStore();
   const { contentPadding } = useTabBarHeight();
 
   // Rashifal is today-only for MVP - no past/future browsing, so this is a

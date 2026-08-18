@@ -17,14 +17,16 @@ import { Text } from '@/components/atoms';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { useFeed } from '@/features/feed/hooks/useFeed';
 import { useMantraCategories } from '@/features/feed/hooks/useCategories';
-import { useTranslation } from '@/hooks/useTranslation';
+import { useTranslation } from 'react-i18next';
+import { useI18nStore } from '@/shared/stores/i18nStore';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
 import { useScrollToTopOnTabPress } from '@/hooks/useScrollToTopOnTabPress';
 import type { Feed, Category } from '@/types/feed';
 
 
 export default function MantrasScreen() {
-  const { t, language } = useTranslation();
+  const { t } = useTranslation();
+  const { language } = useI18nStore();
   const { contentPadding } = useTabBarHeight();
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);

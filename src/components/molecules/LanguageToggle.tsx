@@ -1,13 +1,13 @@
 import React from 'react';
 import { TouchableOpacity, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useTranslation } from '@/hooks/useTranslation';
+import { useI18nStore } from '@/shared/stores/i18nStore';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { Text } from '@/components/atoms';
 import * as Haptics from 'expo-haptics';
 
 export const LanguageToggle = () => {
-  const { language, setLanguage } = useTranslation();
+  const { language, setLanguage } = useI18nStore();
 
   const toggleLanguage = () => {
     const newLanguage = language === 'en' ? 'hi' : 'en';

@@ -16,7 +16,8 @@ import * as Haptics from 'expo-haptics';
 
 import { Text } from '@/components/atoms';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
-import { useTranslation } from '@/hooks/useTranslation';
+import { useTranslation } from 'react-i18next';
+import { useI18nStore } from '@/shared/stores/i18nStore';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
 import { ZODIAC_SIGNS } from '@/data/zodiacData';
 import { LanguageToggle } from '@/components/molecules/LanguageToggle';
@@ -28,7 +29,8 @@ const { width } = Dimensions.get('window');
 const ITEM_WIDTH = (width - 48) / 2; // 2 columns with padding
 
 export default function HoroscopeScreen() {
-  const { t, language } = useTranslation();
+  const { t } = useTranslation();
+  const { language } = useI18nStore();
   const { contentPadding } = useTabBarHeight();
   // Consolidated onto the shared store - see premiumStore.ts's
   // DEV_OVERRIDE_IS_PREMIUM comment. Was a local `const isPremiumUser =
