@@ -14,12 +14,12 @@ import FeedList from '@/components/molecules/FeedList';
 import { useFeed } from '@/features/feed/hooks';
 import { Feed } from '@/types/feed';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
-import { useTranslation as useI18n } from '@/shared/i18n/useTranslation';
+import { useI18nStore } from '@/shared/stores/i18nStore';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
 
 export default function SearchResultsScreen() {
   const { contentPadding } = useTabBarHeight();
-  const { t: ti, currentLanguage } = useI18n();
+  const { language: currentLanguage } = useI18nStore();
   const { query } = useLocalSearchParams<{ query: string }>();
 
   // Initialize feed data with search query

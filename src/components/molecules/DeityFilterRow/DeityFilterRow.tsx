@@ -11,7 +11,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 import { Text } from '@/components/atoms';
 import { Deity } from '@/types/feed';
-import { useTranslation } from '@/hooks/useTranslation';
+import { useI18nStore } from '@/shared/stores/i18nStore';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 
 // Sub-tab-agnostic selection value - the hub owns the actual state (see
@@ -82,7 +82,7 @@ function DeityCircle({
 }
 
 export default function DeityFilterRow({ deities, selected, onSelect }: DeityFilterRowProps) {
-  const { language } = useTranslation();
+  const { language } = useI18nStore();
   const [moreVisible, setMoreVisible] = useState(false);
 
   const { primaryDeities, overflowDeities } = useMemo(() => {

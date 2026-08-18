@@ -4,7 +4,7 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Text } from '@/components/atoms';
 import { Feed } from '@/types/feed';
-import { useTranslation } from '@/hooks/useTranslation';
+import { useI18nStore } from '@/shared/stores/i18nStore';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { usePlaybackStore, QueueItem } from '@/store/playbackStore';
 
@@ -49,7 +49,7 @@ interface AudioContentCardProps {
 // navigates into the shared audio-player.tsx screen rather than playing
 // in-list, matching how mantra cards already behave.
 export default function AudioContentCard({ feed, subTab, queueItems, queueIndex }: AudioContentCardProps) {
-  const { language } = useTranslation();
+  const { language } = useI18nStore();
 
   const { title, audioUrl, thumbnailUrl } = resolveQueueItem(feed, language);
 

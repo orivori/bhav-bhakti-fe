@@ -3,7 +3,7 @@ import { TouchableOpacity, Animated, StyleSheet, StyleProp, ViewStyle } from 're
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { Text } from '@/components/atoms';
-import { useTranslation as useI18n } from '@/shared/i18n/useTranslation';
+import { useI18nStore } from '@/shared/stores/i18nStore';
 import { QuickLinkCategory } from './categories';
 
 // Confirmed shared gradient for every quick-link box - one treatment across
@@ -29,7 +29,7 @@ const QuickLinkCard: React.FC<QuickLinkCardProps> = ({
   containerStyle,
   cardStyle,
 }) => {
-  const { currentLanguage } = useI18n();
+  const { language: currentLanguage } = useI18nStore();
   const scaleAnim = React.useRef(new Animated.Value(1)).current;
   const opacityAnim = React.useRef(new Animated.Value(1)).current;
   const { Icon } = category;

@@ -6,7 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Text } from '@/components/atoms';
 import { designSystemTheme } from '@/styles/designSystemTheme';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
-import { useTranslation as useI18n } from '@/shared/i18n/useTranslation';
+import { useI18nStore } from '@/shared/stores/i18nStore';
 import { horoscopeService } from '@/features/horoscope/services/horoscopeService';
 import { profileService } from '@/features/profile/services/profileService';
 import { getLocalDateString } from '@/shared/utils/dateUtil';
@@ -26,7 +26,7 @@ MIN_DATE.setFullYear(MIN_DATE.getFullYear() - 120);
 // rather than the @gorhom/bottom-sheet pattern used for CounterSheet/
 // InfoSheet - this is a one-off form, not a bottom-anchored contextual sheet.
 export default function BirthdateModal({ visible, onDismiss, onSuccess }: BirthdateModalProps) {
-  const { currentLanguage } = useI18n();
+  const { language: currentLanguage } = useI18nStore();
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [showPicker, setShowPicker] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);

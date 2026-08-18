@@ -13,11 +13,11 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { Text } from '@/components/atoms';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
-import { useTranslation } from '@/hooks/useTranslation';
+import { useI18nStore } from '@/shared/stores/i18nStore';
 import { useQuiz } from '@/features/quiz/hooks/useQuiz';
 
 export default function MantraQuizScreen() {
-  const { language } = useTranslation();
+  const { language } = useI18nStore();
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [answers, setAnswers] = useState<Record<number, any>>({});

@@ -20,7 +20,7 @@ import QuickLinkCard, { QUICK_LINK_CATEGORIES, QuickLinkCategory } from '@/compo
 import { useFeed } from '@/features/feed/hooks';
 import { Feed } from '@/types/feed';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
-import { useTranslation as useI18n } from '@/shared/i18n/useTranslation';
+import { useI18nStore } from '@/shared/stores/i18nStore';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
 import { useScrollToTopOnTabPress } from '@/hooks/useScrollToTopOnTabPress';
 import * as Haptics from 'expo-haptics';
@@ -73,7 +73,7 @@ const IsolatedSearchBar = ({ onSearchSubmit, currentLanguage }: {
 
 export default function HomeScreen() {
   const { contentPadding } = useTabBarHeight();
-  const { t: ti, currentLanguage } = useI18n();
+  const { language: currentLanguage } = useI18nStore();
 
   // Initialize feed data
   const {

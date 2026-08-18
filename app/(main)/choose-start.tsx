@@ -14,7 +14,7 @@ import { SvgUri } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 
 import { Text } from '@/components/atoms';
-import { useTranslation as useI18n } from '@/shared/i18n/useTranslation';
+import { useI18nStore } from '@/shared/stores/i18nStore';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 
 const { width } = Dimensions.get('window');
@@ -64,7 +64,7 @@ const AnimatedCategoryCard = ({ category, onPress }: {
   onPress: () => void;
 }) => {
   const scaleAnim = React.useRef(new Animated.Value(1)).current;
-  const { currentLanguage } = useI18n();
+  const { language: currentLanguage } = useI18nStore();
 
   const handlePressIn = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -133,7 +133,7 @@ const AnimatedCategoryCard = ({ category, onPress }: {
 };
 
 export default function ChooseStartScreen() {
-  const { t: ti, currentLanguage } = useI18n();
+  const { language: currentLanguage } = useI18nStore();
 
   const handleCategoryPress = (category: CategoryOption) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);

@@ -19,7 +19,7 @@ import { Feed } from '@/types/feed';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { feedService } from '@/features/feed/services/feedService';
 import { useFeedStore } from '@/store/feedStore';
-import { useTranslation } from '@/hooks/useTranslation';
+import { useI18nStore } from '@/shared/stores/i18nStore';
 import { getMediaFileExtension } from '@/utils/getMediaFileExtension';
 
 interface FeedCardProps {
@@ -44,7 +44,7 @@ export default function FeedCard({
   const [isLiking, setIsLiking] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const { toggleLike, incrementDownload, incrementShare, incrementView } = useFeedStore();
-  const { language } = useTranslation();
+  const { language } = useI18nStore();
 
   const handleLike = () => {
     console.log('❤️ Heart button pressed for feed:', feed.id, 'isLiked:', feed.isLiked);

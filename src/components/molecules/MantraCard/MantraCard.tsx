@@ -16,7 +16,7 @@ import { Feed } from '@/types/feed';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { feedService } from '@/features/feed/services/feedService';
 import { useFeedStore } from '@/store/feedStore';
-import { useTranslation } from '@/hooks/useTranslation';
+import { useI18nStore } from '@/shared/stores/i18nStore';
 
 interface MantraCardProps {
   feed: Feed;
@@ -34,7 +34,7 @@ export default function MantraCard({
   onShare,
   onPress,
 }: MantraCardProps) {
-  const { language } = useTranslation();
+  const { language } = useI18nStore();
   const [isLiking, setIsLiking] = useState(false);
   const { toggleLike, incrementShare } = useFeedStore();
 

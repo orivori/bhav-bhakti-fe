@@ -15,7 +15,7 @@ import { Feed } from '@/types/feed';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { feedService } from '@/features/feed/services/feedService';
 import { useFeedStore } from '@/store/feedStore';
-import { useTranslation } from '@/hooks/useTranslation';
+import { useI18nStore } from '@/shared/stores/i18nStore';
 import { useWallpaperActions } from './useWallpaperActions';
 
 interface WallpaperFeedCardProps {
@@ -49,7 +49,7 @@ export default function WallpaperFeedCard({
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const { incrementView } = useFeedStore();
-  const { language } = useTranslation();
+  const { language } = useI18nStore();
   const { isLiking, isDownloading, isSharing, handleLike, handleShare, handleDownload } = useWallpaperActions({
     feed,
     onLike,

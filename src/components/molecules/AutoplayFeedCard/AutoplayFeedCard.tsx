@@ -11,7 +11,7 @@ import { Text } from '@/components/atoms';
 import { Feed } from '@/types/feed';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
-import { useTranslation } from '@/hooks/useTranslation';
+import { useI18nStore } from '@/shared/stores/i18nStore';
 import { feedService } from '@/features/feed/services/feedService';
 import { useFeedStore } from '@/store/feedStore';
 import { useSoundPreferenceStore } from '@/store/soundPreferenceStore';
@@ -214,7 +214,7 @@ const SEE_ALL_TARGETS: Partial<Record<Feed['type'], { pathname: string; params?:
  * per CLAUDE.md §29), content-type-aware playback, real action row.
  */
 export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardProps) {
-  const { language } = useTranslation();
+  const { language } = useI18nStore();
   const insets = useSafeAreaInsets();
   const { tabBarHeight } = useTabBarHeight();
   const { toggleLike, incrementDownload, incrementView } = useFeedStore();

@@ -25,7 +25,7 @@ import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { feedService } from '@/features/feed/services/feedService';
 import { useFeedStore } from '@/store/feedStore';
 import { usePlaybackStore } from '@/store/playbackStore';
-import { useTranslation } from '@/hooks/useTranslation';
+import { useI18nStore } from '@/shared/stores/i18nStore';
 
 // Module-scope (not component state) so it's shared across every rendered
 // RingtoneFeedCard instance and reachable from every place playback for a
@@ -121,7 +121,7 @@ export default function RingtoneFeedCard({
   onShare,
   onDownload,
 }: RingtoneFeedCardProps) {
-  const { language } = useTranslation();
+  const { language } = useI18nStore();
   const [isLoading, setIsLoading] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isSettingRingtone, setIsSettingRingtone] = useState(false);
