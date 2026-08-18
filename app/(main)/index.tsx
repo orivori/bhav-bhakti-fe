@@ -17,6 +17,7 @@ import { Text } from '@/components/atoms';
 import FeedList from '@/components/molecules/FeedList';
 import BirthdateModal from '@/components/molecules/BirthdateModal/BirthdateModal';
 import QuickLinkCard, { QUICK_LINK_CATEGORIES, QuickLinkCategory } from '@/components/molecules/QuickLinkCard';
+import { LanguageToggle } from '@/components/molecules/LanguageToggle';
 import { useFeed } from '@/features/feed/hooks';
 import { Feed } from '@/types/feed';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
@@ -242,16 +243,19 @@ export default function HomeScreen() {
         <View style={styles.titleContainer}>
           <Text style={styles.appTitle}>Bhav Bhakti</Text>
         </View>
-        <TouchableOpacity
-          style={styles.profileAvatar}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            router.push('/(main)/profile');
-          }}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="person" size={24} color="#ffffff" />
-        </TouchableOpacity>
+        <View style={styles.headerRightGroup}>
+          <LanguageToggle />
+          <TouchableOpacity
+            style={styles.profileAvatar}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              router.push('/(main)/profile');
+            }}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="person" size={24} color="#ffffff" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Search Bar */}
@@ -405,6 +409,11 @@ const styles = StyleSheet.create({
     height: 48,
     justifyContent: 'center',
     alignItems: 'flex-start',
+  },
+  headerRightGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   profileAvatar: {
     width: 48,

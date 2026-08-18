@@ -7,7 +7,7 @@ import { Button, Text } from '@/components/atoms';
 import { useAuth } from '@/features/authentication/hooks/useAuth';
 import { usePremiumStore } from '@/store/premiumStore';
 import { useTranslation } from 'react-i18next';
-import { useI18nStore } from '@/shared/stores/i18nStore';
+import { useI18nStore, SELECTABLE_LANGUAGES } from '@/shared/stores/i18nStore';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
 
 export default function ProfileScreen() {
@@ -18,12 +18,10 @@ export default function ProfileScreen() {
   const { contentPadding } = useTabBarHeight();
   const [showLanguageModal, setShowLanguageModal] = useState(false);
 
-  const languages = [
-    { code: 'hi', name: 'हिंदी' },
-    { code: 'en', name: 'English' },
-    { code: 'gu', name: 'ગુજરાતી' },
-    { code: 'bn', name: 'বাংলা' },
-  ];
+  const languages = SELECTABLE_LANGUAGES.map((code) => ({
+    code,
+    name: getLanguageLabel(code),
+  }));
 
   const handleLogout = () => {
     Alert.alert(t('profile.logout'), t('profile.confirmLogout'), [
@@ -331,7 +329,7 @@ export default function ProfileScreen() {
                   language === lang.code && styles.languageOptionSelected
                 ]}
                 onPress={() => {
-                  setLanguage(lang.code as any);
+                  setLanguage(lang.code);
                   setShowLanguageModal(false);
                   // Language will automatically update throughout the app due to Zustand store
                 }}

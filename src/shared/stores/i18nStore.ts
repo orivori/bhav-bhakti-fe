@@ -4,6 +4,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export type Language = 'en' | 'hi' | 'gu' | 'bn';
 
+// Languages actually offered in language-selection UI (e.g. profile.tsx's
+// picker) - a subset of Language. Gujarati/Bengali stay in the type/store/
+// resources (translation coverage is real, just partial - see CLAUDE.md),
+// they're just not selectable for MVP. Single source of truth so a future
+// picker can't independently drift on which languages are "live".
+export const SELECTABLE_LANGUAGES: Language[] = ['hi', 'en'];
+
 interface I18nState {
   language: Language;
   isRTL: boolean;
