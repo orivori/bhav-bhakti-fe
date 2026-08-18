@@ -10,7 +10,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { designSystemTheme } from '@/styles/designSystemTheme';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
-import { useTranslation } from '@/shared/i18n/useTranslation';
+import { useTranslation } from 'react-i18next';
 import type { QueueItem } from '@/store/playbackStore';
 
 interface QueueSheetProps {
@@ -26,7 +26,7 @@ interface QueueSheetProps {
 
 export const QueueSheet = forwardRef<BottomSheetModal, QueueSheetProps>(
   ({ items, currentIndex, onSelectIndex }, ref) => {
-    const { t } = useTranslation();
+    const { t } = useTranslation('player');
 
     const renderBackdrop = useCallback(
       (props: BottomSheetBackdropProps) => (

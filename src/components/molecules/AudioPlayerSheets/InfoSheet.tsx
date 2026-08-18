@@ -9,7 +9,7 @@ import {
 } from '@gorhom/bottom-sheet';
 import { designSystemTheme } from '@/styles/designSystemTheme';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
-import { useTranslation } from '@/shared/i18n/useTranslation';
+import { useTranslation } from 'react-i18next';
 
 interface InfoSheetProps {
   title: string;
@@ -21,7 +21,7 @@ interface InfoSheetProps {
 
 export const InfoSheet = forwardRef<BottomSheetModal, InfoSheetProps>(
   ({ title, description, deity, objective, tags }, ref) => {
-    const { t } = useTranslation();
+    const { t } = useTranslation('player');
 
     const renderBackdrop = useCallback(
       (props: BottomSheetBackdropProps) => (

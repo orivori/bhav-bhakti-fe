@@ -25,7 +25,7 @@ import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { designSystemTheme } from '@/styles/designSystemTheme';
 import { feedService } from '@/features/feed/services/feedService';
 import { Feed } from '@/types/feed';
-import { useTranslation } from '@/shared/i18n/useTranslation';
+import { useTranslation } from 'react-i18next';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
 import { CounterSheet, InfoSheet, QueueSheet } from '@/components/molecules/AudioPlayerSheets';
 import { usePlaybackStore, QueueItem } from '@/store/playbackStore';
@@ -245,7 +245,7 @@ export default function AudioPlayerScreen() {
   const params = useLocalSearchParams();
   const feedId = params.feedId?.toString();
   const autoPlay = params.autoPlay === 'true';
-  const { t } = useTranslation();
+  const { t } = useTranslation('player');
   const { contentPadding } = useTabBarHeight();
 
   // Known bug (see CLAUDE.md): the plain router.back() this screen used to

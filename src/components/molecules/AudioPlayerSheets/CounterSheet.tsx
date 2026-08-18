@@ -10,7 +10,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { designSystemTheme } from '@/styles/designSystemTheme';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
-import { useTranslation } from '@/shared/i18n/useTranslation';
+import { useTranslation } from 'react-i18next';
 
 const TARGET_PRESETS = [27, 54, 108];
 
@@ -37,7 +37,7 @@ export const CounterSheet = forwardRef<BottomSheetModal, CounterSheetProps>(
     },
     ref
   ) => {
-    const { t } = useTranslation();
+    const { t } = useTranslation('player');
     const progress = targetCount > 0 ? (chantCount / targetCount) * 100 : 0;
 
     const renderBackdrop = useCallback(
