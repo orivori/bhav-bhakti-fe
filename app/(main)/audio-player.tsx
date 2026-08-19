@@ -31,17 +31,15 @@ import { feedService } from '@/features/feed/services/feedService';
 import { Feed } from '@/types/feed';
 import { useTranslation } from 'react-i18next';
 import { useI18nStore } from '@/shared/stores/i18nStore';
-import { CounterSheet, InfoSheet, QueueSheet } from '@/components/molecules/AudioPlayerSheets';
+import { CounterSheet, MoreTargetsSheet, QueueSheet } from '@/components/molecules/AudioPlayerSheets';
 import { usePlaybackStore, QueueItem } from '@/store/playbackStore';
 
 import { useFeedStore } from '@/store/feedStore';
 import { formatCount } from '@/utils/formatCount';
+import { containsDevanagari } from '@/utils/textUtils';
 import WhatsAppIcon from '../../assets/icons/whatsapp.svg';
 
 const { width } = Dimensions.get('window');
-
-// Target count options for mantras
-const TARGET_COUNT_OPTIONS = [27, 54, 108, 216, 324, 540, 1008];
 
 // Pure functions of their arguments (no component state closed over), so
 // these live at module scope rather than being recreated every render.
@@ -322,7 +320,6 @@ export default function AudioPlayerScreen() {
   // Counter state
   const [chantCount, setChantCount] = useState(0);
   const [targetCount, setTargetCount] = useState(108);
-  const [showTargetSelector, setShowTargetSelector] = useState(false);
 
   // Audio state. Playback position/duration/playing/loaded state all come
   // reactively from `status` below - no local state mirrors them, matching
@@ -412,7 +409,7 @@ export default function AudioPlayerScreen() {
 
   // Bottom sheet refs
   const counterSheetRef = React.useRef<BottomSheetModal>(null);
-  const infoSheetRef = React.useRef<BottomSheetModal>(null);
+  const moreTargetsSheetRef = React.useRef<BottomSheetModal>(null);
   const queueSheetRef = React.useRef<BottomSheetModal>(null);
 
   // Swipe-up-to-open-queue gesture (CLAUDE.md §56 Phase 5) - replaces the
@@ -578,8 +575,8 @@ export default function AudioPlayerScreen() {
         // `caption`, which is why this screen's title only ever showed
         // English regardless of language. `deity` (below) is deliberately
         // UNTOUCHED - it still feeds the native lock-screen metadata's own
-        // `artist` field and InfoSheet's deity display, both load-bearing
-        // and unrelated to this on-screen `artist` field.
+        // `artist` field, load-bearing and unrelated to this on-screen
+        // `artist` field.
         title: getLocalizedText(feedData.title, t('sacredMantra')),
         // The new on-screen "artist" subtitle - `caption`'s intended role
         // going forward. Not yet real per-content artist data (caption
@@ -1468,7 +1465,6 @@ export default function AudioPlayerScreen() {
   const handleTargetCountChange = async (newTarget: number) => {
     console.log('🎯 Target changed from', targetCount, 'to', newTarget, '- Current count:', chantCount);
     setTargetCount(newTarget);
-    setShowTargetSelector(false);
 
     // Check if auto-looping status should change
     if (status.playing && status.isLoaded) {
@@ -1741,32 +1737,6 @@ export default function AudioPlayerScreen() {
         // SafeAreaView already handles the physical bottom safe-area inset
         // on its own; this is just a small breathing-room buffer.
         <View style={[styles.playerBody, { paddingBottom: goldenTempleTheme.spacing.md }]}>
-          {/* Header strip - CLAUDE.md §56 Phase 2: title/artist and the
-              Like/Share icons moved out of here (see below). The Queue icon
-              (Phase 5) is gone from here entirely - replaced by the swipe-
-              up gesture/handle in the aarti/bhajan controls area. Info
-              (Phase 6) is now mantra-only (!showTrackNav) - dropped from
-              the aarti/bhajan experience specifically, per the redesign's
-              consistent aarti/bhajan-only scoping throughout every phase;
-              mantra keeps it, since its own control-area redesign is a
-              separate, future, dedicated pass and this wasn't asked to be
-              removed from there. When this whole strip has nothing to show
-              (aarti/bhajan), it's omitted entirely rather than left as an
-              empty row, so its margin doesn't reserve dead space either. */}
-          {!showTrackNav && (
-            <View style={styles.contentHeaderStrip}>
-              <View style={styles.headerIconsRow}>
-                <TouchableOpacity
-                  onPress={() => infoSheetRef.current?.present()}
-                  style={styles.headerIconButton}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons name="information-circle-outline" size={22} color={'#5D4E37'} />
-                </TouchableOpacity>
-              </View>
-            </View>
-          )}
-
           {/* Visual Area - CLAUDE.md §56 Phase 2: thumbnail only now, no
               dark scrim and no title/seek-bar overlaid on top of it. */}
           <View style={styles.lyricsSection}>
@@ -1793,10 +1763,29 @@ export default function AudioPlayerScreen() {
           {/* Title + artist - moved below the thumbnail, same bindings as
               before (CLAUDE.md §56 Phase 2). */}
           <View style={styles.contentHeaderTextBlock}>
-            <Text variant="h3" weight="bold" numberOfLines={1} style={styles.contentTitleCompact}>{contentData.title}</Text>
+            <Text
+              variant="h3"
+              weight="bold"
+              numberOfLines={1}
+              style={[
+                styles.contentTitleCompact,
+                // Screen-scoped tightening only - doesn't touch the shared
+                // Text atom's Devanagari heading padding, which stays
+                // generous everywhere else in the app. `style` is the last
+                // entry in the atom's own combined-style array, so these
+                // keys win over the atom's own lineHeight/paddingVertical/
+                // marginVertical for Hindi headings. Deliberately moderate,
+                // not zeroed out to English's tight values - still leaves
+                // real headroom (38 vs a 24px font) for tall matras, just
+                // less than the atom's default ~46/12/6 total overshoot.
+                containsDevanagari(contentData.title) && styles.contentTitleCompactHindi,
+              ]}
+            >{contentData.title}</Text>
             {/* Artist subtitle (caption-sourced), not deity - CLAUDE.md §56
-                Phase 0. Deity still displays in InfoSheet, and separately
-                still drives the native lock-screen "artist" field. */}
+                Phase 0. Deity still displays in the native lock-screen
+                "artist" field; the InfoSheet that used to also show it was
+                removed as mantra-only dead weight once its one trigger
+                (the header info icon) was removed. */}
             <Text numberOfLines={1} style={styles.contentSubtitleCompact}>{contentData.artist}</Text>
           </View>
 
@@ -2001,36 +1990,87 @@ export default function AudioPlayerScreen() {
             </GestureDetector>
             </>
           ) : (
-            <View style={styles.audioControls}>
-              {/* Secondary Controls Row */}
-              <View style={styles.secondaryControls}>
-                <TouchableOpacity onPress={toggleLoop} style={styles.secondaryControlButton}>
-                  <Ionicons
-                    name="repeat"
-                    size={20}
-                    color={isLooping ? '#FF5722' : '#8B7355'}
-                  />
-                </TouchableOpacity>
-
-                <TouchableOpacity onPress={togglePlaybackSpeed} style={styles.secondaryControlButton}>
+            <View>
+              {/* Mantra controls - CLAUDE.md mantra-player-redesign: no
+                  surrounding card (previously a white/shadowed
+                  styles.audioControls wrapper), no repeat/loop toggle
+                  (removed entirely - toggleLoop/isLooping/player.loop stay
+                  in the codebase, still used by aarti/bhajan's branch
+                  above, just no longer triggered from here). One row, three
+                  round buttons all the original Play size/shape (80x80,
+                  sizing correction) - Speed (left) and Chant counter
+                  (right) were sized UP to match Play, the visual anchor,
+                  rather than Play being shrunk to match them; Play alone
+                  keeps its original orange gradient fill, the other two
+                  share a neutral cream fill. When the content isn't
+                  repeatable, the counter slot renders an invisible
+                  same-size placeholder rather than collapsing to two
+                  buttons, so Play stays centered either way. */}
+              <View style={styles.mantraControlsRow}>
+                <TouchableOpacity
+                  onPress={togglePlaybackSpeed}
+                  style={styles.roundControlButton}
+                  activeOpacity={0.7}
+                >
                   <Text weight="semibold" style={styles.speedText}>{playbackSpeed}x</Text>
                 </TouchableOpacity>
 
-                {/* Counter sheet trigger - only for content flagged as repeatable */}
-                {feedData?.isRepeatable && (
+                {/* Play/Pause - restored to the original 80x80 orange-
+                    gradient button exactly as it was before the redesign
+                    (styles.playButton/playButtonGradient/playButtonContainer,
+                    unchanged, still shared with aarti/bhajan's branch above)
+                    - the visual anchor of the row; Speed/Chant-counter were
+                    sized up to match IT, not the other way around. */}
+                <Animated.View
+                  style={[
+                    styles.playButtonContainer,
+                    { transform: [{ scale: pulseAnim }] },
+                  ]}
+                >
+                  <TouchableOpacity
+                    style={styles.playButton}
+                    onPress={togglePlayback}
+                    disabled={isAudioLoading}
+                  >
+                    <LinearGradient
+                      colors={['#FF5722', '#E64A19']}
+                      style={styles.playButtonGradient}
+                    >
+                      {isAudioLoading ? (
+                        <Animated.View style={{ transform: [{ rotate: rotateInterpolation }] }}>
+                          <Ionicons name="refresh" size={40} color="#fff" />
+                        </Animated.View>
+                      ) : (
+                        <Ionicons
+                          name={status.playing ? 'pause' : 'play'}
+                          size={40}
+                          color="#fff"
+                          style={!status.playing ? { marginLeft: 4 } : {}}
+                        />
+                      )}
+                    </LinearGradient>
+                  </TouchableOpacity>
+                </Animated.View>
+
+                {feedData?.isRepeatable ? (
                   <TouchableOpacity
                     onPress={() => counterSheetRef.current?.present()}
-                    style={styles.secondaryControlButton}
+                    style={styles.roundControlButton}
+                    activeOpacity={0.7}
                   >
-                    <Ionicons name="stats-chart-outline" size={20} color={designSystemTheme.colors.primary} />
+                    <Ionicons name="stats-chart-outline" size={26} color={designSystemTheme.colors.primary} />
                     <View style={styles.counterBadge}>
                       <Text weight="semibold" style={styles.counterBadgeText}>{chantCount}/{targetCount}</Text>
                     </View>
                   </TouchableOpacity>
+                ) : (
+                  <View style={styles.roundControlButtonPlaceholder} />
                 )}
               </View>
 
-              {/* Volume Slider */}
+              {/* Volume Slider - unchanged, still unreachable in practice
+                  (no button anywhere triggers showVolumeSlider), no longer
+                  sitting inside the removed audioControls card. */}
               {showVolumeSlider && (
                 <View style={styles.volumeContainer}>
                   <Text weight="semibold" style={styles.volumeLabel}>Volume</Text>
@@ -2063,40 +2103,6 @@ export default function AudioPlayerScreen() {
                   </View>
                 </View>
               )}
-
-              {/* Primary Controls Row */}
-              <View style={styles.primaryControls}>
-                <Animated.View
-                  style={[
-                    styles.playButtonContainer,
-                    { transform: [{ scale: pulseAnim }] },
-                  ]}
-                >
-                  <TouchableOpacity
-                    style={styles.playButton}
-                    onPress={togglePlayback}
-                    disabled={isAudioLoading}
-                  >
-                    <LinearGradient
-                      colors={['#FF5722', '#E64A19']}
-                      style={styles.playButtonGradient}
-                    >
-                      {isAudioLoading ? (
-                        <Animated.View style={{ transform: [{ rotate: rotateInterpolation }] }}>
-                          <Ionicons name="refresh" size={40} color="#fff" />
-                        </Animated.View>
-                      ) : (
-                        <Ionicons
-                          name={status.playing ? 'pause' : 'play'}
-                          size={40}
-                          color="#fff"
-                          style={!status.playing ? { marginLeft: 4 } : {}}
-                        />
-                      )}
-                    </LinearGradient>
-                  </TouchableOpacity>
-                </Animated.View>
-              </View>
             </View>
           )}
         </View>
@@ -2111,17 +2117,7 @@ export default function AudioPlayerScreen() {
         onIncrement={handleIncrementCount}
         onDecrement={handleDecrementCount}
         onSelectTarget={handleTargetCountChange}
-        onOpenMoreTargets={() => setShowTargetSelector(true)}
-      />
-
-      {/* Description/tags/deity/objective, moved off-screen into an overlay sheet */}
-      <InfoSheet
-        ref={infoSheetRef}
-        title={contentData.title as string}
-        description={contentData.description as string}
-        deity={contentData.deity as string}
-        objective={contentData.objective as string}
-        tags={(contentData.tags as string[]) || []}
+        onOpenMoreTargets={() => moreTargetsSheetRef.current?.present()}
       />
 
       {/* Active queue (aarti/bhajan only), moved off-screen into an overlay sheet */}
@@ -2132,42 +2128,16 @@ export default function AudioPlayerScreen() {
         onSelectIndex={handleJumpToQueueIndex}
       />
 
-      {/* Target Count Selector Modal */}
-      {showTargetSelector && (
-        <View style={styles.targetSelectorOverlay}>
-          <View style={styles.targetSelectorModal}>
-            <Text weight="semibold" style={styles.targetSelectorTitle}>Select Target Count</Text>
-            <View style={styles.targetOptionsContainer}>
-              {TARGET_COUNT_OPTIONS.map((count) => (
-                <TouchableOpacity
-                  key={count}
-                  onPress={() => handleTargetCountChange(count)}
-                  style={[
-                    styles.targetOption,
-                    targetCount === count && styles.targetOptionSelected,
-                  ]}
-                >
-                  <Text
-                    weight="semibold"
-                    style={[
-                      styles.targetOptionText,
-                      targetCount === count && styles.targetOptionTextSelected,
-                    ]}
-                  >
-                    {count}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-            <TouchableOpacity
-              onPress={() => setShowTargetSelector(false)}
-              style={styles.targetSelectorCancel}
-            >
-              <Text weight="medium" style={styles.targetSelectorCancelText}>{t('cancel')}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      )}
+      {/* Extra target-count presets ("More" from CounterSheet) - a real
+          BottomSheetModal now, not a plain absolutely-positioned View, so
+          it's portaled to the same top-level overlay CounterSheet/QueueSheet
+          use and correctly stacks above CounterSheet when presented from
+          within it, instead of rendering behind it. */}
+      <MoreTargetsSheet
+        ref={moreTargetsSheetRef}
+        targetCount={targetCount}
+        onSelectTarget={handleTargetCountChange}
+      />
     </SafeAreaView>
   );
 }
@@ -2201,15 +2171,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: goldenTempleTheme.spacing.md,
   },
-  // Compact Content Header Strip - only Queue/Info icons remain here now
-  // (CLAUDE.md §56 Phase 2), so right-aligned rather than space-between
-  // (which had no second element left to space against).
-  contentHeaderStrip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    marginBottom: goldenTempleTheme.spacing.sm,
-  },
   // Now sits below the thumbnail, alone, rather than beside the header
   // icons (CLAUDE.md §56 Phase 2). Left-aligned, not centered (CLAUDE.md
   // §56 Phase 3 correction).
@@ -2228,18 +2189,23 @@ const styles = StyleSheet.create({
     color: '#5D4E37',
     textAlign: 'left',
   },
+  // Devanagari-only override (see the containsDevanagari check at the call
+  // site) - moderately tightens the Text atom's own generous Hindi-heading
+  // lineHeight/paddingVertical/marginVertical (~46/12/6 total overshoot
+  // above the 24px font) down to this, rather than removing it outright.
+  // Still meaningfully more than English's untouched 32/0/0, on purpose -
+  // this is single-line (numberOfLines=1) so the atom's "compound word
+  // wrapping" concern doesn't apply, but matras still need real headroom.
+  contentTitleCompactHindi: {
+    lineHeight: 38,
+    paddingVertical: 2,
+    marginVertical: 0,
+  },
   contentSubtitleCompact: {
     fontSize: 13,
     color: '#8B7355',
     marginTop: 2,
     textAlign: 'left',
-  },
-  headerIconButton: {
-    padding: 6,
-  },
-  headerIconsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
   },
   // Evenly distributed across the full row width - matches
   // AutoplayFeedCard's footer technique exactly: space-between with
@@ -2341,59 +2307,63 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   // Audio Controls - compact, fixed
-  audioControls: {
+  // Mantra controls row (mantra-player-redesign, sizing correction) - single
+  // row, no surrounding card. `width: '100%'` + no paddingHorizontal here or
+  // on the wrapping View means space-between anchors the first/last button's
+  // outer edge exactly to playerBody's own 20px content edge - the same
+  // margin governing the thumbnail/title/pills/seek-bar above, with nothing
+  // in this row adding any extra inset of its own. marginTop is the fix for
+  // the seek-bar being flush against this row with zero gap between them.
+  mantraControlsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    paddingVertical: 16,
-    borderWidth: 0,
-    borderColor: 'rgba(218, 165, 32, 0.6)',
+    width: '100%',
+    marginTop: goldenTempleTheme.spacing.lg,
+    marginBottom: 20,
+  },
+  // Sizing correction: Play is the original, unshrunk 80x80 anchor (see
+  // styles.playButton, reused as-is below) - Speed/Chant-counter now match
+  // ITS size/shape instead of Play being shrunk down to match them. Neutral
+  // cream fill (vs. Play's orange gradient) is the only intentional
+  // difference, per request - same size and round shape, not same color.
+  roundControlButton: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#F5E6D3',
+    alignItems: 'center',
+    justifyContent: 'center',
     ...goldenTempleTheme.shadows.lg,
   },
-  secondaryControls: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    width: '100%',
-    marginBottom: 14,
-    paddingHorizontal: 8,
-  },
-  secondaryControlButton: {
-    padding: 10,
-    backgroundColor: '#F5E6D3',
-    borderRadius: 16,
-    borderWidth: 0,
-    borderColor: 'rgba(218, 165, 32, 0.5)',
-    minWidth: 50,
-    alignItems: 'center',
-    ...goldenTempleTheme.shadows.sm,
+  // Same footprint as roundControlButton, fully invisible/non-interactive -
+  // keeps Play centered when the counter slot has nothing to show (content
+  // not flagged isRepeatable) instead of collapsing to two buttons.
+  roundControlButtonPlaceholder: {
+    width: 80,
+    height: 80,
   },
   counterBadge: {
     marginTop: 2,
   },
   counterBadgeText: {
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: '600',
     color: designSystemTheme.colors.primary,
   },
+  // Bumped from 16 to fit proportionately inside the larger 80px button
+  // (sizing correction) rather than looking lost/undersized at its center.
   speedText: {
-    fontSize: 16,
+    fontSize: 20,
     fontWeight: '600',
     color: '#5D4E37',
-  },
-  primaryControls: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 30,
-    marginBottom: 12,
   },
   trackNavButtonDisabled: {
     opacity: 0.4,
   },
   // Aarti/Bhajan controls (CLAUDE.md §56 Phase 4) - no card/box wrapper,
-  // controls sit directly on the page background. Mantra's audioControls
-  // card below is completely separate and untouched.
+  // controls sit directly on the page background. Mantra's controls row
+  // above now follows the same no-card approach (mantra-player-redesign).
   aartiBhajanControls: {
     alignItems: 'center',
     // Bumped from 12 - more breathing room above the swipe handle, which
@@ -2553,70 +2523,5 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '600',
     fontSize: 16,
-  },
-  // Target Selector Modal
-  targetSelectorOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 1000,
-  },
-  targetSelectorModal: {
-    backgroundColor: 'rgba(218, 165, 32, 0.95)',
-    borderRadius: 20,
-    padding: 24,
-    width: '80%',
-    maxWidth: 300,
-    ...goldenTempleTheme.shadows.lg,
-  },
-  targetSelectorTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#fff',
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  targetOptionsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: 12,
-    marginBottom: 20,
-  },
-  targetOption: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-    minWidth: 60,
-    alignItems: 'center',
-  },
-  targetOptionSelected: {
-    backgroundColor: '#fff',
-    borderColor: '#fff',
-  },
-  targetOptionText: {
-    color: '#fff',
-    fontWeight: '600',
-    fontSize: 16,
-  },
-  targetOptionTextSelected: {
-    color: goldenTempleTheme.colors.primary.DEFAULT,
-  },
-  targetSelectorCancel: {
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  targetSelectorCancelText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '500',
   },
 });

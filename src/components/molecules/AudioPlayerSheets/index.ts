@@ -1,3 +1,3 @@
 export { CounterSheet } from './CounterSheet';
-export { InfoSheet } from './InfoSheet';
+export { MoreTargetsSheet } from './MoreTargetsSheet';
 export { QueueSheet } from './QueueSheet';
