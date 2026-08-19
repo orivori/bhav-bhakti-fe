@@ -531,8 +531,11 @@ export default function RingtoneFeedCard({
       incrementShare(feed.id.toString());
 
       const result = await Share.share({
-        message: (feed.caption || feed.title?.[language] || feed.title?.en)
-          ? `Check out this ringtone: ${feed.caption || feed.title?.[language] || feed.title?.en}\n\nShared from Bhav Bhakti App`
+        // Real title first, caption only as a last resort (CLAUDE.md §56
+        // Phase 0) - matches AutoplayFeedCard/AudioContentCard's already-
+        // correct pattern; caption is no longer a reliable title proxy.
+        message: (feed.title?.[language] || feed.title?.en || feed.caption)
+          ? `Check out this ringtone: ${feed.title?.[language] || feed.title?.en || feed.caption}\n\nShared from Bhav Bhakti App`
           : 'Check out this amazing ringtone from Bhav Bhakti App!',
         url: audioMedia.mediaUrl,
       });

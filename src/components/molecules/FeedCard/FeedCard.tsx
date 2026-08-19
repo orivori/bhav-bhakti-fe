@@ -84,7 +84,10 @@ export default function FeedCard({
 
       const result = await Share.share({
         message: (() => {
-          const shareTitle = feed.caption || feed.title?.[language] || feed.title?.en;
+          // Real title first, caption only as a last resort (CLAUDE.md §56
+          // Phase 0) - matches AutoplayFeedCard/AudioContentCard's already-
+          // correct pattern; caption is no longer a reliable title proxy.
+          const shareTitle = feed.title?.[language] || feed.title?.en || feed.caption;
           return shareTitle
             ? `Check out this post: ${shareTitle}\n\nShared from Bhav Bhakti App`
             : 'Check out this amazing post from Bhav Bhakti App!';
