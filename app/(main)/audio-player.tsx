@@ -512,7 +512,22 @@ export default function AudioPlayerScreen() {
       const objective = getLocalizedText(feedData.objective, t('spiritualGrowth'));
 
       return {
-        title: feedData.caption || t('sacredMantra'),
+        // CLAUDE.md §56 Phase 0 (Aarti/Bhajan player redesign): title now
+        // comes from the real bilingual `title` field, not `caption` - the
+        // CSV importer had been writing a copy of the English title into
+        // `caption`, which is why this screen's title only ever showed
+        // English regardless of language. `deity` (below) is deliberately
+        // UNTOUCHED - it still feeds the native lock-screen metadata's own
+        // `artist` field and InfoSheet's deity display, both load-bearing
+        // and unrelated to this on-screen `artist` field.
+        title: getLocalizedText(feedData.title, t('sacredMantra')),
+        // The new on-screen "artist" subtitle - `caption`'s intended role
+        // going forward. Not yet real per-content artist data (caption
+        // currently still holds the same English-title copy caption always
+        // has), so this will visibly duplicate the title until the CSV
+        // pipeline's write-side is updated separately - a known, accepted
+        // consequence of this data-routing fix, not a bug in it.
+        artist: feedData.caption || '',
         description,
         tags: feedData.tags,
         deity: deityName,
@@ -526,6 +541,10 @@ export default function AudioPlayerScreen() {
     // Fallback to params if feed data not loaded
     return {
       title: params.title || t('sacredMantra'),
+      // See the loaded branch's comment above - params.artist is already
+      // sent by every real entry point (mantras.tsx/index.tsx/search-
+      // results.tsx, updated alongside this), sourced from caption.
+      artist: params.artist ? params.artist.toString() : '',
       description: params.description || t('mantraDescription'),
       tags: params.tags ? params.tags.toString().split(',') : [t('mantras')],
       deity: params.deity || t('unknownDeity'),
@@ -1654,7 +1673,10 @@ export default function AudioPlayerScreen() {
           <View style={styles.contentHeaderStrip}>
             <View style={styles.contentHeaderTextBlock}>
               <Text weight="bold" numberOfLines={1} style={styles.contentTitleCompact}>{contentData.title}</Text>
-              <Text numberOfLines={1} style={styles.contentSubtitleCompact}>{contentData.deity}</Text>
+              {/* Artist subtitle (caption-sourced), not deity - CLAUDE.md §56
+                  Phase 0. Deity still displays in InfoSheet, and separately
+                  still drives the native lock-screen "artist" field. */}
+              <Text numberOfLines={1} style={styles.contentSubtitleCompact}>{contentData.artist}</Text>
             </View>
             <View style={styles.headerIconsRow}>
               <TouchableOpacity

@@ -45,10 +45,17 @@ const MOOD_ITEM_WIDTH = (SCREEN_WIDTH - 64) / 2;
 function buildAudioPlayerParams(mantra: Feed) {
   return {
     feedId: mantra.id.toString(),
-    title: mantra.caption || 'Mantra',
+    // CLAUDE.md §56 Phase 0: the real bilingual title field, not caption -
+    // this is just the pre-fetch fallback value shown before audio-player.tsx's
+    // own fetch resolves and takes over via getLocalizedText; matches that
+    // screen's own English-first resolution for consistency.
+    title: mantra.title?.en || mantra.title?.hi || 'Mantra',
     audioUrl: mantra.media?.[0]?.audioUrl || mantra.media?.[0]?.mediaUrl || '',
     thumbnailUrl: mantra.media?.[0]?.thumbnailUrl || mantra.media?.[0]?.mediaUrl || '',
-    artist: mantra.user?.name || 'Unknown Artist',
+    // caption is the intended "artist" source going forward (§56 Phase 0) -
+    // not mantra.user?.name, which was almost always the hardcoded
+    // 'Unknown Artist' fallback in practice, never real per-content data.
+    artist: mantra.caption || '',
     duration: mantra.media?.[0]?.duration?.toString() || '0',
     isLiked: mantra.isLiked ? 'true' : 'false',
     autoPlay: 'true',

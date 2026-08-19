@@ -86,7 +86,12 @@ export default function SearchResultsScreen() {
         pathname: '/(main)/audio-player',
         params: {
           feedId: feed.id.toString(),
-          title: feed.caption || 'Sacred Mantra',
+          // CLAUDE.md §56 Phase 0: real bilingual title field, not caption -
+          // pre-fetch fallback only, matches audio-player.tsx's own
+          // English-first resolution once its real fetch takes over.
+          title: feed.title?.en || feed.title?.hi || 'Sacred Mantra',
+          // caption is the intended "artist" source going forward.
+          artist: feed.caption || '',
           audioUrl: audioMedia.mediaUrl,
           thumbnailUrl: audioMedia.thumbnailUrl,
           tags: feed.tags?.join(',') || '',
