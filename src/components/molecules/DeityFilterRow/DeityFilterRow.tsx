@@ -227,7 +227,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   scrollContent: {
-    paddingHorizontal: 16,
+    // Matches Home's spacing.lg (24px) left/right margin system - shared by
+    // all 3 screens that render this component (Mantra Explorer, Audio hub,
+    // Wallpaper hub), so this single change intentionally shifts the deity
+    // chip row's edges by 8px on all three at once.
+    paddingHorizontal: goldenTempleTheme.spacing.lg,
     paddingVertical: 12,
     gap: 16,
   },
