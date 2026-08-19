@@ -43,7 +43,7 @@ export interface Feed {
   category?: Category | null;
   deityId?: number | null;
   deity?: Deity | null;
-  statusOccasion?: 'good_morning' | 'good_evening' | 'good_night' | 'festive' | null;
+  label?: 'good_morning' | 'good_evening' | 'good_night' | 'festive' | 'peace' | 'strength' | 'protection' | 'positivity' | null;
   description?: Record<string, string> | null;
   objective?: Record<string, string> | null;
   mediaCount: number;
@@ -138,7 +138,7 @@ export interface FeedFilters {
   // 'none' is a sentinel meaning "must have no occasion set" (IS NULL server-side) -
   // omitting this field entirely means "don't filter by it at all" (the Status
   // superset case), so a distinct value is needed for the opposite (Wallpapers).
-  statusOccasion?: 'good_morning' | 'good_evening' | 'good_night' | 'festive' | 'none';
+  label?: 'good_morning' | 'good_evening' | 'good_night' | 'festive' | 'peace' | 'strength' | 'protection' | 'positivity' | 'none';
   tags?: string[];
   search?: string;
   sortBy?: 'createdAt' | 'likesCount' | 'downloadsCount' | 'sharesCount' | 'viewsCount';

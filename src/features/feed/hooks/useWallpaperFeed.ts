@@ -23,8 +23,8 @@ const PAGE_LIMIT = 10;
 const TRENDING_DAYS = 7;
 
 // Shared by StatusTabContent and WallpapersTabContent - the only difference
-// between the two buckets is the statusOccasion argument (undefined for
-// Status's superset, 'none' for Wallpapers' general-purpose-only bucket).
+// between the two buckets is the label argument (undefined for Status's
+// superset, 'none' for Wallpapers' general-purpose-only bucket).
 // Architecture mirrors useRingtones exactly (Phase 6 of the Audio hub's
 // deity-filter work): trending (a ranking view) and a deity selection (a
 // stored filter) are different query mechanics hitting different endpoints,
@@ -32,7 +32,7 @@ const TRENDING_DAYS = 7;
 // special-casing a flag.
 export function useWallpaperFeed(
   filter: DeityFilterSelection,
-  statusOccasion?: 'none'
+  label?: 'none'
 ): UseWallpaperFeedResult {
   const [feeds, setFeeds] = useState<Feed[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -47,7 +47,7 @@ export function useWallpaperFeed(
       if (filter.kind === 'trending') {
         return feedService.getTrendingFeeds({
           type: 'wallpaper',
-          statusOccasion,
+          label,
           days: TRENDING_DAYS,
           limit: PAGE_LIMIT,
           offset,
@@ -55,7 +55,7 @@ export function useWallpaperFeed(
       }
       return feedService.getFeeds({
         type: 'wallpaper',
-        statusOccasion,
+        label,
         deityId: filter.deityId,
         limit: PAGE_LIMIT,
         offset,
@@ -63,7 +63,7 @@ export function useWallpaperFeed(
         sortOrder: 'DESC',
       });
     },
-    [filter.kind, filter.kind === 'deity' ? filter.deityId : undefined, statusOccasion]
+    [filter.kind, filter.kind === 'deity' ? filter.deityId : undefined, label]
   );
 
   const loadFeeds = useCallback(async (cursor?: string, refresh = false) => {
@@ -195,7 +195,7 @@ export function useWallpaperFeed(
 
   // Fires on mount and whenever the filter changes (loadFeeds's identity
   // changes whenever fetchPage does, which changes whenever filter.kind/
-  // deityId does - statusOccasion is fixed per component instance, not a
+  // deityId does - label is fixed per component instance, not a
   // runtime-changing value). Resets pagination state synchronously first -
   // trending and deity-filtered lists are different result sets, not pages
   // of one query, so switching between them must not append onto the

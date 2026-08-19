@@ -35,7 +35,7 @@ import { useViewingWindow } from '@/hooks/useViewingWindow';
 // is already visually embedded in the image itself, like a designed quote
 // graphic) - it reuses the exact same grid-tile WallpaperFeedCard display as
 // Status/Wallpapers, no separate card component or text rendering needed.
-// No statusOccasion filter applies here - that field is specific to the
+// No label filter applies here - that field is specific to the
 // Status/Wallpapers wallpaper-type buckets, not this type.
 function ThoughtTabContent(_props: {}, ref: React.Ref<FlatList>) {
   const { contentPadding } = useTabBarHeight();

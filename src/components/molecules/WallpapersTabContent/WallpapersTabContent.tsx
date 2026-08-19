@@ -36,10 +36,10 @@ interface WallpapersTabContentProps {
 // RingtonesTabContent also builds its own dedicated list rather than reusing
 // FeedList.
 //
-// Wallpapers is the general-purpose-only bucket: statusOccasion: 'none' is a
-// sentinel meaning "must have no occasion tag" (IS NULL server-side) - this is
+// Wallpapers is the general-purpose-only bucket: label: 'none' is a
+// sentinel meaning "must have no occasion label" (IS NULL server-side) - this is
 // what excludes Good Morning/Evening/Night/Festive content, unlike
-// StatusTabContent which applies no statusOccasion filter at all. `filter` is
+// StatusTabContent which applies no label filter at all. `filter` is
 // owned and shared by the hub (survives switching sub-tabs) - this component
 // just forwards whatever it's given into useWallpaperFeed().
 function WallpapersTabContent({ filter }: WallpapersTabContentProps, ref: React.Ref<FlatList>) {
