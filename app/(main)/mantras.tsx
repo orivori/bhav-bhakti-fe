@@ -11,41 +11,31 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 
 import { Text } from '@/components/atoms';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
-import { useFeed } from '@/features/feed/hooks/useFeed';
-import { useMantraCategories } from '@/features/feed/hooks/useCategories';
+import { useMantraFeed } from '@/features/feed/hooks/useMantraFeed';
+import { useDeities } from '@/features/feed/hooks/useDeities';
+import DeityFilterRow, { DeityFilterSelection } from '@/components/molecules/DeityFilterRow';
 import { useTranslation } from 'react-i18next';
 import { useI18nStore } from '@/shared/stores/i18nStore';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
 import { useScrollToTopOnTabPress } from '@/hooks/useScrollToTopOnTabPress';
-import type { Feed, Category } from '@/types/feed';
+import type { Feed } from '@/types/feed';
 
 
 export default function MantrasScreen() {
   const { t } = useTranslation();
   const { language } = useI18nStore();
   const { contentPadding } = useTabBarHeight();
-  const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
+  const [selectedFilter, setSelectedFilter] = useState<DeityFilterSelection>({ kind: 'trending' });
   const scrollViewRef = useRef<ScrollView>(null);
 
   useScrollToTopOnTabPress(useCallback(() => {
     scrollViewRef.current?.scrollTo({ y: 0, animated: true });
   }, []));
 
-  // Fetch mantra categories
-  const {
-    data: categories = [],
-    isLoading: categoriesLoading,
-    error: categoriesError
-  } = useMantraCategories();
-
-  // Filter for mantra-type feeds
-  const feedFilters = selectedCategory
-    ? { type: 'mantra' as const, categoryId: selectedCategory }
-    : { type: 'mantra' as const };
+  const { data: deities = [] } = useDeities();
 
   const {
     feeds: mantras,
@@ -57,14 +47,7 @@ export default function MantrasScreen() {
     likeFeed,
     viewFeed,
     error,
-  } = useFeed({
-    filters: feedFilters,
-    limit: 20
-  });
-
-  const handleCategoryPress = useCallback((categoryId: number | null) => {
-    setSelectedCategory(categoryId);
-  }, []);
+  } = useMantraFeed(selectedFilter);
 
   // mantras.tsx is a bottom tab, reachable both via tab-bar switch (no
   // back-history) and via router.push from Home/choose-start.tsx/AutoplayFeedCard
@@ -164,30 +147,6 @@ export default function MantrasScreen() {
     </TouchableOpacity>
   ), [handleMantraPress, handleLikePress]);
 
-  const renderCategoryCard = useCallback(({ item: category }: { item: Category }) => (
-    <TouchableOpacity
-      style={styles.categoryCard}
-      onPress={() => handleCategoryPress(selectedCategory === category.id ? null : category.id)}
-      activeOpacity={0.8}
-    >
-      <LinearGradient
-        colors={[goldenTempleTheme.colors.background, '#f5ebc7']}
-        style={styles.categoryGradient}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-      >
-        <Text variant="body" weight="semibold" style={styles.categoryTitle}>
-          {category.displayName[language as keyof typeof category.displayName] || category.displayName.en}
-        </Text>
-        {selectedCategory === category.id && (
-          <View style={styles.selectedIndicator}>
-            <Ionicons name="checkmark" size={16} color="#ffffff" />
-          </View>
-        )}
-      </LinearGradient>
-    </TouchableOpacity>
-  ), [language, selectedCategory, handleCategoryPress]);
-
   if (error) {
     return (
       <SafeAreaView style={styles.container}>
@@ -273,53 +232,22 @@ export default function MantrasScreen() {
         </View>
         */}
 
-        {/* Browse by Category */}
-        <View style={[styles.section, styles.firstSection]}>
-          <View style={styles.sectionHeader}>
-            <Text variant="h4" weight="bold" style={styles.sectionTitle}>
-              {t('mantras.browseBycategory')}
-            </Text>
-            {selectedCategory && (
-              <TouchableOpacity
-                style={styles.clearButton}
-                onPress={() => handleCategoryPress(null)}
-              >
-                <Text variant="caption" style={styles.clearButtonText}>
-                  {t('mantras.all')}
-                </Text>
-              </TouchableOpacity>
-            )}
-          </View>
-
-          {categoriesLoading ? (
-            <View style={styles.loadingContainer}>
-              <Text variant="body" color="secondary">
-                {t('common.loading')}
-              </Text>
-            </View>
-          ) : categoriesError ? (
-            <View style={styles.errorContainer}>
-              <Text variant="body" color="secondary">
-                {t('common.error')}
-              </Text>
-            </View>
-          ) : (
-            <FlatList
-              data={categories}
-              renderItem={renderCategoryCard}
-              keyExtractor={(item) => item.id.toString()}
-              numColumns={2}
-              columnWrapperStyle={styles.categoryRow}
-              scrollEnabled={false}
-              contentContainerStyle={styles.categoriesContainer}
-            />
-          )}
+        {/* Deity filter - replaces the old categoryId-based grid, which was
+            filtering on a column the CSV import pipeline never populates
+            (CLAUDE.md §56, Round 2). Mirrors the exact pattern already
+            proven in the Audio and Wallpaper hubs. */}
+        <View style={styles.firstSection}>
+          <DeityFilterRow
+            deities={deities}
+            selected={selectedFilter}
+            onSelect={setSelectedFilter}
+          />
         </View>
 
         {/* All Mantras Section */}
         <View style={styles.section}>
           <Text variant="h4" weight="bold" style={styles.sectionTitle}>
-            {selectedCategory
+            {selectedFilter.kind === 'deity'
               ? t('mantras.selectedMantras')
               : t('mantras.allMantras')
             }
@@ -404,12 +332,6 @@ const styles = StyleSheet.create({
   firstSection: {
     marginTop: goldenTempleTheme.spacing.lg,
   },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: goldenTempleTheme.spacing.sm,
-  },
   sectionTitle: {
     color: goldenTempleTheme.colors.text.primary,
     marginBottom: goldenTempleTheme.spacing.md,
@@ -419,22 +341,6 @@ const styles = StyleSheet.create({
   sectionSubtitle: {
     color: goldenTempleTheme.colors.text.secondary,
     marginBottom: goldenTempleTheme.spacing.md,
-  },
-  clearButton: {
-    backgroundColor: goldenTempleTheme.colors.primary.DEFAULT,
-    paddingHorizontal: goldenTempleTheme.spacing.md,
-    paddingVertical: goldenTempleTheme.spacing.sm,
-    borderRadius: 12,
-    shadowColor: goldenTempleTheme.colors.primary.DEFAULT,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  clearButtonText: {
-    color: '#ffffff',
-    fontWeight: '600',
-    fontSize: 14,
   },
   promoCard: {
     borderRadius: 16,
@@ -464,47 +370,6 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.9)',
     fontSize: 14,
     lineHeight: 20,
-  },
-  categoriesContainer: {
-    gap: goldenTempleTheme.spacing.sm,
-  },
-  categoryRow: {
-    justifyContent: 'space-between',
-  },
-  categoryCard: {
-    width: '48%',
-    borderRadius: 12,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#E8DDD1',
-  },
-  categoryGradient: {
-    padding: goldenTempleTheme.spacing.md,
-    alignItems: 'center',
-    minHeight: 80,
-    justifyContent: 'center',
-    position: 'relative',
-  },
-  categoryTitle: {
-    color: '#C41E3A',
-    textAlign: 'center',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  selectedIndicator: {
-    position: 'absolute',
-    top: goldenTempleTheme.spacing.sm,
-    right: goldenTempleTheme.spacing.sm,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    borderRadius: 14,
-    width: 28,
-    height: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: 'rgba(0, 0, 0, 0.2)',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 4,
   },
   mantrasContainer: {
     gap: goldenTempleTheme.spacing.md,
