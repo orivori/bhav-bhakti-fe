@@ -120,7 +120,7 @@ export default function DeityFilterRow({ deities, selected, onSelect }: DeityFil
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* Trending - always present, default/auto-selected by whatever the
+        {/* All - always present, default/auto-selected by whatever the
             parent initializes `selected` to. */}
         <TouchableOpacity
           style={styles.chipColumn}
@@ -140,7 +140,7 @@ export default function DeityFilterRow({ deities, selected, onSelect }: DeityFil
             weight={selected.kind === 'trending' ? 'semibold' : 'medium'}
             style={[styles.chipLabel, selected.kind === 'trending' && styles.chipLabelSelected]}
           >
-            Trending
+            All
           </Text>
         </TouchableOpacity>
 
