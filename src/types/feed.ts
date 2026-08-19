@@ -141,7 +141,7 @@ export interface FeedFilters {
   label?: 'good_morning' | 'good_evening' | 'good_night' | 'festive' | 'peace' | 'strength' | 'protection' | 'positivity' | 'none';
   tags?: string[];
   search?: string;
-  sortBy?: 'createdAt' | 'likesCount' | 'downloadsCount' | 'sharesCount' | 'viewsCount';
+  sortBy?: 'createdAt' | 'likesCount' | 'downloadsCount' | 'sharesCount' | 'viewsCount' | 'random';
   sortOrder?: 'ASC' | 'DESC';
   createdBy?: string;
 }

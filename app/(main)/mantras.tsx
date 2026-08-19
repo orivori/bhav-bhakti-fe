@@ -7,10 +7,14 @@ import {
   Image,
   FlatList,
   RefreshControl,
+  Dimensions,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import { Text } from '@/components/atoms';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
@@ -21,7 +25,39 @@ import { useTranslation } from 'react-i18next';
 import { useI18nStore } from '@/shared/stores/i18nStore';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
 import { useScrollToTopOnTabPress } from '@/hooks/useScrollToTopOnTabPress';
+import { MOOD_OPTIONS, MoodOption } from '@/data/moodData';
+import { feedService } from '@/features/feed/services/feedService';
+import { usePlaybackStore } from '@/store/playbackStore';
 import type { Feed } from '@/types/feed';
+
+// Mirrors horoscope.tsx's zodiac grid width calculation approach - 2 columns
+// with even spacing, computed from screen width. The 64 = section's own
+// paddingHorizontal:24 on each side (48 total) + a 16px gap between the two
+// cards - this must be recalculated in lockstep with `section`'s
+// paddingHorizontal above, or the grid's gap silently collapses (this is the
+// exact bug class §49 hit once before with a different card's margin).
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const MOOD_ITEM_WIDTH = (SCREEN_WIDTH - 64) / 2;
+
+// Shared by handleMantraPress and handleMoodPress (CLAUDE.md §56 Phase 4b) -
+// both navigate into the same shared player the same way, just reached via a
+// different entry point (a tapped list card vs. a randomly-picked mantra).
+function buildAudioPlayerParams(mantra: Feed) {
+  return {
+    feedId: mantra.id.toString(),
+    title: mantra.caption || 'Mantra',
+    audioUrl: mantra.media?.[0]?.audioUrl || mantra.media?.[0]?.mediaUrl || '',
+    thumbnailUrl: mantra.media?.[0]?.thumbnailUrl || mantra.media?.[0]?.mediaUrl || '',
+    artist: mantra.user?.name || 'Unknown Artist',
+    duration: mantra.media?.[0]?.duration?.toString() || '0',
+    isLiked: mantra.isLiked ? 'true' : 'false',
+    autoPlay: 'true',
+    // See audio-player.tsx's back-button handling - without this, back
+    // falls through to router.back(), which is the known bug (always
+    // lands on Home instead of back onto Mantra Explorer).
+    returnTo: '/(main)/mantras',
+  };
+}
 
 
 export default function MantrasScreen() {
@@ -36,6 +72,17 @@ export default function MantrasScreen() {
   }, []));
 
   const { data: deities = [] } = useDeities();
+
+  // "Currently playing" card indicator - two narrow, read-only selectors,
+  // subscribed once here (not inside renderMantraCard, which would violate
+  // the Rules of Hooks since it runs once per row) and passed down as plain
+  // data. Deliberately never touches any write/control path on the store -
+  // pure display comparison against the persistent slot's already-existing
+  // state. Selecting these two primitives individually (not the whole
+  // `persistent` object) means this only re-renders when the feedId or
+  // playing state actually changes, not on every position/progress tick.
+  const nowPlayingFeedId = usePlaybackStore((s) => s.persistent?.nowPlaying.feedId);
+  const nowPlayingIsPlaying = usePlaybackStore((s) => s.persistent?.nowPlaying.isPlaying);
 
   const {
     feeds: mantras,
@@ -65,20 +112,7 @@ export default function MantrasScreen() {
     // Navigate to audio player with mantra data
     router.push({
       pathname: '/(main)/audio-player',
-      params: {
-        feedId: mantra.id.toString(),
-        title: mantra.caption || 'Mantra',
-        audioUrl: mantra.media?.[0]?.audioUrl || mantra.media?.[0]?.mediaUrl || '',
-        thumbnailUrl: mantra.media?.[0]?.thumbnailUrl || mantra.media?.[0]?.mediaUrl || '',
-        artist: mantra.user?.name || 'Unknown Artist',
-        duration: mantra.media?.[0]?.duration?.toString() || '0',
-        isLiked: mantra.isLiked ? 'true' : 'false',
-        autoPlay: 'true',
-        // See audio-player.tsx's back-button handling - without this, back
-        // falls through to router.back(), which is the known bug (always
-        // lands on Home instead of back onto Mantra Explorer).
-        returnTo: '/(main)/mantras',
-      },
+      params: buildAudioPlayerParams(mantra),
     });
   }, [viewFeed]);
 
@@ -87,65 +121,149 @@ export default function MantrasScreen() {
     likeFeed(mantraId);
   }, [likeFeed]);
 
-  const renderMantraCard = useCallback(({ item: mantra }: { item: Feed }) => (
-    <TouchableOpacity
-      style={styles.mantraCard}
-      onPress={() => handleMantraPress(mantra)}
-      activeOpacity={0.8}
-    >
-      <Image
-        source={{
-          uri: mantra.media?.[0]?.thumbnailUrl || mantra.media?.[0]?.mediaUrl || 'https://via.placeholder.com/80x80'
-        }}
-        style={styles.mantraImage}
-        resizeMode="cover"
-      />
+  // Tracks which mood pill (by id) currently has a request in flight - used
+  // both to guard against double-taps/overlapping requests and to show
+  // per-card loading feedback. Deliberately a single value, not per-card
+  // booleans: only one random-pick request should ever be in flight at a
+  // time (CLAUDE.md §56 Phase 4b).
+  const [loadingMoodId, setLoadingMoodId] = useState<string | null>(null);
 
-      <View style={styles.mantraContent}>
-        <Text variant="body" weight="semibold" style={styles.mantraTitle} numberOfLines={2}>
-          {mantra.title ? (mantra.title[language] || mantra.title.en || 'Untitled Mantra') : 'Untitled Mantra'}
-        </Text>
-        <Text variant="caption" color="secondary" numberOfLines={1}>
-          {mantra.user?.name || 'Unknown Artist'}
-        </Text>
+  const handleMoodPress = useCallback(async (mood: MoodOption) => {
+    if (loadingMoodId) return;
+    setLoadingMoodId(mood.id);
 
-        <View style={styles.mantraStats}>
-          <View style={styles.statItem}>
-            <Ionicons name="play" size={12} color={goldenTempleTheme.colors.text.secondary} />
-            <Text variant="caption" style={styles.statText}>
-              {mantra.viewsCount || 0}
-            </Text>
-          </View>
-          <View style={styles.statItem}>
-            <Ionicons name="time-outline" size={12} color={goldenTempleTheme.colors.text.secondary} />
-            <Text variant="caption" style={styles.statText}>
-              {mantra.media?.[0]?.duration ? `${Math.floor((mantra.media[0].duration || 0) / 60)}:${String((mantra.media[0].duration || 0) % 60).padStart(2, '0')}` : '0:00'}
-            </Text>
-          </View>
-        </View>
-      </View>
+    try {
+      // Standard ORDER BY RAND() LIMIT 1 pattern (feed.service.js's getFeeds,
+      // sortBy: 'random') - no existing precedent for DB-level random
+      // selection in this codebase before this, confirmed working against
+      // real data (both the found and empty-result paths) before this was
+      // wired up here.
+      const response = await feedService.getFeeds({
+        type: 'mantra',
+        label: mood.label,
+        sortBy: 'random',
+        limit: 1,
+      });
 
+      const randomMantra = response.feeds[0];
+
+      if (!randomMantra) {
+        Alert.alert(
+          language === 'hi' ? 'कोई मंत्र नहीं मिला' : 'No Mantras Found',
+          language === 'hi'
+            ? 'अभी इस भाव के लिए कोई मंत्र टैग नहीं किया गया है।'
+            : 'No mantras tagged with this mood yet.'
+        );
+        return;
+      }
+
+      viewFeed(randomMantra.id.toString());
+
+      router.push({
+        pathname: '/(main)/audio-player',
+        params: buildAudioPlayerParams(randomMantra),
+      });
+    } catch (err) {
+      console.error('❌ Error fetching random mantra for mood:', mood.label, err);
+      Alert.alert(
+        language === 'hi' ? 'त्रुटि' : 'Error',
+        language === 'hi'
+          ? 'कुछ गलत हो गया। कृपया पुनः प्रयास करें।'
+          : 'Something went wrong. Please try again.'
+      );
+    } finally {
+      setLoadingMoodId(null);
+    }
+  }, [loadingMoodId, language, viewFeed]);
+
+  const renderMantraCard = useCallback(({ item: mantra }: { item: Feed }) => {
+    // Currently-playing tap distinction (CLAUDE.md §56 Phase 4c): navigating
+    // to an already-loaded feedId is already a safe no-op restart-wise, per
+    // audio-player.tsx's own loadedFeedIdRef gate - nothing extra needed
+    // here for that, this comparison is purely for the visual indicator.
+    const isCurrentlyPlaying = nowPlayingFeedId === mantra.id.toString() && !!nowPlayingIsPlaying;
+    const mood = mantra.label ? MOOD_OPTIONS.find((m) => m.label === mantra.label) : undefined;
+
+    return (
       <TouchableOpacity
-        style={styles.playButton}
+        style={[styles.mantraCard, isCurrentlyPlaying && styles.mantraCardPlaying]}
         onPress={() => handleMantraPress(mantra)}
-        activeOpacity={0.7}
+        activeOpacity={0.8}
       >
-        <Ionicons name="play" size={20} color="#ffffff" />
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={[styles.likeButton, mantra.isLiked && styles.likeButtonActive]}
-        onPress={(e) => handleLikePress(mantra.id.toString(), e)}
-        activeOpacity={0.7}
-      >
-        <Ionicons
-          name={mantra.isLiked ? "heart" : "heart-outline"}
-          size={18}
-          color={mantra.isLiked ? "#e91e63" : goldenTempleTheme.colors.text.secondary}
+        <Image
+          source={{
+            uri: mantra.media?.[0]?.thumbnailUrl || mantra.media?.[0]?.mediaUrl || 'https://via.placeholder.com/80x80'
+          }}
+          style={styles.mantraImage}
+          resizeMode="cover"
         />
+
+        <View style={styles.mantraContent}>
+          <Text variant="body" weight="semibold" style={styles.mantraTitle} numberOfLines={2}>
+            {mantra.title ? (mantra.title[language] || mantra.title.en || 'Untitled Mantra') : 'Untitled Mantra'}
+          </Text>
+          {/* Renders only when the mantra actually has a label - no empty/
+              placeholder pill for untagged content (CLAUDE.md §56 Phase 4c
+              investigation: most real content will be untagged for a while
+              yet, an empty pill on every card would just be noise). */}
+          {mood && (
+            <View style={[styles.labelPill, { backgroundColor: mood.gradientColors[0] }]}>
+              <Text variant="caption" weight="semibold" style={styles.labelPillText}>
+                {mood.name[language as 'en' | 'hi'] || mood.name.en}
+              </Text>
+            </View>
+          )}
+        </View>
+
+        <TouchableOpacity
+          style={styles.playButton}
+          onPress={() => handleMantraPress(mantra)}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="play" size={20} color="#ffffff" />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.likeButton, mantra.isLiked && styles.likeButtonActive]}
+          onPress={(e) => handleLikePress(mantra.id.toString(), e)}
+          activeOpacity={0.7}
+        >
+          <Ionicons
+            name={mantra.isLiked ? "heart" : "heart-outline"}
+            size={18}
+            color={mantra.isLiked ? "#e91e63" : goldenTempleTheme.colors.text.secondary}
+          />
+        </TouchableOpacity>
       </TouchableOpacity>
-    </TouchableOpacity>
-  ), [handleMantraPress, handleLikePress]);
+    );
+  }, [handleMantraPress, handleLikePress, language, nowPlayingFeedId, nowPlayingIsPlaying]);
+
+  const renderMoodCard = useCallback(({ item: mood }: { item: MoodOption }) => {
+    const isThisMoodLoading = loadingMoodId === mood.id;
+    return (
+      <TouchableOpacity
+        style={styles.moodCard}
+        onPress={() => handleMoodPress(mood)}
+        disabled={!!loadingMoodId}
+        activeOpacity={0.8}
+      >
+        <LinearGradient
+          colors={mood.gradientColors}
+          style={styles.moodCardGradient}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+        >
+          {isThisMoodLoading ? (
+            <ActivityIndicator color="#ffffff" />
+          ) : (
+            <Text variant="h4" weight="bold" style={styles.moodName}>
+              {mood.name[language as 'en' | 'hi'] || mood.name.en}
+            </Text>
+          )}
+        </LinearGradient>
+      </TouchableOpacity>
+    );
+  }, [language, loadingMoodId, handleMoodPress]);
 
   if (error) {
     return (
@@ -232,11 +350,31 @@ export default function MantrasScreen() {
         </View>
         */}
 
+        {/* Mood pills (CLAUDE.md §56 Phase 4). Tapping fetches one random
+            mantra tagged with that mood and opens it directly in the shared
+            player - see handleMoodPress. Styling mirrors horoscope.tsx's
+            zodiac grid exactly (same card sizing/spacing/radius/shadow/
+            gradient-angle), minus the icon and arrow per a deliberate scope
+            correction for this text-only treatment. */}
+        <View style={[styles.section, styles.firstSection]}>
+          <Text variant="h4" weight="bold" style={styles.sectionTitle}>
+            {language === 'hi' ? 'मुझे चाहिए' : 'I am looking for'}
+          </Text>
+          <FlatList
+            data={MOOD_OPTIONS}
+            renderItem={renderMoodCard}
+            keyExtractor={(item) => item.id}
+            numColumns={2}
+            scrollEnabled={false}
+            columnWrapperStyle={styles.moodRow}
+          />
+        </View>
+
         {/* Deity filter - replaces the old categoryId-based grid, which was
             filtering on a column the CSV import pipeline never populates
             (CLAUDE.md §56, Round 2). Mirrors the exact pattern already
             proven in the Audio and Wallpaper hubs. */}
-        <View style={styles.firstSection}>
+        <View>
           <DeityFilterRow
             deities={deities}
             selected={selectedFilter}
@@ -301,7 +439,7 @@ const styles = StyleSheet.create({
     backgroundColor: goldenTempleTheme.colors.background,
   },
   header: {
-    paddingHorizontal: goldenTempleTheme.spacing.md,
+    paddingHorizontal: goldenTempleTheme.spacing.lg,
     paddingVertical: goldenTempleTheme.spacing.md,
     backgroundColor: goldenTempleTheme.colors.background,
     borderBottomWidth: 1,
@@ -326,7 +464,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   section: {
-    paddingHorizontal: goldenTempleTheme.spacing.md,
+    paddingHorizontal: goldenTempleTheme.spacing.lg,
     marginBottom: goldenTempleTheme.spacing.lg,
   },
   firstSection: {
@@ -341,6 +479,30 @@ const styles = StyleSheet.create({
   sectionSubtitle: {
     color: goldenTempleTheme.colors.text.secondary,
     marginBottom: goldenTempleTheme.spacing.md,
+  },
+  // Mood pill grid (CLAUDE.md §56 Phase 4a) - mirrors horoscope.tsx's zodiac
+  // grid sizing/spacing/radius/shadow/gradient-angle exactly, text-only
+  // (no icon, no arrow) per a deliberate scope correction.
+  moodRow: {
+    justifyContent: 'space-between',
+    marginBottom: goldenTempleTheme.spacing.md,
+  },
+  moodCard: {
+    width: MOOD_ITEM_WIDTH,
+    borderRadius: goldenTempleTheme.borderRadius.lg,
+    overflow: 'hidden',
+    ...goldenTempleTheme.shadows.md,
+  },
+  moodCardGradient: {
+    padding: goldenTempleTheme.spacing.md,
+    minHeight: 93,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  moodName: {
+    color: '#fff',
+    fontSize: 24,
+    textAlign: 'center',
   },
   promoCard: {
     borderRadius: 16,
@@ -391,6 +553,14 @@ const styles = StyleSheet.create({
     borderWidth: 0.5,
     borderColor: 'rgba(212, 175, 55, 0.1)',
   },
+  // "Currently playing" indicator (CLAUDE.md §56 Phase 4c) - border + tint
+  // only, deliberately no glyph/marquee per this project's own animation-
+  // performance history in scrolling lists (§26).
+  mantraCardPlaying: {
+    borderWidth: 1.5,
+    borderColor: goldenTempleTheme.colors.primary.DEFAULT,
+    backgroundColor: 'rgba(255, 107, 0, 0.06)',
+  },
   mantraImage: {
     width: 64,
     height: 64,
@@ -406,18 +576,19 @@ const styles = StyleSheet.create({
     color: goldenTempleTheme.colors.text.primary,
     marginBottom: goldenTempleTheme.spacing.xs / 2,
   },
-  mantraStats: {
-    flexDirection: 'row',
-    marginTop: goldenTempleTheme.spacing.xs,
-    gap: goldenTempleTheme.spacing.md,
+  // Label/mood pill (CLAUDE.md §56 Phase 4c) - reuses moodData.ts's existing
+  // per-mood color mapping rather than a separate color scheme, so a
+  // mantra's pill visually matches the mood-pill grid above it.
+  labelPill: {
+    alignSelf: 'flex-start',
+    borderRadius: goldenTempleTheme.borderRadius.full,
+    paddingHorizontal: goldenTempleTheme.spacing.sm,
+    paddingVertical: 2,
+    marginTop: 2,
   },
-  statItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  statText: {
-    color: goldenTempleTheme.colors.text.secondary,
+  labelPillText: {
+    color: '#ffffff',
+    fontSize: 11,
   },
   playButton: {
     width: 48,
