@@ -15,10 +15,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import type { ParamListBase } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAudioPlayer, useAudioPlayerStatus, setAudioModeAsync } from 'expo-audio';
 import * as FileSystem from 'expo-file-system/legacy';
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
+import { Gesture, GestureDetector, Directions } from 'react-native-gesture-handler';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Text } from '@/components/atoms';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
@@ -26,9 +30,13 @@ import { designSystemTheme } from '@/styles/designSystemTheme';
 import { feedService } from '@/features/feed/services/feedService';
 import { Feed } from '@/types/feed';
 import { useTranslation } from 'react-i18next';
-import { useTabBarHeight } from '@/hooks/useTabBarHeight';
+import { useI18nStore } from '@/shared/stores/i18nStore';
 import { CounterSheet, InfoSheet, QueueSheet } from '@/components/molecules/AudioPlayerSheets';
 import { usePlaybackStore, QueueItem } from '@/store/playbackStore';
+
+import { useFeedStore } from '@/store/feedStore';
+import { formatCount } from '@/utils/formatCount';
+import WhatsAppIcon from '../../assets/icons/whatsapp.svg';
 
 const { width } = Dimensions.get('window');
 
@@ -246,7 +254,39 @@ export default function AudioPlayerScreen() {
   const feedId = params.feedId?.toString();
   const autoPlay = params.autoPlay === 'true';
   const { t } = useTranslation('player');
-  const { contentPadding } = useTabBarHeight();
+  // Real fix, not a rename: getLocalizedText (below) previously had no
+  // connection to the app's selected language at all - its own comment
+  // claimed "current language first" but the code hardcoded English first,
+  // unconditionally, since this screen never imported the language store.
+  const { language } = useI18nStore();
+  // Views pill (CLAUDE.md §56 Phase 3) - reuses AutoplayFeedCard's proven
+  // viewFeed/incrementView pattern rather than building new tracking.
+  const { incrementView } = useFeedStore();
+
+  // Hide the bottom tab bar while this screen is focused (CLAUDE.md §56
+  // Phase 5 correction) - a full-screen, immersive player, consistent with
+  // this already being a hidden Tabs.Screen (href: null) rather than a
+  // normal visible tab. Also fixes a real conflict: the swipe-up-to-open-
+  // queue gesture's touch area overlapped the tab bar's own touch area.
+  // audio-player.tsx is registered directly as a Tabs.Screen (not nested in
+  // an intermediate stack), so bottom-tabs picks up tabBarStyle from this
+  // screen's own options while it's focused - no navigation.getParent()
+  // needed. useFocusEffect (not a plain mount/unmount useEffect) is
+  // required because Tabs screens in this app don't unmount between
+  // navigations (confirmed elsewhere in this codebase) - a plain effect
+  // would only ever fire once, not correctly toggle every time the user
+  // re-enters vs. leaves this specific screen. The cleanup resets
+  // tabBarStyle to undefined (not a captured value) so every other screen
+  // falls back to _layout.tsx's own default, untouched.
+  const navigation = useNavigation<BottomTabNavigationProp<ParamListBase>>();
+  useFocusEffect(
+    useCallback(() => {
+      navigation.setOptions({ tabBarStyle: { display: 'none' } });
+      return () => {
+        navigation.setOptions({ tabBarStyle: undefined });
+      };
+    }, [navigation])
+  );
 
   // Known bug (see CLAUDE.md): the plain router.back() this screen used to
   // call unconditionally always landed on Home regardless of which tab the
@@ -375,6 +415,20 @@ export default function AudioPlayerScreen() {
   const infoSheetRef = React.useRef<BottomSheetModal>(null);
   const queueSheetRef = React.useRef<BottomSheetModal>(null);
 
+  // Swipe-up-to-open-queue gesture (CLAUDE.md §56 Phase 5) - replaces the
+  // old header queue icon as the trigger. .runOnJS(true) is required since
+  // presenting the sheet is a plain ref call, not a worklet. Aarti/bhajan-
+  // only in practice: the GestureDetector using this is only ever rendered
+  // when showTrackNav is true (see the render below) - mantra never has a
+  // queue at all (never calls setQueue), so this gesture is simply never
+  // mounted for it, matching how the old icon was already conditional.
+  const swipeUpToOpenQueue = Gesture.Fling()
+    .direction(Directions.UP)
+    .runOnJS(true)
+    .onEnd(() => {
+      queueSheetRef.current?.present();
+    });
+
   // Refs to store current state values for callback access (fixes stale closure issue)
   const isAutoLoopingRef = React.useRef(isAutoLooping);
   const chantCountRef = React.useRef(chantCount);
@@ -459,7 +513,13 @@ export default function AudioPlayerScreen() {
     }
   };
 
-  // Helper function to get localized text from JSON field
+  // Helper function to get localized text from JSON field. Genuinely reads
+  // the app's selected language now (via the `language` closed over above,
+  // from useI18nStore) - previously this comment's own stated intent
+  // ("current language first") wasn't actually implemented, since the code
+  // hardcoded 'en' first regardless of what was selected. Every caller of
+  // this function (title, deity, description, objective) is fixed by this
+  // one change, since they all route through here.
   const getLocalizedText = (jsonField: any, fallback: string): string => {
     if (!jsonField) return fallback;
 
@@ -469,8 +529,8 @@ export default function AudioPlayerScreen() {
       const keys = Object.keys(jsonField);
       if (keys.length === 0) return fallback;
 
-      // Try current language first, then English, then Hindi, then first available
-      return jsonField['en'] || jsonField['hi'] || Object.values(jsonField)[0] || fallback;
+      // Current language first, then English, then Hindi, then first available.
+      return jsonField[language] || jsonField['en'] || jsonField['hi'] || Object.values(jsonField)[0] || fallback;
     }
 
     return fallback;
@@ -811,6 +871,15 @@ export default function AudioPlayerScreen() {
       // of reloading, and so a LATER switch to yet another mantra can tell
       // this one apart as "different, needs replacing" too.
       loadedFeedIdRef.current = feedId;
+
+      // Views pill tracking (CLAUDE.md §56 Phase 3) - fires exactly once per
+      // genuinely-fresh load (this branch only runs when loadedFeedIdRef
+      // didn't already match feedId above), same trigger semantics as
+      // AutoplayFeedCard's own view tracking. Fire-and-forget, matching that
+      // component's error handling.
+      feedService.viewFeed(feedId).then(() => incrementView(feedId)).catch((err) =>
+        console.error('audio-player.tsx: view tracking error:', err)
+      );
 
       if (!cachedUri) {
         // Cache miss: already streaming from audioUrl above, so this just
@@ -1632,20 +1701,19 @@ export default function AudioPlayerScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header with Back Button */}
+      {/* Header - CLAUDE.md §56 Phase 1: stripped down to just a collapse
+          icon, matching a "minimize to mini-player" convention (Spotify/YT
+          Music) rather than a literal "Back" label - purely visual, onPress
+          still calls the exact same handleBack used before. */}
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={handleBack}
           activeOpacity={0.7}
         >
-          <Ionicons name="arrow-back" size={24} color={'#5D4E37'} />
-          <Text weight="medium" style={styles.backButtonText}>{t('back')}</Text>
+          <Ionicons name="chevron-down" size={28} color={'#5D4E37'} />
         </TouchableOpacity>
       </View>
-
-      {/* Separator Line */}
-      <View style={styles.separator} />
 
       {/* Loading State */}
       {isFeedLoading && (
@@ -1668,59 +1736,39 @@ export default function AudioPlayerScreen() {
 
       {/* Main Content - fixed three-region layout, no scrolling */}
       {!isFeedLoading && !feedError && (
-        <View style={[styles.playerBody, { paddingBottom: contentPadding }]}>
-          {/* Compact content header strip */}
-          <View style={styles.contentHeaderStrip}>
-            <View style={styles.contentHeaderTextBlock}>
-              <Text weight="bold" numberOfLines={1} style={styles.contentTitleCompact}>{contentData.title}</Text>
-              {/* Artist subtitle (caption-sourced), not deity - CLAUDE.md §56
-                  Phase 0. Deity still displays in InfoSheet, and separately
-                  still drives the native lock-screen "artist" field. */}
-              <Text numberOfLines={1} style={styles.contentSubtitleCompact}>{contentData.artist}</Text>
-            </View>
-            <View style={styles.headerIconsRow}>
-              <TouchableOpacity
-                onPress={handleLike}
-                disabled={isLiking}
-                style={styles.headerIconButton}
-                activeOpacity={0.7}
-              >
-                <Ionicons
-                  name={currentFeedData?.isLiked ? 'heart' : 'heart-outline'}
-                  size={22}
-                  color={currentFeedData?.isLiked ? '#C41E3A' : '#8B7355'}
-                />
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={handleShare}
-                style={styles.headerIconButton}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="share-outline" size={22} color="#8B7355" />
-              </TouchableOpacity>
-
-              {showTrackNav && (
+        // No tab-bar-clearance padding needed anymore - the tab bar is
+        // hidden entirely on this screen (see the useFocusEffect above).
+        // SafeAreaView already handles the physical bottom safe-area inset
+        // on its own; this is just a small breathing-room buffer.
+        <View style={[styles.playerBody, { paddingBottom: goldenTempleTheme.spacing.md }]}>
+          {/* Header strip - CLAUDE.md §56 Phase 2: title/artist and the
+              Like/Share icons moved out of here (see below). The Queue icon
+              (Phase 5) is gone from here entirely - replaced by the swipe-
+              up gesture/handle in the aarti/bhajan controls area. Info
+              (Phase 6) is now mantra-only (!showTrackNav) - dropped from
+              the aarti/bhajan experience specifically, per the redesign's
+              consistent aarti/bhajan-only scoping throughout every phase;
+              mantra keeps it, since its own control-area redesign is a
+              separate, future, dedicated pass and this wasn't asked to be
+              removed from there. When this whole strip has nothing to show
+              (aarti/bhajan), it's omitted entirely rather than left as an
+              empty row, so its margin doesn't reserve dead space either. */}
+          {!showTrackNav && (
+            <View style={styles.contentHeaderStrip}>
+              <View style={styles.headerIconsRow}>
                 <TouchableOpacity
-                  onPress={() => queueSheetRef.current?.present()}
+                  onPress={() => infoSheetRef.current?.present()}
                   style={styles.headerIconButton}
                   activeOpacity={0.7}
                 >
-                  <Ionicons name="list-outline" size={22} color={'#5D4E37'} />
+                  <Ionicons name="information-circle-outline" size={22} color={'#5D4E37'} />
                 </TouchableOpacity>
-              )}
-
-              <TouchableOpacity
-                onPress={() => infoSheetRef.current?.present()}
-                style={styles.headerIconButton}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="information-circle-outline" size={22} color={'#5D4E37'} />
-              </TouchableOpacity>
+              </View>
             </View>
-          </View>
+          )}
 
-          {/* Visual Area - flexible, fills remaining space */}
+          {/* Visual Area - CLAUDE.md §56 Phase 2: thumbnail only now, no
+              dark scrim and no title/seek-bar overlaid on top of it. */}
           <View style={styles.lyricsSection}>
             <LinearGradient
               colors={goldenTempleTheme.gradients.sunrise}
@@ -1728,7 +1776,6 @@ export default function AudioPlayerScreen() {
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
             >
-              {/* Background Image */}
               {contentData.thumbnailUrl ? (
                 <Image
                   source={{ uri: contentData.thumbnailUrl.toString() }}
@@ -1740,178 +1787,318 @@ export default function AudioPlayerScreen() {
                   <Ionicons name="musical-notes" size={120} color="rgba(255,255,255,0.3)" />
                 </View>
               )}
-
-              {/* Overlay Gradient */}
-              <LinearGradient
-                colors={['transparent', 'rgba(0,0,0,0.8)']}
-                style={styles.lyricsOverlay}
-              />
-
-              {/* Content */}
-              <View style={styles.lyricsContent}>
-                <Text weight="bold" style={styles.lyricsText}>{contentData.title}</Text>
-
-                {/* Audio Progress */}
-                <View style={styles.progressSection}>
-                  <TouchableOpacity
-                    style={styles.progressBar}
-                    onPress={handleProgressBarPress}
-                    activeOpacity={0.7}
-                  >
-                    <View
-                      style={[
-                        styles.progressFill,
-                        { width: status.duration > 0 ? `${(status.currentTime / status.duration) * 100}%` : '0%' },
-                      ]}
-                    />
-                    {status.duration > 0 && (
-                      <View
-                        style={[
-                          styles.progressThumb,
-                          {
-                            left: `${(status.currentTime / status.duration) * 100}%`,
-                            opacity: 0.8,
-                          }
-                        ]}
-                      />
-                    )}
-                  </TouchableOpacity>
-                  <View style={styles.timeContainer}>
-                    <Text weight="medium" style={styles.timeText}>{formatTime(status.currentTime)}</Text>
-                    <Text weight="medium" style={styles.timeText}>{formatTime(status.duration)}</Text>
-                  </View>
-                </View>
-              </View>
             </LinearGradient>
           </View>
 
-          {/* Compact Control Bar - fixed */}
-          <View style={styles.audioControls}>
-            {/* Secondary Controls Row */}
-            <View style={styles.secondaryControls}>
-              <TouchableOpacity onPress={toggleLoop} style={styles.secondaryControlButton}>
-                <Ionicons
-                  name="repeat"
-                  size={20}
-                  color={isLooping ? '#FF5722' : '#8B7355'}
-                />
-              </TouchableOpacity>
+          {/* Title + artist - moved below the thumbnail, same bindings as
+              before (CLAUDE.md §56 Phase 2). */}
+          <View style={styles.contentHeaderTextBlock}>
+            <Text variant="h3" weight="bold" numberOfLines={1} style={styles.contentTitleCompact}>{contentData.title}</Text>
+            {/* Artist subtitle (caption-sourced), not deity - CLAUDE.md §56
+                Phase 0. Deity still displays in InfoSheet, and separately
+                still drives the native lock-screen "artist" field. */}
+            <Text numberOfLines={1} style={styles.contentSubtitleCompact}>{contentData.artist}</Text>
+          </View>
 
-              <TouchableOpacity onPress={togglePlaybackSpeed} style={styles.secondaryControlButton}>
-                <Text weight="semibold" style={styles.speedText}>{playbackSpeed}x</Text>
-              </TouchableOpacity>
-
-              {/* Counter sheet trigger - only for content flagged as repeatable */}
-              {feedData?.isRepeatable && (
-                <TouchableOpacity
-                  onPress={() => counterSheetRef.current?.present()}
-                  style={styles.secondaryControlButton}
-                >
-                  <Ionicons name="stats-chart-outline" size={20} color={designSystemTheme.colors.primary} />
-                  <View style={styles.counterBadge}>
-                    <Text weight="semibold" style={styles.counterBadgeText}>{chantCount}/{targetCount}</Text>
-                  </View>
-                </TouchableOpacity>
+          {/* Action pills row - structure only, reserved for Phase 3's full
+              pill styling + new Views pill (CLAUDE.md §56). Like/Share
+              relocated as-is from the old header icon row above - same
+              handleLike/handleShare, only their position changed. */}
+          {/* Full pill treatment (CLAUDE.md §56 Phase 3) - icon + count,
+              shown only when the count is above 0, mirroring
+              AutoplayFeedCard's already-proven footer pattern exactly
+              (including reusing its WhatsApp icon for Share) for
+              consistency across the app. Like/Share keep this screen's own
+              existing colors rather than AutoplayFeedCard's, since only the
+              count/icon/tracking pattern was asked to be reused, not its
+              palette. Views has no onPress - it's a display-only count,
+              tracked automatically on load (see togglePlayback), not a
+              user action. */}
+          <View style={styles.actionPillsRow}>
+            <TouchableOpacity
+              onPress={handleLike}
+              disabled={isLiking}
+              style={styles.actionPill}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name={currentFeedData?.isLiked ? 'heart' : 'heart-outline'}
+                size={24}
+                color={currentFeedData?.isLiked ? '#C41E3A' : '#8B7355'}
+              />
+              {!!currentFeedData?.likesCount && (
+                <Text variant="caption" style={styles.actionPillText}>
+                  {formatCount(currentFeedData.likesCount)}
+                </Text>
               )}
-            </View>
+            </TouchableOpacity>
 
-            {/* Volume Slider */}
-            {showVolumeSlider && (
-              <View style={styles.volumeContainer}>
-                <Text weight="semibold" style={styles.volumeLabel}>Volume</Text>
-                <View style={styles.volumeSliderContainer}>
-                  <TouchableOpacity
-                    style={styles.volumeSlider}
-                    onPress={(event) => {
-                      const { locationX } = event.nativeEvent;
-                      const sliderWidth = 200; // Fixed width
-                      const percentage = locationX / sliderWidth;
-                      const newVolume = Math.max(0, Math.min(percentage, 1));
-                      changeVolume(newVolume);
-                    }}
-                  >
-                    <View style={styles.volumeTrack}>
-                      <View
-                        style={[
-                          styles.volumeFill,
-                          { width: `${volume * 100}%` }
-                        ]}
-                      />
-                      <View
-                        style={[
-                          styles.volumeThumb,
-                          { left: `${volume * 100}%` }
-                        ]}
-                      />
-                    </View>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )}
-
-            {/* Primary Controls Row */}
-            <View style={styles.primaryControls}>
-              {showTrackNav && (
-                <TouchableOpacity
-                  onPress={() => usePlaybackStore.getState().toggleShuffle()}
-                  style={styles.trackNavButton}
-                >
-                  <Ionicons name="shuffle" size={22} color={queue?.isShuffled ? '#FF5722' : '#5D4E37'} />
-                </TouchableOpacity>
+            <TouchableOpacity
+              onPress={handleShare}
+              style={styles.actionPill}
+              activeOpacity={0.7}
+            >
+              <WhatsAppIcon width={22} height={22} fill="#8B7355" />
+              {!!currentFeedData?.sharesCount && (
+                <Text variant="caption" style={styles.actionPillText}>
+                  {formatCount(currentFeedData.sharesCount)}
+                </Text>
               )}
+            </TouchableOpacity>
 
-              {showTrackNav && (
-                <TouchableOpacity
-                  onPress={handlePrevious}
-                  disabled={!canGoPrevious}
-                  style={[styles.trackNavButton, !canGoPrevious && styles.trackNavButtonDisabled]}
-                >
-                  <Ionicons name="play-skip-back" size={28} color={'#5D4E37'} />
-                </TouchableOpacity>
-              )}
-
-              <Animated.View
-                style={[
-                  styles.playButtonContainer,
-                  { transform: [{ scale: pulseAnim }] },
-                ]}
-              >
-                <TouchableOpacity
-                  style={styles.playButton}
-                  onPress={togglePlayback}
-                  disabled={isAudioLoading}
-                >
-                  <LinearGradient
-                    colors={['#FF5722', '#E64A19']}
-                    style={styles.playButtonGradient}
-                  >
-                    {isAudioLoading ? (
-                      <Animated.View style={{ transform: [{ rotate: rotateInterpolation }] }}>
-                        <Ionicons name="refresh" size={40} color="#fff" />
-                      </Animated.View>
-                    ) : (
-                      <Ionicons
-                        name={status.playing ? 'pause' : 'play'}
-                        size={40}
-                        color="#fff"
-                        style={!status.playing ? { marginLeft: 4 } : {}}
-                      />
-                    )}
-                  </LinearGradient>
-                </TouchableOpacity>
-              </Animated.View>
-
-              {showTrackNav && (
-                <TouchableOpacity
-                  onPress={handleNext}
-                  disabled={!canGoNext}
-                  style={[styles.trackNavButton, !canGoNext && styles.trackNavButtonDisabled]}
-                >
-                  <Ionicons name="play-skip-forward" size={28} color={'#5D4E37'} />
-                </TouchableOpacity>
+            <View style={styles.actionPill}>
+              <Ionicons name="eye-outline" size={24} color="#8B7355" />
+              {!!currentFeedData?.viewsCount && (
+                <Text variant="caption" style={styles.actionPillText}>
+                  {formatCount(currentFeedData.viewsCount)}
+                </Text>
               )}
             </View>
           </View>
+
+          {/* Seek bar + time labels - moved below the pills, no longer
+              attached to the thumbnail (CLAUDE.md §56 Phase 2). Identical
+              handleProgressBarPress/status-driven fill+thumb math, only
+              position and (since it's no longer sitting over a dark scrim)
+              track/text colors changed for legibility on the plain
+              background - see progressBar/timeText styles. */}
+          <View style={styles.progressSection}>
+            <TouchableOpacity
+              style={styles.progressBar}
+              onPress={handleProgressBarPress}
+              activeOpacity={0.7}
+            >
+              <View
+                style={[
+                  styles.progressFill,
+                  { width: status.duration > 0 ? `${(status.currentTime / status.duration) * 100}%` : '0%' },
+                ]}
+              />
+              {status.duration > 0 && (
+                <View
+                  style={[
+                    styles.progressThumb,
+                    {
+                      left: `${(status.currentTime / status.duration) * 100}%`,
+                      opacity: 0.8,
+                    }
+                  ]}
+                />
+              )}
+            </TouchableOpacity>
+            <View style={styles.timeContainer}>
+              <Text weight="medium" style={styles.timeText}>{formatTime(status.currentTime)}</Text>
+              <Text weight="medium" style={styles.timeText}>{formatTime(status.duration)}</Text>
+            </View>
+          </View>
+
+          {/* Compact Control Bar - CLAUDE.md §56 Phase 4: this redesign is
+              aarti/bhajan-only (showTrackNav). Mantra's whole branch below
+              is byte-identical to before this phase - untouched per
+              explicit agreement; its own control-area redesign is a
+              separate, future, dedicated pass. */}
+          {showTrackNav ? (
+            <>
+            {/* No card/box wrapper - controls sit directly on the page
+               background. Single row: shuffle/previous (smaller) flank a
+               larger central play/pause, next/repeat (smaller) on the
+               other side - same handlers as before, only position/sizing/
+               background changed. Speed toggle removed entirely (CLAUDE.md
+               §56 Phase 5) - togglePlaybackSpeed itself is untouched
+               (still called by mantra's branch below), just no longer
+               triggered from here. Volume slider omitted here: it's
+               unreachable in practice today (no button anywhere triggers
+               showVolumeSlider), so not worth carrying into the new
+               layout - still present, unchanged, in mantra's branch below. */}
+            <View style={styles.aartiBhajanControls}>
+              <View style={styles.aartiBhajanControlsRow}>
+                <TouchableOpacity
+                  onPress={() => usePlaybackStore.getState().toggleShuffle()}
+                  style={styles.bareControlButton}
+                >
+                  <Ionicons name="shuffle" size={24} color={queue?.isShuffled ? '#FF5722' : '#5D4E37'} />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={handlePrevious}
+                  disabled={!canGoPrevious}
+                  style={[styles.bareControlButton, !canGoPrevious && styles.trackNavButtonDisabled]}
+                >
+                  <Ionicons name="play-skip-back" size={28} color={'#5D4E37'} />
+                </TouchableOpacity>
+
+                <Animated.View
+                  style={[
+                    styles.playButtonContainer,
+                    { transform: [{ scale: pulseAnim }] },
+                  ]}
+                >
+                  {/* Back to the original 80x80 size, matching mantra's
+                      playButton exactly (CLAUDE.md §56 Phase 4 sizing
+                      correction - reuses styles.playButton directly rather
+                      than a separate "large" style, since the target size
+                      is now identical). */}
+                  <TouchableOpacity
+                    style={styles.playButton}
+                    onPress={togglePlayback}
+                    disabled={isAudioLoading}
+                  >
+                    <LinearGradient
+                      colors={['#FF5722', '#E64A19']}
+                      style={styles.playButtonGradient}
+                    >
+                      {isAudioLoading ? (
+                        <Animated.View style={{ transform: [{ rotate: rotateInterpolation }] }}>
+                          <Ionicons name="refresh" size={40} color="#fff" />
+                        </Animated.View>
+                      ) : (
+                        <Ionicons
+                          name={status.playing ? 'pause' : 'play'}
+                          size={40}
+                          color="#fff"
+                          style={!status.playing ? { marginLeft: 4 } : {}}
+                        />
+                      )}
+                    </LinearGradient>
+                  </TouchableOpacity>
+                </Animated.View>
+
+                <TouchableOpacity
+                  onPress={handleNext}
+                  disabled={!canGoNext}
+                  style={[styles.bareControlButton, !canGoNext && styles.trackNavButtonDisabled]}
+                >
+                  <Ionicons name="play-skip-forward" size={28} color={'#5D4E37'} />
+                </TouchableOpacity>
+
+                <TouchableOpacity onPress={toggleLoop} style={styles.bareControlButton}>
+                  <Ionicons
+                    name="repeat"
+                    size={24}
+                    color={isLooping ? '#FF5722' : '#8B7355'}
+                  />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Swipe-up-to-open-queue handle (CLAUDE.md §56 Phase 5) - a
+                sibling of aartiBhajanControls, not nested inside it, and
+                absolutely positioned as a true screen-bottom footer
+                (position:'absolute', bottom: 30) rather than sitting
+                wherever normal document flow left it relative to the
+                controls row above. "Up Next" label added so the gesture is
+                discoverable, not just a bare bar - same variant/weight/
+                color as the title (contentTitleCompact) per request.
+                QueueSheet itself is still completely unchanged - only how
+                it gets opened changed. */}
+            <GestureDetector gesture={swipeUpToOpenQueue}>
+              <View style={styles.queueSwipeHandleZone}>
+                <Text variant="caption" weight="bold" style={styles.queueSwipeHandleLabel}>
+                  {t('upNext')}
+                </Text>
+                <View style={styles.queueSwipeHandleBar} />
+              </View>
+            </GestureDetector>
+            </>
+          ) : (
+            <View style={styles.audioControls}>
+              {/* Secondary Controls Row */}
+              <View style={styles.secondaryControls}>
+                <TouchableOpacity onPress={toggleLoop} style={styles.secondaryControlButton}>
+                  <Ionicons
+                    name="repeat"
+                    size={20}
+                    color={isLooping ? '#FF5722' : '#8B7355'}
+                  />
+                </TouchableOpacity>
+
+                <TouchableOpacity onPress={togglePlaybackSpeed} style={styles.secondaryControlButton}>
+                  <Text weight="semibold" style={styles.speedText}>{playbackSpeed}x</Text>
+                </TouchableOpacity>
+
+                {/* Counter sheet trigger - only for content flagged as repeatable */}
+                {feedData?.isRepeatable && (
+                  <TouchableOpacity
+                    onPress={() => counterSheetRef.current?.present()}
+                    style={styles.secondaryControlButton}
+                  >
+                    <Ionicons name="stats-chart-outline" size={20} color={designSystemTheme.colors.primary} />
+                    <View style={styles.counterBadge}>
+                      <Text weight="semibold" style={styles.counterBadgeText}>{chantCount}/{targetCount}</Text>
+                    </View>
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {/* Volume Slider */}
+              {showVolumeSlider && (
+                <View style={styles.volumeContainer}>
+                  <Text weight="semibold" style={styles.volumeLabel}>Volume</Text>
+                  <View style={styles.volumeSliderContainer}>
+                    <TouchableOpacity
+                      style={styles.volumeSlider}
+                      onPress={(event) => {
+                        const { locationX } = event.nativeEvent;
+                        const sliderWidth = 200; // Fixed width
+                        const percentage = locationX / sliderWidth;
+                        const newVolume = Math.max(0, Math.min(percentage, 1));
+                        changeVolume(newVolume);
+                      }}
+                    >
+                      <View style={styles.volumeTrack}>
+                        <View
+                          style={[
+                            styles.volumeFill,
+                            { width: `${volume * 100}%` }
+                          ]}
+                        />
+                        <View
+                          style={[
+                            styles.volumeThumb,
+                            { left: `${volume * 100}%` }
+                          ]}
+                        />
+                      </View>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+
+              {/* Primary Controls Row */}
+              <View style={styles.primaryControls}>
+                <Animated.View
+                  style={[
+                    styles.playButtonContainer,
+                    { transform: [{ scale: pulseAnim }] },
+                  ]}
+                >
+                  <TouchableOpacity
+                    style={styles.playButton}
+                    onPress={togglePlayback}
+                    disabled={isAudioLoading}
+                  >
+                    <LinearGradient
+                      colors={['#FF5722', '#E64A19']}
+                      style={styles.playButtonGradient}
+                    >
+                      {isAudioLoading ? (
+                        <Animated.View style={{ transform: [{ rotate: rotateInterpolation }] }}>
+                          <Ionicons name="refresh" size={40} color="#fff" />
+                        </Animated.View>
+                      ) : (
+                        <Ionicons
+                          name={status.playing ? 'pause' : 'play'}
+                          size={40}
+                          color="#fff"
+                          style={!status.playing ? { marginLeft: 4 } : {}}
+                        />
+                      )}
+                    </LinearGradient>
+                  </TouchableOpacity>
+                </Animated.View>
+              </View>
+            </View>
+          )}
         </View>
       )}
 
@@ -1990,29 +2177,23 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: goldenTempleTheme.colors.background, // Light cream background
   },
-  // Header with Back Button
+  // Header - icon-only collapse control (CLAUDE.md §56 Phase 1). Height
+  // reduced from the old text+icon+divider treatment - paddingVertical
+  // roughly halved (spacing.md -> spacing.sm) to match the now-lighter
+  // content, no separator line.
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: goldenTempleTheme.spacing.lg,
-    paddingVertical: goldenTempleTheme.spacing.md,
+    // Was spacing.lg (24px) - now matches playerBody's own raw 20px exactly,
+    // so the collapse icon's left edge lines up with the thumbnail/title/
+    // pills/seek-bar below it (CLAUDE.md §56 Phase 2 correction).
+    paddingHorizontal: 20,
+    paddingVertical: goldenTempleTheme.spacing.sm,
     backgroundColor: goldenTempleTheme.colors.background,
   },
   backButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: goldenTempleTheme.spacing.sm,
-  },
-  backButtonText: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#5D4E37', // Warm brown text
-    marginLeft: 4,
-  },
-  separator: {
-    height: 1,
-    backgroundColor: 'rgba(205, 180, 140, 0.2)', // Light brown separator
-    marginHorizontal: goldenTempleTheme.spacing.lg,
   },
   // Main player body - fixed three-region layout (header strip / visual area / controls)
   playerBody: {
@@ -2020,26 +2201,38 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: goldenTempleTheme.spacing.md,
   },
-  // Compact Content Header Strip
+  // Compact Content Header Strip - only Queue/Info icons remain here now
+  // (CLAUDE.md §56 Phase 2), so right-aligned rather than space-between
+  // (which had no second element left to space against).
   contentHeaderStrip: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
     marginBottom: goldenTempleTheme.spacing.sm,
   },
+  // Now sits below the thumbnail, alone, rather than beside the header
+  // icons (CLAUDE.md §56 Phase 2). Left-aligned, not centered (CLAUDE.md
+  // §56 Phase 3 correction).
   contentHeaderTextBlock: {
-    flex: 1,
-    marginRight: goldenTempleTheme.spacing.sm,
+    alignItems: 'flex-start',
+    marginTop: goldenTempleTheme.spacing.md,
   },
+  // Font size now comes from the Text atom's variant="h3" prop (24px), not
+  // a raw pixel value - was an ad-hoc 22px, exactly equidistant between the
+  // h4 (20px) and h3 (24px) named levels; resolved by treating h4 as
+  // "closest" (this title started the redesign at 18px = h5 exactly, and
+  // 22 was already a step toward h4/h3) and bumping one level up from
+  // there (CLAUDE.md §56 Phase 3 correction).
   contentTitleCompact: {
-    fontSize: 18,
     fontWeight: 'bold',
     color: '#5D4E37',
+    textAlign: 'left',
   },
   contentSubtitleCompact: {
     fontSize: 13,
     color: '#8B7355',
     marginTop: 2,
+    textAlign: 'left',
   },
   headerIconButton: {
     padding: 6,
@@ -2048,9 +2241,38 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  // Lyrics Section - flexible visual area
+  // Evenly distributed across the full row width - matches
+  // AutoplayFeedCard's footer technique exactly: space-between with
+  // intrinsically-sized items, not flex-stretched ones (CLAUDE.md §56
+  // Phase 3 correction).
+  actionPillsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: goldenTempleTheme.spacing.md,
+  },
+  // Transparent pill treatment (CLAUDE.md §56 Phase 3), sized up per the
+  // "make them bigger" correction.
+  actionPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: goldenTempleTheme.spacing.lg,
+    paddingVertical: 10,
+    borderRadius: goldenTempleTheme.borderRadius.full,
+    backgroundColor: 'rgba(93, 78, 55, 0.06)',
+  },
+  actionPillText: {
+    color: '#8B7355',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  // Lyrics Section - CLAUDE.md §56 Phase 3: fixed 1:1 square (was flex: 1,
+  // a flexible box sized by whatever vertical space happened to be left) -
+  // aspectRatio computes height from the width the column layout already
+  // stretches this to by default, no manual Dimensions math needed.
   lyricsSection: {
-    flex: 1,
+    aspectRatio: 1,
     marginBottom: goldenTempleTheme.spacing.md,
   },
   lyricsContainer: {
@@ -2072,34 +2294,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  lyricsOverlay: {
-    position: 'absolute',
-    width: '100%',
-    height: '100%',
-  },
-  lyricsContent: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 24,
-  },
-  lyricsText: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#fff',
-    textAlign: 'center',
-    marginBottom: 20,
-    textShadowColor: 'rgba(0,0,0,0.7)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 3,
-  },
   progressSection: {
     width: '100%',
+    marginTop: goldenTempleTheme.spacing.md,
   },
+  // Track color changed from a translucent-white overlay (designed to sit on
+  // top of the dark image scrim) to a light, visible-on-cream tint, now that
+  // this sits on the plain background rather than over the thumbnail
+  // (CLAUDE.md §56 Phase 2) - fill/thumb colors already read fine on light
+  // backgrounds, left unchanged.
   progressBar: {
     height: 6,
-    backgroundColor: 'rgba(255,255,255,0.3)',
+    backgroundColor: goldenTempleTheme.colors.muted[300],
     borderRadius: 3,
     marginBottom: 8,
     position: 'relative',
@@ -2127,8 +2333,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
+  // Was white (for the dark image scrim) - now sits on the plain background
+  // (CLAUDE.md §56 Phase 2), matching contentSubtitleCompact's color.
   timeText: {
-    color: '#fff',
+    color: '#8B7355',
     fontSize: 12,
     fontWeight: '500',
   },
@@ -2180,23 +2388,72 @@ const styles = StyleSheet.create({
     gap: 30,
     marginBottom: 12,
   },
-  // Same position/style as the old 10s-seek buttons Phase 1 removed - now a
-  // real track-skip, not a seek, so play-skip-back/forward are no longer an
-  // ambiguous icon choice on this screen.
-  trackNavButton: {
-    padding: 14,
-    backgroundColor: '#F5E6D3',
-    borderRadius: 25,
-    borderWidth: 0,
-    borderColor: 'rgba(218, 165, 32, 0.5)',
-    ...goldenTempleTheme.shadows.sm,
-  },
   trackNavButtonDisabled: {
     opacity: 0.4,
+  },
+  // Aarti/Bhajan controls (CLAUDE.md §56 Phase 4) - no card/box wrapper,
+  // controls sit directly on the page background. Mantra's audioControls
+  // card below is completely separate and untouched.
+  aartiBhajanControls: {
+    alignItems: 'center',
+    // Bumped from 12 - more breathing room above the swipe handle, which
+    // now floats independently below this as an absolutely-positioned
+    // footer rather than sitting immediately after it in normal flow
+    // (CLAUDE.md §56 Phase 5 sizing correction).
+    marginBottom: 40,
+  },
+  aartiBhajanControlsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginTop: goldenTempleTheme.spacing.sm,
+  },
+  // Swipe-up-to-open-queue handle (CLAUDE.md §56 Phase 5, sizing
+  // correction) - true footer anchoring: absolutely positioned 24px from
+  // the screen's bottom edge (View's default position is already
+  // 'relative' in RN, so playerBody is a valid positioning context with no
+  // extra style needed), rather than sitting in normal document flow
+  // wherever the controls row above happened to end. paddingVertical here
+  // is just extra touch-target comfort around the bar, not what controls
+  // the 24px offset - that's bottom: 24 itself.
+  queueSwipeHandleZone: {
+    position: 'absolute',
+    bottom: 30,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    paddingVertical: goldenTempleTheme.spacing.sm,
+  },
+  // Sized down from an initial h3 match with the title (24px, confirmed
+  // too large) to caption (14px) - color kept matching the title's own
+  // color, set explicitly since variant alone doesn't carry color.
+  queueSwipeHandleLabel: {
+    color: '#5D4E37',
+    marginBottom: goldenTempleTheme.spacing.sm,
+  },
+  // Width now 50% of the screen (was a fixed 36px) - queueSwipeHandleZone
+  // spans the full width (left:0, right:0) and centers its child, so a
+  // percentage width here resolves against the screen width directly.
+  queueSwipeHandleBar: {
+    width: '50%',
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(93, 78, 55, 0.3)',
+  },
+  // Bare icon buttons - no chip background, matching "no box/card around
+  // them." Shuffle/Previous/Next/Repeat all use this; sizing differences
+  // (smaller flanking icons vs. the larger central play button) come from
+  // each Ionicons `size` prop, not this shared padding/touch-target style.
+  bareControlButton: {
+    padding: 10,
   },
   playButtonContainer: {
     alignItems: 'center',
   },
+  // Shared by both mantra and aarti/bhajan - back to the original 80x80
+  // (CLAUDE.md §56 Phase 4 sizing correction reverted the aarti/bhajan-only
+  // "larger" playButtonLarge variant; both now use this one style again).
   playButton: {
     width: 80,
     height: 80,
