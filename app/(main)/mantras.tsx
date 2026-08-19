@@ -66,6 +66,15 @@ export default function MantrasScreen() {
     setSelectedCategory(categoryId);
   }, []);
 
+  // mantras.tsx is a bottom tab, reachable both via tab-bar switch (no
+  // back-history) and via router.push from Home/choose-start.tsx/AutoplayFeedCard
+  // (real back-history) - same root bug class already diagnosed and fixed for
+  // audio-player.tsx (see CLAUDE.md §27/§56). Rather than depend on the Tabs
+  // navigator's back-stack, navigate straight to Home explicitly.
+  const handleBackToHome = useCallback(() => {
+    router.replace('/(main)' as any);
+  }, []);
+
   const handleMantraPress = useCallback((mantra: Feed) => {
     // Track view
     viewFeed(mantra.id.toString());
@@ -185,7 +194,7 @@ export default function MantrasScreen() {
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.backButtonRow}
-            onPress={() => router.back()}
+            onPress={handleBackToHome}
           >
             <Ionicons name="arrow-back" size={20} color={goldenTempleTheme.colors.text.primary} />
             <Text style={styles.backText}>Back</Text>
@@ -209,7 +218,7 @@ export default function MantrasScreen() {
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButtonRow}
-          onPress={() => router.back()}
+          onPress={handleBackToHome}
         >
           <Ionicons name="arrow-back" size={20} color={goldenTempleTheme.colors.text.primary} />
           <Text style={styles.backText}>Back</Text>
@@ -230,7 +239,10 @@ export default function MantrasScreen() {
           />
         }
       >
-        {/* Find Perfect Mantra Card */}
+        {/* Find Perfect Mantra Card - hidden pending the mood-pill rework
+            (CLAUDE.md §56, Phase 4). This was the quiz's sole navigational
+            entry point; route/backend/data are intentionally left untouched. */}
+        {/*
         <View style={[styles.section, styles.firstSection]}>
           <TouchableOpacity
             onPress={() => {
@@ -259,9 +271,10 @@ export default function MantrasScreen() {
             </LinearGradient>
           </TouchableOpacity>
         </View>
+        */}
 
         {/* Browse by Category */}
-        <View style={styles.section}>
+        <View style={[styles.section, styles.firstSection]}>
           <View style={styles.sectionHeader}>
             <Text variant="h4" weight="bold" style={styles.sectionTitle}>
               {t('mantras.browseBycategory')}
