@@ -9,13 +9,11 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Video, ResizeMode } from 'expo-av';
-import { Text } from '@/components/atoms';
 import FeedMedia from '../FeedMedia/FeedMedia';
 import { Feed } from '@/types/feed';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { feedService } from '@/features/feed/services/feedService';
 import { useFeedStore } from '@/store/feedStore';
-import { useI18nStore } from '@/shared/stores/i18nStore';
 import { useWallpaperActions } from './useWallpaperActions';
 
 interface WallpaperFeedCardProps {
@@ -49,7 +47,6 @@ export default function WallpaperFeedCard({
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const { incrementView } = useFeedStore();
-  const { language } = useI18nStore();
   const { isLiking, isDownloading, isSharing, handleLike, handleShare, handleDownload } = useWallpaperActions({
     feed,
     onLike,
@@ -198,19 +195,44 @@ export default function WallpaperFeedCard({
     );
   }
 
+  const currentMedia = feed.media.length > 1 ? feed.media[currentMediaIndex] : feed.media[0];
+
   return (
     <View style={styles.container}>
       {/* Main Wallpaper Image with gap from container */}
       <View style={styles.imageContainer}>
         <TouchableOpacity onPress={handlePress} activeOpacity={0.95}>
-          <FeedMedia
-            media={feed.media.length > 1 ? [feed.media[currentMediaIndex]] : feed.media}
-            onMediaPress={handlePress}
-            autoPlay={false}
-            showControls={false}
-            showCenterPlayButton={false}
-            style={styles.wallpaperImage}
-          />
+          {currentMedia && currentMedia.type === 'video' ? (
+            // Matches the grid-tile variant's own video treatment exactly: a
+            // 9:16 aspectRatio box with resizeMode CONTAIN (letterboxes
+            // instead of cropping) and unconditional loop/mute/play.
+            // Deliberately bypasses FeedMedia here rather than reusing it -
+            // same judgment call the grid-tile variant already made (see its
+            // comment above) - FeedMedia's own video branch is hardcoded to a
+            // fixed 4:5 COVER box for its other consumers (FeedCard's
+            // general-purpose fallback, etc.), and changing that shared
+            // behavior would affect them too.
+            <View style={styles.wallpaperVideoBox}>
+              <Video
+                source={{ uri: currentMedia.mediaUrl }}
+                style={styles.wallpaperVideo}
+                resizeMode={ResizeMode.CONTAIN}
+                isLooping
+                shouldPlay
+                isMuted={true}
+                posterSource={currentMedia.thumbnailUrl ? { uri: currentMedia.thumbnailUrl } : undefined}
+              />
+            </View>
+          ) : (
+            <FeedMedia
+              media={feed.media.length > 1 ? [feed.media[currentMediaIndex]] : feed.media}
+              onMediaPress={handlePress}
+              autoPlay={false}
+              showControls={false}
+              showCenterPlayButton={false}
+              style={styles.wallpaperImage}
+            />
+          )}
         </TouchableOpacity>
 
         {/* Side Navigation Buttons for multiple images */}
@@ -252,29 +274,9 @@ export default function WallpaperFeedCard({
         )}
       </View>
 
-      {/* Content Section Below Image */}
+      {/* Content Section Below Image - title/description intentionally
+          removed, media + action buttons only. */}
       <View style={styles.contentContainer}>
-        {/* Title (if available) */}
-        {feed.title && (
-          <View style={styles.captionContainer}>
-            <Text style={styles.caption} numberOfLines={1}>
-              {feed.title[language] || feed.title.en || 'Beautiful Wallpaper'}
-            </Text>
-          </View>
-        )}
-
-        {/* Description (if available) - show multilingual content */}
-        {feed.description && (
-          <View style={styles.descriptionContainer}>
-            <Text style={styles.description} numberOfLines={2}>
-              {typeof feed.description === 'string'
-                ? feed.description
-                : feed.description?.[language] || feed.description?.en || 'Beautiful wallpaper'
-              }
-            </Text>
-          </View>
-        )}
-
         {/* Action Buttons */}
         <View style={styles.actionsContainer}>
           {/* Like Button */}
@@ -358,26 +360,19 @@ const styles = StyleSheet.create({
     height: 350,
     backgroundColor: '#F5E6D3',
   },
+  // Video-only box for this variant - see the video-vs-FeedMedia branch
+  // above. 9:16, matching the grid-tile variant's gridImageBox exactly.
+  wallpaperVideoBox: {
+    width: '100%',
+    aspectRatio: 9 / 16,
+    backgroundColor: '#F5E6D3',
+  },
+  wallpaperVideo: {
+    width: '100%',
+    height: '100%',
+  },
   contentContainer: {
     paddingHorizontal: 4,
-  },
-  captionContainer: {
-    marginBottom: 8,
-  },
-  caption: {
-    color: '#C41E3A',
-    fontSize: 16,
-    fontWeight: '600',
-    lineHeight: 20,
-  },
-  descriptionContainer: {
-    marginBottom: 12,
-  },
-  description: {
-    color: '#8B7355',
-    fontSize: 14,
-    fontWeight: '400',
-    lineHeight: 18,
   },
   actionsContainer: {
     flexDirection: 'row',
