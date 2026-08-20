@@ -12,6 +12,7 @@ import {
 import { Text } from '@/components/atoms';
 import FeedCard from '../FeedCard/FeedCard';
 import RingtoneFeedCard from '../RingtoneFeedCard/RingtoneFeedCard';
+import AudioContentCard from '../AudioContentCard/AudioContentCard';
 import AutoplayFeedCard from '../AutoplayFeedCard/AutoplayFeedCard';
 import { Feed, FeedFilters } from '@/types/feed';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
@@ -44,6 +45,60 @@ interface FeedListProps {
    * every other FeedList consumer is completely unaffected.
    */
   enableViewportAutoplay?: boolean;
+  /**
+   * When provided, aarti/bhajan feeds render via the real AudioContentCard
+   * (matching the Audio hub's own design) instead of FeedCard's generic
+   * fallback card — passed straight through as AudioContentCard's
+   * returnTo/returnParams override, with queue-seeding skipped (a single
+   * item tapped out of a mixed-type list isn't a meaningful playback queue —
+   * matches mantra's existing queue-less pattern). Opt-in and additive: when
+   * audioCardReturnTo is omitted, aarti/bhajan feeds render exactly as
+   * before via FeedCard's fallback, so every other FeedList consumer stays
+   * unaffected. See search-results.tsx, its only consumer today.
+   */
+  audioCardReturnTo?: string;
+  audioCardReturnParams?: Record<string, string>;
+  /**
+   * Opt-in uniform vertical gap (px) between items, overriding each card
+   * type's own differing marginBottom (RingtoneFeedCard/WallpaperFeedCard/
+   * AudioContentCard/MantraFeedCard/FeedCard's fallback all currently use
+   * different values) purely within this list's rendering - no card's own
+   * component/styles are touched, so its normal hub (Ringtones tab, Mantra
+   * Explorer, Audio hub, Wallpaper hub - none of which render through
+   * FeedList at all) is completely unaffected either way. See
+   * search-results.tsx, its only consumer today.
+   */
+  itemSpacing?: number;
+  /**
+   * Opt-in horizontal margin (px) applied around each item only - not
+   * ListHeaderComponent/ListFooterComponent, so a header with its own
+   * matching padding (e.g. search-results.tsx's) doesn't get double-padded.
+   */
+  itemHorizontalPadding?: number;
+}
+
+// Each card type's own self-provided marginBottom today, needed to compute
+// the exact cancelling offset for the itemSpacing override above. Coupled by
+// hand to each card component's real style value - if any of those change
+// their own marginBottom independently, this must be updated too, or the
+// override becomes off by the difference (same "must stay in lockstep, no
+// compiler check" trade-off already accepted elsewhere in this codebase,
+// e.g. mantras.tsx's MOOD_ITEM_WIDTH comment).
+function getCardOwnMarginBottom(feedType: Feed['type']): number {
+  switch (feedType) {
+    case 'ringtone':
+      return 16;
+    case 'wallpaper':
+      return 20;
+    case 'aarti':
+    case 'bhajan':
+      return 10;
+    case 'mantra':
+      return 16;
+    default:
+      // FeedCard's generic renderRegularCard fallback (general/thought).
+      return 20;
+  }
 }
 
 function FeedList({
@@ -68,6 +123,10 @@ function FeedList({
   ListHeaderComponent,
   contentContainerStyle,
   enableViewportAutoplay = false,
+  audioCardReturnTo,
+  audioCardReturnParams,
+  itemSpacing,
+  itemHorizontalPadding,
 }: FeedListProps, ref: React.Ref<FlatList>) {
 
   // --- Viewport autoplay election (Phase 1 — infra only, no card wiring yet) ---
@@ -179,8 +238,9 @@ function FeedList({
     }
 
     // Use RingtoneFeedCard for ringtone feeds, regular FeedCard for others
+    let cardElement: React.ReactElement;
     if (feed.type === 'ringtone') {
-      return (
+      cardElement = (
         <RingtoneFeedCard
           feed={feed}
           onLike={onLike}
@@ -188,19 +248,48 @@ function FeedList({
           onDownload={onDownload}
         />
       );
+    } else if ((feed.type === 'aarti' || feed.type === 'bhajan') && audioCardReturnTo) {
+      // Opt-in: use the real AudioContentCard (matching the Audio hub's own
+      // design) for aarti/bhajan feeds when a caller has supplied a return
+      // destination for it. See the audioCardReturnTo prop comment above.
+      cardElement = (
+        <AudioContentCard
+          feed={feed}
+          returnTo={audioCardReturnTo}
+          returnParams={audioCardReturnParams}
+        />
+      );
+    } else {
+      cardElement = (
+        <FeedCard
+          feed={feed}
+          onPress={onFeedPress}
+          onLike={onLike}
+          onShare={onShare}
+          onDownload={onDownload}
+          autoPlayVideo={autoPlayVideo && index === 0} // Auto-play only first video
+        />
+      );
     }
 
-    return (
-      <FeedCard
-        feed={feed}
-        onPress={onFeedPress}
-        onLike={onLike}
-        onShare={onShare}
-        onDownload={onDownload}
-        autoPlayVideo={autoPlayVideo && index === 0} // Auto-play only first video
-      />
-    );
-  }, [onFeedPress, onLike, onShare, onDownload, autoPlayVideo, enableViewportAutoplay, electedFeedId]);
+    if (itemSpacing === undefined && itemHorizontalPadding === undefined) {
+      return cardElement;
+    }
+
+    // Cancels out this specific card type's own marginBottom and replaces it
+    // with itemSpacing, so every item ends up with the exact same gap
+    // regardless of which card rendered - without touching any card's own
+    // component/styles.
+    const itemWrapperStyle: { marginBottom?: number; marginHorizontal?: number } = {};
+    if (itemSpacing !== undefined) {
+      itemWrapperStyle.marginBottom = itemSpacing - getCardOwnMarginBottom(feed.type);
+    }
+    if (itemHorizontalPadding !== undefined) {
+      itemWrapperStyle.marginHorizontal = itemHorizontalPadding;
+    }
+
+    return <View style={itemWrapperStyle}>{cardElement}</View>;
+  }, [onFeedPress, onLike, onShare, onDownload, autoPlayVideo, enableViewportAutoplay, electedFeedId, audioCardReturnTo, audioCardReturnParams, itemSpacing, itemHorizontalPadding]);
 
   const renderFooter = useCallback(() => {
     if (!hasMore) {

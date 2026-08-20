@@ -28,18 +28,31 @@ const resolveQueueItem = (feed: Feed, language: string): QueueItem => {
 
 interface AudioContentCardProps {
   feed: Feed;
-  // Which Audio hub sub-tab this card lives in - used only to tell
-  // audio-player.tsx's back button which sub-tab to return to (see
-  // CLAUDE.md's back-navigation notes). Not used for anything else here.
-  subTab: 'aarti' | 'bhajan';
+  // Which Audio hub sub-tab this card lives in - used only to build the
+  // DEFAULT returnParams below (when returnTo/returnParams aren't passed
+  // explicitly), so audio-player.tsx's back button returns to the right
+  // sub-tab. Optional since a caller that passes its own returnTo/
+  // returnParams (e.g. search-results.tsx) doesn't need this at all.
+  subTab?: 'aarti' | 'bhajan';
   // The full currently-loaded list this card belongs to, and this card's
   // position within it - used only to seed the playback queue on tap (see
   // playbackStore.ts's queue state). AartiTabContent/BhajanTabContent pass
   // their live `items`/index straight from FlatList's renderItem, so a tap
   // always queues whatever's actually loaded right now (post-refresh/
-  // pagination), never a stale snapshot from an earlier render.
-  queueItems: Feed[];
-  queueIndex: number;
+  // pagination), never a stale snapshot from an earlier render. Omitted
+  // entirely (not a synthetic 1-item array) by callers whose list isn't a
+  // real playback queue - e.g. search-results.tsx's mixed-type results -
+  // matching the same queue-less pattern mantra playback already uses.
+  queueItems?: Feed[];
+  queueIndex?: number;
+  // Override for the player's back-navigation target - when omitted,
+  // defaults to today's hardcoded Audio hub behavior (/(main)/ringtones +
+  // {subTab}), so AartiTabContent/BhajanTabContent are unaffected. Lets
+  // other callers (search-results.tsx) send back-navigation to themselves
+  // instead, carrying whatever state they need (e.g. the search query) via
+  // returnParams.
+  returnTo?: string;
+  returnParams?: Record<string, string>;
 }
 
 // Deliberately basic, unlike RingtoneFeedCard - functional first, no design
@@ -48,20 +61,28 @@ interface AudioContentCardProps {
 // survives backgrounding, shows in the MiniPlayer), so tapping this card
 // navigates into the shared audio-player.tsx screen rather than playing
 // in-list, matching how mantra cards already behave.
-export default function AudioContentCard({ feed, subTab, queueItems, queueIndex }: AudioContentCardProps) {
+export default function AudioContentCard({ feed, subTab, queueItems, queueIndex, returnTo, returnParams }: AudioContentCardProps) {
   const { language } = useI18nStore();
 
   const { title, audioUrl, thumbnailUrl } = resolveQueueItem(feed, language);
 
   const handlePress = useCallback(() => {
     // Seed the queue from the full list as it stands right now, before
-    // navigating - mantra entry points (mantras.tsx, index.tsx,
-    // search-results.tsx) deliberately never call this, so mantra playback
-    // stays queue-less (see playbackStore.ts's `queue` field comment).
-    usePlaybackStore.getState().setQueue(
-      queueItems.map((item) => resolveQueueItem(item, language)),
-      queueIndex
-    );
+    // navigating - only when the caller actually passed a real queue.
+    // Mantra entry points (mantras.tsx, index.tsx, search-results.tsx)
+    // deliberately never call this either, so mantra playback stays
+    // queue-less (see playbackStore.ts's `queue` field comment); this
+    // component now follows the same rule when it's used somewhere the
+    // list isn't a meaningful playback queue.
+    if (queueItems && queueIndex !== undefined) {
+      usePlaybackStore.getState().setQueue(
+        queueItems.map((item) => resolveQueueItem(item, language)),
+        queueIndex
+      );
+    }
+
+    const effectiveReturnTo = returnTo ?? '/(main)/ringtones';
+    const effectiveReturnParams = returnParams ?? (subTab ? { subTab } : undefined);
 
     router.push({
       pathname: '/(main)/audio-player',
@@ -74,11 +95,11 @@ export default function AudioContentCard({ feed, subTab, queueItems, queueIndex 
         // See audio-player.tsx's back-button handling: without these, back
         // falls through to router.back(), which is the known bug (always
         // lands on Home regardless of where the user actually came from).
-        returnTo: '/(main)/ringtones',
-        returnParams: JSON.stringify({ subTab }),
+        returnTo: effectiveReturnTo,
+        ...(effectiveReturnParams ? { returnParams: JSON.stringify(effectiveReturnParams) } : {}),
       },
     });
-  }, [feed.id, title, audioUrl, thumbnailUrl, subTab, queueItems, queueIndex, language]);
+  }, [feed.id, title, audioUrl, thumbnailUrl, subTab, queueItems, queueIndex, language, returnTo, returnParams]);
 
   return (
     <TouchableOpacity style={styles.card} onPress={handlePress} activeOpacity={0.8}>
