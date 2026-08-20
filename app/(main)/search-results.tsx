@@ -100,6 +100,13 @@ export default function SearchResultsScreen() {
           // back falls through to router.back(), the known always-lands-
           // on-Home bug, instead of back onto Search Results.
           returnTo: '/(main)/search-results',
+          // Without this, handleBack's router.replace(returnTo) carries no
+          // params at all, landing on a fresh Search Results with an empty
+          // query ("Results for ''") and a completely different feed list
+          // instead of the one the user was actually viewing - found via
+          // real on-device testing. JSON-stringified to match
+          // audio-player.tsx's own JSON.parse(params.returnParams) handling.
+          returnParams: JSON.stringify({ query: query || '' }),
         }
       });
       return;
@@ -157,6 +164,23 @@ export default function SearchResultsScreen() {
         onRetry={retry}
         autoPlayVideo={true}
         ListHeaderComponent={renderHeader}
+        // Renders aarti/bhajan results via the real AudioContentCard,
+        // matching the Audio hub's own design, instead of the generic
+        // fallback card - queue-seeding is skipped (see AudioContentCard),
+        // and its own back-navigation is sent here with the current search
+        // query, matching the returnTo/returnParams fix already applied to
+        // handleFeedPress above for mantra/general audio taps.
+        audioCardReturnTo="/(main)/search-results"
+        audioCardReturnParams={{ query: query || '' }}
+        // 24px (spacing.lg) horizontal margin around each result card,
+        // matching the header's own paddingHorizontal above; applied only to
+        // items (not the header itself, which already has its own matching
+        // padding - see FeedList's itemHorizontalPadding prop comment).
+        // 16px uniform vertical gap between cards regardless of type - see
+        // FeedList's itemSpacing prop comment for how this overrides each
+        // card's own differing marginBottom.
+        itemHorizontalPadding={goldenTempleTheme.spacing.lg}
+        itemSpacing={16}
         contentContainerStyle={{
           paddingBottom: contentPadding
         }}
@@ -198,6 +222,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderBottomWidth: 1,
     borderColor: goldenTempleTheme.colors.border,
+    marginBottom: goldenTempleTheme.spacing.md,
   },
   searchResultsText: {
     fontSize: 16,
