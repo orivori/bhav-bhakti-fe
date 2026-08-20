@@ -4,7 +4,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  Image,
   FlatList,
   RefreshControl,
   Dimensions,
@@ -21,13 +20,13 @@ import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { useMantraFeed } from '@/features/feed/hooks/useMantraFeed';
 import { useDeities } from '@/features/feed/hooks/useDeities';
 import DeityFilterRow, { DeityFilterSelection } from '@/components/molecules/DeityFilterRow';
+import MantraFeedCard from '@/components/molecules/MantraFeedCard/MantraFeedCard';
 import { useTranslation } from 'react-i18next';
 import { useI18nStore } from '@/shared/stores/i18nStore';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
 import { useScrollToTopOnTabPress } from '@/hooks/useScrollToTopOnTabPress';
 import { MOOD_OPTIONS, MoodOption } from '@/data/moodData';
 import { feedService } from '@/features/feed/services/feedService';
-import { usePlaybackStore } from '@/store/playbackStore';
 import type { Feed } from '@/types/feed';
 
 // Mirrors horoscope.tsx's zodiac grid width calculation approach - 2 columns
@@ -80,17 +79,6 @@ export default function MantrasScreen() {
 
   const { data: deities = [] } = useDeities();
 
-  // "Currently playing" card indicator - two narrow, read-only selectors,
-  // subscribed once here (not inside renderMantraCard, which would violate
-  // the Rules of Hooks since it runs once per row) and passed down as plain
-  // data. Deliberately never touches any write/control path on the store -
-  // pure display comparison against the persistent slot's already-existing
-  // state. Selecting these two primitives individually (not the whole
-  // `persistent` object) means this only re-renders when the feedId or
-  // playing state actually changes, not on every position/progress tick.
-  const nowPlayingFeedId = usePlaybackStore((s) => s.persistent?.nowPlaying.feedId);
-  const nowPlayingIsPlaying = usePlaybackStore((s) => s.persistent?.nowPlaying.isPlaying);
-
   const {
     feeds: mantras,
     isLoading,
@@ -123,8 +111,7 @@ export default function MantrasScreen() {
     });
   }, [viewFeed]);
 
-  const handleLikePress = useCallback((mantraId: string, event: any) => {
-    event?.stopPropagation();
+  const handleLikePress = useCallback((mantraId: string) => {
     likeFeed(mantraId);
   }, [likeFeed]);
 
@@ -183,67 +170,14 @@ export default function MantrasScreen() {
     }
   }, [loadingMoodId, language, viewFeed]);
 
-  const renderMantraCard = useCallback(({ item: mantra }: { item: Feed }) => {
-    // Currently-playing tap distinction (CLAUDE.md §56 Phase 4c): navigating
-    // to an already-loaded feedId is already a safe no-op restart-wise, per
-    // audio-player.tsx's own loadedFeedIdRef gate - nothing extra needed
-    // here for that, this comparison is purely for the visual indicator.
-    const isCurrentlyPlaying = nowPlayingFeedId === mantra.id.toString() && !!nowPlayingIsPlaying;
-    const mood = mantra.label ? MOOD_OPTIONS.find((m) => m.label === mantra.label) : undefined;
-
-    return (
-      <TouchableOpacity
-        style={[styles.mantraCard, isCurrentlyPlaying && styles.mantraCardPlaying]}
-        onPress={() => handleMantraPress(mantra)}
-        activeOpacity={0.8}
-      >
-        <Image
-          source={{
-            uri: mantra.media?.[0]?.thumbnailUrl || mantra.media?.[0]?.mediaUrl || 'https://via.placeholder.com/80x80'
-          }}
-          style={styles.mantraImage}
-          resizeMode="cover"
-        />
-
-        <View style={styles.mantraContent}>
-          <Text variant="body" weight="semibold" style={styles.mantraTitle} numberOfLines={2}>
-            {mantra.title ? (mantra.title[language] || mantra.title.en || 'Untitled Mantra') : 'Untitled Mantra'}
-          </Text>
-          {/* Renders only when the mantra actually has a label - no empty/
-              placeholder pill for untagged content (CLAUDE.md §56 Phase 4c
-              investigation: most real content will be untagged for a while
-              yet, an empty pill on every card would just be noise). */}
-          {mood && (
-            <View style={[styles.labelPill, { backgroundColor: mood.gradientColors[0] }]}>
-              <Text variant="caption" weight="semibold" style={styles.labelPillText}>
-                {mood.name[language as 'en' | 'hi'] || mood.name.en}
-              </Text>
-            </View>
-          )}
-        </View>
-
-        <TouchableOpacity
-          style={styles.playButton}
-          onPress={() => handleMantraPress(mantra)}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="play" size={20} color="#ffffff" />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.likeButton, mantra.isLiked && styles.likeButtonActive]}
-          onPress={(e) => handleLikePress(mantra.id.toString(), e)}
-          activeOpacity={0.7}
-        >
-          <Ionicons
-            name={mantra.isLiked ? "heart" : "heart-outline"}
-            size={18}
-            color={mantra.isLiked ? "#e91e63" : goldenTempleTheme.colors.text.secondary}
-          />
-        </TouchableOpacity>
-      </TouchableOpacity>
-    );
-  }, [handleMantraPress, handleLikePress, language, nowPlayingFeedId, nowPlayingIsPlaying]);
+  // CLAUDE.md §16/§56: this now renders the single, real MantraFeedCard
+  // (extracted from this screen's own former inline design) instead of a
+  // second, screen-local copy - the exact same component Home/Search Results
+  // render for mantra feeds via FeedCard.tsx, closing the long-flagged
+  // fragmentation between this screen's card and theirs.
+  const renderMantraCard = useCallback(({ item: mantra }: { item: Feed }) => (
+    <MantraFeedCard feed={mantra} onPress={handleMantraPress} onLike={handleLikePress} />
+  ), [handleMantraPress, handleLikePress]);
 
   const renderMoodCard = useCallback(({ item: mood }: { item: MoodOption }) => {
     const isThisMoodLoading = loadingMoodId === mood.id;
@@ -410,7 +344,6 @@ export default function MantrasScreen() {
               renderItem={renderMantraCard}
               keyExtractor={(item) => item.id.toString()}
               scrollEnabled={false}
-              contentContainerStyle={styles.mantrasContainer}
               onEndReached={loadMore}
               onEndReachedThreshold={0.5}
               ListFooterComponent={() =>
@@ -539,98 +472,6 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.9)',
     fontSize: 14,
     lineHeight: 20,
-  },
-  mantrasContainer: {
-    gap: goldenTempleTheme.spacing.md,
-  },
-  mantraCard: {
-    backgroundColor: goldenTempleTheme.colors.backgrounds.card,
-    borderRadius: 16,
-    padding: goldenTempleTheme.spacing.lg,
-    flexDirection: 'row',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-    borderWidth: 0.5,
-    borderColor: 'rgba(212, 175, 55, 0.1)',
-  },
-  // "Currently playing" indicator (CLAUDE.md §56 Phase 4c) - border + tint
-  // only, deliberately no glyph/marquee per this project's own animation-
-  // performance history in scrolling lists (§26).
-  mantraCardPlaying: {
-    borderWidth: 1.5,
-    borderColor: goldenTempleTheme.colors.primary.DEFAULT,
-    backgroundColor: 'rgba(255, 107, 0, 0.06)',
-  },
-  mantraImage: {
-    width: 64,
-    height: 64,
-    borderRadius: 12,
-    backgroundColor: goldenTempleTheme.colors.muted.DEFAULT,
-  },
-  mantraContent: {
-    flex: 1,
-    marginLeft: goldenTempleTheme.spacing.md,
-    marginRight: goldenTempleTheme.spacing.sm,
-  },
-  mantraTitle: {
-    color: goldenTempleTheme.colors.text.primary,
-    marginBottom: goldenTempleTheme.spacing.xs / 2,
-  },
-  // Label/mood pill (CLAUDE.md §56 Phase 4c) - reuses moodData.ts's existing
-  // per-mood color mapping rather than a separate color scheme, so a
-  // mantra's pill visually matches the mood-pill grid above it.
-  labelPill: {
-    alignSelf: 'flex-start',
-    borderRadius: goldenTempleTheme.borderRadius.full,
-    paddingHorizontal: goldenTempleTheme.spacing.sm,
-    paddingVertical: 2,
-    marginTop: 2,
-  },
-  labelPillText: {
-    color: '#ffffff',
-    fontSize: 11,
-  },
-  playButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: goldenTempleTheme.colors.primary.DEFAULT,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: goldenTempleTheme.spacing.md,
-    shadowColor: goldenTempleTheme.colors.primary.DEFAULT,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  likeButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: goldenTempleTheme.colors.backgrounds.card,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: goldenTempleTheme.colors.primary[200],
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  likeButtonActive: {
-    backgroundColor: 'rgba(233, 30, 99, 0.1)',
-    borderColor: '#e91e63',
-    shadowColor: '#e91e63',
-    shadowOpacity: 0.2,
   },
   loadingContainer: {
     alignItems: 'center',
