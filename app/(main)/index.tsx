@@ -61,9 +61,9 @@ const IsolatedSearchBar = ({ onSearchSubmit }: {
         autoCorrect={false}
         selectionColor="#D4824A"
       />
-      <TouchableOpacity style={styles.micButton}>
+      <TouchableOpacity style={styles.searchSubmitButton} onPress={handleSubmit}>
         <Ionicons
-          name="mic"
+          name="search"
           size={18}
           color="#D4824A"
         />
@@ -495,7 +495,7 @@ const styles = StyleSheet.create({
     margin: 0,
     height: 20,
   },
-  micButton: {
+  searchSubmitButton: {
     marginLeft: 8,
     padding: 2,
   },
