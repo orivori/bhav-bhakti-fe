@@ -1,8 +1,12 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { View, StyleSheet, TouchableOpacity, FlatList } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
+import { useTranslation } from 'react-i18next';
 import { Text } from '@/components/atoms';
+import SearchBar from '@/components/molecules/SearchBar';
 import RingtonesTabContent from '@/components/molecules/RingtonesTabContent';
 import AartiTabContent from '@/components/molecules/AartiTabContent';
 import BhajanTabContent from '@/components/molecules/BhajanTabContent';
@@ -26,10 +30,13 @@ type SubTab = 'ringtones' | 'aarti' | 'bhajan';
 // forget to update. TypeScript requires the field on every entry, so adding a
 // sub-tab (e.g. a future "Thought for the Day") without deciding this value
 // is a compile error, not a silent default.
-const SUB_TABS: { key: SubTab; label: string; showDeityFilter: boolean }[] = [
-  { key: 'ringtones', label: 'Ringtones', showDeityFilter: true },
-  { key: 'aarti', label: 'Aartis', showDeityFilter: true },
-  { key: 'bhajan', label: 'Bhajans', showDeityFilter: true },
+// labelKey points at the new `audio.*` i18n keys added for this hub's first
+// ever i18n wiring - this screen previously had zero translation (every
+// string hardcoded English), unlike Mantra Explorer.
+const SUB_TABS: { key: SubTab; labelKey: string; showDeityFilter: boolean }[] = [
+  { key: 'ringtones', labelKey: 'audio.ringtones', showDeityFilter: true },
+  { key: 'aarti', labelKey: 'audio.aarti', showDeityFilter: true },
+  { key: 'bhajan', labelKey: 'audio.bhajan', showDeityFilter: true },
 ];
 
 function isSubTab(value: unknown): value is SubTab {
@@ -37,9 +44,42 @@ function isSubTab(value: unknown): value is SubTab {
 }
 
 export default function AudioHubScreen() {
+  const { t } = useTranslation();
   const params = useLocalSearchParams<{ subTab?: string }>();
   const [activeSubTab, setActiveSubTab] = useState<SubTab>('ringtones');
   const activeTabConfig = SUB_TABS.find((tab) => tab.key === activeSubTab)!;
+
+  // Same pattern as Mantra Explorer's own back button (CLAUDE.md §56 Phase 1):
+  // this hub is reachable both via tab-bar switch (no back-history) and via
+  // real router.push (from Home/choose-start.tsx/AutoplayFeedCard, real
+  // back-history) - rather than depend on the Tabs navigator's implicit
+  // back-history, always navigate straight to Home.
+  const handleBackToHome = useCallback(() => {
+    router.replace('/(main)' as any);
+  }, []);
+
+  // Deliberately NOT restricted to activeSubTab - searches across all three
+  // of ringtone/aarti/bhajan together regardless of which sub-tab is
+  // showing, per product decision. feed.validator.js/feed.service.js were
+  // widened to accept a comma-separated `type` list (Op.in server-side)
+  // specifically to support this.
+  const handleSearchSubmit = useCallback((query: string) => {
+    if (query.trim()) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      router.push({
+        pathname: '/(main)/search-results',
+        params: {
+          query: query.trim(),
+          type: 'ringtone,aarti,bhajan',
+          // Matches the established returnTo pattern (audio-player.tsx,
+          // Mantra Explorer) - route name is kept as 'ringtones' even
+          // though it's labeled "Audio", see the note at the top of this
+          // file.
+          returnTo: '/(main)/ringtones',
+        },
+      });
+    }
+  }, []);
 
   // Hub-level, deliberately shared across all sub-tabs (not re-declared inside
   // RingtonesTabContent/AartiTabContent/BhajanTabContent) - selecting Ganesha
@@ -90,22 +130,22 @@ export default function AudioHubScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Search header - replaces the former "Audio" title entirely, same
+          back-chevron + search bar pattern as Mantra Explorer's header. */}
       <View style={styles.header}>
-        <Text variant="h3" style={styles.headerTitle}>
-          Audio
-        </Text>
-      </View>
-
-      {/* Visibility is declared per sub-tab (see SUB_TABS above), not hardcoded
-          here - a future sub-tab that opts out (e.g. "Thought for the Day")
-          just sets showDeityFilter: false on its own registration entry. */}
-      {activeTabConfig.showDeityFilter && (
-        <DeityFilterRow
-          deities={deities}
-          selected={selectedFilter}
-          onSelect={setSelectedFilter}
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={handleBackToHome}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Ionicons name="chevron-back" size={26} color={goldenTempleTheme.colors.text.primary} />
+        </TouchableOpacity>
+        <SearchBar
+          placeholder={t('audio.searchPlaceholder')}
+          onSearchSubmit={handleSearchSubmit}
+          containerStyle={styles.headerSearchBar}
         />
-      )}
+      </View>
 
       <View style={styles.subTabRow}>
         {SUB_TABS.map((tab) => (
@@ -118,11 +158,22 @@ export default function AudioHubScreen() {
             <Text
               style={[styles.subTabLabel, activeSubTab === tab.key && styles.subTabLabelActive]}
             >
-              {tab.label}
+              {t(tab.labelKey)}
             </Text>
           </TouchableOpacity>
         ))}
       </View>
+
+      {/* Visibility is declared per sub-tab (see SUB_TABS above), not hardcoded
+          here - a future sub-tab that opts out (e.g. "Thought for the Day")
+          just sets showDeityFilter: false on its own registration entry. */}
+      {activeTabConfig.showDeityFilter && (
+        <DeityFilterRow
+          deities={deities}
+          selected={selectedFilter}
+          onSelect={setSelectedFilter}
+        />
+      )}
 
       <View style={styles.content}>
         {activeSubTab === 'ringtones' && <RingtonesTabContent ref={activeListRef} filter={selectedFilter} />}
@@ -138,40 +189,54 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: goldenTempleTheme.colors.background,
   },
+  // White background + shadow removed entirely (was visually a separate
+  // card sitting on top of the page) - now blends directly into the page's
+  // own background, matching Mantra Explorer's header exactly. SearchBar's
+  // own visual style (the cream input pill) is untouched - this only
+  // affects the header row's own container.
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    paddingHorizontal: goldenTempleTheme.spacing.lg,
+    paddingVertical: goldenTempleTheme.spacing.md,
+    backgroundColor: goldenTempleTheme.colors.background,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0, 0, 0, 0.1)',
   },
-  headerTitle: {
-    fontWeight: '700',
-    color: '#1A1A1A',
-    letterSpacing: -0.5,
+  backButton: {
+    marginRight: goldenTempleTheme.spacing.sm,
   },
+  // Overrides SearchBar's own default marginHorizontal:spacing.lg gutter -
+  // this header row already provides that edge spacing via its own
+  // paddingHorizontal above, and the bar needs flex:1 to fill the
+  // remaining width beside the back button.
+  headerSearchBar: {
+    flex: 1,
+    marginHorizontal: 0,
+  },
+  // Same white-background/shadow removal as the header above.
   subTabRow: {
     flexDirection: 'row',
     gap: 8,
-    paddingHorizontal: 16,
+    paddingHorizontal: goldenTempleTheme.spacing.lg,
     paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: goldenTempleTheme.colors.background,
   },
+  // Matches SearchBar's own background fill (its searchContainer style) -
+  // was a near-white '#F8F9FA' before, now the same cream tone as the
+  // search bar directly above it.
   subTabButton: {
     flex: 1,
     paddingVertical: 10,
     borderRadius: 20,
     alignItems: 'center',
-    backgroundColor: '#F8F9FA',
+    backgroundColor: '#f7ebc4',
   },
+  // Was templeRed (#C41E3A) - switched to the app's established primary
+  // action color (the same token behind "Send Verification Code" and other
+  // primary buttons, via Button.tsx's default 'primary' variant).
   subTabButtonActive: {
-    backgroundColor: '#C41E3A',
+    backgroundColor: goldenTempleTheme.colors.primary.DEFAULT,
   },
   subTabLabel: {
     fontSize: 14,

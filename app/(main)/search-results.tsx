@@ -12,7 +12,7 @@ import * as Haptics from 'expo-haptics';
 import { Text } from '@/components/atoms';
 import FeedList from '@/components/molecules/FeedList';
 import { useFeed } from '@/features/feed/hooks';
-import { Feed } from '@/types/feed';
+import { Feed, FeedFilters } from '@/types/feed';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { useTranslation } from 'react-i18next';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
@@ -20,7 +20,28 @@ import { useTabBarHeight } from '@/hooks/useTabBarHeight';
 export default function SearchResultsScreen() {
   const { contentPadding } = useTabBarHeight();
   const { t } = useTranslation();
-  const { query } = useLocalSearchParams<{ query: string }>();
+  // `type` is optional - present when a caller (e.g. Mantra Explorer's own
+  // search bar) wants results restricted to one content type; absent for
+  // Home's unscoped search. feed.service.js already AND-combines `type`
+  // with `search` server-side, so no backend change was needed for this.
+  //
+  // `returnTo`/`returnParams` mirror the exact pattern audio-player.tsx
+  // already uses for its own back button: this screen previously called a
+  // bare router.back(), which "worked" only by accident from Home (Home is
+  // also the Tabs navigator's implicit fallback target when there's no real
+  // back-history - e.g. this screen was reached from a tab-bar switch, not
+  // a push). That accident broke the moment a second caller (Mantra
+  // Explorer) needed a different return target - confirmed via real
+  // on-device testing. Every real entry point now explicitly passes where
+  // "back" should go, same as audio-player.tsx; router.back() is kept as
+  // the fallback for any caller that doesn't pass returnTo, so this is
+  // purely additive.
+  const { query, type, returnTo, returnParams } = useLocalSearchParams<{
+    query: string;
+    type?: string;
+    returnTo?: string;
+    returnParams?: string;
+  }>();
 
   // Initialize feed data with search query
   const {
@@ -40,12 +61,27 @@ export default function SearchResultsScreen() {
   } = useFeed({
     filters: {
       search: query?.trim() || undefined,
+      type: (type as FeedFilters['type']) || undefined,
     },
     limit: 10,
   });
 
   const handleBackPress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    if (returnTo) {
+      let parsedReturnParams: Record<string, string> | undefined;
+      if (returnParams) {
+        try {
+          parsedReturnParams = JSON.parse(returnParams);
+        } catch (error) {
+          console.error('Failed to parse returnParams, navigating without them:', error);
+        }
+      }
+      router.replace({ pathname: returnTo as any, params: parsedReturnParams });
+      return;
+    }
+
     router.back();
   };
 
@@ -106,7 +142,10 @@ export default function SearchResultsScreen() {
           // instead of the one the user was actually viewing - found via
           // real on-device testing. JSON-stringified to match
           // audio-player.tsx's own JSON.parse(params.returnParams) handling.
-          returnParams: JSON.stringify({ query: query || '' }),
+          // `type` is included the same way - otherwise backing out of a
+          // type-scoped search (e.g. from Mantra Explorer) would drop the
+          // restriction and land on an unscoped results list instead.
+          returnParams: JSON.stringify({ query: query || '', ...(type ? { type } : {}) }),
         }
       });
       return;
@@ -171,7 +210,7 @@ export default function SearchResultsScreen() {
         // query, matching the returnTo/returnParams fix already applied to
         // handleFeedPress above for mantra/general audio taps.
         audioCardReturnTo="/(main)/search-results"
-        audioCardReturnParams={{ query: query || '' }}
+        audioCardReturnParams={{ query: query || '', ...(type ? { type } : {}) }}
         // 24px (spacing.lg) horizontal margin around each result card,
         // matching the header's own paddingHorizontal above; applied only to
         // items (not the header itself, which already has its own matching

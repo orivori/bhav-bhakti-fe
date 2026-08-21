@@ -1,7 +1,7 @@
 import React from 'react';
 import { useInfiniteQuery, useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { feedService } from '../services/feedService';
-import { FeedQueryParams, Feed, FeedFilters } from '@/types/feed';
+import { FeedQueryParams, Feed, FeedFilters, FeedType } from '@/types/feed';
 import { useFeedStore } from '@/store/feedStore';
 
 interface UseFeedOptions {
@@ -238,7 +238,11 @@ export function useFeed(options: UseFeedOptions = {}) {
 }
 
 // Hook for trending feeds
-export function useTrendingFeeds(options: { limit?: number; days?: number; enabled?: boolean; type?: FeedFilters['type'] } = {}) {
+// `type` deliberately stays a single FeedType here, not FeedFilters['type']'s
+// wider (FeedType | FeedType[]) - GET /feed/trending's own validator/service
+// were never extended for multi-type (only GET /feed was, for the Audio
+// hub's own search bar), so this hook's shape shouldn't imply otherwise.
+export function useTrendingFeeds(options: { limit?: number; days?: number; enabled?: boolean; type?: FeedType } = {}) {
   const { limit = 20, days = 7, enabled = true, type } = options;
 
   return useInfiniteQuery({

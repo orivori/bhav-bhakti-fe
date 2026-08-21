@@ -7,3 +7,4 @@ export { default as FeedCard } from './FeedCard/FeedCard';
 export { default as MantraCard } from './MantraCard/MantraCard';
 export { default as FeedList } from './FeedList/FeedList';
 export { LanguageToggle } from './LanguageToggle';
+export { default as SearchBar } from './SearchBar';

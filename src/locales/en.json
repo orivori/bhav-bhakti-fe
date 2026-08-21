@@ -123,7 +123,14 @@
     "noMantrasFound": "No mantras found",
     "tryDifferentCategory": "Try a different category",
     "sacredCollection": "Sacred mantras collection from various deities",
-    "all": "All"
+    "all": "All",
+    "searchPlaceholder": "Search for mantra"
+  },
+  "audio": {
+    "ringtones": "Ringtones",
+    "aarti": "Aartis",
+    "bhajan": "Bhajans",
+    "searchPlaceholder": "Search for aartis, bhajan, or ringtones"
   },
   "profile": {
     "title": "Profile",

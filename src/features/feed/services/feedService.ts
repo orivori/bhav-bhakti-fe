@@ -32,7 +32,9 @@ class FeedService {
     if (params.offset) queryParams.append('offset', params.offset.toString());
 
     // Add filter params
-    if (params.type) queryParams.append('type', params.type);
+    if (params.type) {
+      queryParams.append('type', Array.isArray(params.type) ? params.type.join(',') : params.type);
+    }
     if (params.categoryId) {
       queryParams.append('categoryId', params.categoryId.toString());
     }

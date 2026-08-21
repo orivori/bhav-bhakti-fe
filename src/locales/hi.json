@@ -123,7 +123,14 @@
     "noMantrasFound": "कोई मंत्र नहीं मिला",
     "tryDifferentCategory": "विभिन्न श्रेणी का प्रयास करें",
     "sacredCollection": "विभिन्न देवी-देवताओं के पवित्र मंत्रों का संग्रह",
-    "all": "सभी"
+    "all": "सभी",
+    "searchPlaceholder": "मंत्र खोजें"
+  },
+  "audio": {
+    "ringtones": "रिंगटोन",
+    "aarti": "आरती",
+    "bhajan": "भजन",
+    "searchPlaceholder": "आरती, भजन या रिंगटोन खोजें"
   },
   "profile": {
     "title": "प्रोफ़ाइल",

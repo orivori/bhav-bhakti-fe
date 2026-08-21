@@ -131,8 +131,15 @@ export interface CreateFeedRequest {
   tags?: string[];
 }
 
+export type FeedType = 'general' | 'mantra' | 'ringtone' | 'wallpaper' | 'aarti' | 'bhajan' | 'thought';
+
 export interface FeedFilters {
-  type?: 'general' | 'mantra' | 'ringtone' | 'wallpaper' | 'aarti' | 'bhajan' | 'thought';
+  // Accepts a list (e.g. the Audio hub's own search bar searching across
+  // ringtone+aarti+bhajan at once) alongside the existing single-value case -
+  // feedService.getFeeds() joins an array with commas, matching the same
+  // convention `tags` already used; feed.service.js on the backend already
+  // AND-combines this with `search` either way.
+  type?: FeedType | FeedType[];
   categoryId?: number;
   deityId?: number;
   // 'none' is a sentinel meaning "must have no occasion set" (IS NULL server-side) -

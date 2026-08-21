@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
 
 import { Text } from '@/components/atoms';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
@@ -21,6 +22,7 @@ import { useMantraFeed } from '@/features/feed/hooks/useMantraFeed';
 import { useDeities } from '@/features/feed/hooks/useDeities';
 import DeityFilterRow, { DeityFilterSelection } from '@/components/molecules/DeityFilterRow';
 import MantraFeedCard from '@/components/molecules/MantraFeedCard/MantraFeedCard';
+import SearchBar from '@/components/molecules/SearchBar';
 import { useTranslation } from 'react-i18next';
 import { useI18nStore } from '@/shared/stores/i18nStore';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
@@ -98,6 +100,30 @@ export default function MantrasScreen() {
   // navigator's back-stack, navigate straight to Home explicitly.
   const handleBackToHome = useCallback(() => {
     router.replace('/(main)' as any);
+  }, []);
+
+  // Mirrors Home's own handleSearchSubmit exactly, restricted to
+  // type=mantra so results only ever contain mantra content - see CLAUDE.md
+  // investigation on search reuse. feed.service.js already AND-combines
+  // `type` with `search` server-side, so no backend change was needed.
+  const handleSearchSubmit = useCallback((query: string) => {
+    if (query.trim()) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      router.push({
+        pathname: '/(main)/search-results',
+        params: {
+          query: query.trim(),
+          type: 'mantra',
+          // Real bug found via testing: search-results.tsx's own back
+          // button previously relied on router.back()'s implicit history,
+          // which lands on Home when Mantra Explorer was reached via a
+          // tab-bar switch (no real back-history entry). Explicit now,
+          // matching the same returnTo pattern already used for
+          // audio-player.tsx and mirrored on Home's own search submit.
+          returnTo: '/(main)/mantras',
+        },
+      });
+    }
   }, []);
 
   const handleMantraPress = useCallback((mantra: Feed) => {
@@ -206,19 +232,34 @@ export default function MantrasScreen() {
     );
   }, [language, loadingMoodId, handleMoodPress]);
 
+  // Shared by both the error branch and the main render below, so the two
+  // never drift the way this screen's old two-copy header briefly did -
+  // replaces the former stacked "back row + title row" with a single row:
+  // an icon-only back-chevron (matching audio-player.tsx's icon-only
+  // precedent, §57) beside the search bar, since a text label would eat
+  // into the search bar's width. Title is intentionally gone entirely -
+  // the search bar replaces it, per the redesign.
+  const renderHeader = () => (
+    <View style={styles.header}>
+      <TouchableOpacity
+        style={styles.backButton}
+        onPress={handleBackToHome}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+      >
+        <Ionicons name="chevron-back" size={26} color={goldenTempleTheme.colors.text.primary} />
+      </TouchableOpacity>
+      <SearchBar
+        placeholder={t('mantras.searchPlaceholder')}
+        onSearchSubmit={handleSearchSubmit}
+        containerStyle={styles.headerSearchBar}
+      />
+    </View>
+  );
+
   if (error) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButtonRow}
-            onPress={handleBackToHome}
-          >
-            <Ionicons name="arrow-back" size={20} color={goldenTempleTheme.colors.text.primary} />
-            <Text style={styles.backText}>Back</Text>
-          </TouchableOpacity>
-          <Text style={styles.mainTitle}>Mantra Explorer</Text>
-        </View>
+        {renderHeader()}
         <View style={styles.errorContainer}>
           <Ionicons name="alert-circle" size={48} color={goldenTempleTheme.colors.secondary.DEFAULT} />
           <Text variant="body" style={styles.errorText}>{t('common.error')}</Text>
@@ -232,17 +273,7 @@ export default function MantrasScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButtonRow}
-          onPress={handleBackToHome}
-        >
-          <Ionicons name="arrow-back" size={20} color={goldenTempleTheme.colors.text.primary} />
-          <Text style={styles.backText}>Back</Text>
-        </TouchableOpacity>
-        <Text style={styles.mainTitle}>Mantra Explorer</Text>
-      </View>
+      {renderHeader()}
 
       <ScrollView
         ref={scrollViewRef}
@@ -379,26 +410,24 @@ const styles = StyleSheet.create({
     backgroundColor: goldenTempleTheme.colors.background,
   },
   header: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: goldenTempleTheme.spacing.lg,
     paddingVertical: goldenTempleTheme.spacing.md,
     backgroundColor: goldenTempleTheme.colors.background,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(0, 0, 0, 0.1)',
   },
-  backButtonRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: goldenTempleTheme.spacing.sm,
+  backButton: {
+    marginRight: goldenTempleTheme.spacing.sm,
   },
-  backText: {
-    marginLeft: goldenTempleTheme.spacing.xs,
-    color: goldenTempleTheme.colors.text.primary,
-    fontSize: 16,
-  },
-  mainTitle: {
-    color: goldenTempleTheme.colors.text.primary,
-    fontSize: 20,
-    fontWeight: '600',
+  // Overrides SearchBar's own default marginHorizontal:spacing.lg gutter -
+  // this header row already provides that edge spacing via its own
+  // paddingHorizontal above, and the bar needs flex:1 to fill the
+  // remaining width beside the back button.
+  headerSearchBar: {
+    flex: 1,
+    marginHorizontal: 0,
   },
   scrollView: {
     flex: 1,

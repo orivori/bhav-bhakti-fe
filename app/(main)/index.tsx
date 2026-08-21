@@ -5,7 +5,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   ImageBackground,
-  TextInput,
   Pressable,
   FlatList,
 } from 'react-native';
@@ -18,6 +17,7 @@ import FeedList from '@/components/molecules/FeedList';
 import BirthdateModal from '@/components/molecules/BirthdateModal/BirthdateModal';
 import QuickLinkCard, { QUICK_LINK_CATEGORIES, QuickLinkCategory } from '@/components/molecules/QuickLinkCard';
 import { LanguageToggle } from '@/components/molecules/LanguageToggle';
+import SearchBar from '@/components/molecules/SearchBar';
 import { useFeed } from '@/features/feed/hooks';
 import { Feed } from '@/types/feed';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
@@ -28,49 +28,6 @@ import { useScrollToTopOnTabPress } from '@/hooks/useScrollToTopOnTabPress';
 import * as Haptics from 'expo-haptics';
 import { profileService } from '@/features/profile/services/profileService';
 import type { ZodiacSign } from '@/types/horoscope';
-
-
-// Isolated Search Component to prevent keyboard disappearing
-const IsolatedSearchBar = ({ onSearchSubmit }: {
-  onSearchSubmit: (query: string) => void;
-}) => {
-  const { t } = useTranslation();
-  const [localSearchText, setLocalSearchText] = React.useState('');
-
-  const handleSubmit = () => {
-    onSearchSubmit(localSearchText.trim());
-  };
-
-  return (
-    <View style={styles.searchContainer}>
-      <Ionicons
-        name="search-outline"
-        size={20}
-        color="#333333"
-        style={styles.searchIcon}
-      />
-      <TextInput
-        style={styles.searchInput}
-        placeholder={t('home.searchPlaceholder')}
-        placeholderTextColor="#8B7355"
-        value={localSearchText}
-        onChangeText={setLocalSearchText}
-        returnKeyType="search"
-        onSubmitEditing={handleSubmit}
-        autoCapitalize="none"
-        autoCorrect={false}
-        selectionColor="#D4824A"
-      />
-      <TouchableOpacity style={styles.searchSubmitButton} onPress={handleSubmit}>
-        <Ionicons
-          name="search"
-          size={18}
-          color="#D4824A"
-        />
-      </TouchableOpacity>
-    </View>
-  );
-};
 
 
 export default function HomeScreen() {
@@ -111,7 +68,15 @@ export default function HomeScreen() {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       router.push({
         pathname: '/(main)/search-results',
-        params: { query: query.trim() }
+        params: {
+          query: query.trim(),
+          // See search-results.tsx's own handleBackPress - without this,
+          // its back button relied on router.back()'s implicit history,
+          // which only "worked" from Home by accident (Home is also the
+          // Tabs navigator's fallback target). Explicit now, matching the
+          // same returnTo pattern audio-player.tsx already uses.
+          returnTo: '/(main)',
+        },
       });
     }
   };
@@ -265,7 +230,8 @@ export default function HomeScreen() {
 
       {/* Search Bar */}
       <View style={styles.searchSection}>
-        <IsolatedSearchBar
+        <SearchBar
+          placeholder={t('home.searchPlaceholder')}
           onSearchSubmit={handleSearchSubmit}
         />
       </View>
@@ -440,26 +406,6 @@ const styles = StyleSheet.create({
   searchSection: {
     paddingVertical: goldenTempleTheme.spacing.sm,
   },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f7ebc4',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    marginHorizontal: goldenTempleTheme.spacing.lg,
-    borderWidth: 1,
-    borderColor: '#D4C4A8',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-
   // Recommended section styles
   recommendedHeader: {
     flexDirection: 'row',
@@ -482,22 +428,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: goldenTempleTheme.colors.primary.DEFAULT,
     fontWeight: '500',
-  },
-  searchIcon: {
-    marginRight: 12,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 16,
-    color: '#333333',
-    fontWeight: '400',
-    padding: 0,
-    margin: 0,
-    height: 20,
-  },
-  searchSubmitButton: {
-    marginLeft: 8,
-    padding: 2,
   },
   // Choose where to start header styles
   chooseStartHeader: {
