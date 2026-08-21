@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Text } from '@/components/atoms';
 import { Feed } from '@/types/feed';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
+import { designSystemTheme } from '@/styles/designSystemTheme';
 import { useI18nStore } from '@/shared/stores/i18nStore';
 import { usePlaybackStore } from '@/store/playbackStore';
 import { MOOD_OPTIONS } from '@/data/moodData';
@@ -60,8 +61,24 @@ export default function MantraFeedCard({ feed, onPress, onLike }: MantraFeedCard
         resizeMode="cover"
       />
 
+      {/* height matches mantraImage exactly, so justifyContent:space-between
+          pins the title to the top and the label pill to the bottom, flush
+          with the thumbnail's own top/bottom edges - replaces the old
+          vertically-centered flow-column layout. A single child (no pill)
+          collapses to top-alignment under space-between with no extra
+          conditional needed. */}
       <View style={styles.mantraContent}>
-        <Text variant="body" weight="semibold" style={styles.mantraTitle} numberOfLines={2}>
+        {/* Same QueueSheet-style "currently playing" language as
+            AudioContentCard (peach tint + bold/terracotta title, no icon -
+            the trailing volume icon was removed from all three feed cards,
+            QueueSheet's own icon is unaffected), replacing the old border
+            treatment. */}
+        <Text
+          variant="body"
+          weight={isCurrentlyPlaying ? 'bold' : 'semibold'}
+          style={[styles.mantraTitle, isCurrentlyPlaying && styles.mantraTitlePlaying]}
+          numberOfLines={2}
+        >
           {feed.title ? (feed.title[language] || feed.title.en || 'Untitled Mantra') : 'Untitled Mantra'}
         </Text>
         {/* Renders only when the mantra actually has a label - no empty/
@@ -76,7 +93,7 @@ export default function MantraFeedCard({ feed, onPress, onLike }: MantraFeedCard
       </View>
 
       <TouchableOpacity style={styles.playButton} onPress={handlePress} activeOpacity={0.7}>
-        <Ionicons name="play" size={20} color="#ffffff" />
+        <Ionicons name="play" size={16} color="#ffffff" />
       </TouchableOpacity>
 
       <TouchableOpacity
@@ -86,7 +103,7 @@ export default function MantraFeedCard({ feed, onPress, onLike }: MantraFeedCard
       >
         <Ionicons
           name={feed.isLiked ? 'heart' : 'heart-outline'}
-          size={18}
+          size={14}
           color={feed.isLiked ? '#e91e63' : goldenTempleTheme.colors.text.secondary}
         />
       </TouchableOpacity>
@@ -95,10 +112,17 @@ export default function MantraFeedCard({ feed, onPress, onLike }: MantraFeedCard
 }
 
 const styles = StyleSheet.create({
+  // Total height held fixed at ~90px (52->64 thumbnail growth offset by a
+  // tighter paddingVertical, same net height as the prior 80%-reduction
+  // pass) - paddingHorizontal and the row `gap` also brought in line with
+  // AudioContentCard's tighter spacing, replacing the old per-element
+  // marginLeft/marginRight/marginRight on mantraContent/playButton below.
   mantraCard: {
-    backgroundColor: goldenTempleTheme.colors.backgrounds.card,
+    backgroundColor: '#f7ebc4', // same fill as SearchBar/RingtoneFeedCard/AudioContentCard
     borderRadius: 16,
-    padding: goldenTempleTheme.spacing.lg,
+    paddingVertical: 13,
+    paddingHorizontal: 12,
+    gap: 12,
     flexDirection: 'row',
     alignItems: 'center',
     shadowColor: '#000',
@@ -110,60 +134,94 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(212, 175, 55, 0.1)',
     marginBottom: goldenTempleTheme.spacing.md,
   },
-  // Border + tint only, deliberately no glyph/marquee per this project's own
-  // animation-performance history in scrolling lists (§26).
+  // Same QueueSheet/AudioContentCard "currently playing" language (peach
+  // tint only) - replaces the old border+orange-wash treatment.
   mantraCardPlaying: {
-    borderWidth: 1.5,
-    borderColor: goldenTempleTheme.colors.primary.DEFAULT,
-    backgroundColor: 'rgba(255, 107, 0, 0.06)',
+    backgroundColor: designSystemTheme.colors.secondary,
   },
+  // Grown back toward the pre-reduction 64x64 (from the last pass's 52x52) -
+  // paired with mantraCard's tighter paddingVertical above, this is what
+  // gives the thumbnail real visual dominance within the still-fixed ~90px
+  // card height, instead of just being a smaller image with lots of
+  // padding around it.
   mantraImage: {
     width: 64,
     height: 64,
-    borderRadius: 12,
+    borderRadius: 11,
     backgroundColor: goldenTempleTheme.colors.muted.DEFAULT,
   },
+  // height matches mantraImage exactly (both then centered identically by
+  // mantraCard's own alignItems:'center') so justifyContent:space-between
+  // pins the title to the top and the label pill to the bottom, flush with
+  // the thumbnail's edges - see the render JSX comment. marginLeft/
+  // marginRight removed in favor of mantraCard's own row `gap` above.
   mantraContent: {
     flex: 1,
-    marginLeft: goldenTempleTheme.spacing.md,
-    marginRight: goldenTempleTheme.spacing.sm,
+    height: 64,
+    justifyContent: 'space-between',
   },
+  // flex:1 dropped along with titleRow (the icon it used to sit beside is
+  // gone) - Text now sizes to its own content again within mantraContent's
+  // column layout, letting justifyContent:space-between do its job cleanly
+  // (title's natural height at top, pill at bottom) instead of stretching.
   mantraTitle: {
     color: goldenTempleTheme.colors.text.primary,
-    marginBottom: goldenTempleTheme.spacing.xs / 2,
+  },
+  // Matches QueueSheet's titleActive exactly (bold + terracotta) - weight
+  // itself is set on the Text element (see render), not here.
+  mantraTitlePlaying: {
+    color: designSystemTheme.colors.primary,
   },
   // Reuses moodData.ts's existing per-mood color mapping rather than a
   // separate color scheme, so a mantra's pill visually matches the mood-pill
   // grid above the list in Mantra Explorer.
+  // minWidth is a floor only - `full` borderRadius (9999) plus a short word
+  // (especially Hindi, e.g. "रक्षा"/"शक्ति") with no minWidth let the pill's
+  // fully-rounded ends collapse it into a near-circle instead of reading as
+  // a rounded rectangle. alignSelf:'flex-start' + no width cap still lets
+  // it grow naturally for longer text (e.g. "सकारात्मकता"/"Positivity").
+  // marginTop dropped - mantraContent's own space-between now owns all
+  // spacing between the title row and this pill.
   labelPill: {
     alignSelf: 'flex-start',
+    minWidth: 44,
+    alignItems: 'center',
     borderRadius: goldenTempleTheme.borderRadius.full,
     paddingHorizontal: goldenTempleTheme.spacing.sm,
-    paddingVertical: 2,
-    marginTop: 2,
+    paddingVertical: 1,
   },
+  // lineHeight explicitly tightened (was inheriting the Text atom's
+  // caption-variant lineHeight:20, since the custom style below only
+  // overrode fontSize, not lineHeight) - that inherited 20px line box, not
+  // paddingVertical, was the actual dominant reason the pill read as tall/
+  // over-rounded despite an 11px font. Now close to the font's own height.
   labelPillText: {
     color: '#ffffff',
     fontSize: 11,
+    lineHeight: 13,
   },
+  // 80% of the old 48x48/borderRadius:24, kept proportional to the
+  // thumbnail. marginRight dropped - mantraCard's own row `gap` now spaces
+  // this from likeButton (and from mantraContent on the other side).
   playButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     backgroundColor: goldenTempleTheme.colors.primary.DEFAULT,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: goldenTempleTheme.spacing.md,
     shadowColor: goldenTempleTheme.colors.primary.DEFAULT,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 6,
   },
+  // 80% of the old 44x44/borderRadius:22, same proportional-scaling reason
+  // as playButton above.
   likeButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 35,
+    height: 35,
+    borderRadius: 18,
     backgroundColor: goldenTempleTheme.colors.backgrounds.card,
     alignItems: 'center',
     justifyContent: 'center',
