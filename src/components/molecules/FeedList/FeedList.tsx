@@ -245,7 +245,6 @@ function FeedList({
           feed={feed}
           onLike={onLike}
           onShare={onShare}
-          onDownload={onDownload}
         />
       );
     } else if ((feed.type === 'aarti' || feed.type === 'bhajan') && audioCardReturnTo) {

@@ -12,12 +12,15 @@ import {
   Dimensions,
   AppState} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from 'expo-router';
+import WhatsAppIcon from '../../../../assets/icons/whatsapp.svg';
 
 const { width } = Dimensions.get('window');
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as MediaLibrary from 'expo-media-library';
+import * as IntentLauncher from 'expo-intent-launcher';
 // Removed expo-intent-launcher dependency for smaller bundle size
 import { Text } from '@/components/atoms';
 import { Feed } from '@/types/feed';
@@ -48,7 +51,7 @@ const inFlightBackgroundDownloads = new Map<string, FileSystem.DownloadResumable
 // released" crash class and can safely keep running (or be cancelled and
 // clean up) even after the card that triggered it unmounts. This is new
 // code, unlike the pre-existing ensureLocalFile below (left untouched for
-// handleDownload/handleSetRingtone), so unlike that function it cleans up a
+// handleSetRingtone), so unlike that function it cleans up a
 // failed download's partial file itself rather than leaving it in place.
 const downloadRingtoneInBackground = (cacheKey: string, audioUri: string): void => {
   if (inFlightBackgroundDownloads.has(cacheKey)) {
@@ -112,18 +115,15 @@ interface RingtoneFeedCardProps {
   feed: Feed;
   onLike?: (feedId: string) => void;
   onShare?: (feedId: string) => void;
-  onDownload?: (feedId: string) => void;
 }
 
 export default function RingtoneFeedCard({
   feed,
   onLike,
   onShare,
-  onDownload,
 }: RingtoneFeedCardProps) {
   const { language } = useI18nStore();
   const [isLoading, setIsLoading] = useState(false);
-  const [isDownloading, setIsDownloading] = useState(false);
   const [isSettingRingtone, setIsSettingRingtone] = useState(false);
 
   // Player is created once (with no source) for this card's lifetime and
@@ -145,7 +145,7 @@ export default function RingtoneFeedCard({
     setLocalLikesCount(feed.likesCount);
   }, [feed.isLiked, feed.likesCount]);
 
-  const { toggleLike, incrementDownload, incrementShare, incrementView } = useFeedStore();
+  const { toggleLike, incrementShare, incrementView } = useFeedStore();
 
   // Get the main audio media
   const audioMedia = feed.media.find(m => m.type === 'audio') || feed.media[0];
@@ -176,21 +176,19 @@ export default function RingtoneFeedCard({
   const localFileUri = FileSystem.documentDirectory + localFileName;
 
   // Returns the local cached copy of this ringtone, downloading it once if
-  // it isn't already on disk. Used by handleDownload and handleSetRingtone,
-  // which genuinely need a completed local file to hand to MediaLibrary -
-  // handlePlayPause no longer routes through this (see getCachedRingtoneUri
-  // and downloadRingtoneInBackground above instead), since playback itself
+  // it isn't already on disk. Used by handleSetRingtone, which genuinely
+  // needs a completed local file to hand to MediaLibrary - handlePlayPause
+  // no longer routes through this (see getCachedRingtoneUri and
+  // downloadRingtoneInBackground above instead), since playback itself
   // shouldn't block on a full download.
   //
-  // Known gap, deliberately deferred: no concurrency guard against Download
-  // and Set-Ringtone racing each other (both can pass the getInfoAsync check
-  // and independently downloadAsync to the same path before either
+  // Known gap, deliberately deferred: no concurrency guard against this
+  // racing Play's own background download (both can pass the getInfoAsync
+  // check and independently downloadAsync to the same path before either
   // finishes). Low real-world risk (worst case is a harmless redundant
-  // download, not corruption). Note this is a narrower gap than it used to
-  // be: Play's own download is now tracked in inFlightBackgroundDownloads
-  // above and cancellable, but this function doesn't check that map before
-  // starting its own download - Download/Set-Ringtone tapped while Play's
-  // background download is still in flight can still race it the same way.
+  // download, not corruption) - Play's own download is tracked in
+  // inFlightBackgroundDownloads above and cancellable, but this function
+  // doesn't check that map before starting its own download.
   const ensureLocalFile = async (): Promise<string> => {
     const fileInfo = await FileSystem.getInfoAsync(localFileUri);
     if (fileInfo.exists) {
@@ -549,38 +547,6 @@ export default function RingtoneFeedCard({
     }
   };
 
-  const handleDownload = async () => {
-    if (isDownloading || !feed.allowDownloads) return;
-
-    setIsDownloading(true);
-    try {
-      const { status } = await MediaLibrary.requestPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission Required', 'Please allow access to save ringtone to your device.');
-        return;
-      }
-
-      const localUri = await ensureLocalFile();
-      // Known gap, deliberately deferred: saveToLibraryAsync has no native
-      // dedup - repeated taps create separate, uniquified entries in the OS
-      // media library even though ensureLocalFile reuses the same cached
-      // file. Cosmetic only (extra library entries), not a functional or
-      // cost issue - the actual cached file is correctly deduped. Deferred
-      // until real user feedback justifies the fix.
-      await MediaLibrary.saveToLibraryAsync(localUri);
-      Alert.alert('Success', 'Ringtone saved to your device!');
-
-      await feedService.downloadFeed(feed.id.toString());
-      incrementDownload(feed.id.toString());
-      onDownload?.(feed.id.toString());
-    } catch (error) {
-      console.error('Error downloading ringtone:', error);
-      Alert.alert('Error', 'Failed to download ringtone. Please try again.');
-    } finally {
-      setIsDownloading(false);
-    }
-  };
-
   const handleSetRingtone = async () => {
     if (isSettingRingtone) return;
 
@@ -620,9 +586,15 @@ export default function RingtoneFeedCard({
               {
                 text: 'Open Sound Settings',
                 onPress: () => {
-                  // Try to open Android sound settings
-                  // Open device settings
-                  Linking.openSettings();
+                  // Restores the original, correct mechanism this feature
+                  // had before expo-intent-launcher was accidentally
+                  // removed in a broad unrelated dependency cleanup
+                  // (commit ba65ddc, 2026-04-03) - Linking.openSettings()
+                  // only opens this app's own app-info page, never real
+                  // Sound settings, which was the actual reported bug.
+                  IntentLauncher.startActivityAsync(
+                    IntentLauncher.ActivityAction.SOUND_SETTINGS
+                  ).catch(() => Linking.openSettings());
                 },
               },
               { text: 'OK', style: 'default' },
@@ -639,8 +611,9 @@ export default function RingtoneFeedCard({
               {
                 text: 'Open Sound Settings',
                 onPress: () => {
-                  // Open device settings
-                  Linking.openSettings();
+                  IntentLauncher.startActivityAsync(
+                    IntentLauncher.ActivityAction.SOUND_SETTINGS
+                  ).catch(() => Linking.openSettings());
                 },
               },
               { text: 'OK', style: 'default' },
@@ -757,12 +730,12 @@ export default function RingtoneFeedCard({
               activeOpacity={0.8}
             >
               {isLoading ? (
-                <ActivityIndicator color="#C41E3A" size="small" />
+                <ActivityIndicator color={goldenTempleTheme.colors.primary.DEFAULT} size="small" />
               ) : (
                 <Ionicons
                   name={status.playing ? 'pause' : 'play'}
                   size={20}
-                  color="#C41E3A"
+                  color={goldenTempleTheme.colors.primary.DEFAULT}
                   style={{ marginLeft: status.playing ? 0 : 2 }}
                 />
               )}
@@ -804,34 +777,39 @@ export default function RingtoneFeedCard({
 
           {/* Action Buttons Row */}
           <View style={styles.actionsContainer}>
-            {/* Set as Ringtone Button */}
+            {/* Set as Ringtone Button - same shared gradient treatment as
+                QuickLinkCard's boxes (Mantra/Rashifal/Status/Ringtone) */}
             <TouchableOpacity
-              style={styles.ringtoneButton}
               onPress={handleSetRingtone}
               disabled={isSettingRingtone}
               activeOpacity={0.8}
+              style={styles.ringtoneButtonWrapper}
             >
-              {isSettingRingtone ? (
-                <ActivityIndicator color="#fff" size="small" />
-              ) : (
-                <Ionicons
-                  name="notifications-outline"
-                  size={16}
-                  color="#fff"
-                />
-              )}
-              <Text style={styles.ringtoneButtonText}>
-                {isSettingRingtone ? 'Setting...' : 'Set as ringtone'}
-              </Text>
+              <LinearGradient
+                colors={['#E76A4A', '#FFA241']}
+                style={styles.ringtoneButton}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              >
+                {isSettingRingtone ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <Ionicons
+                    name="notifications-outline"
+                    size={16}
+                    color="#fff"
+                  />
+                )}
+                <Text style={styles.ringtoneButtonText}>
+                  {isSettingRingtone ? 'Setting...' : 'Set as ringtone'}
+                </Text>
+              </LinearGradient>
             </TouchableOpacity>
 
-            {/* Share Button */}
+            {/* Share Button - local whatsapp.svg, same icon/fill already used
+                by AutoplayFeedCard's footer */}
             <TouchableOpacity style={styles.shareButton} onPress={handleShare} activeOpacity={0.8}>
-              <Ionicons
-                name="share-outline"
-                size={20}
-                color="#C41E3A"
-              />
+              <WhatsAppIcon width={20} height={20} fill="#000000" />
             </TouchableOpacity>
 
             {/* Like Button */}
@@ -846,26 +824,6 @@ export default function RingtoneFeedCard({
                 color={localIsLiked ? '#FF4444' : '#8B7355'}
               />
             </TouchableOpacity>
-
-            {/* Download Button */}
-            {feed.allowDownloads && (
-              <TouchableOpacity
-                style={styles.downloadButton}
-                onPress={handleDownload}
-                disabled={isDownloading}
-                activeOpacity={0.7}
-              >
-                {isDownloading ? (
-                  <ActivityIndicator color="#8B7355" size="small" />
-                ) : (
-                  <Ionicons
-                    name="download-outline"
-                    size={20}
-                    color="#8B7355"
-                  />
-                )}
-              </TouchableOpacity>
-            )}
           </View>
         </View>
       </View>
@@ -921,7 +879,7 @@ const styles = StyleSheet.create({
   title: {
     fontWeight: '700',
     fontSize: 18,
-    color: '#C41E3A',
+    color: '#000000',
     lineHeight: 22,
     includeFontPadding: false,
   },
@@ -956,11 +914,17 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 0.2,
   },
+  // gap widened (6->10) and a right inset added now that only 3 elements
+  // share this row (was 4, with Download as the last one flush against the
+  // card's own outer padding) - the ringtone pill's existing flex:1 already
+  // absorbs the width Download used to occupy, this just keeps Share/Like
+  // from feeling cramped against each other and the card's right edge.
   actionsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 10,
     marginTop: 4,
+    paddingRight: 4,
   },
   playButton: {
     width: 32,
@@ -990,15 +954,19 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
+  // The gradient itself now renders on this style (moved from a plain
+  // TouchableOpacity backgroundColor to a LinearGradient) - the wrapper
+  // below carries flex:1 so the gradient still fills the same layout slot.
+  ringtoneButtonWrapper: {
+    flex: 1,
+  },
   ringtoneButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#C41E3A',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 10,
     gap: 6,
-    flex: 1,
     justifyContent: 'center',
   },
   ringtoneButtonText: {
@@ -1089,14 +1057,6 @@ const styles = StyleSheet.create({
     height: 6,
   },
   shareButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: '#E8DDD1',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  downloadButton: {
     width: 36,
     height: 36,
     borderRadius: 10,

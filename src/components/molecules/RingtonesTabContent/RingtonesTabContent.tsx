@@ -41,7 +41,6 @@ function RingtonesTabContent({ filter }: RingtonesTabContentProps, ref: React.Re
     handleLoadMore,
     handleLike,
     handleShare,
-    handleDownload,
   } = useRingtones(filter);
 
   // Stop-on-tab-blur lives in RingtoneFeedCard itself (see that file) so it
@@ -56,9 +55,8 @@ function RingtonesTabContent({ filter }: RingtonesTabContentProps, ref: React.Re
       feed={ringtone}
       onLike={handleLike}
       onShare={handleShare}
-      onDownload={handleDownload}
     />
-  ), [handleLike, handleShare, handleDownload]);
+  ), [handleLike, handleShare]);
 
   const renderFooter = useCallback(() => {
     if (!hasMore) {
@@ -174,7 +172,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   listContent: {
-    paddingHorizontal: 16,
+    paddingHorizontal: goldenTempleTheme.spacing.lg,
     paddingTop: 16,
   },
   emptyContainer: {
