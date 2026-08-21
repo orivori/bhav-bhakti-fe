@@ -256,6 +256,7 @@ function FeedList({
           feed={feed}
           returnTo={audioCardReturnTo}
           returnParams={audioCardReturnParams}
+          onLike={onLike}
         />
       );
     } else {

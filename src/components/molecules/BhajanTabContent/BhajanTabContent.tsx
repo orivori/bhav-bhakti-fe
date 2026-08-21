@@ -37,11 +37,12 @@ function BhajanTabContent({ filter }: BhajanTabContentProps, ref: React.Ref<Flat
     loadItems,
     handleRefresh,
     handleLoadMore,
+    handleLike,
   } = useAudioFeed('bhajan', filter);
 
   const renderItem = useCallback(({ item, index }: ListRenderItemInfo<Feed>) => (
-    <AudioContentCard feed={item} subTab="bhajan" queueItems={bhajans} queueIndex={index} />
-  ), [bhajans]);
+    <AudioContentCard feed={item} subTab="bhajan" queueItems={bhajans} queueIndex={index} onLike={handleLike} />
+  ), [bhajans, handleLike]);
 
   const renderFooter = useCallback(() => {
     if (!hasMore) {
@@ -157,7 +158,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   listContent: {
-    paddingHorizontal: 16,
+    paddingHorizontal: goldenTempleTheme.spacing.lg,
     paddingTop: 16,
   },
   emptyContainer: {

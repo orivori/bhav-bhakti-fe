@@ -38,11 +38,12 @@ function AartiTabContent({ filter }: AartiTabContentProps, ref: React.Ref<FlatLi
     loadItems,
     handleRefresh,
     handleLoadMore,
+    handleLike,
   } = useAudioFeed('aarti', filter);
 
   const renderItem = useCallback(({ item, index }: ListRenderItemInfo<Feed>) => (
-    <AudioContentCard feed={item} subTab="aarti" queueItems={aartis} queueIndex={index} />
-  ), [aartis]);
+    <AudioContentCard feed={item} subTab="aarti" queueItems={aartis} queueIndex={index} onLike={handleLike} />
+  ), [aartis, handleLike]);
 
   const renderFooter = useCallback(() => {
     if (!hasMore) {
@@ -158,7 +159,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   listContent: {
-    paddingHorizontal: 16,
+    paddingHorizontal: goldenTempleTheme.spacing.lg,
     paddingTop: 16,
   },
   emptyContainer: {
