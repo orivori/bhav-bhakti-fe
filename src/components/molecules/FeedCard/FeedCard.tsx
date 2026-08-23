@@ -337,7 +337,13 @@ export default function FeedCard({
     // itself renders - closes the long-standing fragmentation where this
     // branch had its own, older, visually different card.
     return <MantraFeedCard feed={feed} onPress={onPress} onLike={onLike} />;
-  } else if (feed.type === 'wallpaper') {
+  } else if (feed.type === 'wallpaper' || feed.type === 'thought') {
+    // 'thought' is visually identical to wallpaper content (the "thought"
+    // text is baked into the image itself, see CLAUDE.md's Wallpaper Hub
+    // notes) - ThoughtTabContent already renders it via WallpaperFeedCard
+    // (grid-tile variant); this closes the gap where FeedCard's own dispatch
+    // never got updated when 'thought' was introduced as a Feed type, so it
+    // fell through to the generic renderRegularCard fallback instead.
     return (
       <WallpaperFeedCard
         feed={feed}

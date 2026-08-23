@@ -89,6 +89,7 @@ function getCardOwnMarginBottom(feedType: Feed['type']): number {
     case 'ringtone':
       return 16;
     case 'wallpaper':
+    case 'thought':
       return 20;
     case 'aarti':
     case 'bhajan':
@@ -96,7 +97,8 @@ function getCardOwnMarginBottom(feedType: Feed['type']): number {
     case 'mantra':
       return 16;
     default:
-      // FeedCard's generic renderRegularCard fallback (general/thought).
+      // FeedCard's generic renderRegularCard fallback (general only - 'thought'
+      // now renders via WallpaperFeedCard, same branch as 'wallpaper' above).
       return 20;
   }
 }
