@@ -3,7 +3,7 @@
 This guide helps ensure content isn't hidden by the bottom tab bar in the main app screens.
 
 ## Problem
-The bottom tab bar in `app/(main)/_layout.tsx` is positioned absolutely with a height of `Math.max(80 + insets.bottom, 88)`. This means screen content can be hidden underneath it if proper padding isn't applied.
+The bottom tab bar in `app/(main)/_layout.tsx` is positioned absolutely with a height of `Math.max(75 + insets.bottom, 83)`. This means screen content can be hidden underneath it if proper padding isn't applied.
 
 ## Solution
 Use the `useTabBarHeight` hook to get consistent bottom padding across all screens.
