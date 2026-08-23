@@ -26,7 +26,12 @@ import { useScrollToTopOnTabPress } from '@/hooks/useScrollToTopOnTabPress';
 import type { ZodiacSign } from '@/types/horoscope';
 
 const { width } = Dimensions.get('window');
-const ITEM_WIDTH = (width - 48) / 2; // 2 columns with padding
+// Mirrors mantras.tsx's MOOD_ITEM_WIDTH calculation exactly: 2 columns with
+// even spacing, computed from screen width. 64 = gridContainer's own
+// paddingHorizontal:24 on each side (48 total) + a 16px gap between the two
+// cards - must be recalculated in lockstep with gridContainer's
+// paddingHorizontal below, or the grid's gap silently collapses/overflows.
+const ITEM_WIDTH = (width - 64) / 2;
 
 export default function HoroscopeScreen() {
   const { t } = useTranslation();
@@ -61,7 +66,7 @@ export default function HoroscopeScreen() {
     // birthdate-collection flow (index.tsx) sets skipPaywall: 'true'.
     router.push({
       pathname: '/(main)/horoscope-detail',
-      params: { zodiacSign }
+      params: { zodiacSign, returnTo: '/(main)/horoscope' }
     });
   };
 
@@ -80,12 +85,8 @@ export default function HoroscopeScreen() {
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
         >
-          {/* Zodiac Icon */}
-          <View style={styles.iconContainer}>
-            <Text style={styles.zodiacIcon}>{item.icon}</Text>
-          </View>
-
-          {/* Zodiac Info */}
+          {/* Zodiac Info - icon, element label, and corner arrow removed;
+              name/dates only, name sized up to fill the space they left. */}
           <View style={styles.zodiacInfo}>
             <Text variant="body" weight="bold" style={styles.zodiacName}>
               {item.name[language as 'en' | 'hi'] || item.name.en}
@@ -93,14 +94,6 @@ export default function HoroscopeScreen() {
             <Text variant="caption" style={styles.zodiacDates}>
               {item.dates}
             </Text>
-            <Text variant="caption" style={styles.zodiacElement}>
-              {language === 'hi' ? t(`elements.${item.element}`) : item.element}
-            </Text>
-          </View>
-
-          {/* Arrow */}
-          <View style={styles.arrowContainer}>
-            <Ionicons name="chevron-forward" size={16} color="rgba(255, 255, 255, 0.8)" />
           </View>
         </LinearGradient>
       </TouchableOpacity>
@@ -130,23 +123,26 @@ export default function HoroscopeScreen() {
         contentContainerStyle={{ paddingBottom: contentPadding }}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
+        {/* Header - single row now (was back+title centered above, toggle
+            stacked below it) - back+title grouped on the left, toggle
+            right-aligned via the row's own space-between. White card
+            background/shadow removed, blends into the page like the Audio/
+            Wallpaper hub headers. */}
         <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => router.back()}
-          >
-            <Ionicons name="arrow-back" size={24} color="#374151" />
-          </TouchableOpacity>
+          <View style={styles.headerLeft}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => router.back()}
+            >
+              <Ionicons name="arrow-back" size={24} color="#374151" />
+            </TouchableOpacity>
 
-          <View style={styles.headerCenter}>
             <Text variant="h4" weight="semibold" style={styles.headerTitle}>
               {t('horoscope.title')}
             </Text>
-            <LanguageToggle />
           </View>
 
-          <View style={styles.placeholder} />
+          <LanguageToggle />
         </View>
 
         {/* Date Display */}
@@ -197,43 +193,52 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
+  // White card background/shadow removed entirely - blends into the page's
+  // own background now, matching the Audio/Wallpaper hub headers' treatment.
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: goldenTempleTheme.spacing.md,
+    paddingHorizontal: goldenTempleTheme.spacing.lg,
     paddingVertical: goldenTempleTheme.spacing.sm,
-    backgroundColor: goldenTempleTheme.colors.backgrounds.card,
+    backgroundColor: goldenTempleTheme.colors.background,
     borderBottomWidth: 1,
-    borderBottomColor: goldenTempleTheme.colors.primary[200],
-    ...goldenTempleTheme.shadows.sm,
+    borderBottomColor: 'rgba(0, 0, 0, 0.1)',
   },
   backButton: {
     padding: goldenTempleTheme.spacing.sm,
     borderRadius: goldenTempleTheme.borderRadius.md,
     backgroundColor: goldenTempleTheme.colors.primary[50],
   },
-  headerCenter: {
-    flex: 1,
+  // Groups back+title on the left (was back on the left, title+toggle
+  // centered as a separate stacked block) - toggle now sits to the right via
+  // header's own space-between, this group just takes its natural width.
+  headerLeft: {
+    flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: goldenTempleTheme.spacing.sm,
   },
   headerTitle: {
-    textAlign: 'center',
     color: goldenTempleTheme.colors.text.primary,
   },
-  placeholder: {
-    width: 40,
-  },
+  // Restyled to exactly match Home's todayHoroscopeCard (index.tsx) - fill/
+  // border/shadow/radius only; paddingHorizontal/paddingVertical/alignItems
+  // (this box's own content/height) deliberately left untouched.
   dateSection: {
     paddingHorizontal: goldenTempleTheme.spacing.lg,
     paddingVertical: goldenTempleTheme.spacing.lg,
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
-    marginHorizontal: goldenTempleTheme.spacing.md,
+    backgroundColor: '#f7ebc4',
+    borderWidth: 1,
+    borderColor: '#D4C4A8',
+    marginHorizontal: goldenTempleTheme.spacing.lg,
     marginTop: goldenTempleTheme.spacing.lg,
-    borderRadius: goldenTempleTheme.borderRadius.xl,
-    ...goldenTempleTheme.shadows.sm,
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   dateText: {
     color: goldenTempleTheme.colors.text.primary,
@@ -251,7 +256,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   gridContainer: {
-    paddingHorizontal: goldenTempleTheme.spacing.md,
+    paddingHorizontal: goldenTempleTheme.spacing.lg,
   },
   row: {
     justifyContent: 'space-between',
@@ -263,26 +268,25 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     ...goldenTempleTheme.shadows.md,
   },
+  // justifyContent changed from 'space-between' to 'center' - zodiacInfo is
+  // now the only child (icon/arrow removed), so space-between would just
+  // stick it to the top instead of centering it in the card.
   cardGradient: {
     padding: goldenTempleTheme.spacing.md,
     minHeight: 140,
-    justifyContent: 'space-between',
-  },
-  iconContainer: {
-    alignSelf: 'center',
-    marginBottom: goldenTempleTheme.spacing.sm,
-  },
-  zodiacIcon: {
-    fontSize: 36,
+    justifyContent: 'center',
   },
   zodiacInfo: {
     alignItems: 'center',
     flex: 1,
+    justifyContent: 'center',
   },
+  // Sized up from 16 - fills the space the removed icon/element/arrow left,
+  // now the card's sole focal text.
   zodiacName: {
     color: '#fff',
-    fontSize: 16,
-    marginBottom: 4,
+    fontSize: 22,
+    marginBottom: 6,
     textAlign: 'center',
   },
   zodiacDates: {
@@ -290,16 +294,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textAlign: 'center',
     marginBottom: 2,
-  },
-  zodiacElement: {
-    color: 'rgba(255, 255, 255, 0.8)',
-    fontSize: 11,
-    textAlign: 'center',
-  },
-  arrowContainer: {
-    alignSelf: 'flex-end',
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: 12,
-    padding: 4,
   },
 });
