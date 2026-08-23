@@ -362,10 +362,14 @@ const styles = StyleSheet.create({
   },
   // Video-only box for this variant - see the video-vs-FeedMedia branch
   // above. 9:16, matching the grid-tile variant's gridImageBox exactly.
+  // backgroundColor is the letterbox fill shown above/below or left/right of
+  // a video whose aspect ratio doesn't fill this 9:16 box (resizeMode
+  // CONTAIN, not cover) - matches RingtoneFeedCard/AudioContentCard/
+  // SearchBar's shared cream fill instead of the old, unrelated #F5E6D3.
   wallpaperVideoBox: {
     width: '100%',
     aspectRatio: 9 / 16,
-    backgroundColor: '#F5E6D3',
+    backgroundColor: '#f7ebc4',
   },
   wallpaperVideo: {
     width: '100%',
@@ -465,7 +469,11 @@ const styles = StyleSheet.create({
     aspectRatio: 9 / 16,
     borderRadius: 12,
     overflow: 'hidden',
-    backgroundColor: '#F5E6D3',
+    // Letterbox fill for both the image and video branches above (both
+    // resizeMode="contain", either can show blank space around non-9:16
+    // media) - matches RingtoneFeedCard/AudioContentCard/MantraFeedCard's
+    // shared cream fill instead of the old, unrelated #F5E6D3.
+    backgroundColor: '#f7ebc4',
     position: 'relative',
   },
   gridImage: {
