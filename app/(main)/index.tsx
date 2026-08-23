@@ -182,7 +182,7 @@ export default function HomeScreen() {
       if (profile.profile?.dateOfBirth && profile.profile?.zodiacSign) {
         router.push({
           pathname: '/(main)/horoscope-detail',
-          params: { zodiacSign: profile.profile.zodiacSign, skipPaywall: 'true' },
+          params: { zodiacSign: profile.profile.zodiacSign, skipPaywall: 'true', returnTo: '/(main)' },
         });
       } else {
         setShowBirthdateModal(true);
@@ -202,7 +202,7 @@ export default function HomeScreen() {
     setShowBirthdateModal(false);
     router.push({
       pathname: '/(main)/horoscope-detail',
-      params: { zodiacSign, skipPaywall: 'true' },
+      params: { zodiacSign, skipPaywall: 'true', returnTo: '/(main)' },
     });
   };
 

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import {
   View,
   StyleSheet,
@@ -10,6 +10,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import WhatsAppIcon from '../../assets/icons/whatsapp.svg';
 
 import { Text } from '@/components/atoms';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
@@ -30,10 +31,24 @@ export default function HoroscopeDetailScreen() {
   // read skipPaywall to enforce anything - by construction, every real nav
   // call site that reaches this screen is already allowed to be here. The
   // param is kept only so a future entry point can't accidentally forget it.
-  const { zodiacSign, skipPaywall } = useLocalSearchParams<{ zodiacSign: ZodiacSign; skipPaywall?: string }>();
+  // returnTo mirrors audio-player.tsx's own back-button pattern (CLAUDE.md
+  // §27) - this screen is reachable both from Home's "Today's Horoscope"
+  // card and from the 12-sign grid (horoscope.tsx), and router.back() alone
+  // always fell through to the Tabs navigator's implicit fallback (Home),
+  // regardless of actual entry point. No returnParams needed here - unlike
+  // audio-player.tsx, neither entry point has state to restore on return.
+  const { zodiacSign, skipPaywall, returnTo } = useLocalSearchParams<{ zodiacSign: ZodiacSign; skipPaywall?: string; returnTo?: string }>();
   const { t } = useTranslation();
   const { language } = useI18nStore();
   const { contentPadding } = useTabBarHeight();
+
+  const handleBack = useCallback(() => {
+    if (returnTo) {
+      router.replace(returnTo as any);
+      return;
+    }
+    router.back();
+  }, [returnTo]);
 
   // Rashifal is today-only for MVP - no past/future browsing, so this is a
   // plain constant now, not state (the date-navigation pill that used to
@@ -133,28 +148,38 @@ export default function HoroscopeDetailScreen() {
         contentContainerStyle={{ paddingBottom: contentPadding }}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
+        {/* Header - single row: back+name grouped on the left, toggle+share
+            right-aligned together with Share last (rightmost). White card
+            background/shadow removed, blends into the page - same treatment
+            as horoscope.tsx and the Audio/Wallpaper hub headers. */}
         <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => router.back()}
-          >
-            <Ionicons name="arrow-back" size={24} color="#374151" />
-          </TouchableOpacity>
+          <View style={styles.headerLeft}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={handleBack}
+            >
+              <Ionicons name="arrow-back" size={24} color="#374151" />
+            </TouchableOpacity>
 
-          <View style={styles.headerCenter}>
             <Text variant="h5" weight="semibold" style={styles.headerTitle}>
               {zodiacData.name[language as 'en' | 'hi'] || zodiacData.name.en}
             </Text>
-            <LanguageToggle />
           </View>
 
-          <TouchableOpacity
-            style={styles.shareButton}
-            onPress={handleShare}
-          >
-            <Ionicons name="share-outline" size={24} color="#374151" />
-          </TouchableOpacity>
+          <View style={styles.headerRight}>
+            <LanguageToggle />
+
+            {/* Share icon swapped from Ionicons "share-outline" to the same
+                local whatsapp.svg used elsewhere (audio-player.tsx,
+                RingtoneFeedCard, AutoplayFeedCard) - handleShare itself is
+                completely untouched. */}
+            <TouchableOpacity
+              style={styles.shareButton}
+              onPress={handleShare}
+            >
+              <WhatsAppIcon width={24} height={24} fill="#374151" />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Zodiac Card */}
@@ -342,30 +367,39 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
+  // White card background/shadow removed entirely - blends into the page's
+  // own background now, matching horoscope.tsx and the Audio/Wallpaper hub
+  // headers' treatment.
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: goldenTempleTheme.spacing.md,
+    paddingHorizontal: goldenTempleTheme.spacing.lg,
     paddingVertical: goldenTempleTheme.spacing.sm,
-    backgroundColor: goldenTempleTheme.colors.backgrounds.card,
+    backgroundColor: goldenTempleTheme.colors.background,
     borderBottomWidth: 1,
-    borderBottomColor: goldenTempleTheme.colors.primary[200],
-    ...goldenTempleTheme.shadows.sm,
+    borderBottomColor: 'rgba(0, 0, 0, 0.1)',
   },
   backButton: {
     padding: goldenTempleTheme.spacing.sm,
     borderRadius: goldenTempleTheme.borderRadius.md,
     backgroundColor: goldenTempleTheme.colors.primary[50],
   },
-  headerCenter: {
-    flex: 1,
+  // Groups back+name on the left (was back on the left, name+toggle
+  // centered as a separate stacked block).
+  headerLeft: {
+    flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: goldenTempleTheme.spacing.sm,
   },
   headerTitle: {
-    textAlign: 'center',
     color: goldenTempleTheme.colors.text.primary,
+  },
+  // Groups toggle+share on the right, Share last (rightmost).
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: goldenTempleTheme.spacing.sm,
   },
   shareButton: {
     padding: goldenTempleTheme.spacing.sm,
