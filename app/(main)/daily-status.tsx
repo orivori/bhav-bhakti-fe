@@ -1,8 +1,12 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { View, StyleSheet, TouchableOpacity, FlatList } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
+import { useTranslation } from 'react-i18next';
 import { Text } from '@/components/atoms';
+import SearchBar from '@/components/molecules/SearchBar';
 import StatusTabContent from '@/components/molecules/StatusTabContent';
 import ThoughtTabContent from '@/components/molecules/ThoughtTabContent';
 import WallpapersTabContent from '@/components/molecules/WallpapersTabContent';
@@ -27,10 +31,14 @@ type SubTab = 'status' | 'thought' | 'wallpapers';
 // forget to update. TypeScript requires the field on every entry. Thought for
 // the Day is the first real use of showDeityFilter: false - the exact case
 // this mechanism was built for during the Audio hub work.
-const SUB_TABS: { key: SubTab; label: string; showDeityFilter: boolean }[] = [
-  { key: 'status', label: 'Status', showDeityFilter: true },
-  { key: 'thought', label: 'Thought for the Day', showDeityFilter: false },
-  { key: 'wallpapers', label: 'Wallpapers', showDeityFilter: true },
+// labelKey points at the wallpaperHub.* i18n keys added alongside this
+// screen's search-bar/pill overhaul (mirroring the Audio hub's audio.* keys)
+// - this screen previously had zero translation (every sub-tab label
+// hardcoded English).
+const SUB_TABS: { key: SubTab; labelKey: string; showDeityFilter: boolean }[] = [
+  { key: 'status', labelKey: 'wallpaperHub.status', showDeityFilter: true },
+  { key: 'thought', labelKey: 'wallpaperHub.thought', showDeityFilter: false },
+  { key: 'wallpapers', labelKey: 'wallpaperHub.wallpapers', showDeityFilter: true },
 ];
 
 function isSubTab(value: unknown): value is SubTab {
@@ -38,9 +46,41 @@ function isSubTab(value: unknown): value is SubTab {
 }
 
 export default function WallpaperHubScreen() {
+  const { t } = useTranslation();
   const params = useLocalSearchParams<{ subTab?: string }>();
   const [activeSubTab, setActiveSubTab] = useState<SubTab>('status');
   const activeTabConfig = SUB_TABS.find((tab) => tab.key === activeSubTab)!;
+
+  // Same pattern as Mantra Explorer/Audio hub's own back button: this hub is
+  // reachable both via tab-bar switch (no back-history) and via real
+  // router.push (Home's quick-link, choose-start.tsx's onboarding flow, real
+  // back-history) - rather than depend on the Tabs navigator's implicit
+  // back-history, always navigate straight to Home.
+  const handleBackToHome = useCallback(() => {
+    router.replace('/(main)' as any);
+  }, []);
+
+  // Deliberately NOT restricted to activeSubTab - searches across both real
+  // Feed types together regardless of which sub-tab is showing, matching the
+  // Audio hub's search behavior. Only two real types exist here - 'status' is
+  // not its own Feed.type, it's the unfiltered superset of 'wallpaper' (see
+  // CLAUDE.md's Wallpaper Hub content-model notes), so the restriction is
+  // 'wallpaper,thought', not three values.
+  const handleSearchSubmit = useCallback((query: string) => {
+    if (query.trim()) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      router.push({
+        pathname: '/(main)/search-results',
+        params: {
+          query: query.trim(),
+          type: 'wallpaper,thought',
+          // Route name is kept as 'daily-status' even though it's labeled
+          // "Wallpapers" - see the note at the top of this file.
+          returnTo: '/(main)/daily-status',
+        },
+      });
+    }
+  }, []);
 
   // Hub-level, deliberately shared across all sub-tabs (not re-declared inside
   // StatusTabContent/WallpapersTabContent/ThoughtTabContent) - selecting
@@ -76,23 +116,26 @@ export default function WallpaperHubScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Search header - replaces the former centered "Wallpapers" title
+          entirely, same back-chevron + search bar pattern as the Audio hub
+          and Mantra Explorer's headers. */}
       <View style={styles.header}>
-        <Text variant="h3" style={styles.headerTitle}>
-          Wallpapers
-        </Text>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={handleBackToHome}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Ionicons name="chevron-back" size={26} color={goldenTempleTheme.colors.text.primary} />
+        </TouchableOpacity>
+        <SearchBar
+          placeholder={t('wallpaperHub.searchPlaceholder')}
+          onSearchSubmit={handleSearchSubmit}
+          containerStyle={styles.headerSearchBar}
+        />
       </View>
 
-      {/* Visibility is declared per sub-tab (see SUB_TABS above), not hardcoded
-          here - Thought for the Day sets showDeityFilter: false since deity
-          selection doesn't apply to that content type. */}
-      {activeTabConfig.showDeityFilter && (
-        <DeityFilterRow
-          deities={deities}
-          selected={selectedFilter}
-          onSelect={setSelectedFilter}
-        />
-      )}
-
+      {/* Sub-tab row now comes before the deity filter (matches the Audio
+          hub's order - this screen previously had them reversed). */}
       <View style={styles.subTabRow}>
         {SUB_TABS.map((tab) => (
           <TouchableOpacity
@@ -107,11 +150,22 @@ export default function WallpaperHubScreen() {
               adjustsFontSizeToFit
               minimumFontScale={0.75}
             >
-              {tab.label}
+              {t(tab.labelKey)}
             </Text>
           </TouchableOpacity>
         ))}
       </View>
+
+      {/* Visibility is declared per sub-tab (see SUB_TABS above), not hardcoded
+          here - Thought for the Day sets showDeityFilter: false since deity
+          selection doesn't apply to that content type. */}
+      {activeTabConfig.showDeityFilter && (
+        <DeityFilterRow
+          deities={deities}
+          selected={selectedFilter}
+          onSelect={setSelectedFilter}
+        />
+      )}
 
       <View style={styles.content}>
         {activeSubTab === 'status' && <StatusTabContent ref={activeListRef} filter={selectedFilter} />}
@@ -127,40 +181,54 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: goldenTempleTheme.colors.background,
   },
+  // White background + shadow removed entirely (was visually a separate
+  // card sitting on top of the page) - now blends directly into the page's
+  // own background, matching the Audio hub's header exactly. SearchBar's own
+  // visual style (the cream input pill) is untouched - this only affects the
+  // header row's own container.
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    paddingHorizontal: goldenTempleTheme.spacing.lg,
+    paddingVertical: goldenTempleTheme.spacing.md,
+    backgroundColor: goldenTempleTheme.colors.background,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0, 0, 0, 0.1)',
   },
-  headerTitle: {
-    fontWeight: '700',
-    color: '#1A1A1A',
-    letterSpacing: -0.5,
+  backButton: {
+    marginRight: goldenTempleTheme.spacing.sm,
   },
+  // Overrides SearchBar's own default marginHorizontal:spacing.lg gutter -
+  // this header row already provides that edge spacing via its own
+  // paddingHorizontal above, and the bar needs flex:1 to fill the remaining
+  // width beside the back button.
+  headerSearchBar: {
+    flex: 1,
+    marginHorizontal: 0,
+  },
+  // Same white-background removal as the header above.
   subTabRow: {
     flexDirection: 'row',
     gap: 8,
-    paddingHorizontal: 16,
+    paddingHorizontal: goldenTempleTheme.spacing.lg,
     paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: goldenTempleTheme.colors.background,
   },
+  // Matches SearchBar's own background fill (its searchContainer style) -
+  // same cream tone as the search bar above, matching the Audio hub.
   subTabButton: {
     flex: 1,
     paddingVertical: 10,
     borderRadius: 20,
     alignItems: 'center',
-    backgroundColor: '#F8F9FA',
+    backgroundColor: '#f7ebc4',
   },
+  // Was templeRed (#C41E3A) - switched to the app's established primary
+  // action color, matching the Audio hub's selected-pill fill exactly (solid
+  // fill, not a gradient - no gradient pattern exists for sub-tab pills
+  // anywhere in this app).
   subTabButtonActive: {
-    backgroundColor: '#C41E3A',
+    backgroundColor: goldenTempleTheme.colors.primary.DEFAULT,
   },
   subTabLabel: {
     fontSize: 14,

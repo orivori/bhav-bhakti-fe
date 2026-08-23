@@ -132,6 +132,12 @@
     "bhajan": "Bhajans",
     "searchPlaceholder": "Search for aartis, bhajan, or ringtones"
   },
+  "wallpaperHub": {
+    "status": "Status",
+    "thought": "Thought for the Day",
+    "wallpapers": "Wallpapers",
+    "searchPlaceholder": "Search for wallpapers, thought, or status"
+  },
   "profile": {
     "title": "Profile",
     "accountInfo": "Account Information",

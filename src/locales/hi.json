@@ -132,6 +132,12 @@
     "bhajan": "भजन",
     "searchPlaceholder": "आरती, भजन या रिंगटोन खोजें"
   },
+  "wallpaperHub": {
+    "status": "स्टेटस",
+    "thought": "आज का विचार",
+    "wallpapers": "वॉलपेपर",
+    "searchPlaceholder": "वॉलपेपर, विचार या स्टेटस खोजें"
+  },
   "profile": {
     "title": "प्रोफ़ाइल",
     "accountInfo": "खाता जानकारी",
