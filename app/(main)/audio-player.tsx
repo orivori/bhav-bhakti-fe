@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useId } from 'react';
+import React, { useState, useEffect, useCallback, useId, useMemo } from 'react';
 import {
   View,
   TouchableOpacity,
@@ -419,12 +419,22 @@ export default function AudioPlayerScreen() {
   // when showTrackNav is true (see the render below) - mantra never has a
   // queue at all (never calls setQueue), so this gesture is simply never
   // mounted for it, matching how the old icon was already conditional.
-  const swipeUpToOpenQueue = Gesture.Fling()
-    .direction(Directions.UP)
-    .runOnJS(true)
-    .onEnd(() => {
-      queueSheetRef.current?.present();
-    });
+  // Memoized with an empty dep array - `status` (useAudioPlayerStatus) re-renders
+  // this whole screen on every playback tick, and a bare Gesture.Fling() here
+  // would be recreated on every one of those renders, forcing GestureDetector
+  // to re-attach its native handler on queueSwipeHandleZone repeatedly. Fixed
+  // as the likely cause of the "आगे बजेगा" Up Next label rendering truncated
+  // to just "आगे" on-device - queueSheetRef is a stable ref, safe to omit.
+  const swipeUpToOpenQueue = useMemo(
+    () =>
+      Gesture.Fling()
+        .direction(Directions.UP)
+        .runOnJS(true)
+        .onEnd(() => {
+          queueSheetRef.current?.present();
+        }),
+    []
+  );
 
   // Refs to store current state values for callback access (fixes stale closure issue)
   const isAutoLoopingRef = React.useRef(isAutoLooping);
@@ -433,7 +443,6 @@ export default function AudioPlayerScreen() {
   const feedIdRef = React.useRef(feedId);
 
   // Animation values
-  const pulseAnim = React.useRef(new Animated.Value(1)).current;
   const rotateAnim = React.useRef(new Animated.Value(0)).current;
 
   // Interpolate rotation for proper string format
@@ -675,24 +684,6 @@ export default function AudioPlayerScreen() {
 
   // Animations
   useEffect(() => {
-    // Pulse animation for play button
-    const pulse = () => {
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.1,
-          duration: 1000,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 1000,
-          useNativeDriver: true,
-        }),
-      ]).start(() => {
-        if (status.playing) pulse();
-      });
-    };
-
     // Spin animation for loading
     const spin = () => {
       Animated.sequence([
@@ -712,12 +703,6 @@ export default function AudioPlayerScreen() {
     };
 
     console.log('🎵 Animation Effect: playing =', status.playing, 'isAudioLoading =', isAudioLoading);
-
-    if (status.playing) {
-      pulse();
-    } else {
-      pulseAnim.setValue(1);
-    }
 
     if (isAudioLoading) {
       spin();
@@ -1916,12 +1901,7 @@ export default function AudioPlayerScreen() {
                   <Ionicons name="play-skip-back" size={28} color={'#5D4E37'} />
                 </TouchableOpacity>
 
-                <Animated.View
-                  style={[
-                    styles.playButtonContainer,
-                    { transform: [{ scale: pulseAnim }] },
-                  ]}
-                >
+                <View style={styles.playButtonContainer}>
                   {/* Back to the original 80x80 size, matching mantra's
                       playButton exactly (CLAUDE.md §56 Phase 4 sizing
                       correction - reuses styles.playButton directly rather
@@ -1950,7 +1930,7 @@ export default function AudioPlayerScreen() {
                       )}
                     </LinearGradient>
                   </TouchableOpacity>
-                </Animated.View>
+                </View>
 
                 <TouchableOpacity
                   onPress={handleNext}
@@ -2021,12 +2001,7 @@ export default function AudioPlayerScreen() {
                     unchanged, still shared with aarti/bhajan's branch above)
                     - the visual anchor of the row; Speed/Chant-counter were
                     sized up to match IT, not the other way around. */}
-                <Animated.View
-                  style={[
-                    styles.playButtonContainer,
-                    { transform: [{ scale: pulseAnim }] },
-                  ]}
-                >
+                <View style={styles.playButtonContainer}>
                   <TouchableOpacity
                     style={styles.playButton}
                     onPress={togglePlayback}
@@ -2050,7 +2025,7 @@ export default function AudioPlayerScreen() {
                       )}
                     </LinearGradient>
                   </TouchableOpacity>
-                </Animated.View>
+                </View>
 
                 {feedData?.isRepeatable ? (
                   <TouchableOpacity
@@ -2246,7 +2221,11 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     overflow: 'hidden',
     position: 'relative',
-    ...goldenTempleTheme.shadows.lg,
+    // shadows.lg removed entirely (was making the box read as asymmetric
+    // left/right on-device, confirmed via a real screenshot - no code-level
+    // margin/padding difference exists between this box and other page
+    // elements, so the shadow/elevation rendering was the only remaining
+    // candidate) - no shadow is preferred to an asymmetric-looking one.
   },
   lyricsBackground: {
     position: 'absolute',
