@@ -73,7 +73,7 @@ export default function MiniPlayer() {
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.iconButton} onPress={handlePlayPause} activeOpacity={0.7}>
-        <Ionicons name={nowPlaying.isPlaying ? 'pause' : 'play'} size={22} color="#C41E3A" />
+        <Ionicons name={nowPlaying.isPlaying ? 'pause' : 'play'} size={22} color={goldenTempleTheme.colors.primary.DEFAULT} />
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.iconButton} onPress={handleStop} activeOpacity={0.7}>
@@ -90,7 +90,9 @@ const styles = StyleSheet.create({
     right: 0,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: goldenTempleTheme.colors.background,
+    // Matches RingtoneFeedCard/AudioContentCard's shared cream fill, not the
+    // page background - was goldenTempleTheme.colors.background before.
+    backgroundColor: '#f7ebc4',
     borderTopWidth: 1,
     borderTopColor: 'rgba(139, 115, 85, 0.3)',
     paddingHorizontal: 12,
