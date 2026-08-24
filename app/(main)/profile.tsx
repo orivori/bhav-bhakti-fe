@@ -1,7 +1,11 @@
-import React, { useState } from 'react';
-import { View, ScrollView, TouchableOpacity, Alert, StyleSheet, Modal } from 'react-native';
+import React, { useCallback, useState } from 'react';
+import { View, ScrollView, TouchableOpacity, Alert, StyleSheet, Modal, Platform, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
+import * as IntentLauncher from 'expo-intent-launcher';
+import Constants from 'expo-constants';
 
 import { Button, Text } from '@/components/atoms';
 import { useAuth } from '@/features/authentication/hooks/useAuth';
@@ -9,6 +13,7 @@ import { usePremiumStore } from '@/store/premiumStore';
 import { useTranslation } from 'react-i18next';
 import { useI18nStore, SELECTABLE_LANGUAGES } from '@/shared/stores/i18nStore';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
+import { profileService } from '@/features/profile/services/profileService';
 
 export default function ProfileScreen() {
   const { user, logout } = useAuth();
@@ -17,6 +22,28 @@ export default function ProfileScreen() {
   const { language, setLanguage, getLanguageLabel } = useI18nStore();
   const { contentPadding } = useTabBarHeight();
   const [showLanguageModal, setShowLanguageModal] = useState(false);
+  const [displayName, setDisplayName] = useState<string | null>(null);
+
+  // Refetches on every focus (not just mount) so returning from Edit Profile
+  // reflects a just-saved name without a full app restart - matches the
+  // tab-persistence model already used elsewhere in this app rather than a
+  // separate optimistic-update mechanism.
+  useFocusEffect(
+    useCallback(() => {
+      let isMounted = true;
+      profileService
+        .getProfile()
+        .then((profile) => {
+          if (isMounted) setDisplayName(profile.name || null);
+        })
+        .catch((error) => {
+          console.error('Failed to load profile:', error);
+        });
+      return () => {
+        isMounted = false;
+      };
+    }, [])
+  );
 
   const languages = SELECTABLE_LANGUAGES.map((code) => ({
     code,
@@ -30,16 +57,38 @@ export default function ProfileScreen() {
     ]);
   };
 
-  const handleImageUpload = () => {
-    Alert.alert(t('profile.editProfile'), 'Choose an option', [
-      { text: t('common.cancel'), style: 'cancel' },
-      { text: 'Take Photo', onPress: () => Alert.alert('Opening camera...') },
-      { text: 'Choose from Gallery', onPress: () => Alert.alert('Opening gallery...') },
-    ]);
+  const handleEditProfile = () => {
+    router.push('/(main)/edit-profile');
   };
 
-  const handleEditProfile = () => {
-    Alert.alert(t('profile.editProfile'), 'This feature is coming soon!');
+  const handleManageSubscription = () => {
+    if (!isPremium) {
+      setShowPaywall(true);
+      return;
+    }
+    // Premium-management UI (cancel/change plan, billing history, etc.)
+    // doesn't exist yet - stubbed until it's built.
+    Alert.alert(
+      t('profile.manageSubscription'),
+      language === 'hi' ? 'यह सुविधा जल्द आ रही है' : 'This feature is coming soon!'
+    );
+  };
+
+  const handleOpenNotificationSettings = () => {
+    if (Platform.OS === 'android') {
+      // Same technique as the Sound Settings fix (RingtoneFeedCard.tsx) -
+      // APP_NOTIFICATION_SETTINGS needs the package-name extra to scope it
+      // to this app specifically, otherwise it can land on a generic
+      // all-apps notification list. Package read dynamically from
+      // app.json/expoConfig, not hardcoded, so it can't drift out of sync.
+      const packageName = Constants.expoConfig?.android?.package;
+      IntentLauncher.startActivityAsync(
+        IntentLauncher.ActivityAction.APP_NOTIFICATION_SETTINGS,
+        packageName ? { extra: { 'android.provider.extra.APP_PACKAGE': packageName } } : undefined
+      ).catch(() => Linking.openSettings());
+    } else {
+      Linking.openSettings();
+    }
   };
 
   const accountOptions = [
@@ -52,86 +101,66 @@ export default function ProfileScreen() {
     },
     {
       id: 2,
-      title: t('profile.phoneNumber'),
-      icon: 'call-outline',
-      description: user?.phoneNumber ? `${user.countryCode} ${user.phoneNumber}` : (language === 'hi' ? 'सेट नहीं' : 'Not set'),
-      onPress: () => Alert.alert(t('profile.phoneNumber'), language === 'hi' ? 'अपना फोन नंबर प्रबंधित करें' : 'Manage your phone number'),
-    },
-    {
-      id: 3,
-      title: language === 'hi' ? 'ईमेल पता' : 'Email Address',
-      icon: 'mail-outline',
-      description: language === 'hi' ? 'कनेक्ट नहीं है' : 'Not connected',
-      onPress: () => Alert.alert(language === 'hi' ? 'ईमेल' : 'Email', language === 'hi' ? 'अपना ईमेल जोड़ें' : 'Add your email address'),
+      title: t('profile.manageSubscription'),
+      icon: 'card-outline',
+      description: isPremium
+        ? (language === 'hi' ? 'प्रीमियम सदस्यता प्रबंधित करें' : 'Manage your premium subscription')
+        : (language === 'hi' ? 'प्रीमियम में अपग्रेड करें' : 'Upgrade to premium'),
+      onPress: handleManageSubscription,
     },
   ];
 
   const appOptions = [
     {
       id: 1,
-      title: t('profile.notifications'),
-      icon: 'notifications-outline',
-      description: language === 'hi' ? 'सूचना प्राथमिकताएं प्रबंधित करें' : 'Manage notification preferences',
-      onPress: () => Alert.alert(t('profile.notifications'), language === 'hi' ? 'अपनी सूचनाएं कॉन्फ़िगर करें' : 'Configure your notifications'),
-    },
-    {
-      id: 2,
-      title: t('profile.privacy'),
-      icon: 'shield-checkmark-outline',
-      description: language === 'hi' ? 'अपनी गोपनीयता सेटिंग्स नियंत्रित करें' : 'Control your privacy settings',
-      onPress: () => Alert.alert(t('profile.privacy'), language === 'hi' ? 'गोपनीयता सेटिंग्स प्रबंधित करें' : 'Manage privacy settings'),
-    },
-    {
-      id: 3,
       title: t('profile.language'),
       icon: 'language-outline',
       description: getLanguageLabel(language),
       onPress: () => setShowLanguageModal(true),
     },
     {
+      id: 2,
+      title: t('profile.notifications'),
+      icon: 'notifications-outline',
+      description: language === 'hi' ? 'सूचना प्राथमिकताएं प्रबंधित करें' : 'Manage notification preferences',
+      onPress: handleOpenNotificationSettings,
+    },
+    {
+      id: 3,
+      title: t('profile.privacy'),
+      icon: 'shield-checkmark-outline',
+      description: language === 'hi' ? 'अपनी गोपनीयता सेटिंग्स नियंत्रित करें' : 'Control your privacy settings',
+      onPress: () => Alert.alert(t('profile.privacy'), language === 'hi' ? 'गोपनीयता सेटिंग्स प्रबंधित करें' : 'Manage privacy settings'),
+    },
+    {
       id: 4,
+      title: t('profile.termsAndConditions'),
+      icon: 'document-text-outline',
+      description: language === 'hi' ? 'हमारी सेवा की शर्तें देखें' : 'View our terms of service',
+      onPress: () => Alert.alert(t('profile.termsAndConditions'), language === 'hi' ? 'यह सुविधा जल्द आ रही है' : 'This feature is coming soon!'),
+    },
+    {
+      id: 5,
+      title: t('profile.refundPolicy'),
+      icon: 'cash-outline',
+      description: language === 'hi' ? 'हमारी धनवापसी नीति देखें' : 'View our refund policy',
+      onPress: () => Alert.alert(t('profile.refundPolicy'), language === 'hi' ? 'यह सुविधा जल्द आ रही है' : 'This feature is coming soon!'),
+    },
+    {
+      id: 6,
       title: language === 'hi' ? 'सहायता और सहयोग' : 'Help & Support',
       icon: 'help-circle-outline',
       description: language === 'hi' ? 'सहायता प्राप्त करें और संपर्क करें' : 'Get help and contact support',
       onPress: () => Alert.alert(language === 'hi' ? 'सहायता' : 'Support', language === 'hi' ? 'हमारी सहायता टीम से संपर्क करें' : 'Contact our support team'),
     },
     {
-      id: 5,
+      id: 7,
       title: t('profile.aboutUs'),
       icon: 'information-circle-outline',
-      description: language === 'hi' ? 'ऐप संस्करण 1.0.0' : 'App version 1.0.0',
-      onPress: () => Alert.alert(t('profile.aboutUs'), 'Divine Wallpapers v1.0.0'),
-    },
-  ];
-
-  const socialOptions = [
-    {
-      id: 1,
-      title: 'Instagram',
-      icon: 'logo-instagram',
-      color: '#E4405F',
-      onPress: () => Alert.alert('Instagram', 'Follow us on Instagram'),
-    },
-    {
-      id: 2,
-      title: 'Facebook',
-      icon: 'logo-facebook',
-      color: '#1877F2',
-      onPress: () => Alert.alert('Facebook', 'Like us on Facebook'),
-    },
-    {
-      id: 3,
-      title: 'Twitter',
-      icon: 'logo-twitter',
-      color: '#1DA1F2',
-      onPress: () => Alert.alert('Twitter', 'Follow us on Twitter'),
-    },
-    {
-      id: 4,
-      title: 'YouTube',
-      icon: 'logo-youtube',
-      color: '#FF0000',
-      onPress: () => Alert.alert('YouTube', 'Subscribe to our channel'),
+      description: language === 'hi'
+        ? `ऐप संस्करण ${Constants.expoConfig?.version || ''}`
+        : `App version ${Constants.expoConfig?.version || ''}`,
+      onPress: () => Alert.alert(t('profile.aboutUs'), `${Constants.expoConfig?.name || 'Bhav Bhakti'} v${Constants.expoConfig?.version || ''}`),
     },
   ];
 
@@ -158,18 +187,15 @@ export default function ProfileScreen() {
 
         {/* Profile Card */}
         <View style={styles.profileCard}>
-          <TouchableOpacity style={styles.avatarContainer} onPress={handleImageUpload}>
+          <View style={styles.avatarContainer}>
             <View style={styles.avatar}>
               <Ionicons name="person" size={48} color="#9ca3af" />
             </View>
-            <View style={styles.cameraButton}>
-              <Ionicons name="camera" size={16} color="#fff" />
-            </View>
-          </TouchableOpacity>
+          </View>
 
           <View style={styles.profileInfo}>
             <Text variant="h4" weight="bold" align="center">
-              User Name
+              {displayName || t('profile.defaultName')}
             </Text>
             <Text variant="body" color="secondary" align="center">
               {user?.phoneNumber ? `${user.countryCode} ${user.phoneNumber}` : 'Phone User'}
@@ -259,28 +285,6 @@ export default function ProfileScreen() {
                   </Text>
                 </View>
                 <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        {/* Social Media Section */}
-        <View style={styles.section}>
-          <Text variant="h4" weight="semibold" style={styles.sectionTitle}>
-            {t('profile.followUs')}
-          </Text>
-          <View style={styles.socialGrid}>
-            {socialOptions.map((option) => (
-              <TouchableOpacity
-                key={option.id}
-                style={styles.socialButton}
-                onPress={option.onPress}
-                activeOpacity={0.7}
-              >
-                <Ionicons name={option.icon as any} size={32} color={option.color} />
-                <Text variant="caption" weight="medium" style={styles.socialLabel}>
-                  {option.title}
-                </Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -406,19 +410,6 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: '#fff',
   },
-  cameraButton: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#3b82f6',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 3,
-    borderColor: '#fff',
-  },
   profileInfo: {
     alignItems: 'center',
     marginBottom: 16,
@@ -487,23 +478,6 @@ const styles = StyleSheet.create({
   },
   optionContent: {
     flex: 1,
-  },
-  socialGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 16,
-  },
-  socialButton: {
-    width: '47%',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    padding: 20,
-    borderRadius: 12,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(229, 231, 235, 0.3)',
-  },
-  socialLabel: {
-    marginTop: 8,
   },
   logoutContainer: {
     marginHorizontal: 24,
