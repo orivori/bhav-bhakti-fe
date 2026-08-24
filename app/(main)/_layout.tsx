@@ -121,6 +121,13 @@ export default function MainLayout() {
         }}
       />
       <Tabs.Screen
+        name="edit-profile"
+        options={{
+          href: null, // Hide from tabs but keep for navigation
+          headerShown: false,
+        }}
+      />
+      <Tabs.Screen
         name="wallpapers"
         options={{
           href: null, // Hide from tabs but keep for navigation
