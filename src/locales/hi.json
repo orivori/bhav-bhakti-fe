@@ -144,10 +144,13 @@
     "phoneNumber": "फ़ोन नंबर",
     "accountOptions": "खाता विकल्प",
     "editProfile": "प्रोफ़ाइल संपादित करें",
+    "manageSubscription": "सदस्यता प्रबंधित करें",
     "appSettings": "ऐप सेटिंग्स",
     "language": "भाषा",
     "notifications": "सूचनाएं",
     "privacy": "गोपनीयता और सुरक्षा",
+    "termsAndConditions": "नियम और शर्तें",
+    "refundPolicy": "धनवापसी नीति",
     "socialMedia": "सोशल मीडिया",
     "instagram": "Instagram",
     "facebook": "Facebook",
@@ -158,7 +161,21 @@
     "logout": "लॉग आउट",
     "confirmLogout": "क्या आप लॉग आउट करना चाहते हैं?",
     "yes": "हाँ",
-    "no": "नहीं"
+    "no": "नहीं",
+    "defaultName": "उपयोगकर्ता",
+    "editProfileScreen": {
+      "title": "प्रोफ़ाइल संपादित करें",
+      "name": "नाम",
+      "namePlaceholder": "अपना नाम दर्ज करें",
+      "dateOfBirth": "जन्म तिथि",
+      "selectDate": "तारीख चुनें",
+      "gender": "लिंग",
+      "male": "पुरुष",
+      "female": "महिला",
+      "other": "अन्य",
+      "saveProfile": "प्रोफ़ाइल सहेजें",
+      "saveFailed": "प्रोफ़ाइल सहेजने में विफल। कृपया पुनः प्रयास करें।"
+    }
   },
   "auth": {
     "phoneAuth": "फ़ोन प्रमाणीकरण",

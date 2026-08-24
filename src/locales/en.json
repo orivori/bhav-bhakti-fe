@@ -144,10 +144,13 @@
     "phoneNumber": "Phone Number",
     "accountOptions": "Account Options",
     "editProfile": "Edit Profile",
+    "manageSubscription": "Manage Subscription",
     "appSettings": "App Settings",
     "language": "Language",
     "notifications": "Notifications",
     "privacy": "Privacy & Security",
+    "termsAndConditions": "Terms and Conditions",
+    "refundPolicy": "Refund Policy",
     "socialMedia": "Social Media",
     "instagram": "Instagram",
     "facebook": "Facebook",
@@ -158,7 +161,21 @@
     "logout": "Logout",
     "confirmLogout": "Are you sure you want to logout?",
     "yes": "Yes",
-    "no": "No"
+    "no": "No",
+    "defaultName": "User",
+    "editProfileScreen": {
+      "title": "Edit Profile",
+      "name": "Name",
+      "namePlaceholder": "Enter your name",
+      "dateOfBirth": "Date of Birth",
+      "selectDate": "Select date",
+      "gender": "Gender",
+      "male": "Male",
+      "female": "Female",
+      "other": "Other",
+      "saveProfile": "Save Profile",
+      "saveFailed": "Failed to save profile. Please try again."
+    }
   },
   "auth": {
     "phoneAuth": "Phone Authentication",
