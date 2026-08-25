@@ -1,6 +1,10 @@
 import Constants from 'expo-constants';
 import * as Device from 'expo-device';
 
+// The real, permanently hosted Railway backend - used whenever EXPO_PUBLIC_API_ENV
+// is set to 'hosted' during dev-client testing, and always for release builds.
+const HOSTED_BASE_URL = 'https://bhav-bhakti-be-production.up.railway.app/api';
+
 const getDevBaseUrl = () => {
   // hostUri is the Metro dev server's <host>:<port>, e.g. "192.168.1.5:8081" on a
   // physical device over WiFi, or the emulator's routable host alias — same value
@@ -35,8 +39,15 @@ const getDevBaseUrl = () => {
   return `http://${resolvedHost}:3000/api`;
 };
 
+// EXPO_PUBLIC_API_ENV switches a dev-client build between the local LAN backend
+// (today's default, unchanged) and the real hosted Railway backend, independent of
+// __DEV__ - a dev client always has __DEV__ === true, so without this switch there
+// was no way to point a dev build at the hosted backend at all. Unset/anything
+// other than 'hosted' preserves the exact pre-existing local-IP behavior.
+const isHostedEnv = process.env.EXPO_PUBLIC_API_ENV === 'hosted';
+
 export const API_CONFIG = {
-  BASE_URL: __DEV__ ? getDevBaseUrl() : 'https://api.orivori.com/api', // Production URL with HTTPS
+  BASE_URL: !__DEV__ || isHostedEnv ? HOSTED_BASE_URL : getDevBaseUrl(),
   TIMEOUT: 10000,
   RETRY_ATTEMPTS: 2,
 };
