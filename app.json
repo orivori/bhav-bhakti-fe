@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Bhav Bhakti",
-    "slug": "bhavbhakti",
+    "slug": "bhav-bhakti",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -105,9 +105,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "b829a0a4-75a5-4081-9cf7-68d5c987d199"
+        "projectId": "565b0611-1665-4d59-b95e-33f4058e4144"
       }
     },
-    "owner": "vivekpandit"
+    "owner": "hiorivoris-team"
   }
 }
