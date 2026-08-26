@@ -10,6 +10,7 @@ import {
   Alert,
   AppState,
   Share,
+  BackHandler,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -23,7 +24,6 @@ import { useAudioPlayer, useAudioPlayerStatus, setAudioModeAsync } from 'expo-au
 import * as FileSystem from 'expo-file-system/legacy';
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { Gesture, GestureDetector, Directions } from 'react-native-gesture-handler';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Text } from '@/components/atoms';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { designSystemTheme } from '@/styles/designSystemTheme';
@@ -68,9 +68,7 @@ const isValidArtworkUrl = (url: string | undefined): url is string =>
 // feedId rather than sanitized title text keys the cache path below -
 // mirrors RingtoneFeedCard.tsx's cache-key choice, but avoids its latent
 // collision risk (two feeds sharing/sanitizing down to the same title would
-// silently share one cache file). feedId is guaranteed unique and is already
-// this screen's own established per-item key elsewhere (see
-// getCounterKey/getTargetKey below).
+// silently share one cache file). feedId is guaranteed unique.
 const getLocalCachePath = (feedIdForCache: string, audioUri: string): string =>
   `${FileSystem.documentDirectory}audio_player_${feedIdForCache}.${getAudioFileExtension(audioUri)}`;
 
@@ -312,6 +310,37 @@ export default function AudioPlayerScreen() {
     router.back();
   }, [params.returnTo, params.returnParams]);
 
+  // Android's hardware back button AND its edge-swipe back gesture both
+  // dispatch through this same 'hardwareBackPress' event - confirmed
+  // correct for this app specifically because app.config.js sets
+  // predictiveBackGestureEnabled: false, so the gesture is treated as a
+  // legacy back-press rather than routed through Android 13+'s separate
+  // predictive-back API (which BackHandler does NOT intercept). Without
+  // this, either input fell through to React Navigation's own default pop
+  // behavior, which - like the plain router.back() this screen used to call
+  // unconditionally (see handleBack's own comment above) - always landed on
+  // Home regardless of actual entry point, since it doesn't know about
+  // returnTo at all. Returning true tells the native side "handled, don't
+  // also run the default pop" so handleBack's returnTo/router.back() logic
+  // is the ONLY thing that runs, keeping this screen's three exit paths
+  // (chevron tap, hardware button, gesture) in permanent lockstep by
+  // construction - any future change to handleBack's logic covers all three
+  // automatically. useFocusEffect (not a plain mount/unmount effect) is
+  // required for the same reason as the tabBarStyle effect above: this
+  // listener must attach/detach with focus, not just mount/unmount, since
+  // Tabs screens in this app don't unmount between navigations - a
+  // mount-only effect would still be listening (and would still hijack back
+  // presses) even while a totally different tab is focused.
+  useFocusEffect(
+    useCallback(() => {
+      const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+        handleBack();
+        return true;
+      });
+      return () => subscription.remove();
+    }, [handleBack])
+  );
+
   // Feed data state
   const [feedData, setFeedData] = useState<Feed | null>(null);
   const [isFeedLoading, setIsFeedLoading] = useState(true);
@@ -451,40 +480,31 @@ export default function AudioPlayerScreen() {
     outputRange: ['0deg', '360deg'],
   });
 
-  // Counter storage key
-  const getCounterKey = (feedId: string) => `mantra_counter_${feedId}`;
-  const getTargetKey = (feedId: string) => `mantra_target_${feedId}`;
-
-  // Load saved counter progress
-  const loadCounterProgress = async (feedId: string) => {
-    try {
-      const [savedCount, savedTarget] = await Promise.all([
-        AsyncStorage.getItem(getCounterKey(feedId)),
-        AsyncStorage.getItem(getTargetKey(feedId)),
-      ]);
-
-      if (savedCount) {
-        setChantCount(parseInt(savedCount, 10));
-      }
-      if (savedTarget) {
-        setTargetCount(parseInt(savedTarget, 10));
-      }
-    } catch (error) {
-      console.error('Error loading counter progress:', error);
-    }
-  };
-
-  // Save counter progress
-  const saveCounterProgress = async (feedId: string, count: number, target: number) => {
-    try {
-      await Promise.all([
-        AsyncStorage.setItem(getCounterKey(feedId), count.toString()),
-        AsyncStorage.setItem(getTargetKey(feedId), target.toString()),
-      ]);
-    } catch (error) {
-      console.error('Error saving counter progress:', error);
-    }
-  };
+  // The chant counter is deliberately session-scoped only, NOT persisted
+  // across app restarts or content switches (no AsyncStorage involved at
+  // all, unlike an earlier version of this code). "Session" here means "for
+  // as long as this exact feedId remains the actively-loaded content" -
+  // resuming the SAME mantra via the mini-player (pause, browse elsewhere,
+  // come back) must keep its count, since that's still the same load, just
+  // paused; but re-selecting that same mantra AFTER it was fully swapped
+  // out for something else must start over at 0, since it's a fresh load,
+  // not a resume. The signal that distinguishes these two cases already
+  // exists elsewhere in this file: `feedId` (from useLocalSearchParams)
+  // only changes value on a genuine switch to different content -
+  // MiniPlayer's handleBodyPress deliberately re-passes the SAME feedId
+  // when returning to already-loaded content, so that navigation is a
+  // same-value update React bails out of re-running effects for, not a
+  // fresh [feedId]-effect firing. fetchFeedData below (itself gated on
+  // [feedId]) is exactly that boundary - resetting chantCount/targetCount
+  // there, unconditionally, covers both required "fresh load" cases at
+  // once: switching in from different content, and switching back in after
+  // having been fully replaced (both are, structurally, just "feedId
+  // changed to a new value" from this effect's point of view - there's no
+  // way to tell those two apart from in here, and the requirement doesn't
+  // need there to be one). This is also exactly why the pause-on-switch
+  // cleanup above is keyed on the same [feedId, player] dependency - the
+  // two mechanisms (silence the old content, reset the new content's
+  // counter) rely on the identical signal by design, not by coincidence.
 
   // Fetch feed data from API
   const fetchFeedData = async () => {
@@ -505,8 +525,11 @@ export default function AudioPlayerScreen() {
 
       setFeedData(feed);
 
-      // Load saved progress for this mantra
-      await loadCounterProgress(feedId);
+      // Fresh load of (possibly new, possibly repeat) content - always
+      // starts the counter at 0/108. See this function's own comment above
+      // for why an unconditional reset here is correct rather than a bug.
+      setChantCount(0);
+      setTargetCount(108);
 
       // Track view
       await feedService.viewFeed(feedId);
@@ -1023,7 +1046,6 @@ export default function AudioPlayerScreen() {
     const currentAutoLooping = isAutoLoopingRef.current;
     const currentCount = chantCountRef.current;
     const currentTarget = targetCountRef.current;
-    const currentFeedId = feedIdRef.current;
 
     console.log('🔄 Using ref values - Auto-looping:', currentAutoLooping, 'Count:', currentCount, 'Target:', currentTarget);
 
@@ -1031,10 +1053,6 @@ export default function AudioPlayerScreen() {
       const newCount = currentCount + 1;
       console.log('🔄 Auto-looping active - incrementing count from', currentCount, 'to', newCount);
       setChantCount(newCount);
-
-      if (currentFeedId) {
-        saveCounterProgress(currentFeedId, newCount, currentTarget).catch(console.error);
-      }
 
       if (newCount >= currentTarget) {
         console.log('🎯 Target reached! Stopping auto-loop');
@@ -1369,19 +1387,57 @@ export default function AudioPlayerScreen() {
 
   // Clear this screen's entry from the shared store - and its lock-screen
   // controls, if active - on unmount (e.g. the whole (main) tree unmounting
-  // on logout - see the coordinator design notes on why ordinary in-app tab
-  // navigation does NOT reach this). Also cancels any in-flight background
-  // cache download for this feedId - cancelBackgroundDownload only touches
-  // the filesystem, never `player`, so it's safe to call unconditionally
-  // even though this cleanup itself runs after useAudioPlayer's own
-  // release() (see the isMountedRef comment above for why that ordering
-  // matters for code that DOES touch `player`). clearLockScreenControls()
-  // DOES touch `player`, though, and this cleanup is exactly the code path
-  // that ordering hazard describes - wrapped in try/catch for the same
-  // reason as the coordinator's stop/pause closures above, not AppState-
-  // gated (see that comment for why AppState-gating doesn't apply here).
+  // on logout). CORRECTION to this comment's original claim: being keyed on
+  // [feedId, player] means this cleanup ALSO fires on every ordinary
+  // feedId switch (any dependency change reruns a useEffect's cleanup, not
+  // just true unmount) - it isn't unmount-only the way it was first
+  // documented. That turned out to matter: player.pause() below was added
+  // specifically because of it. Without an immediate pause here, switching
+  // away from actively-playing/auto-looping mantra content left the SAME
+  // shared player (see useAudioPlayer(null) above - one stable instance for
+  // the whole screen) still audibly finishing/auto-looping in the
+  // background, since togglePlayback's own "stop the previous feed" step
+  // only runs once the NEWLY-selected content's play action fires - not
+  // immediately on navigation. Any natural-finish event from that trailing
+  // old playback fed straight into the didJustFinish effect below, which
+  // increments chantCount using feedIdRef/chantCountRef - both of which
+  // had ALREADY moved on to the newly-switched-to feed by then, since refs
+  // always read current, not stale, values. The result: a fresh 0/108
+  // reset (see fetchFeedData's own comment on why every feedId change
+  // resets the counter) got silently bumped back up moments later,
+  // attributed to whichever content was now on screen rather than the one
+  // that actually finished. Pausing here, synchronously as part of the OLD
+  // feedId's cleanup (which React runs before the new feedId's
+  // fetchFeedData effect even starts), closes that window instead of just
+  // resetting into it.
+  // isAutoLooping is cleared alongside it so the loop indicator doesn't
+  // carry over either, for the same reason. Also cancels any in-flight
+  // background cache download for this feedId - cancelBackgroundDownload
+  // only touches the filesystem, never `player`, so it's safe to call
+  // unconditionally even though this cleanup itself runs after
+  // useAudioPlayer's own release() (see the isMountedRef comment above for
+  // why that ordering matters for code that DOES touch `player`).
+  // clearLockScreenControls() DOES touch `player`, though, and this cleanup
+  // is exactly the code path that ordering hazard describes - wrapped in
+  // try/catch for the same reason as the coordinator's stop/pause closures
+  // above, not AppState-gated (see that comment for why AppState-gating
+  // doesn't apply here).
   useEffect(() => {
     return () => {
+      // Same "player likely already released" hazard as
+      // clearLockScreenControls() just below - this cleanup can run on a
+      // true unmount, after useAudioPlayer's own release(), not just on an
+      // ordinary feedId switch (where the player is still very much alive).
+      // Guarded the same way for the same reason (see this effect's own
+      // top comment, and the standing project lesson: any new player-
+      // touching cleanup code needs this by default).
+      try {
+        player.pause();
+      } catch (error) {
+        console.error('Error pausing previous feed during cleanup (player likely already released):', error);
+      }
+      setIsAutoLooping(false);
+
       try {
         player.clearLockScreenControls();
         hasActiveLockScreenSessionRef.current = false;
@@ -1397,15 +1453,10 @@ export default function AudioPlayerScreen() {
 
   const progress = targetCount > 0 ? (chantCount / targetCount) * 100 : 0;
 
-  const handleIncrementCount = async () => {
+  const handleIncrementCount = () => {
     if (chantCount < targetCount) {
       const newCount = chantCount + 1;
       setChantCount(newCount);
-
-      // Save progress
-      if (feedId) {
-        await saveCounterProgress(feedId, newCount, targetCount);
-      }
 
       // Celebrate completion
       if (newCount === targetCount) {
@@ -1424,16 +1475,11 @@ export default function AudioPlayerScreen() {
   };
 
 
-  const handleDecrementCount = async () => {
+  const handleDecrementCount = () => {
     if (chantCount > 0) {
       const newCount = chantCount - 1;
       console.log('🔽 Manually decremented count from', chantCount, 'to', newCount);
       setChantCount(newCount);
-
-      // Save progress
-      if (feedId) {
-        await saveCounterProgress(feedId, newCount, targetCount);
-      }
 
       // If we were auto-looping and count was reduced, ensure auto-loop continues if still below target
       if (isAutoLooping && newCount < targetCount && status.isLoaded && !isLooping) {
@@ -1447,7 +1493,7 @@ export default function AudioPlayerScreen() {
     }
   };
 
-  const handleTargetCountChange = async (newTarget: number) => {
+  const handleTargetCountChange = (newTarget: number) => {
     console.log('🎯 Target changed from', targetCount, 'to', newTarget, '- Current count:', chantCount);
     setTargetCount(newTarget);
 
@@ -1467,14 +1513,9 @@ export default function AudioPlayerScreen() {
         player.loop = isLooping; // Keep manual loop if enabled
       }
     }
-
-    // Save new target
-    if (feedId) {
-      await saveCounterProgress(feedId, chantCount, newTarget);
-    }
   };
 
-  const handleResetCounter = async () => {
+  const handleResetCounter = () => {
     Alert.alert(
       t('resetCounter'),
       t('resetCounterConfirm'),
@@ -1483,7 +1524,7 @@ export default function AudioPlayerScreen() {
         {
           text: t('reset'),
           style: 'destructive',
-          onPress: async () => {
+          onPress: () => {
             console.log('🔄 Resetting counter to 0');
             setChantCount(0);
 
@@ -1492,10 +1533,6 @@ export default function AudioPlayerScreen() {
               setIsAutoLooping(true);
               player.loop = false; // Auto-loop uses manual restart
               console.log('🔄 Restarted auto-loop after counter reset');
-            }
-
-            if (feedId) {
-              await saveCounterProgress(feedId, 0, targetCount);
             }
           },
         },

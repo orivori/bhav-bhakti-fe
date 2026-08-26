@@ -27,7 +27,7 @@ export const LanguageToggle = () => {
           color={goldenTempleTheme.colors.primary[600]}
         />
         <Text weight="medium" style={styles.toggleText}>
-          {language === 'en' ? 'हिं' : 'EN'}
+          {language === 'en' ? 'EN' : 'हिं'}
         </Text>
       </View>
     </TouchableOpacity>
