@@ -9,6 +9,7 @@ import {
   ListRenderItemInfo,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { Text } from '@/components/atoms';
 import AudioContentCard from '@/components/molecules/AudioContentCard';
 import { Feed } from '@/types/feed';
@@ -27,6 +28,7 @@ interface AartiTabContentProps {
 // audio-player.tsx screen (persistent playback) rather than playing inline,
 // unlike RingtoneFeedCard - see AudioContentCard for why.
 function AartiTabContent({ filter }: AartiTabContentProps, ref: React.Ref<FlatList>) {
+  const { t } = useTranslation();
   const { contentPadding } = useTabBarHeight();
   const {
     items: aartis,
@@ -101,6 +103,19 @@ function AartiTabContent({ filter }: AartiTabContentProps, ref: React.Ref<FlatLi
       );
     }
 
+    if (filter.kind === 'liked') {
+      return (
+        <View style={styles.centerContainer}>
+          <View style={styles.emptyIcon}>
+            <Ionicons name="heart-outline" size={48} color="#FF8C42" />
+          </View>
+          <Text variant="h4" style={styles.emptyTitle}>
+            {t('common.noLikedContent')}
+          </Text>
+        </View>
+      );
+    }
+
     return (
       <View style={styles.centerContainer}>
         <View style={styles.emptyIcon}>
@@ -114,7 +129,7 @@ function AartiTabContent({ filter }: AartiTabContentProps, ref: React.Ref<FlatLi
         </Text>
       </View>
     );
-  }, [isLoading, error, loadItems]);
+  }, [isLoading, error, loadItems, filter.kind, t]);
 
   const keyExtractor = useCallback((item: Feed) => item.id.toString(), []);
 

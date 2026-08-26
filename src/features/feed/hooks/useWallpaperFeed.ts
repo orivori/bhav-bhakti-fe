@@ -53,6 +53,14 @@ export function useWallpaperFeed(
           offset,
         });
       }
+      if (filter.kind === 'liked') {
+        return feedService.getUserLikedFeeds({
+          type: 'wallpaper',
+          label,
+          limit: PAGE_LIMIT,
+          offset,
+        });
+      }
       return feedService.getFeeds({
         type: 'wallpaper',
         label,

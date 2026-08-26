@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { useTranslation } from 'react-i18next';
 
 import { Text } from '@/components/atoms';
 import WallpaperFeedCard from '@/components/molecules/WallpaperFeedCard/WallpaperFeedCard';
@@ -43,6 +44,7 @@ interface WallpapersTabContentProps {
 // owned and shared by the hub (survives switching sub-tabs) - this component
 // just forwards whatever it's given into useWallpaperFeed().
 function WallpapersTabContent({ filter }: WallpapersTabContentProps, ref: React.Ref<FlatList>) {
+  const { t } = useTranslation();
   const { contentPadding } = useTabBarHeight();
 
   const {
@@ -118,13 +120,22 @@ function WallpapersTabContent({ filter }: WallpapersTabContentProps, ref: React.
       );
     }
 
+    if (filter.kind === 'liked') {
+      return (
+        <View style={styles.centerContainer}>
+          <Ionicons name="heart-outline" size={48} color="#8E8E93" />
+          <Text variant="body" style={styles.emptyText}>{t('common.noLikedContent')}</Text>
+        </View>
+      );
+    }
+
     return (
       <View style={styles.centerContainer}>
         <Ionicons name="images-outline" size={48} color="#8E8E93" />
         <Text variant="body" style={styles.emptyText}>No wallpapers yet</Text>
       </View>
     );
-  }, [isLoading, error, retry]);
+  }, [isLoading, error, retry, filter.kind, t]);
 
   const keyExtractor = useCallback((item: Feed) => item.id.toString(), []);
 

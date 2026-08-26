@@ -8,6 +8,12 @@ module.exports = {
     userInterfaceStyle: "light",
     newArchEnabled: true,
     scheme: "bhavbhakti",
+    updates: {
+      url: "https://u.expo.dev/565b0611-1665-4d59-b95e-33f4058e4144",
+    },
+    runtimeVersion: {
+      policy: "appVersion",
+    },
     ios: {
       supportsTablet: true,
       bundleIdentifier: "com.orivori.bhavbhakti",

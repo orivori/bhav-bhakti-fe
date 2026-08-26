@@ -147,10 +147,12 @@ class FeedService {
   /**
    * Get user's liked feeds
    */
-  async getUserLikedFeeds(params: { limit?: number; offset?: number } = {}): Promise<UserLikedFeedsResponse> {
+  async getUserLikedFeeds(params: { limit?: number; offset?: number; type?: string; label?: string } = {}): Promise<UserLikedFeedsResponse> {
     const queryParams = new URLSearchParams();
     if (params.limit) queryParams.append('limit', params.limit.toString());
     if (params.offset) queryParams.append('offset', params.offset.toString());
+    if (params.type) queryParams.append('type', params.type);
+    if (params.label) queryParams.append('label', params.label);
 
     const url = `${API_ENDPOINTS.FEED.USER_LIKED}?${queryParams.toString()}`;
     const apiResponse = await apiClient.get<ApiUserLikedFeedsResponse>(url);

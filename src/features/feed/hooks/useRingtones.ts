@@ -30,16 +30,25 @@ export function useRingtones(filter: DeityFilterSelection): UseRingtonesResult {
   const [nextCursor, setNextCursor] = useState<string | undefined>();
   const [error, setError] = useState<string | null>(null);
 
-  // Trending (a ranking view) and a deity selection (a stored filter) are
-  // different query mechanics hitting different endpoints - kept as two
-  // explicit branches here rather than one fetch function that silently
-  // special-cases a flag, per the approved design.
+  // Trending (a ranking view), Liked (the user's own liked ringtones, via
+  // the same getUserLikedFeeds() call backing useUserLikedFeeds), and a
+  // deity selection (a stored filter) are different query mechanics hitting
+  // different endpoints - kept as explicit branches here rather than one
+  // fetch function that silently special-cases a flag, per the approved
+  // design.
   const fetchPage = useCallback(
     (offset: number): Promise<FeedListResponse> => {
       if (filter.kind === 'trending') {
         return feedService.getTrendingFeeds({
           type: 'ringtone',
           days: TRENDING_DAYS,
+          limit: PAGE_LIMIT,
+          offset,
+        });
+      }
+      if (filter.kind === 'liked') {
+        return feedService.getUserLikedFeeds({
+          type: 'ringtone',
           limit: PAGE_LIMIT,
           offset,
         });

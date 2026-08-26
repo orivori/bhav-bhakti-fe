@@ -45,14 +45,20 @@ export const needsComplexScriptSupport = (text: any): boolean => {
 /**
  * Gets the appropriate font family for the given text content
  */
-export const getOptimizedFontFamily = (text: any, weight: FontWeightVariant = 'normal'): string => {
+export const getOptimizedFontFamily = (text: any, weight: FontWeightVariant = 'normal'): string | undefined => {
   const hasDevanagari = containsDevanagari(text);
 
   if (hasDevanagari) {
     return NOTO_SANS_DEVANAGARI_FONT_FAMILIES[weight];
   }
 
-  return 'System'; // Default system font for non-Devanagari text
+  // Leave fontFamily unset for non-Devanagari text (emoji included) so the
+  // platform's own default typeface is used. On Android, explicitly naming
+  // "System" isn't a recognized keyword (unlike iOS) - it resolves via
+  // Typeface.create() and skips the OS's normal Unicode/emoji fallback
+  // chain, which only kicks in when fontFamily is left undefined
+  // (Typeface.DEFAULT). That was rendering deity emoji icons as "??" boxes.
+  return undefined;
 };
 
 /**

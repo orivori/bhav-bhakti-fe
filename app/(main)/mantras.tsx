@@ -359,6 +359,8 @@ export default function MantrasScreen() {
           <Text variant="h4" weight="bold" style={styles.sectionTitle}>
             {selectedFilter.kind === 'deity'
               ? t('mantras.selectedMantras')
+              : selectedFilter.kind === 'liked'
+              ? t('mantras.likedMantras')
               : t('mantras.allMantras')
             }
           </Text>
@@ -387,6 +389,13 @@ export default function MantrasScreen() {
                 ) : null
               }
             />
+          ) : selectedFilter.kind === 'liked' ? (
+            <View style={styles.emptyContainer}>
+              <Ionicons name="heart-outline" size={48} color={goldenTempleTheme.colors.text.secondary} />
+              <Text variant="body" style={styles.emptyText}>
+                {t('common.noLikedContent')}
+              </Text>
+            </View>
           ) : (
             <View style={styles.emptyContainer}>
               <Ionicons name="musical-notes-outline" size={48} color={goldenTempleTheme.colors.text.secondary} />

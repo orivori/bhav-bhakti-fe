@@ -46,6 +46,13 @@ export function useMantraFeed(filter: DeityFilterSelection): UseMantraFeedResult
           offset,
         });
       }
+      if (filter.kind === 'liked') {
+        return feedService.getUserLikedFeeds({
+          type: 'mantra',
+          limit: PAGE_LIMIT,
+          offset,
+        });
+      }
       return feedService.getFeeds({
         type: 'mantra',
         deityId: filter.deityId,

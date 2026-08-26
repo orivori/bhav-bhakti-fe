@@ -270,15 +270,20 @@ export function useTrendingFeeds(options: { limit?: number; days?: number; enabl
 }
 
 // Hook for user's liked feeds
-export function useUserLikedFeeds(options: { limit?: number; enabled?: boolean } = {}) {
-  const { limit = 20, enabled = true } = options;
+export function useUserLikedFeeds(options: { limit?: number; enabled?: boolean; type?: FeedType; label?: string } = {}) {
+  const { limit = 20, enabled = true, type, label } = options;
 
   return useInfiniteQuery({
-    queryKey: ['feeds', 'liked'],
+    // type/label included in the key so different hubs' "Liked" queries get
+    // separate cache entries instead of colliding on one, mirroring
+    // useTrendingFeeds' own cache-key shape above.
+    queryKey: ['feeds', 'liked', { type, label }],
     queryFn: async ({ pageParam = 0 }) => {
       return await feedService.getUserLikedFeeds({
         limit,
         offset: pageParam as number,
+        type,
+        label,
       });
     },
     initialPageParam: 0,

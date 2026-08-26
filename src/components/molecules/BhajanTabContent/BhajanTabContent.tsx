@@ -9,6 +9,7 @@ import {
   ListRenderItemInfo,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { Text } from '@/components/atoms';
 import AudioContentCard from '@/components/molecules/AudioContentCard';
 import { Feed } from '@/types/feed';
@@ -26,6 +27,7 @@ interface BhajanTabContentProps {
 // Cards navigate into the shared audio-player.tsx screen (persistent
 // playback) rather than playing inline - see AudioContentCard.
 function BhajanTabContent({ filter }: BhajanTabContentProps, ref: React.Ref<FlatList>) {
+  const { t } = useTranslation();
   const { contentPadding } = useTabBarHeight();
   const {
     items: bhajans,
@@ -100,6 +102,19 @@ function BhajanTabContent({ filter }: BhajanTabContentProps, ref: React.Ref<Flat
       );
     }
 
+    if (filter.kind === 'liked') {
+      return (
+        <View style={styles.centerContainer}>
+          <View style={styles.emptyIcon}>
+            <Ionicons name="heart-outline" size={48} color="#FF8C42" />
+          </View>
+          <Text variant="h4" style={styles.emptyTitle}>
+            {t('common.noLikedContent')}
+          </Text>
+        </View>
+      );
+    }
+
     return (
       <View style={styles.centerContainer}>
         <View style={styles.emptyIcon}>
@@ -113,7 +128,7 @@ function BhajanTabContent({ filter }: BhajanTabContentProps, ref: React.Ref<Flat
         </Text>
       </View>
     );
-  }, [isLoading, error, loadItems]);
+  }, [isLoading, error, loadItems, filter.kind, t]);
 
   const keyExtractor = useCallback((item: Feed) => item.id.toString(), []);
 

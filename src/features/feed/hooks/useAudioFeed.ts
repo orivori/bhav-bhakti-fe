@@ -47,6 +47,13 @@ export function useAudioFeed(type: AudioFeedType, filter: DeityFilterSelection):
           offset,
         });
       }
+      if (filter.kind === 'liked') {
+        return feedService.getUserLikedFeeds({
+          type,
+          limit: PAGE_LIMIT,
+          offset,
+        });
+      }
       return feedService.getFeeds({
         type,
         deityId: filter.deityId,

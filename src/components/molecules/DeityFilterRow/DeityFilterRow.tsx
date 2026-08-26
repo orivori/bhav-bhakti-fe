@@ -20,6 +20,7 @@ import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 // is meant to be reused once Aarti/Bhajan have real content.
 export type DeityFilterSelection =
   | { kind: 'trending' }
+  | { kind: 'liked' }
   | { kind: 'deity'; deityId: number };
 
 interface DeityFilterRowProps {
@@ -144,17 +145,30 @@ export default function DeityFilterRow({ deities, selected, onSelect }: DeityFil
           </Text>
         </TouchableOpacity>
 
-        {/* Liked - reserved slot only. Deliberately no onPress: not built yet. */}
-        <View style={[styles.chipColumn, styles.chipDisabled]}>
-          <View style={styles.circleWrapper}>
-            <View style={[styles.circle, styles.circleDisabled]}>
-              <Ionicons name="heart" size={22} color={goldenTempleTheme.colors.text.muted} />
-            </View>
+        {/* Liked - wired to the hub's own useXFeed() hook, which branches to
+            feedService.getUserLikedFeeds() when this is selected (see
+            CLAUDE.md). Same visual treatment as the "All" chip above. */}
+        <TouchableOpacity
+          style={styles.chipColumn}
+          onPress={() => onSelect({ kind: 'liked' })}
+          activeOpacity={0.75}
+        >
+          <View style={[styles.circleWrapper, selected.kind === 'liked' && styles.circleWrapperSelected]}>
+            <LinearGradient
+              colors={[goldenTempleTheme.colors.primary[400], goldenTempleTheme.colors.primary[600]]}
+              style={styles.circle}
+            >
+              <Ionicons name="heart" size={22} color="#fff" />
+            </LinearGradient>
           </View>
-          <Text variant="caption" weight="medium" style={[styles.chipLabel, styles.chipLabelDisabled]}>
+          <Text
+            variant="caption"
+            weight={selected.kind === 'liked' ? 'semibold' : 'medium'}
+            style={[styles.chipLabel, selected.kind === 'liked' && styles.chipLabelSelected]}
+          >
             Liked
           </Text>
-        </View>
+        </TouchableOpacity>
 
         {primaryDeities.map((deity) => (
           <TouchableOpacity
@@ -240,9 +254,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
   },
-  chipDisabled: {
-    opacity: 0.4,
-  },
   circleWrapper: {
     width: CHIP_SIZE + 6,
     height: CHIP_SIZE + 6,
@@ -262,9 +273,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  circleDisabled: {
-    backgroundColor: goldenTempleTheme.colors.muted[200],
-  },
   moreCircle: {
     backgroundColor: goldenTempleTheme.colors.muted[200],
   },
@@ -277,9 +285,6 @@ const styles = StyleSheet.create({
   },
   chipLabelSelected: {
     color: goldenTempleTheme.colors.primary.DEFAULT,
-  },
-  chipLabelDisabled: {
-    color: goldenTempleTheme.colors.text.muted,
   },
   modalBackdrop: {
     flex: 1,
