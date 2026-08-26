@@ -19,6 +19,7 @@ import { usePremiumStore } from '@/store/premiumStore';
 import { formatCount } from '@/utils/formatCount';
 import { getMediaFileExtension } from '@/utils/getMediaFileExtension';
 import { shareContent } from '@/utils/shareContent';
+import { ensureMediaLibraryPermission } from '@/utils/mediaLibraryPermission';
 import WhatsAppIcon from '../../../../assets/icons/whatsapp.svg';
 
 interface AutoplayFeedCardProps {
@@ -527,9 +528,8 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
     if (isSettingWallpaper || !visualMedia?.mediaUrl) return;
     if (isMountedRef.current) setIsSettingWallpaper(true);
     try {
-      const { status: permissionStatus } = await MediaLibrary.requestPermissionsAsync();
-      if (permissionStatus !== 'granted') {
-        Alert.alert('Permission Required', 'Please allow access to save this to your gallery.');
+      const hasPermission = await ensureMediaLibraryPermission('common.permissionReasonSetWallpaper');
+      if (!hasPermission) {
         return;
       }
       const extension = getMediaFileExtension(visualMedia.mediaUrl, visualMedia.type);
@@ -591,9 +591,8 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
     if (isSettingRingtone) return;
     if (isMountedRef.current) setIsSettingRingtone(true);
     try {
-      const { status: permissionStatus } = await MediaLibrary.requestPermissionsAsync();
-      if (permissionStatus !== 'granted') {
-        Alert.alert('Permission Required', 'Please allow access to set ringtone.');
+      const hasPermission = await ensureMediaLibraryPermission('common.permissionReasonSetRingtone');
+      if (!hasPermission) {
         return;
       }
 

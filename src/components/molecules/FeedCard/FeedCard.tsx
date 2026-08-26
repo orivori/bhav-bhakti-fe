@@ -12,6 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as MediaLibrary from 'expo-media-library';
+import { ensureMediaLibraryPermission } from '@/utils/mediaLibraryPermission';
 import { Text } from '@/components/atoms';
 import FeedMedia from '../FeedMedia/FeedMedia';
 import WallpaperFeedCard from '../WallpaperFeedCard/WallpaperFeedCard';
@@ -93,7 +94,7 @@ export default function FeedCard({
             ? `Check out this post: ${shareTitle}\n\nShared from Bhav Bhakti App`
             : 'Check out this amazing post from Bhav Bhakti App!';
         })(),
-        url: feed.media[0]?.mediaUrl,
+        url: feed.media?.[0]?.mediaUrl,
       });
 
       if (result.action === Share.sharedAction) {
@@ -110,15 +111,13 @@ export default function FeedCard({
 
     setIsDownloading(true);
     try {
-      // Request permissions
-      const { status } = await MediaLibrary.requestPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission Required', 'Please allow access to save media to your gallery.');
+      const hasPermission = await ensureMediaLibraryPermission('common.permissionReasonDownloadMedia');
+      if (!hasPermission) {
         return;
       }
 
       // Download first media item
-      const mediaToDownload = feed.media[0];
+      const mediaToDownload = feed.media?.[0];
       if (!mediaToDownload) return;
 
       const extension = getMediaFileExtension(mediaToDownload.mediaUrl, mediaToDownload.type);

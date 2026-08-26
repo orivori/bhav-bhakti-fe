@@ -22,6 +22,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as MediaLibrary from 'expo-media-library';
 import * as IntentLauncher from 'expo-intent-launcher';
 // Removed expo-intent-launcher dependency for smaller bundle size
+import { ensureMediaLibraryPermission } from '@/utils/mediaLibraryPermission';
 import { Text } from '@/components/atoms';
 import { Feed } from '@/types/feed';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
@@ -147,9 +148,12 @@ export default function RingtoneFeedCard({
 
   const { toggleLike, incrementShare, incrementView } = useFeedStore();
 
-  // Get the main audio media
-  const audioMedia = feed.media.find(m => m.type === 'audio') || feed.media[0];
-  const audioSourceUri = audioMedia.audioUrl || audioMedia.mediaUrl;
+  // Get the main audio media - optional-chained since some sources (e.g.
+  // getUserLikedFeeds, before its own fix) can omit `media` entirely; a
+  // missing/empty array now degrades to no playable source instead of
+  // throwing during render.
+  const audioMedia = feed.media?.find(m => m.type === 'audio') || feed.media?.[0];
+  const audioSourceUri = audioMedia?.audioUrl || audioMedia?.mediaUrl;
 
   // One stable, predictable local filename per ringtone - derived from the
   // title, not the feed ID/a timestamp - so playback caching, download, and
@@ -362,12 +366,12 @@ export default function RingtoneFeedCard({
         type: feed.type,
         mode: 'ephemeral',
         title,
-        thumbnailUrl: audioMedia.thumbnailUrl ?? undefined,
+        thumbnailUrl: audioMedia?.thumbnailUrl ?? undefined,
       },
       {
         isPlaying: true,
         positionSeconds: 0,
-        durationSeconds: audioMedia.duration || 0,
+        durationSeconds: audioMedia?.duration || 0,
       },
       {
         // stop/pause below are also called externally (e.g. ringtones.tsx's
@@ -535,7 +539,7 @@ export default function RingtoneFeedCard({
         message: (feed.title?.[language] || feed.title?.en || feed.caption)
           ? `Check out this ringtone: ${feed.title?.[language] || feed.title?.en || feed.caption}\n\nShared from Bhav Bhakti App`
           : 'Check out this amazing ringtone from Bhav Bhakti App!',
-        url: audioMedia.mediaUrl,
+        url: audioMedia?.mediaUrl,
       });
 
       if (result.action === Share.sharedAction) {
@@ -552,9 +556,8 @@ export default function RingtoneFeedCard({
 
     setIsSettingRingtone(true);
     try {
-      const { status } = await MediaLibrary.requestPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission Required', 'Please allow access to set ringtone.');
+      const hasPermission = await ensureMediaLibraryPermission('common.permissionReasonSetRingtone');
+      if (!hasPermission) {
         return;
       }
 
@@ -696,7 +699,7 @@ export default function RingtoneFeedCard({
       <View style={styles.mainLayout}>
         {/* Thumbnail */}
         <View style={styles.thumbnailContainer}>
-          {audioMedia.thumbnailUrl ? (
+          {audioMedia?.thumbnailUrl ? (
             <Image
               source={{ uri: audioMedia.thumbnailUrl }}
               style={styles.thumbnail}
@@ -771,7 +774,7 @@ export default function RingtoneFeedCard({
 
             {/* Duration */}
             <Text style={styles.duration}>
-              {formatTime((status.duration || audioMedia.duration || 0) * 1000)} sec
+              {formatTime((status.duration || audioMedia?.duration || 0) * 1000)} sec
             </Text>
           </View>
 

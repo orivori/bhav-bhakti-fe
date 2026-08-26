@@ -71,7 +71,7 @@ export default function WallpaperFeedCard({
         }
       };
     }
-  }, [feed.media.length]);
+  }, [feed.media?.length]);
 
   // Clean up interval on unmount
   useEffect(() => {
@@ -83,14 +83,16 @@ export default function WallpaperFeedCard({
   }, []);
 
   const handleNextMedia = () => {
-    if (feed.media.length > 1) {
-      setCurrentMediaIndex((prevIndex) => (prevIndex + 1) % feed.media.length);
+    if (feed.media && feed.media.length > 1) {
+      const total = feed.media.length;
+      setCurrentMediaIndex((prevIndex) => (prevIndex + 1) % total);
     }
   };
 
   const handlePrevMedia = () => {
-    if (feed.media.length > 1) {
-      setCurrentMediaIndex((prevIndex) => (prevIndex - 1 + feed.media.length) % feed.media.length);
+    if (feed.media && feed.media.length > 1) {
+      const total = feed.media.length;
+      setCurrentMediaIndex((prevIndex) => (prevIndex - 1 + total) % total);
     }
   };
 
@@ -112,7 +114,7 @@ export default function WallpaperFeedCard({
     // photo scales to fit without cropping (unlike the default variant's
     // FeedMedia, which is hardcoded to resizeMode="cover" - deliberately not
     // reused here rather than risk changing FeedMedia's shared behavior).
-    const gridMedia = feed.media[0];
+    const gridMedia = feed.media?.[0];
 
     return (
       <TouchableOpacity
@@ -195,7 +197,7 @@ export default function WallpaperFeedCard({
     );
   }
 
-  const currentMedia = feed.media.length > 1 ? feed.media[currentMediaIndex] : feed.media[0];
+  const currentMedia = feed.media && feed.media.length > 1 ? feed.media[currentMediaIndex] : feed.media?.[0];
 
   return (
     <View style={styles.container}>
@@ -225,7 +227,7 @@ export default function WallpaperFeedCard({
             </View>
           ) : (
             <FeedMedia
-              media={feed.media.length > 1 ? [feed.media[currentMediaIndex]] : feed.media}
+              media={feed.media && feed.media.length > 1 ? [feed.media[currentMediaIndex]] : (feed.media || [])}
               onMediaPress={handlePress}
               autoPlay={false}
               showControls={false}
@@ -236,7 +238,7 @@ export default function WallpaperFeedCard({
         </TouchableOpacity>
 
         {/* Side Navigation Buttons for multiple images */}
-        {feed.media.length > 1 && (
+        {feed.media && feed.media.length > 1 && (
           <>
             {/* Previous Button */}
             <TouchableOpacity
@@ -259,7 +261,7 @@ export default function WallpaperFeedCard({
         )}
 
         {/* Media Indicators for multiple images */}
-        {feed.media.length > 1 && (
+        {feed.media && feed.media.length > 1 && (
           <View style={styles.indicators}>
             {feed.media.map((_, index) => (
               <View

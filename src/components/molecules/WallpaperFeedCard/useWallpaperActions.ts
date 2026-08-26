@@ -7,6 +7,7 @@ import { feedService } from '@/features/feed/services/feedService';
 import { useFeedStore } from '@/store/feedStore';
 import { getMediaFileExtension } from '@/utils/getMediaFileExtension';
 import { shareContent } from '@/utils/shareContent';
+import { ensureMediaLibraryPermission } from '@/utils/mediaLibraryPermission';
 
 interface UseWallpaperActionsArgs {
   // Nullable so ViewingWindowSheet (Phase 2 of the Viewing Window feature)
@@ -101,13 +102,12 @@ export function useWallpaperActions({ feed, onLike, onShare, onDownload }: UseWa
 
     if (isMountedRef.current) setIsDownloading(true);
     try {
-      const { status } = await MediaLibrary.requestPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission Required', 'Please allow access to save wallpaper to your gallery.');
+      const hasPermission = await ensureMediaLibraryPermission('common.permissionReasonDownloadWallpaper');
+      if (!hasPermission) {
         return;
       }
 
-      const mediaToDownload = feed.media[0];
+      const mediaToDownload = feed.media?.[0];
       if (!mediaToDownload) return;
 
       const extension = getMediaFileExtension(mediaToDownload.mediaUrl, mediaToDownload.type);
