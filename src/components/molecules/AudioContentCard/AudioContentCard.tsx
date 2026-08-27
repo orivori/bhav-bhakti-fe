@@ -24,7 +24,7 @@ const resolveQueueItem = (feed: Feed, language: string): QueueItem => {
   const audioUrl = audioMedia?.mediaUrl || audioMedia?.audioUrl || '';
   const thumbnailUrl = audioMedia?.thumbnailUrl || (audioMedia?.mediaUrl !== audioUrl ? audioMedia?.mediaUrl : undefined);
 
-  return { feedId: feed.id.toString(), title, audioUrl, thumbnailUrl };
+  return { feedId: feed.id.toString(), title, audioUrl, thumbnailUrl, type: feed.type, isRepeatable: feed.isRepeatable };
 };
 
 interface AudioContentCardProps {
@@ -106,8 +106,25 @@ export default function AudioContentCard({ feed, subTab, queueItems, queueIndex,
       params: {
         feedId: feed.id.toString(),
         title,
-        audioUrl,
-        thumbnailUrl: thumbnailUrl || '',
+        // encodeURIComponent: audioUrl/thumbnailUrl (from resolveQueueItem,
+        // above) are Firebase Storage URLs already containing their own
+        // legitimate %2F/%20 sequences - useLocalSearchParams() on the other
+        // side unconditionally decodeURIComponent's every string param once,
+        // with no matching encode ever applied on the way in, which silently
+        // corrupts the URL (%2F -> literal /) without this - see CLAUDE.md's
+        // route-param URL corruption investigation. resolveQueueItem's own
+        // return value is deliberately left RAW (not encoded) since
+        // QueueSheet.tsx renders item.thumbnailUrl directly as an <Image>
+        // source - only the two places that actually build route params
+        // (here, and audio-player.tsx's navigateToQueueItem) encode.
+        audioUrl: encodeURIComponent(audioUrl),
+        thumbnailUrl: encodeURIComponent(thumbnailUrl || ''),
+        // Lets audio-player.tsx render the correct control layout (aarti/
+        // bhajan track-nav vs. mantra counter) from the first frame, instead
+        // of defaulting to mantra until its own fetch resolves - see
+        // CLAUDE.md's playback-switch flash fix.
+        type: feed.type,
+        isRepeatable: feed.isRepeatable ? 'true' : 'false',
         autoPlay: 'true',
         // See audio-player.tsx's back-button handling: without these, back
         // falls through to router.back(), which is the known bug (always

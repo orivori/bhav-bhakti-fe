@@ -63,6 +63,15 @@ export interface QueueItem {
   title: string;
   audioUrl: string;
   thumbnailUrl?: string;
+  // Added alongside the playback-switch flash fix (audio-player.tsx) - lets
+  // a Next/Previous hop carry the real content type/repeatability through to
+  // the player via route params, instead of the player having to wait on its
+  // own feed-by-id fetch to know whether to show the aarti/bhajan track-nav
+  // layout or the mantra counter layout. Optional so any future QueueItem
+  // producer that doesn't set these degrades to audio-player.tsx's own
+  // 'mantra' default, same as before this existed.
+  type?: Feed['type'];
+  isRepeatable?: boolean;
 }
 
 // originalItems + playOrder (a permutation of indices into originalItems),

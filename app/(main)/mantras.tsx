@@ -51,14 +51,33 @@ function buildAudioPlayerParams(mantra: Feed) {
     // own fetch resolves and takes over via getLocalizedText; matches that
     // screen's own English-first resolution for consistency.
     title: mantra.title?.en || mantra.title?.hi || 'Mantra',
-    audioUrl: mantra.media?.[0]?.audioUrl || mantra.media?.[0]?.mediaUrl || '',
-    thumbnailUrl: mantra.media?.[0]?.thumbnailUrl || mantra.media?.[0]?.mediaUrl || '',
+    // encodeURIComponent here, matching every other real entry point into
+    // audio-player.tsx: these are Firebase Storage URLs that already contain
+    // their own legitimate %2F/%20 sequences (folder-path slashes, filename
+    // spaces) - useLocalSearchParams() unconditionally decodeURIComponent's
+    // every string param exactly once on the way out, with no corresponding
+    // encode ever applied to route params going in. Without this, that one
+    // decode strips the URL's own percent-encoding, silently turning %2F
+    // back into literal / and corrupting the request - confirmed via a real
+    // on-device logcat capture (CLAUDE.md's route-param URL corruption
+    // investigation). This encode is what makes that one guaranteed decode
+    // correctly restore the original URL instead of corrupting it.
+    audioUrl: encodeURIComponent(mantra.media?.[0]?.audioUrl || mantra.media?.[0]?.mediaUrl || ''),
+    thumbnailUrl: encodeURIComponent(mantra.media?.[0]?.thumbnailUrl || mantra.media?.[0]?.mediaUrl || ''),
     // caption is the intended "artist" source going forward (§56 Phase 0) -
     // not mantra.user?.name, which was almost always the hardcoded
     // 'Unknown Artist' fallback in practice, never real per-content data.
     artist: mantra.caption || '',
     duration: mantra.media?.[0]?.duration?.toString() || '0',
     isLiked: mantra.isLiked ? 'true' : 'false',
+    // Lets audio-player.tsx render the correct control layout from the
+    // first frame instead of defaulting to mantra until its own fetch
+    // resolves - see CLAUDE.md's playback-switch flash fix. Always 'mantra'
+    // in practice on this screen, but sourced from the real field rather
+    // than hardcoded, so this stays correct if this screen is ever reused
+    // for other content types.
+    type: mantra.type,
+    isRepeatable: mantra.isRepeatable ? 'true' : 'false',
     autoPlay: 'true',
     // See audio-player.tsx's back-button handling - without this, back
     // falls through to router.back(), which is the known bug (always

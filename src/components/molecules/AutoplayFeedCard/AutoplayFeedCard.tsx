@@ -516,8 +516,16 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
       params: {
         feedId: feedIdStr,
         title,
-        audioUrl: audioSourceUri || '',
-        thumbnailUrl: audioMedia?.thumbnailUrl || '',
+        // encodeURIComponent: these Firebase Storage URLs already contain
+        // their own legitimate %2F/%20 sequences - useLocalSearchParams() on
+        // the receiving screen unconditionally decodeURIComponent's every
+        // string param once on the way out, with no matching encode ever
+        // applied on the way in, which silently corrupts the URL (%2F ->
+        // literal /) without this - see CLAUDE.md's route-param URL
+        // corruption investigation. Every other real entry point into
+        // audio-player.tsx does the same encode at its own params site.
+        audioUrl: encodeURIComponent(audioSourceUri || ''),
+        thumbnailUrl: encodeURIComponent(audioMedia?.thumbnailUrl || ''),
         autoPlay: 'true',
         returnTo: '/(main)/',
       },

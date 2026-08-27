@@ -6,6 +6,7 @@ import { router } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import * as IntentLauncher from 'expo-intent-launcher';
 import Constants from 'expo-constants';
+import * as Updates from 'expo-updates';
 
 import { Button, Text } from '@/components/atoms';
 import { useAuth } from '@/features/authentication/hooks/useAuth';
@@ -160,7 +161,33 @@ export default function ProfileScreen() {
       description: language === 'hi'
         ? `ऐप संस्करण ${Constants.expoConfig?.version || ''}`
         : `App version ${Constants.expoConfig?.version || ''}`,
-      onPress: () => Alert.alert(t('profile.aboutUs'), `${Constants.expoConfig?.name || 'Bhav Bhakti'} v${Constants.expoConfig?.version || ''}`),
+      // Appends the currently-running EAS Update's identity (update ID,
+      // channel, publish time) below the app name/version - lets the update
+      // ID here be directly compared against the one `eas update` prints on
+      // publish, so it's possible to confirm a fix is actually live instead
+      // of guessing. isEmbeddedLaunch is checked first: when true, the app
+      // is running the version baked into the installed APK itself, no OTA
+      // update has ever applied, and updateId would just be null - the
+      // fallback message says so explicitly rather than showing a
+      // confusing blank/unavailable update ID.
+      onPress: () => {
+        const updateInfo = Updates.isEmbeddedLaunch
+          ? language === 'hi'
+            ? 'एम्बेडेड बिल्ड चल रहा है - कोई OTA अपडेट लागू नहीं हुआ'
+            : 'Running embedded build - no OTA update applied'
+          : [
+              `${language === 'hi' ? 'अपडेट' : 'Update'}: ${Updates.updateId || (language === 'hi' ? 'अनुपलब्ध' : 'unavailable')}`,
+              `${language === 'hi' ? 'चैनल' : 'Channel'}: ${Updates.channel || (language === 'hi' ? 'अनुपलब्ध' : 'unavailable')}`,
+              `${language === 'hi' ? 'प्रकाशित' : 'Published'}: ${
+                Updates.createdAt ? Updates.createdAt.toLocaleString() : (language === 'hi' ? 'अनुपलब्ध' : 'unavailable')
+              }`,
+            ].join('\n');
+
+        Alert.alert(
+          t('profile.aboutUs'),
+          `${Constants.expoConfig?.name || 'Bhav Bhakti'} v${Constants.expoConfig?.version || ''}\n\n${updateInfo}`
+        );
+      },
     },
   ];
 

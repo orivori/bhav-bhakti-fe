@@ -5,7 +5,6 @@ import {
   StyleSheet,
   Dimensions,
   Image,
-  Animated,
   ActivityIndicator,
   Alert,
   AppState,
@@ -245,6 +244,44 @@ const cancelBackgroundDownload = (feedIdForCache: string): void => {
   inFlightCancellations.set(feedIdForCache, cleanup);
 };
 
+// Lets the component's deferred-download logic (see startDeferredCacheDownload
+// below, in the component body) wait for a SPECIFIC feedId's cancellation to
+// genuinely finish tearing down its native connection, before opening a
+// DIFFERENT feedId's own new download connection - closes the gap where a
+// switch-away's cancellation was only ever fired-and-forgotten, never waited
+// on by whatever came next. A plain synchronous Map lookup - returns
+// undefined (nothing to wait for) on the common path where there's no
+// cancellation in flight for that feedId at all.
+const getPendingCancellation = (feedIdForCache: string): Promise<void> | undefined =>
+  inFlightCancellations.get(feedIdForCache);
+
+// How long to wait for status.isLoaded to confirm real buffering success
+// before starting the background-cache download anyway (see
+// startDeferredCacheDownload/the isLoaded-gated effect in the component
+// body). A safety net only - the common path starts the download as soon as
+// isLoaded fires, adaptively, regardless of how long that actually takes on
+// the user's real connection. This exists purely so a genuine caching
+// opportunity is never silently lost forever if isLoaded never fires for
+// some unrelated reason (e.g. the user backs out before the track ever
+// finishes buffering).
+const PENDING_CACHE_DOWNLOAD_SAFETY_TIMEOUT_MS = 20000;
+
+// Diagnostic flag, kept as a ready-to-use switch rather than removed
+// outright - set to false to disable the background-caching download
+// entirely (downloadToCacheInBackground is never called, from any trigger),
+// while leaving everything else completely untouched: the cache-CHECK logic
+// (getCachedLocalUri), playback itself, and the render gates all behave
+// exactly as normal. Was set to false to test whether large files' loading
+// struggles were caused by the background download competing for bandwidth
+// (CLAUDE.md's caching investigation) - CONCLUDED: they weren't. The real
+// root cause was a route-param URL corruption bug (%2F/%20 getting silently
+// decoded back to literal characters via useLocalSearchParams' unconditional
+// decodeURIComponent, corrupting Firebase Storage URLs before they ever
+// reached the player), now fixed and confirmed working via a real on-device
+// logcat capture. Restored to `true` accordingly - normal cache-hit/cache-
+// miss behavior, background caching genuinely active again.
+const DIAGNOSTIC_ENABLE_BACKGROUND_CACHING = true;
+
 export default function AudioPlayerScreen() {
   const params = useLocalSearchParams();
   const feedId = params.feedId?.toString();
@@ -436,6 +473,75 @@ export default function AudioPlayerScreen() {
   // already loaded," and would just resume/pause whatever was loaded first.
   const loadedFeedIdRef = React.useRef<string | null>(null);
 
+  // Theory 1 fix (see CLAUDE.md's caching investigation): a cache-miss no
+  // longer starts downloadToCacheInBackground() immediately alongside
+  // player.play() - doing so meant the live stream the user is actually
+  // waiting on always had to compete with a full second download of the
+  // identical file for the same bandwidth, at exactly the moment startup
+  // latency matters most. Instead, togglePlayback parks the pending
+  // download's details here, and the isLoaded-gated effect below (or the
+  // safety-net timeout) is what actually starts it - fully adaptive to real
+  // network conditions, not a fixed delay. previousFeedId is carried
+  // alongside for the Theory 4 fix (startDeferredCacheDownload below).
+  const pendingCacheDownloadRef = React.useRef<{
+    feedId: string;
+    audioUrl: string;
+    previousFeedId: string | null;
+  } | null>(null);
+  const pendingCacheDownloadTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Component-scoped wrapper around the module-scope cancelBackgroundDownload
+  // - also clears a PENDING (not-yet-started) deferred download for this
+  // feedId, not just an already-in-flight one. The module-scope function has
+  // no visibility into pendingCacheDownloadRef at all, so calling it alone
+  // would silently fail to honor "stop caching this" for content whose
+  // download hadn't actually started yet (a real, new possibility now that
+  // starts are deferred). Every call site in this component that means "the
+  // user is no longer interested in caching this content" (pause,
+  // switching away, coordinator stop/pause, preemption, unmount) uses this
+  // instead of the bare module-scope function.
+  const cancelBackgroundDownloadForFeed = (targetFeedId: string) => {
+    cancelBackgroundDownload(targetFeedId);
+    if (pendingCacheDownloadRef.current?.feedId === targetFeedId) {
+      if (pendingCacheDownloadTimeoutRef.current) {
+        clearTimeout(pendingCacheDownloadTimeoutRef.current);
+        pendingCacheDownloadTimeoutRef.current = null;
+      }
+      pendingCacheDownloadRef.current = null;
+    }
+  };
+
+  // Actually starts a deferred background-cache download - called once
+  // status.isLoaded confirms real buffering success (the common path) or the
+  // safety-net timeout fires (the fallback path), never directly from
+  // togglePlayback. Theory 4 fix: waits for the PREVIOUS content's own
+  // background download cancellation to genuinely finish (not just "signal
+  // sent") before opening THIS content's own competing download connection -
+  // playback itself already started immediately in togglePlayback,
+  // unaffected by this wait. The loadedFeedIdRef check after the await
+  // guards against a slow-resolving wait outliving a later switch-away: if
+  // the user has already moved on to different content by the time the old
+  // cancellation finishes, starting a download here would just recreate the
+  // exact bandwidth-waste problem this whole mechanism exists to prevent.
+  const startDeferredCacheDownload = async (
+    targetFeedId: string,
+    targetAudioUrl: string,
+    previousFeedId: string | null
+  ) => {
+    if (!DIAGNOSTIC_ENABLE_BACKGROUND_CACHING) {
+      console.log('🧪 [DIAGNOSTIC] Background caching disabled - skipping download for feed:', targetFeedId);
+      return;
+    }
+    if (previousFeedId) {
+      const pendingCancellation = getPendingCancellation(previousFeedId);
+      if (pendingCancellation) {
+        await pendingCancellation;
+      }
+    }
+    if (loadedFeedIdRef.current !== targetFeedId) return;
+    downloadToCacheInBackground(targetFeedId, targetAudioUrl);
+  };
+
   // Bottom sheet refs
   const counterSheetRef = React.useRef<BottomSheetModal>(null);
   const moreTargetsSheetRef = React.useRef<BottomSheetModal>(null);
@@ -470,15 +576,6 @@ export default function AudioPlayerScreen() {
   const chantCountRef = React.useRef(chantCount);
   const targetCountRef = React.useRef(targetCount);
   const feedIdRef = React.useRef(feedId);
-
-  // Animation values
-  const rotateAnim = React.useRef(new Animated.Value(0)).current;
-
-  // Interpolate rotation for proper string format
-  const rotateInterpolation = rotateAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
-  });
 
   // The chant counter is deliberately session-scoped only, NOT persisted
   // across app restarts or content switches (no AsyncStorage involved at
@@ -531,9 +628,13 @@ export default function AudioPlayerScreen() {
       setChantCount(0);
       setTargetCount(108);
 
-      // Track view
-      await feedService.viewFeed(feedId);
-      console.log('👁️ Audio Player: View tracked for feed:', feedId);
+      // Track view - fire-and-forget (matches AutoplayFeedCard's pattern),
+      // not awaited: view-tracking has no bearing on whether this screen is
+      // ready to show/play its content, so it must not add to isFeedLoading's
+      // duration.
+      feedService.viewFeed(feedId)
+        .then(() => console.log('👁️ Audio Player: View tracked for feed:', feedId))
+        .catch((error) => console.error('❌ Audio Player: Error tracking view:', error));
     } catch (error) {
       console.error('❌ Audio Player: Error fetching feed:', error);
       setFeedError('Failed to load mantra details');
@@ -624,6 +725,10 @@ export default function AudioPlayerScreen() {
         audioUrl: audioMedia?.mediaUrl || audioMedia?.audioUrl,
         thumbnailUrl: audioMedia?.thumbnailUrl,
         feedId: feedData.id.toString(),
+        // Real, confirmed data - always wins once available. See the
+        // params-fallback branch below for why this pair exists at all.
+        type: feedData.type,
+        isRepeatable: feedData.isRepeatable,
       };
     }
 
@@ -641,16 +746,49 @@ export default function AudioPlayerScreen() {
       audioUrl: params.audioUrl,
       thumbnailUrl: params.thumbnailUrl,
       feedId: params.feedId,
+      // CLAUDE.md playback-switch flash fix: every real entry point
+      // (mantras.tsx, index.tsx, search-results.tsx, AudioContentCard.tsx,
+      // and this screen's own navigateToQueueItem for Next/Previous) now
+      // sends these, so the correct control layout (aarti/bhajan track-nav
+      // vs. mantra counter) renders from the very first frame instead of
+      // defaulting to mantra until the fetch above resolves and corrects
+      // it. 'mantra' is still the default for any caller that ever omits
+      // it, matching this whole function's existing fallback philosophy.
+      type: (params.type?.toString() as Feed['type'] | undefined) || 'mantra',
+      isRepeatable: params.isRepeatable === 'true',
     };
   };
 
   const contentData = getContentData();
-  // Same staleness guard as getContentData above, for the two places below
-  // that read feedData directly (feedData?.type, feedData?.isRepeatable)
-  // instead of through contentData - null during the same brief
-  // feedId-changed-but-not-yet-refetched window, so the coordinator
-  // registration and status-mirroring effects can't attach a previous
-  // mantra's type/counter shape to the newly-requested feedId either.
+  // Real product decision: the visible UI is gated on the full fetch again
+  // (see the render gates below) - no piece-by-piece "pop in" of individual
+  // elements. Playback itself still starts immediately from route params via
+  // the autoPlay effect further down, completely independent of these render
+  // gates - togglePlayback is a plain function with no dependency on what's
+  // mounted, so audio can already be playing while the screen still shows
+  // the full-screen loading spinner.
+  //
+  // loadedFeedIdRef.current === feedId (set inside togglePlayback's
+  // fresh-load branch, right where player.play() is called) is reused here
+  // as "has playback genuinely been initiated for the CURRENT feedId" - the
+  // one exception to the render gates below: if fetchFeedData fails but
+  // audio already started, the hard error screen would rip away a working
+  // player over nothing the user can act on. Deliberately NOT status.playing
+  // (live playing/paused state): that would flicker the error screen in and
+  // out every time the user pauses their own already-loaded audio, since
+  // feedError stays set (sticky) until a real retry succeeds. This ref
+  // comparison only changes on a genuine feedId switch, matching exactly the
+  // same pattern loadedFeedIdRef is already used for elsewhere in this file.
+  const hasStartedPlaybackForCurrentFeed = loadedFeedIdRef.current === feedId;
+  // Same staleness guard as getContentData above - null during the same
+  // brief feedId-changed-but-not-yet-refetched window, so the like/share/
+  // view-count reads and handleLike/handleShare below (the fields that still
+  // have no route-param fallback at all - see getContentData's own comment)
+  // can't attach a previous item's counts/like-state to the newly-requested
+  // feedId. type/isRepeatable used to be read directly off this instead of
+  // through contentData - now unified through contentData everywhere (see
+  // getContentData), so this guard's scope has narrowed to just the
+  // like/share/view fields.
   const currentFeedData = feedData && feedData.id.toString() === feedId ? feedData : null;
 
   // Update refs whenever state changes to avoid stale closure issues
@@ -705,35 +843,6 @@ export default function AudioPlayerScreen() {
     initializeAudio();
   }, []);
 
-  // Animations
-  useEffect(() => {
-    // Spin animation for loading
-    const spin = () => {
-      Animated.sequence([
-        Animated.timing(rotateAnim, {
-          toValue: 1,
-          duration: 1000,
-          useNativeDriver: true,
-        }),
-        Animated.timing(rotateAnim, {
-          toValue: 0,
-          duration: 0,
-          useNativeDriver: true,
-        }),
-      ]).start(() => {
-        if (isAudioLoading) spin();
-      });
-    };
-
-    console.log('🎵 Animation Effect: playing =', status.playing, 'isAudioLoading =', isAudioLoading);
-
-    if (isAudioLoading) {
-      spin();
-    } else {
-      rotateAnim.setValue(0);
-    }
-  }, [status.playing, isAudioLoading]);
-
   // Resolve isAudioLoading once the player actually finishes loading. There
   // is no `status.error` field in expo-audio the way expo-av had - so unlike
   // the old retry/fallback scaffolding this replaces, a load that never
@@ -776,8 +885,10 @@ export default function AudioPlayerScreen() {
           player.pause();
           setIsAutoLooping(false);
           // User showed disinterest (at least for now) - stop spending their
-          // bandwidth on a background cache download for this content.
-          if (feedId) cancelBackgroundDownload(feedId);
+          // bandwidth on a background cache download for this content
+          // (cancelBackgroundDownloadForFeed also clears it if it hadn't
+          // actually started downloading yet - see its own comment).
+          if (feedId) cancelBackgroundDownloadForFeed(feedId);
         } else {
           console.log('▶️ Resuming audio');
 
@@ -785,7 +896,7 @@ export default function AudioPlayerScreen() {
           // auto-loop is mantra's chant-counter behavior; without this gate,
           // Aarti/Bhajan (isRepeatable: false, chantCount/targetCount just
           // sitting at their unused defaults) would silently auto-loop too.
-          const shouldAutoLoop = !!currentFeedData?.isRepeatable && chantCount < targetCount && !isLooping;
+          const shouldAutoLoop = !!contentData.isRepeatable && chantCount < targetCount && !isLooping;
           setIsAutoLooping(shouldAutoLoop);
           // Auto-loop always restarts manually on natural finish (see the
           // didJustFinish effect below) - it never uses the native loop
@@ -812,12 +923,21 @@ export default function AudioPlayerScreen() {
 
       // Switching away from a different mantra that was still loaded (not
       // just a fresh, never-loaded player) - stop it audibly right away
-      // rather than leaving it playing through the cache-check await below,
-      // and stop spending bandwidth caching content the user just left.
-      if (loadedFeedIdRef.current && loadedFeedIdRef.current !== feedId) {
-        console.log('🔀 Switching mantras - stopping previously loaded feed:', loadedFeedIdRef.current);
+      // rather than leaving it playing through the cache-check await below.
+      // Cancelling its background download is now owned solely by the
+      // [feedId, player] cleanup effect further down (its cleanup closure
+      // already fires for this exact same outgoing feedId on every feedId
+      // change, guaranteed to run before this effect's own togglePlayback
+      // call per React's cleanup-before-setup ordering) - consolidated here
+      // to close a real duplicate-call redundancy that existed between the
+      // two. previousFeedId is still captured here (read-only, not a
+      // cancellation trigger) for the Theory 4 wait in
+      // startDeferredCacheDownload below.
+      const previousFeedId =
+        loadedFeedIdRef.current && loadedFeedIdRef.current !== feedId ? loadedFeedIdRef.current : null;
+      if (previousFeedId) {
+        console.log('🔀 Switching mantras - stopping previously loaded feed:', previousFeedId);
         player.pause();
-        cancelBackgroundDownload(loadedFeedIdRef.current);
       }
 
       console.log('🎵 Audio Player: Loading audio from URL:', contentData.audioUrl);
@@ -830,7 +950,7 @@ export default function AudioPlayerScreen() {
       // never-saved defaults of 0/108) would auto-loop by default with no
       // way to turn it off, since this content type has no counter UI to
       // even reveal that a "target" is silently driving playback.
-      const shouldAutoLoop = !!currentFeedData?.isRepeatable && chantCount < targetCount;
+      const shouldAutoLoop = !!contentData.isRepeatable && chantCount < targetCount;
       setIsAutoLooping(shouldAutoLoop);
       console.log('🎵 Audio setup - Count:', chantCount, 'Target:', targetCount, 'Auto-loop:', shouldAutoLoop);
 
@@ -887,11 +1007,29 @@ export default function AudioPlayerScreen() {
       );
 
       if (!cachedUri) {
-        // Cache miss: already streaming from audioUrl above, so this just
-        // primes the cache for next time - not awaited, doesn't block
-        // playback, and doesn't touch `player` at all (see the function's
-        // own comment for why that makes it safe post-unmount too).
-        downloadToCacheInBackground(feedId, audioUrl);
+        // Cache miss: already streaming from audioUrl above. Theory 1 fix -
+        // deliberately NOT calling downloadToCacheInBackground here anymore.
+        // Doing so immediately, alongside player.play() above, meant the
+        // live stream the user is waiting on always had to compete with a
+        // full second download of the identical file for the same
+        // bandwidth, right when startup latency matters most. Instead, park
+        // the pending download here - the isLoaded-gated effect below starts
+        // it for real once status.isLoaded confirms genuine buffering
+        // success (adaptive to real network conditions), or the safety-net
+        // timeout starts it regardless if isLoaded never fires.
+        if (pendingCacheDownloadTimeoutRef.current) {
+          clearTimeout(pendingCacheDownloadTimeoutRef.current);
+        }
+        pendingCacheDownloadRef.current = { feedId, audioUrl, previousFeedId };
+        pendingCacheDownloadTimeoutRef.current = setTimeout(() => {
+          pendingCacheDownloadTimeoutRef.current = null;
+          const pending = pendingCacheDownloadRef.current;
+          if (pending?.feedId === feedId) {
+            console.log('⏱️ Background cache download safety-net timeout firing for feed:', feedId);
+            pendingCacheDownloadRef.current = null;
+            startDeferredCacheDownload(pending.feedId, pending.audioUrl, pending.previousFeedId);
+          }
+        }, PENDING_CACHE_DOWNLOAD_SAFETY_TIMEOUT_MS);
       }
     } catch (error: any) {
       console.error('❌ Audio Player: Error playing audio:', error);
@@ -906,6 +1044,29 @@ export default function AudioPlayerScreen() {
     }
   };
 
+  // Theory 1 fix's actual trigger: starts the deferred background-cache
+  // download the moment status.isLoaded confirms THIS SPECIFIC feedId has
+  // genuinely finished buffering (STATE_READY), not just "playback was
+  // attempted." pending.feedId !== feedId is a real guard, not defensive
+  // boilerplate: status.isLoaded can already be true from whatever content
+  // was loaded before this switch (the ref only updates once the NEW
+  // content's own STATE_READY transition fires), so without this check a
+  // stale-true isLoaded value could fire the download immediately again -
+  // exactly the bug this fix exists to close. See startDeferredCacheDownload
+  // above for the Theory 4 wait this also goes through.
+  useEffect(() => {
+    if (!status.isLoaded) return;
+    const pending = pendingCacheDownloadRef.current;
+    if (!pending || pending.feedId !== feedId) return;
+
+    if (pendingCacheDownloadTimeoutRef.current) {
+      clearTimeout(pendingCacheDownloadTimeoutRef.current);
+      pendingCacheDownloadTimeoutRef.current = null;
+    }
+    pendingCacheDownloadRef.current = null;
+    startDeferredCacheDownload(pending.feedId, pending.audioUrl, pending.previousFeedId);
+  }, [status.isLoaded, feedId]);
+
   // Auto-start playback when navigated here with autoPlay=true (e.g. Home's "Play now").
   // togglePlayback is otherwise only ever invoked by a user tap, so without this effect
   // the autoPlay param would have nothing to trigger it.
@@ -918,18 +1079,28 @@ export default function AudioPlayerScreen() {
   // against loadedFeedIdRef.current correctly re-opens the gate whenever
   // feedId points at content that isn't the one actually attached to
   // `player` yet - the same distinction togglePlayback itself now makes.
+  //
+  // Deliberately NOT gated on !isFeedLoading (removed): that forced every
+  // switch to wait on fetchFeedData's network round-trip (GET feed-by-id)
+  // before playback could even be attempted, even though contentData.audioUrl
+  // is already available straight from route params for every real entry
+  // point except the mini-player's resume-in-place navigation (which takes
+  // togglePlayback's pause/resume branch instead, never this effect's fresh-
+  // load path, so it's unaffected). This was the actual root cause of
+  // playback-switch feeling slow/spinner-prone/occasionally throwing a false
+  // "check your internet connection" alert - not caching, not connection
+  // pooling. contentData.audioUrl being present is now the only gate needed.
   useEffect(() => {
     if (
       autoPlay &&
       autoPlayTriggeredForFeedIdRef.current !== feedId &&
-      !isFeedLoading &&
       contentData.audioUrl &&
       loadedFeedIdRef.current !== feedId
     ) {
       autoPlayTriggeredForFeedIdRef.current = feedId ?? null;
       togglePlayback();
     }
-  }, [autoPlay, isFeedLoading, contentData.audioUrl, feedId]);
+  }, [autoPlay, contentData.audioUrl, feedId]);
 
   // Reactive so the Previous/Next buttons' disabled state (and the row
   // itself, if the queue clears) updates live as position changes -
@@ -944,12 +1115,12 @@ export default function AudioPlayerScreen() {
   const queue = usePlaybackStore((state) => state.queue);
 
   // One derived flag, not scattered type checks - see CLAUDE.md's
-  // player-cleanup notes for why (mirrors the existing feedData?.isRepeatable
+  // player-cleanup notes for why (mirrors the existing contentData.isRepeatable
   // gate already used for the counter button below). Mantra never has a
   // queue (Phase 3 never calls setQueue for it), so gating on type alone -
   // rather than on `queue` being present - is what keeps this hidden for
   // mantra even in a hypothetical future where queue ends up non-null there.
-  const showTrackNav = currentFeedData?.type === 'aarti' || currentFeedData?.type === 'bhajan';
+  const showTrackNav = contentData.type === 'aarti' || contentData.type === 'bhajan';
   const canGoPrevious = !!queue && queue.position > 0;
   const canGoNext = !!queue && queue.position < queue.playOrder.length - 1;
 
@@ -967,8 +1138,26 @@ export default function AudioPlayerScreen() {
       params: {
         feedId: item.feedId,
         title: item.title,
-        audioUrl: item.audioUrl,
-        thumbnailUrl: item.thumbnailUrl || '',
+        // encodeURIComponent: item.audioUrl/thumbnailUrl (from
+        // AudioContentCard's resolveQueueItem) are Firebase Storage URLs
+        // already containing their own legitimate %2F/%20 sequences -
+        // useLocalSearchParams() unconditionally decodeURIComponent's every
+        // string param once on the way out, with no matching encode ever
+        // applied on the way in, which silently corrupts the URL (%2F ->
+        // literal /) without this - see CLAUDE.md's route-param URL
+        // corruption investigation. Every other real entry point into this
+        // screen does the same encode at its own params-construction site.
+        audioUrl: encodeURIComponent(item.audioUrl),
+        thumbnailUrl: encodeURIComponent(item.thumbnailUrl || ''),
+        // Forwards QueueItem's own type/isRepeatable (populated by
+        // AudioContentCard's resolveQueueItem) so a Next/Previous hop, like
+        // every other entry point, renders the correct control layout from
+        // the first frame instead of a momentary mantra-layout flash - see
+        // CLAUDE.md's playback-switch flash fix. Omitted entirely (not sent
+        // as empty strings) when absent, so getContentData's own 'mantra'
+        // default still applies correctly.
+        ...(item.type ? { type: item.type } : {}),
+        ...(item.isRepeatable !== undefined ? { isRepeatable: item.isRepeatable ? 'true' : 'false' } : {}),
         autoPlay: 'true',
         ...(params.returnTo ? { returnTo: params.returnTo.toString() } : {}),
         ...(params.returnParams ? { returnParams: params.returnParams.toString() } : {}),
@@ -1168,13 +1357,25 @@ export default function AudioPlayerScreen() {
   // bhajan later), not just repeatable ones. Re-registering with the same
   // feedId is harmless - registerPlaybackStart only stops a PREVIOUS
   // different feedId, so this just refreshes activeControls/nowPlaying.
+  //
+  // contentData.type/isRepeatable are real dependencies, not just read from
+  // closure: every real entry point (mantras.tsx, index.tsx,
+  // search-results.tsx, AudioContentCard.tsx, and this screen's own
+  // navigateToQueueItem) now sends type/isRepeatable as route params, and
+  // getContentData() resolves them the same way it already resolves
+  // title/audioUrl - params first, the fetched feed as confirmation/
+  // correction once it lands (see CLAUDE.md's playback-switch flash fix).
+  // Listing them here means IF a caller ever sends a wrong/stale value, this
+  // effect re-runs the moment the real fetch corrects contentData and
+  // re-registers with the right type/counter shape - a safety net, not the
+  // primary mechanism now that params are expected to already be correct.
   useEffect(() => {
     if (!status.playing || !feedId) return;
 
     usePlaybackStore.getState().registerPlaybackStart(
       {
         feedId,
-        type: currentFeedData?.type ?? 'mantra',
+        type: contentData.type ?? 'mantra',
         mode: 'persistent',
         title: contentData.title?.toString() ?? (t('sacredMantra') as string),
         thumbnailUrl: contentData.thumbnailUrl?.toString(),
@@ -1184,7 +1385,7 @@ export default function AudioPlayerScreen() {
         isPlaying: true,
         positionSeconds: status.currentTime,
         durationSeconds: status.duration,
-        counter: currentFeedData?.isRepeatable
+        counter: contentData.isRepeatable
           ? { chantCount, targetCount, isAutoLooping }
           : undefined,
       },
@@ -1211,7 +1412,7 @@ export default function AudioPlayerScreen() {
           } catch (error) {
             console.error('Error stopping playback (player likely already released):', error);
           }
-          if (feedId) cancelBackgroundDownload(feedId);
+          if (feedId) cancelBackgroundDownloadForFeed(feedId);
         },
         pause: () => {
           try {
@@ -1219,7 +1420,7 @@ export default function AudioPlayerScreen() {
           } catch (error) {
             console.error('Error pausing playback (player likely already released):', error);
           }
-          if (feedId) cancelBackgroundDownload(feedId);
+          if (feedId) cancelBackgroundDownloadForFeed(feedId);
         },
         resume: () => player.play(),
         seekTo: (seconds: number) => {
@@ -1237,7 +1438,7 @@ export default function AudioPlayerScreen() {
     if (isAppActiveRef.current) {
       activateLockScreenControls();
     }
-  }, [status.playing, feedId, playerInstanceId]);
+  }, [status.playing, feedId, playerInstanceId, contentData.type, contentData.isRepeatable]);
 
   // Retries lock-screen activation on the transition INTO 'active', for
   // whichever attempt above was skipped because the app wasn't confirmed
@@ -1343,7 +1544,7 @@ export default function AudioPlayerScreen() {
       isPlaying: status.playing,
       positionSeconds: status.currentTime,
       durationSeconds: status.duration,
-      counter: currentFeedData?.isRepeatable
+      counter: contentData.isRepeatable
         ? { chantCount, targetCount, isAutoLooping }
         : undefined,
     });
@@ -1381,7 +1582,7 @@ export default function AudioPlayerScreen() {
       player.pause();
       // This screen's own content just got bumped - it's no longer the
       // thing the user is actively listening to, so stop caching it.
-      if (feedId) cancelBackgroundDownload(feedId);
+      if (feedId) cancelBackgroundDownloadForFeed(feedId);
     }
   }, [preemptedByFeedId, status.playing, player, feedId]);
 
@@ -1411,9 +1612,22 @@ export default function AudioPlayerScreen() {
   // fetchFeedData effect even starts), closes that window instead of just
   // resetting into it.
   // isAutoLooping is cleared alongside it so the loop indicator doesn't
-  // carry over either, for the same reason. Also cancels any in-flight
-  // background cache download for this feedId - cancelBackgroundDownload
-  // only touches the filesystem, never `player`, so it's safe to call
+  // carry over either, for the same reason. Also cancels any in-flight (or
+  // still-pending, not-yet-started) background cache download for this
+  // feedId via cancelBackgroundDownloadForFeed - this is now the SOLE place
+  // that does so for the switching-away case (previously togglePlayback's
+  // own "switching away" block ALSO called this for the same outgoing
+  // feedId, a genuine duplicate call every real switch went through, since
+  // this cleanup's closure captures the OLD feedId and fires on every feedId
+  // change regardless of whether togglePlayback ever runs). Consolidated
+  // here deliberately: this cleanup is the more complete trigger (fires
+  // unconditionally on every feedId change, not just when togglePlayback
+  // happens to run), and React guarantees ALL effect cleanups for a commit
+  // run before ANY new effect setups run - so this cancellation is always
+  // already in flight by the time the autoPlay effect's togglePlayback call
+  // (or a manual tap) needs startDeferredCacheDownload's Theory-4 wait to
+  // have something real to wait on. cancelBackgroundDownload itself only
+  // touches the filesystem, never `player`, so it's safe to call
   // unconditionally even though this cleanup itself runs after
   // useAudioPlayer's own release() (see the isMountedRef comment above for
   // why that ordering matters for code that DOES touch `player`).
@@ -1446,7 +1660,7 @@ export default function AudioPlayerScreen() {
       }
       if (feedId) {
         usePlaybackStore.getState().clearNowPlaying(feedId);
-        cancelBackgroundDownload(feedId);
+        cancelBackgroundDownloadForFeed(feedId);
       }
     };
   }, [feedId, player]);
@@ -1733,7 +1947,15 @@ export default function AudioPlayerScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Loading State */}
+      {/* Loading State - visible until fetchFeedData genuinely resolves, full
+          stop. Real product decision: no piece-by-piece "pop in" of
+          individual elements (title, deity, description, counts) once the
+          screen becomes visible - it should look complete and settled from
+          its very first visible frame, exactly like this screen's original
+          pre-fix behavior. Audio itself is NOT blocked by this - see
+          hasStartedPlaybackForCurrentFeed's own comment above and the
+          autoPlay effect further down, both of which run independently of
+          whatever's rendered here. */}
       {isFeedLoading && (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={goldenTempleTheme.colors.primary.DEFAULT} />
@@ -1741,8 +1963,14 @@ export default function AudioPlayerScreen() {
         </View>
       )}
 
-      {/* Error State */}
-      {feedError && !isFeedLoading && (
+      {/* Error State - the one deliberate exception to "gate everything on
+          the fetch": suppressed when audio has already genuinely started for
+          this feedId (hasStartedPlaybackForCurrentFeed), since the user
+          already has the thing that actually matters - a working player -
+          and a hard, blocking error screen over that would be actively
+          harmful, not just imperfect. Only shown when audio genuinely never
+          started at all. */}
+      {feedError && !isFeedLoading && !hasStartedPlaybackForCurrentFeed && (
         <View style={styles.errorContainer}>
           <Ionicons name="alert-circle" size={50} color={goldenTempleTheme.colors.error} />
           <Text style={styles.errorText}>{feedError}</Text>
@@ -1752,8 +1980,14 @@ export default function AudioPlayerScreen() {
         </View>
       )}
 
-      {/* Main Content - fixed three-region layout, no scrolling */}
-      {!isFeedLoading && !feedError && (
+      {/* Main Content - fixed three-region layout, no scrolling. Gated on the
+          fetch having genuinely finished (matching the Loading State above),
+          OR on hasStartedPlaybackForCurrentFeed as the same deliberate
+          exception the Error State makes: if the fetch failed but audio is
+          already playing, show the real (if metadata-incomplete) player
+          rather than either a blank screen or a hard error blocking working
+          audio - see this section's own gate comments above for why. */}
+      {!isFeedLoading && (!feedError || hasStartedPlaybackForCurrentFeed) && (
         // No tab-bar-clearance padding needed anymore - the tab bar is
         // hidden entirely on this screen (see the useFocusEffect above).
         // SafeAreaView already handles the physical bottom safe-area inset
@@ -1953,18 +2187,22 @@ export default function AudioPlayerScreen() {
                       colors={['#FF5722', '#E64A19']}
                       style={styles.playButtonGradient}
                     >
-                      {isAudioLoading ? (
-                        <Animated.View style={{ transform: [{ rotate: rotateInterpolation }] }}>
-                          <Ionicons name="refresh" size={40} color="#fff" />
-                        </Animated.View>
-                      ) : (
-                        <Ionicons
-                          name={status.playing ? 'pause' : 'play'}
-                          size={40}
-                          color="#fff"
-                          style={!status.playing ? { marginLeft: 4 } : {}}
-                        />
-                      )}
+                      {/* Real fix, root cause closed (route-param URL corruption -
+                          see CLAUDE.md): native buffering is now genuinely a
+                          fraction of a second on the common path, so a
+                          dedicated loading-spinner state on this button adds
+                          visual noise rather than useful feedback. Always
+                          shows the real play/pause icon now - isAudioLoading
+                          itself, the 10s safety-timeout/error-alert logic,
+                          and this button's own disabled={isAudioLoading}
+                          guard below are all deliberately UNCHANGED, still a
+                          genuine fallback for real failures. */}
+                      <Ionicons
+                        name={status.playing ? 'pause' : 'play'}
+                        size={40}
+                        color="#fff"
+                        style={!status.playing ? { marginLeft: 4 } : {}}
+                      />
                     </LinearGradient>
                   </TouchableOpacity>
                 </View>
@@ -2048,23 +2286,33 @@ export default function AudioPlayerScreen() {
                       colors={['#FF5722', '#E64A19']}
                       style={styles.playButtonGradient}
                     >
-                      {isAudioLoading ? (
-                        <Animated.View style={{ transform: [{ rotate: rotateInterpolation }] }}>
-                          <Ionicons name="refresh" size={40} color="#fff" />
-                        </Animated.View>
-                      ) : (
-                        <Ionicons
-                          name={status.playing ? 'pause' : 'play'}
-                          size={40}
-                          color="#fff"
-                          style={!status.playing ? { marginLeft: 4 } : {}}
-                        />
-                      )}
+                      {/* Real fix, root cause closed (route-param URL corruption -
+                          see CLAUDE.md): native buffering is now genuinely a
+                          fraction of a second on the common path, so a
+                          dedicated loading-spinner state on this button adds
+                          visual noise rather than useful feedback. Always
+                          shows the real play/pause icon now - isAudioLoading
+                          itself, the 10s safety-timeout/error-alert logic,
+                          and this button's own disabled={isAudioLoading}
+                          guard below are all deliberately UNCHANGED, still a
+                          genuine fallback for real failures. */}
+                      <Ionicons
+                        name={status.playing ? 'pause' : 'play'}
+                        size={40}
+                        color="#fff"
+                        style={!status.playing ? { marginLeft: 4 } : {}}
+                      />
                     </LinearGradient>
                   </TouchableOpacity>
                 </View>
 
-                {feedData?.isRepeatable ? (
+                {/* Was feedData?.isRepeatable - read raw (non-staleness-
+                    guarded) state, which could briefly show the PREVIOUS
+                    track's counter-button state during a mantra->mantra
+                    switch. contentData.isRepeatable goes through the same
+                    resolved params-then-fetch source as everything else
+                    here, closing that gap too. */}
+                {contentData.isRepeatable ? (
                   <TouchableOpacity
                     onPress={() => counterSheetRef.current?.present()}
                     style={styles.roundControlButton}

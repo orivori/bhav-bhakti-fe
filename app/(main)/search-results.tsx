@@ -128,9 +128,20 @@ export default function SearchResultsScreen() {
           title: feed.title?.en || feed.title?.hi || 'Sacred Mantra',
           // caption is the intended "artist" source going forward.
           artist: feed.caption || '',
-          audioUrl: audioMedia.mediaUrl,
-          thumbnailUrl: audioMedia.thumbnailUrl,
+          // encodeURIComponent: these Firebase Storage URLs already contain
+          // their own legitimate %2F/%20 sequences - useLocalSearchParams()
+          // unconditionally decodeURIComponent's every string param once on
+          // the way out with no matching encode on the way in, which
+          // silently corrupts the URL (%2F -> literal /) without this - see
+          // CLAUDE.md's route-param URL corruption investigation.
+          audioUrl: encodeURIComponent(audioMedia.mediaUrl),
+          thumbnailUrl: encodeURIComponent(audioMedia.thumbnailUrl || ''),
           tags: feed.tags?.join(',') || '',
+          // Lets audio-player.tsx render the correct control layout from
+          // the first frame instead of defaulting to mantra until its own
+          // fetch resolves - see CLAUDE.md's playback-switch flash fix.
+          type: feed.type,
+          isRepeatable: feed.isRepeatable ? 'true' : 'false',
           autoPlay: 'true',
           // See audio-player.tsx's back-button handling - without this,
           // back falls through to router.back(), the known always-lands-
