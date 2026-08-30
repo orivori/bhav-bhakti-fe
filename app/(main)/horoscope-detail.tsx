@@ -24,20 +24,17 @@ import { getLocalDateString } from '@/shared/utils/dateUtil';
 import type { ZodiacSign } from '@/types/horoscope';
 
 export default function HoroscopeDetailScreen() {
-  // skipPaywall is set by Home's "Today's Horoscope" card flow (the
-  // birthdate-collection modal) - that entry point must never be paywalled.
-  // Phase 4's paywall gate lives on the 12-sign grid itself (horoscope.tsx),
-  // before navigation ever happens, so this screen still doesn't need to
-  // read skipPaywall to enforce anything - by construction, every real nav
-  // call site that reaches this screen is already allowed to be here. The
-  // param is kept only so a future entry point can't accidentally forget it.
+  // Rashifal is free for everyone, unconditionally - no paywall anywhere on
+  // this screen (this screen never had one of its own; the app's only
+  // Rashifal gate lived on the 12-sign grid, horoscope.tsx, and has been
+  // removed as a deliberate product decision).
   // returnTo mirrors audio-player.tsx's own back-button pattern (CLAUDE.md
   // §27) - this screen is reachable both from Home's "Today's Horoscope"
   // card and from the 12-sign grid (horoscope.tsx), and router.back() alone
   // always fell through to the Tabs navigator's implicit fallback (Home),
   // regardless of actual entry point. No returnParams needed here - unlike
   // audio-player.tsx, neither entry point has state to restore on return.
-  const { zodiacSign, skipPaywall, returnTo } = useLocalSearchParams<{ zodiacSign: ZodiacSign; skipPaywall?: string; returnTo?: string }>();
+  const { zodiacSign, returnTo } = useLocalSearchParams<{ zodiacSign: ZodiacSign; returnTo?: string }>();
   const { t } = useTranslation();
   const { language } = useI18nStore();
   const { contentPadding } = useTabBarHeight();

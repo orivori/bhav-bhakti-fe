@@ -179,9 +179,8 @@ export default function HomeScreen() {
   // goes straight to the 12-sign grid). First-ever tap collects a real
   // birthdate via BirthdateModal; once dateOfBirth/zodiacSign already exist
   // on the profile, subsequent taps skip the modal and go straight to the
-  // user's own sign. skipPaywall is forwarded to horoscope-detail.tsx as a
-  // marker for whichever paywall gate Phase 4 eventually adds to the grid
-  // path - this Home path must never be caught by it.
+  // user's own sign. Rashifal is free for everyone, unconditionally - no
+  // paywall gate exists anywhere in the flow this leads to.
   const handleHoroscopeCardPress = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
@@ -193,7 +192,7 @@ export default function HomeScreen() {
       if (profile.profile?.dateOfBirth && profile.profile?.zodiacSign) {
         router.push({
           pathname: '/(main)/horoscope-detail',
-          params: { zodiacSign: profile.profile.zodiacSign, skipPaywall: 'true', returnTo: '/(main)' },
+          params: { zodiacSign: profile.profile.zodiacSign, returnTo: '/(main)' },
         });
       } else {
         setShowBirthdateModal(true);
@@ -213,7 +212,7 @@ export default function HomeScreen() {
     setShowBirthdateModal(false);
     router.push({
       pathname: '/(main)/horoscope-detail',
-      params: { zodiacSign, skipPaywall: 'true', returnTo: '/(main)' },
+      params: { zodiacSign, returnTo: '/(main)' },
     });
   };
 

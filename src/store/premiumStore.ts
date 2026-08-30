@@ -2,13 +2,16 @@ import { create } from 'zustand';
 import { PremiumSubscription } from '../types/user';
 
 // TEMPORARY/PLACEHOLDER - there is no real entitlement/paywall system
-// anywhere in this app yet. This is now the ONE seam for the whole app's
-// premium-status stub (consolidated from three separate, independently-
-// declared local copies that had drifted to disagree - see
-// AutoplayFeedCard.tsx, horoscope.tsx, and useViewingWindow.ts, all of which
-// now read `isPremium` from this store instead of declaring their own
-// constant). Flip this single value to test as premium; every gate in the
-// app updates together, so there's nowhere left for copies to drift apart.
+// anywhere in this app yet. This is now the ONE seam for the app's
+// premium-status stub (originally consolidated from three separate,
+// independently-declared local copies that had drifted to disagree -
+// AutoplayFeedCard.tsx, horoscope.tsx, and useViewingWindow.ts. horoscope.tsx
+// no longer reads this at all - Rashifal was made free for everyone,
+// unconditionally, as a deliberate product decision, removing its gate
+// entirely rather than just flipping it open. AutoplayFeedCard.tsx and
+// useViewingWindow.ts remain real consumers). Flip this single value to test
+// as premium; every remaining gate in the app updates together, so there's
+// nowhere left for copies to drift apart.
 const DEV_OVERRIDE_IS_PREMIUM = false;
 
 interface PremiumState {

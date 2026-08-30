@@ -6,7 +6,6 @@ import {
   ScrollView,
   FlatList,
   Dimensions,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -21,7 +20,6 @@ import { useI18nStore } from '@/shared/stores/i18nStore';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
 import { ZODIAC_SIGNS } from '@/data/zodiacData';
 import { LanguageToggle } from '@/components/molecules/LanguageToggle';
-import { usePremiumStore } from '@/store/premiumStore';
 import { useScrollToTopOnTabPress } from '@/hooks/useScrollToTopOnTabPress';
 import type { ZodiacSign } from '@/types/horoscope';
 
@@ -37,33 +35,18 @@ export default function HoroscopeScreen() {
   const { t } = useTranslation();
   const { language } = useI18nStore();
   const { contentPadding } = useTabBarHeight();
-  // Consolidated onto the shared store - see premiumStore.ts's
-  // DEV_OVERRIDE_IS_PREMIUM comment. Was a local `const isPremiumUser =
-  // false;` here; the store's own default is also false, so this is a
-  // behavior-identical swap.
-  const { isPremium: isPremiumUser } = usePremiumStore();
   const scrollViewRef = useRef<ScrollView>(null);
 
   useScrollToTopOnTabPress(useCallback(() => {
     scrollViewRef.current?.scrollTo({ y: 0, animated: true });
   }, []));
 
-  const showPaywallPlaceholder = () => {
-    // TEMPORARY/PLACEHOLDER - stands in for the real paywall/upsell screen.
-    Alert.alert('Premium Feature', 'This will be available with Bhav Bhakti Premium. Stay tuned!');
-  };
-
+  // Rashifal is free for everyone, unconditionally - no premium gate on this
+  // grid (the app's only Rashifal gate lived here; removed as a deliberate
+  // product decision, not a bug fix).
   const handleZodiacPress = (zodiacSign: ZodiacSign) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-    if (!isPremiumUser) {
-      showPaywallPlaceholder();
-      return;
-    }
-
-    // Deliberately no skipPaywall param here - this is the grid entry point,
-    // which the paywall gate above already applies to. Only Home's
-    // birthdate-collection flow (index.tsx) sets skipPaywall: 'true'.
     router.push({
       pathname: '/(main)/horoscope-detail',
       params: { zodiacSign, returnTo: '/(main)/horoscope' }
