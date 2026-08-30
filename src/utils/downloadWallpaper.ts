@@ -29,8 +29,14 @@ export async function downloadWallpaper(options: DownloadOptions): Promise<boole
     // Show loading state
     Alert.alert('Downloading', 'Please wait while we prepare your wallpaper...');
 
-    // Download the image
-    const fileUri = FileSystem.documentDirectory + `${title.replace(/\s/g, '_')}_${Date.now()}.jpg`;
+    // Download the image. cacheDirectory, not documentDirectory - this file
+    // is only a staging copy on its way into MediaLibrary (see
+    // createAssetAsync below); the real, permanent copy ends up in the
+    // gallery, so nothing needs this to survive in persistent app storage
+    // (was previously a real leak: nothing ever deleted it, and Android's
+    // "Clear Cache" has no effect on documentDirectory - see cacheEviction.ts
+    // for the startup sweep that now also backstops this).
+    const fileUri = FileSystem.cacheDirectory + `${title.replace(/\s/g, '_')}_${Date.now()}.jpg`;
     const downloadResult = await FileSystem.downloadAsync(imageUrl, fileUri);
 
     if (downloadResult.status !== 200) {

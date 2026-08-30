@@ -177,7 +177,12 @@ export default function RingtoneFeedCard({
   const localFileName = `${sanitizedTitle || `ringtone_${feed.id}`}.${
     audioSourceUri ? getAudioFileExtension(audioSourceUri) : 'mp3'
   }`;
-  const localFileUri = FileSystem.documentDirectory + localFileName;
+  // cacheDirectory, not documentDirectory - this is a re-downloadable
+  // playback/set-ringtone cache, not permanent data; documentDirectory meant
+  // Android's "Clear Cache" had no effect on it and cached ringtones
+  // accumulated forever. See cacheEviction.ts for the startup age-based
+  // sweep that now backstops this too.
+  const localFileUri = FileSystem.cacheDirectory + localFileName;
 
   // Returns the local cached copy of this ringtone, downloading it once if
   // it isn't already on disk. Used by handleSetRingtone, which genuinely

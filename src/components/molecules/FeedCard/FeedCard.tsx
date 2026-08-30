@@ -125,7 +125,11 @@ export default function FeedCard({
       // see useWallpaperActions.ts's handleDownload for the full explanation
       // (MediaStore's own collision handling otherwise silently reused an
       // existing gallery entry for a repeated deterministic filename).
-      const fileUri = FileSystem?.documentDirectory + `feed_${feed.id}_${mediaToDownload.id}_${Date.now()}.${extension}`;
+      // cacheDirectory, not documentDirectory - staging copy on its way into
+      // MediaLibrary, deleted right after on success below; cacheDirectory
+      // means a failed/skipped delete doesn't leak into persistent storage
+      // forever. See cacheEviction.ts for the startup age-based sweep.
+      const fileUri = FileSystem?.cacheDirectory + `feed_${feed.id}_${mediaToDownload.id}_${Date.now()}.${extension}`;
       const downloadResult = await FileSystem.downloadAsync(
         mediaToDownload.mediaUrl,
         fileUri

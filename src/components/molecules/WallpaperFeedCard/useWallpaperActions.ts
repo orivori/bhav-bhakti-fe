@@ -118,7 +118,13 @@ export function useWallpaperActions({ feed, onLike, onShare, onDownload }: UseWa
       // existing gallery entry instead of creating a new one, even though
       // both attempts still reported success (see CLAUDE.md's Viewing Window
       // download investigation).
-      const fileUri = FileSystem?.documentDirectory + `wallpaper_${feed.id}_${mediaToDownload.id}_${Date.now()}.${extension}`;
+      // cacheDirectory, not documentDirectory - this is a staging copy on its
+      // way into MediaLibrary (see saveToLibraryAsync below), deleted right
+      // after on success; using cacheDirectory means a failed/skipped
+      // best-effort delete (or a crash before it runs) doesn't leak into
+      // persistent storage forever, and Android's "Clear Cache" can reclaim
+      // it either way. See cacheEviction.ts for the startup age-based sweep.
+      const fileUri = FileSystem?.cacheDirectory + `wallpaper_${feed.id}_${mediaToDownload.id}_${Date.now()}.${extension}`;
       const downloadResult = await FileSystem.downloadAsync(
         mediaToDownload.mediaUrl,
         fileUri

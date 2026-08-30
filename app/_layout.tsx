@@ -22,6 +22,7 @@ import {
 } from '@expo-google-fonts/noto-sans-devanagari';
 import i18n from '@/shared/i18n';
 import { useI18nStore } from '@/shared/stores/i18nStore';
+import { runCacheEviction } from '@/utils/cacheEviction';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -88,6 +89,14 @@ export default function RootLayout() {
     };
 
     initializeAudioSession();
+  }, []);
+
+  React.useEffect(() => {
+    // Basic cache eviction policy, run once per cold start - see
+    // cacheEviction.ts for the full rationale. Fire-and-forget: doesn't gate
+    // the splash screen or anything else below, since disk cleanup has no
+    // reason to delay the app becoming usable.
+    runCacheEviction();
   }, []);
 
   React.useEffect(() => {
