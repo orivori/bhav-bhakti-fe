@@ -1,4 +1,5 @@
 import { Tabs } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import MiniPlayer from '@/components/molecules/MiniPlayer';
@@ -11,6 +12,7 @@ import RashifalIcon from '../../assets/icons/sun.svg';
 
 export default function MainLayout() {
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
 
   return (
     <>
@@ -46,7 +48,7 @@ export default function MainLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Home',
+          title: t('home.title'),
           headerShown: false,
           tabBarIcon: ({ size, focused }) => (
             <HomeIcon
@@ -60,7 +62,7 @@ export default function MainLayout() {
       <Tabs.Screen
         name="mantras"
         options={{
-          title: 'Mantra',
+          title: t('tabs.mantra'),
           headerShown: false,
           tabBarIcon: ({ size, focused }) => (
             <MantraIcon
@@ -74,7 +76,7 @@ export default function MainLayout() {
       <Tabs.Screen
         name="ringtones"
         options={{
-          title: 'Audio',
+          title: t('tabs.audio'),
           headerShown: false,
           tabBarIcon: ({ size, focused }) => (
             <AudioIcon
@@ -88,7 +90,7 @@ export default function MainLayout() {
       <Tabs.Screen
         name="daily-status"
         options={{
-          title: 'Wallpapers',
+          title: t('tabs.wallpapers'),
           headerShown: false,
           tabBarIcon: ({ size, focused }) => (
             <WallpapersIcon
@@ -102,7 +104,7 @@ export default function MainLayout() {
       <Tabs.Screen
         name="horoscope"
         options={{
-          title: 'Rashifal',
+          title: t('tabs.rashifal'),
           headerShown: false,
           tabBarIcon: ({ size, focused }) => (
             <RashifalIcon

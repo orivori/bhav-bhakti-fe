@@ -28,6 +28,12 @@
     "premium": "Premium",
     "free": "Free"
   },
+  "tabs": {
+    "mantra": "Mantra",
+    "audio": "Audio",
+    "wallpapers": "Wallpapers",
+    "rashifal": "Rashifal"
+  },
   "home": {
     "title": "Home",
     "featuredWallpapers": "Featured Wallpapers",
@@ -338,5 +344,32 @@
     "zodiacSaved": "Zodiac sign saved successfully!",
     "feedbackSubmitted": "Thank you for your feedback!",
     "preferencesSaved": "Preferences saved successfully!"
+  },
+  "feedCard": {
+    "typeGeneral": "General",
+    "typeRingtone": "Ringtone",
+    "typeWallpaper": "Wallpaper",
+    "typeThought": "Thought",
+    "listen": "Listen",
+    "setAsRingtone": "Set as Ringtone",
+    "settingRingtone": "Setting...",
+    "setAsWallpaper": "Set as Wallpaper",
+    "savingWallpaper": "Saving...",
+    "likeErrorMessage": "Failed to like this. Please try again.",
+    "ringtoneSavedTitle": "Ringtone Downloaded & Saved",
+    "ringtoneSavedMessageAndroid": "The ringtone has been saved to your device. To set it as your ringtone:\n\n1. Go to Settings > Sounds\n2. Select Phone Ringtone\n3. Choose the downloaded file",
+    "ringtoneSavedMessageIos": "The ringtone has been saved to your device. To set it as your ringtone:\n\n1. Go to Settings > Sounds & Haptics\n2. Select Ringtone\n3. Choose the downloaded file from \"Custom\" section",
+    "ringtoneDownloadedTitle": "Ringtone Downloaded",
+    "ringtoneDownloadedMessageAndroid": "The ringtone has been downloaded to your device. To set it as your ringtone:\n\n1. Go to Settings > Sounds\n2. Select Phone Ringtone\n3. Look for the ringtone file in your downloads",
+    "ringtoneDownloadedMessageIos": "The ringtone has been downloaded successfully!\n\nFor iOS ringtones:\n• Connect to iTunes/Finder\n• Convert to .m4r format\n• Sync to set as ringtone\n\nOr use GarageBand to import and set as ringtone.",
+    "openSoundSettings": "Open Sound Settings",
+    "gotIt": "Got It",
+    "ok": "OK",
+    "ringtoneErrorMessage": "Failed to set ringtone. Please try again.",
+    "wallpaperSavedTitle": "Saved to Gallery",
+    "wallpaperSavedMessage": "Open your Gallery/Photos app and set it as your wallpaper from there.",
+    "wallpaperErrorMessage": "Failed to save this. Please try again.",
+    "premiumFeatureTitle": "Premium Feature",
+    "premiumFeatureMessage": "This will be available with Bhav Bhakti Premium. Stay tuned!"
   }
 }
