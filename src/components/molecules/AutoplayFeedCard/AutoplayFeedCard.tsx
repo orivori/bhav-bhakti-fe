@@ -6,12 +6,14 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as MediaLibrary from 'expo-media-library';
 import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '@/components/atoms';
 import { Feed } from '@/types/feed';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
 import { useI18nStore } from '@/shared/stores/i18nStore';
+import { containsDevanagari } from '@/utils/textUtils';
 import { feedService } from '@/features/feed/services/feedService';
 import { useFeedStore } from '@/store/feedStore';
 import { useSoundPreferenceStore } from '@/store/soundPreferenceStore';
@@ -43,21 +45,26 @@ interface AutoplayFeedCardProps {
 // but staying inert. 0.75 stays safely under that risk on all of them.
 const AUDIO_CONTENT_HEIGHT_RATIO = 0.75; // of the usable viewport
 const VISUAL_ASPECT_RATIO = 16 / 9; // height = width * this, for wallpaper/thought/video
-// Header row's own footprint (added this session, above contentArea): 20px
-// text line height + 8px (styles.headerRow's marginBottom, spacing.sm).
-// The 20 is deterministic, not an estimate - both header texts go through
-// the shared Text atom with no explicit lineHeight override, so they inherit
-// its 'body' variant's lineHeight: 20 (Text.tsx), and since CONTENT_TYPE_LABELS
-// and "See all" are always hardcoded English (never resolved through the
-// language system), the atom's Hindi-aware dynamic line-height path never
-// triggers - this can't drift per-device or per-language the way raw
-// unstyled Text would. Subtracted from contentAreaHeight below so adding the
-// header didn't grow the card's total height (and shrink next-card-peek) -
-// audio's ratio was tuned against the pre-header pixel budget, so this
-// restores it exactly; visual's 16:9 becomes a smaller, no-longer-exact
-// ratio, an accepted trade-off (consistent peek across all card types over
-// aspect-ratio purity - real content doesn't hit 16:9 exactly anyway).
-const HEADER_ROW_HEIGHT = 28;
+// Header row's own footprint (added this session, above contentArea): text
+// line height + 8px (styles.headerRow's marginBottom, spacing.sm). The text
+// line height is NOT a fixed constant - both header texts go through the
+// shared Text atom with no explicit lineHeight override, so they inherit its
+// 'body' variant's lineHeight, which is 20 for plain text but jumps to 24 the
+// moment the text is Devanagari (Text.tsx's hasHindiText branch, via
+// getEnhancedLineHeight - see textUtils.ts). Now that the header row's own
+// content (content-type label, "See all") is real translated text rather
+// than always-hardcoded English, this can genuinely be either value
+// depending on the active language - computed per-render in the component
+// body below (see headerRowTextLineHeight) rather than hardcoded here, so it
+// can't silently drift out of sync with the Text atom's own logic. Subtracted
+// from contentAreaHeight below so adding the header didn't grow the card's
+// total height (and shrink next-card-peek) - audio's ratio was tuned against
+// the pre-header pixel budget, so this restores it exactly; visual's 16:9
+// becomes a smaller, no-longer-exact ratio, an accepted trade-off (consistent
+// peek across all card types over aspect-ratio purity - real content doesn't
+// hit 16:9 exactly anyway).
+const HEADER_ROW_TEXT_LINE_HEIGHT_EN = 20;
+const HEADER_ROW_TEXT_LINE_HEIGHT_HI = 24;
 const FOOTER_HEIGHT = 56;
 
 // --- Playback ---
@@ -84,6 +91,18 @@ const CARD_WIDTH = screenWidth - goldenTempleTheme.spacing.lg * 2;
 // an iPhone SE-class screen even after this bump).
 const THUMBNAIL_SIZE = CARD_WIDTH * 0.66;
 
+// Fixed width for the audio row's CTA pill (Listen/Set as Ringtone) -
+// derived once from the row's own fixed width (THUMBNAIL_SIZE), not left to
+// grow/shrink with whatever ctaLabel text happens to be showing. 48 =
+// audioPlayPauseButton's own fixed width; the remaining spacing.xs is the
+// minimum breathing room kept between it and the pill (audioControlsRow's
+// justifyContent: 'space-between' otherwise has nothing stopping the two
+// from touching once the pill's width is no longer content-driven). Still
+// screen-width-responsive like everything else on this card - only content
+// (text length, language) is prevented from affecting it, per the pill's own
+// styles below.
+const AUDIO_CTA_PILL_WIDTH = THUMBNAIL_SIZE - 48 - goldenTempleTheme.spacing.xs;
+
 // Native RN Image blurRadius (no new dependency - see the earlier
 // investigation this session). Applied only to the full-bleed background
 // copy of the thumbnail, never the sharp centered one.
@@ -107,9 +126,14 @@ const getAudioFileExtension = (audioUri: string): string => {
 // components briefly racing to write the same path, the same accepted-low-risk
 // gap RingtoneFeedCard's own ensureLocalFile already documents elsewhere in
 // this codebase. If audio-player.tsx's naming convention ever changes, this
-// needs to change with it.
+// needs to change with it (including which directory it uses - both must
+// agree, or the two screens silently stop sharing a cache hit).
+// cacheDirectory, not documentDirectory - this is a re-downloadable playback
+// cache, not permanent data; documentDirectory meant Android's "Clear Cache"
+// had no effect on it and it accumulated forever. See cacheEviction.ts for
+// the startup age-based sweep that now backstops this too.
 const getLocalCachePath = (feedId: string, audioUri: string): string =>
-  `${FileSystem.documentDirectory}audio_player_${feedId}.${getAudioFileExtension(audioUri)}`;
+  `${FileSystem.cacheDirectory}audio_player_${feedId}.${getAudioFileExtension(audioUri)}`;
 
 const inFlightBackgroundDownloads = new Map<string, FileSystem.DownloadResumable>();
 const inFlightCancellations = new Map<string, Promise<void>>();
@@ -183,20 +207,6 @@ const cancelBackgroundDownload = (feedId: string): void => {
   inFlightCancellations.set(feedId, cleanup);
 };
 
-// Header row (above the thumbnail): plain content-type identity, not an
-// action description - deliberately separate from the CTA pill's own
-// verb-based label ("Listen"/"Set as Ringtone"/"Set as Wallpaper" below),
-// which describes what tapping the pill does, not what this content is.
-const CONTENT_TYPE_LABELS: Record<Feed['type'], string> = {
-  general: 'General',
-  mantra: 'Mantra',
-  ringtone: 'Ringtone',
-  wallpaper: 'Wallpaper',
-  aarti: 'Aarti',
-  bhajan: 'Bhajan',
-  thought: 'Thought',
-};
-
 // 'See all' target per content type - reuses the exact same hub routes/subTab
 // params Home's own quick-links already navigate to (app/(main)/index.tsx).
 // 'general' has no matching hub screen, so it deliberately has no entry here;
@@ -216,6 +226,7 @@ const SEE_ALL_TARGETS: Partial<Record<Feed['type'], { pathname: string; params?:
  */
 export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardProps) {
   const { language } = useI18nStore();
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { tabBarHeight } = useTabBarHeight();
   const { toggleLike, incrementDownload, incrementView } = useFeedStore();
@@ -294,7 +305,24 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
 
   const title = feed.title?.[language] || feed.title?.en || feed.caption || 'Untitled';
 
-  const contentTypeLabel = CONTENT_TYPE_LABELS[feed.type];
+  // Header row (above the thumbnail): plain content-type identity, not an
+  // action description - deliberately separate from the CTA pill's own
+  // verb-based label ("Listen"/"Set as Ringtone"/"Set as Wallpaper" below),
+  // which describes what tapping the pill does, not what this content is.
+  // mantra/aarti/bhajan reuse the existing spiritual.* keys (exact wording
+  // match, avoids a redundant duplicate string); ringtone/wallpaper/thought/
+  // general have no existing singular equivalent, so those are new feedCard.*
+  // keys.
+  const contentTypeLabels: Record<Feed['type'], string> = {
+    general: t('feedCard.typeGeneral'),
+    mantra: t('spiritual.mantra'),
+    ringtone: t('feedCard.typeRingtone'),
+    wallpaper: t('feedCard.typeWallpaper'),
+    aarti: t('spiritual.aarti'),
+    bhajan: t('spiritual.bhajan'),
+    thought: t('feedCard.typeThought'),
+  };
+  const contentTypeLabel = contentTypeLabels[feed.type];
   const seeAllTarget = SEE_ALL_TARGETS[feed.type];
   const handleSeeAllPress = () => {
     if (!seeAllTarget) return;
@@ -303,10 +331,19 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
     router.push(seeAllTarget as any);
   };
 
+  // See HEADER_ROW_TEXT_LINE_HEIGHT_EN/HI's comment above - derived from the
+  // header row's own real (now-translated) text rather than assumed English,
+  // so this can't drift out of sync with the Text atom's own Hindi-aware
+  // line-height logic.
+  const headerRowTextLineHeight = containsDevanagari(contentTypeLabel)
+    ? HEADER_ROW_TEXT_LINE_HEIGHT_HI
+    : HEADER_ROW_TEXT_LINE_HEIGHT_EN;
+  const headerRowHeight = headerRowTextLineHeight + goldenTempleTheme.spacing.sm;
+
   const contentAreaHeight =
     (hasAudioMedia
       ? usableViewportHeight * AUDIO_CONTENT_HEIGHT_RATIO
-      : CARD_WIDTH * VISUAL_ASPECT_RATIO) - HEADER_ROW_HEIGHT;
+      : CARD_WIDTH * VISUAL_ASPECT_RATIO) - headerRowHeight;
 
   // Audio only: the thumbnail is centered on its OWN (both axes) within
   // contentArea - NOT as part of a combined thumbnail+controls block. The
@@ -318,82 +355,63 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
   const audioThumbnailLeft = (CARD_WIDTH - THUMBNAIL_SIZE) / 2;
   const audioControlsRowTop = audioThumbnailTop + THUMBNAIL_SIZE + goldenTempleTheme.spacing.md;
 
-  // --- Isolated audio player (mantra/ringtone/aarti/bhajan only) ---
-  const player = useAudioPlayer(null);
-  const status = useAudioPlayerStatus(player);
-  const hasLoadedSourceRef = useRef(false);
+  // --- Player leak fix ---
+  // Previously useAudioPlayer(null) was called unconditionally for every
+  // rendered card - including wallpaper/video-only cards with no audio at
+  // all, and including cards that were merely mounted by FlatList's
+  // windowing but never actually elected/relevant. Since (main) is a Tabs
+  // group that never unmounts (CLAUDE.md §17) and FlatList's
+  // initialNumToRender is 5, this created 5 real, never-released native
+  // ExoPlayer instances on every app launch (confirmed via logcat), growing
+  // further as the user scrolled and more cards entered the render window.
+  // useAudioPlayer's useReleasingSharedObject DOES release the native
+  // instance on unmount - the bug was never a missing release, it was
+  // creating a player at all for cards that didn't need one yet. The real
+  // fix is downstream: the player now lives in AudioPlaybackController
+  // (below), only rendered when shouldMountAudioPlayer is true, so simply
+  // not mounting it for an irrelevant card is what prevents the leak.
+  //
+  // "Relevant" is isActive (FeedList's viewport election - see FeedList.tsx)
+  // OR userRequestedPlayback (a manual tap on this card's play button while
+  // it wasn't the elected card - preserves the pre-existing manual-override
+  // behavior documented below at AudioPlaybackController's own
+  // handleToggleAudioPlayPause). Once set, userRequestedPlayback is
+  // deliberately never reset back to false for the life of this component
+  // instance - if a user explicitly asked a card to play, losing election a
+  // moment later (e.g. scrolling half a card's height) shouldn't yank its
+  // audio out from under it. This bounds the "extra" players to cards a user
+  // actually interacted with, a small, user-driven set - nowhere near the
+  // "every rendered card, unconditionally" scope of the original leak.
+  const [userRequestedPlayback, setUserRequestedPlayback] = useState(false);
+  const shouldMountAudioPlayer = hasAudioMedia && (isActive || userRequestedPlayback);
+  // Separate from isEffectivelyActive above (which stays isActive-only,
+  // still correct for video's shouldPlay) - audio's "should this actually be
+  // playing" needs to fold in the manual-tap override too, or a manually
+  // requested, non-elected card's player would mount but its own
+  // isEffectivelyActive prop would read false and immediately deactivate
+  // itself right back to paused, defeating the tap.
+  const shouldPlayAudio = (isActive || userRequestedPlayback) && isScreenFocused && isAppActive;
 
+  // Track a view/play once when audio genuinely becomes relevant for the
+  // first time (elected OR manually tapped) - deliberately parent-owned and
+  // decoupled from AudioPlaybackController's own mount/unmount, so losing
+  // and regaining election within the same scroll session (which now
+  // unmounts/remounts the player, see above) can't double-count a view.
+  // Mirrors hasTrackedVisualViewRef below exactly, audio's counterpart.
+  const hasTrackedAudioViewRef = useRef(false);
   useEffect(() => {
-    if (!hasAudioMedia || !audioSourceUri) return;
-    let isEffectCurrent = true;
-
-    const activate = async () => {
-      try {
-        if (!hasLoadedSourceRef.current) {
-          const cachedUri = await getCachedLocalUri(feedIdStr, audioSourceUri);
-          if (!isEffectCurrent) return; // deactivated again while the cache check was in flight
-          const sourceUri = cachedUri ?? audioSourceUri;
-          player.replace({ uri: sourceUri });
-          hasLoadedSourceRef.current = true;
-          if (!cachedUri) {
-            downloadToCacheInBackground(feedIdStr, audioSourceUri);
-          }
-          feedService.viewFeed(feedIdStr).then(() => incrementView(feedIdStr)).catch((e) =>
-            console.error('AutoplayFeedCard: view tracking error:', e)
-          );
-          feedService.playFeed(feedIdStr).catch((e) =>
-            console.error('AutoplayFeedCard: play tracking error:', e)
-          );
-        }
-        player.seekTo(0);
-        player.play();
-      } catch (error) {
-        console.error('AutoplayFeedCard: error activating audio playback:', error);
-      }
-    };
-
-    const deactivate = async () => {
-      try {
-        player.pause();
-        await player.seekTo(0);
-      } catch (error) {
-        console.error('AutoplayFeedCard: error deactivating audio playback:', error);
-      }
-      cancelBackgroundDownload(feedIdStr);
-    };
-
-    if (isEffectivelyActive) {
-      activate();
-    } else {
-      deactivate();
-    }
-
-    return () => {
-      isEffectCurrent = false;
-    };
-  }, [isEffectivelyActive, hasAudioMedia, audioSourceUri, feedIdStr, player, incrementView]);
-
-  // Shared with handleToggleAudioPlayPause below - both need the exact same
-  // "has this track reached its cap" definition, kept as one function so
-  // the two can't drift apart.
-  const getPlaybackCapSeconds = () =>
-    status.duration > 0 ? Math.min(AUDIO_PLAYBACK_CAP_SECONDS, status.duration) : AUDIO_PLAYBACK_CAP_SECONDS;
-
-  // 30s-or-natural-length cap, audio only - pauses, no further prompt (the
-  // CTA pill already covers "want more").
-  useEffect(() => {
-    if (!hasAudioMedia || !isEffectivelyActive || !status.playing) return;
-    if (status.currentTime >= getPlaybackCapSeconds()) {
-      try {
-        player.pause();
-      } catch (error) {
-        console.error('AutoplayFeedCard: error pausing at playback cap:', error);
-      }
-    }
-  }, [status.currentTime, status.playing, status.duration, hasAudioMedia, isEffectivelyActive, player]);
+    if (!shouldMountAudioPlayer || hasTrackedAudioViewRef.current) return;
+    hasTrackedAudioViewRef.current = true;
+    feedService.viewFeed(feedIdStr).then(() => incrementView(feedIdStr)).catch((e) =>
+      console.error('AutoplayFeedCard: view tracking error:', e)
+    );
+    feedService.playFeed(feedIdStr).catch((e) =>
+      console.error('AutoplayFeedCard: play tracking error:', e)
+    );
+  }, [shouldMountAudioPlayer, feedIdStr, incrementView]);
 
   // Track a view once when visual (non-audio) content becomes active -
-  // audio's own view tracking already happens above, tied to its first load.
+  // audio's own view tracking is the hasTrackedAudioViewRef effect above.
   const hasTrackedVisualViewRef = useRef(false);
   useEffect(() => {
     if (hasAudioMedia || !isActive || hasTrackedVisualViewRef.current) return;
@@ -402,53 +420,6 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
       console.error('AutoplayFeedCard: view tracking error:', e)
     );
   }, [hasAudioMedia, isActive, feedIdStr, incrementView]);
-
-  // Defensive - this card mounts/unmounts far more often than any existing
-  // card (viewport scroll, not just tab switches). player.isLoaded read is
-  // guarded the same way RingtoneFeedCard's unmount cleanup guards it: by the
-  // time this runs, useAudioPlayer's own internal release may have already
-  // fired (React runs effect cleanups in declaration order), so merely
-  // reading player.isLoaded can throw "already released."
-  useEffect(() => {
-    return () => {
-      try {
-        if (player.isLoaded) {
-          player.pause();
-        }
-      } catch (error) {
-        console.error('AutoplayFeedCard: error pausing on unmount (player likely already released):', error);
-      }
-      cancelBackgroundDownload(feedIdStr);
-    };
-  }, [player, feedIdStr]);
-
-  // Manual play/pause tap, independent of the isEffectivelyActive-driven
-  // autoplay effect above - since neither `isEffectivelyActive` nor any of
-  // that effect's other deps change when the user taps this, the effect
-  // never refires and doesn't fight this. Scrolling away and back still
-  // resets to 0 and autoplays again as before (unrelated to this manual
-  // override).
-  const handleToggleAudioPlayPause = () => {
-    try {
-      if (status.playing) {
-        player.pause();
-      } else {
-        // If the cap already fired, currentTime is parked at/past the cap -
-        // calling play() alone would immediately get paused right back by
-        // the cap effect above (its guard sees currentTime >= cap again the
-        // instant playing flips true), making the button look unresponsive.
-        // Seek to 0 first so this is a genuine restart. A normal mid-track
-        // manual pause (currentTime still under the cap) is untouched -
-        // resumes exactly where it left off, same as before.
-        if (status.currentTime >= getPlaybackCapSeconds()) {
-          player.seekTo(0);
-        }
-        player.play();
-      }
-    } catch (error) {
-      console.error('AutoplayFeedCard: error toggling play/pause:', error);
-    }
-  };
 
   // --- Action row (Like / Share / Views) ---
   const [localIsLiked, setLocalIsLiked] = useState(feed.isLiked);
@@ -478,7 +449,7 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
         setLocalIsLiked(feed.isLiked);
         setLocalLikesCount(feed.likesCount);
       }
-      Alert.alert('Error', 'Failed to like this. Please try again.');
+      Alert.alert(t('common.error'), t('feedCard.likeErrorMessage'));
     }
   };
 
@@ -545,7 +516,11 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
       // see useWallpaperActions.ts's handleDownload for the full explanation
       // (MediaStore's own collision handling otherwise silently reused an
       // existing gallery entry for a repeated deterministic filename).
-      const fileUri = `${FileSystem.documentDirectory}autoplay_visual_${feed.id}_${Date.now()}.${extension}`;
+      // cacheDirectory, not documentDirectory - staging copy on its way into
+      // MediaLibrary, deleted right after on success below; cacheDirectory
+      // means a failed/skipped delete doesn't leak into persistent storage
+      // forever. See cacheEviction.ts for the startup age-based sweep.
+      const fileUri = `${FileSystem.cacheDirectory}autoplay_visual_${feed.id}_${Date.now()}.${extension}`;
       const downloadResult = await FileSystem.downloadAsync(visualMedia.mediaUrl, fileUri);
       if (downloadResult.status === 200) {
         await MediaLibrary.saveToLibraryAsync(downloadResult.uri);
@@ -557,13 +532,13 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
         // (same honest limitation RingtoneFeedCard's "Set as ringtone" already
         // has for iOS) - this saves to the gallery and hands off manually,
         // rather than implying full automation.
-        Alert.alert('Saved to Gallery', 'Open your Gallery/Photos app and set it as your wallpaper from there.');
+        Alert.alert(t('feedCard.wallpaperSavedTitle'), t('feedCard.wallpaperSavedMessage'));
         await feedService.downloadFeed(feedIdStr);
         incrementDownload(feedIdStr);
       }
     } catch (error) {
       console.error('AutoplayFeedCard: error saving wallpaper:', error);
-      Alert.alert('Error', 'Failed to save this. Please try again.');
+      Alert.alert(t('common.error'), t('feedCard.wallpaperErrorMessage'));
     } finally {
       if (isMountedRef.current) setIsSettingWallpaper(false);
     }
@@ -610,21 +585,21 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
         try {
           await MediaLibrary.saveToLibraryAsync(localUri);
           Alert.alert(
-            'Ringtone Downloaded & Saved',
-            'The ringtone has been saved to your device. To set it as your ringtone:\n\n1. Go to Settings > Sounds\n2. Select Phone Ringtone\n3. Choose the downloaded file',
+            t('feedCard.ringtoneSavedTitle'),
+            t('feedCard.ringtoneSavedMessageAndroid'),
             [
-              { text: 'Open Sound Settings', onPress: () => Linking.openSettings() },
-              { text: 'OK', style: 'default' },
+              { text: t('feedCard.openSoundSettings'), onPress: () => Linking.openSettings() },
+              { text: t('feedCard.ok'), style: 'default' },
             ]
           );
         } catch (mediaError) {
           console.log('AutoplayFeedCard: could not save to media library, file is still downloaded:', mediaError);
           Alert.alert(
-            'Ringtone Downloaded',
-            'The ringtone has been downloaded to your device. To set it as your ringtone:\n\n1. Go to Settings > Sounds\n2. Select Phone Ringtone\n3. Look for the ringtone file in your downloads',
+            t('feedCard.ringtoneDownloadedTitle'),
+            t('feedCard.ringtoneDownloadedMessageAndroid'),
             [
-              { text: 'Open Sound Settings', onPress: () => Linking.openSettings() },
-              { text: 'OK', style: 'default' },
+              { text: t('feedCard.openSoundSettings'), onPress: () => Linking.openSettings() },
+              { text: t('feedCard.ok'), style: 'default' },
             ]
           );
         }
@@ -632,28 +607,28 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
         try {
           await MediaLibrary.saveToLibraryAsync(localUri);
           Alert.alert(
-            'Ringtone Downloaded & Saved',
-            'The ringtone has been saved to your device. To set it as your ringtone:\n\n1. Go to Settings > Sounds & Haptics\n2. Select Ringtone\n3. Choose the downloaded file from "Custom" section',
+            t('feedCard.ringtoneSavedTitle'),
+            t('feedCard.ringtoneSavedMessageIos'),
             [
-              { text: 'Open Settings', onPress: () => Linking.openSettings() },
-              { text: 'OK', style: 'default' },
+              { text: t('common.openSettings'), onPress: () => Linking.openSettings() },
+              { text: t('feedCard.ok'), style: 'default' },
             ]
           );
         } catch (mediaError) {
           console.log('AutoplayFeedCard: MediaLibrary does not support this audio format on iOS:', mediaError);
           Alert.alert(
-            'Ringtone Downloaded',
-            'The ringtone has been downloaded successfully!\n\nFor iOS ringtones:\n• Connect to iTunes/Finder\n• Convert to .m4r format\n• Sync to set as ringtone\n\nOr use GarageBand to import and set as ringtone.',
+            t('feedCard.ringtoneDownloadedTitle'),
+            t('feedCard.ringtoneDownloadedMessageIos'),
             [
-              { text: 'Open Settings', onPress: () => Linking.openSettings() },
-              { text: 'Got It', style: 'default' },
+              { text: t('common.openSettings'), onPress: () => Linking.openSettings() },
+              { text: t('feedCard.gotIt'), style: 'default' },
             ]
           );
         }
       }
     } catch (error) {
       console.error('AutoplayFeedCard: error setting ringtone:', error);
-      Alert.alert('Error', 'Failed to set ringtone. Please try again.');
+      Alert.alert(t('common.error'), t('feedCard.ringtoneErrorMessage'));
     } finally {
       if (isMountedRef.current) setIsSettingRingtone(false);
     }
@@ -661,7 +636,7 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
 
   const showPaywallPlaceholder = () => {
     // TEMPORARY/PLACEHOLDER - stands in for the real paywall/upsell screen.
-    Alert.alert('Premium Feature', 'This will be available with Bhav Bhakti Premium. Stay tuned!');
+    Alert.alert(t('feedCard.premiumFeatureTitle'), t('feedCard.premiumFeatureMessage'));
   };
 
   // Single dispatcher behind the CTA pill - gates all three real actions
@@ -691,9 +666,9 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
 
   const ctaLabel = hasAudioMedia
     ? isRingtoneType
-      ? (isSettingRingtone ? 'Setting...' : 'Set as Ringtone')
-      : 'Listen'
-    : (isSettingWallpaper ? 'Saving...' : 'Set as Wallpaper');
+      ? (isSettingRingtone ? t('feedCard.settingRingtone') : t('feedCard.setAsRingtone'))
+      : t('feedCard.listen')
+    : (isSettingWallpaper ? t('feedCard.savingWallpaper') : t('feedCard.setAsWallpaper'));
 
   const ctaDisabled = (isRingtoneType && isSettingRingtone) || (!hasAudioMedia && isSettingWallpaper);
 
@@ -709,7 +684,7 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
             activeOpacity={0.7}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Text style={styles.headerSeeAllText}>See all</Text>
+            <Text style={styles.headerSeeAllText}>{t('chooseStart.seeAll')}</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -762,20 +737,26 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
                 { top: audioControlsRowTop, left: audioThumbnailLeft, width: THUMBNAIL_SIZE },
               ]}
             >
-              {/* Manual override on top of the isEffectivelyActive-driven
-                  autoplay, per handleToggleAudioPlayPause above. */}
-              <TouchableOpacity
-                style={styles.audioPlayPauseButton}
-                onPress={handleToggleAudioPlayPause}
-                activeOpacity={0.8}
-              >
-                <Ionicons
-                  name={status.playing ? 'pause' : 'play'}
-                  size={26}
-                  color="#fff"
-                  style={status.playing ? undefined : styles.playIconNudge}
+              {/* The real player only exists once this card is genuinely
+                  relevant (see shouldMountAudioPlayer above) - until then this
+                  renders a static, tappable Play affordance that requests
+                  playback (mounting AudioPlaybackController) rather than
+                  eagerly holding a native player instance no one asked for. */}
+              {shouldMountAudioPlayer ? (
+                <AudioPlaybackController
+                  feedIdStr={feedIdStr}
+                  audioSourceUri={audioSourceUri}
+                  isEffectivelyActive={shouldPlayAudio}
                 />
-              </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  style={styles.audioPlayPauseButton}
+                  onPress={() => setUserRequestedPlayback(true)}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="play" size={26} color="#fff" style={styles.playIconNudge} />
+                </TouchableOpacity>
+              )}
 
               <TouchableOpacity
                 style={styles.audioCtaPill}
@@ -783,8 +764,14 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
                 disabled={ctaDisabled}
                 activeOpacity={0.85}
               >
-                <Ionicons name={ctaIcon} size={16} color="#fff" />
-                <Text style={styles.ctaPillText}>{ctaLabel}</Text>
+                <Ionicons name={ctaIcon} size={14} color="#fff" />
+                {/* numberOfLines={1} - a fixed-width pill with variable text
+                    (English vs. Hindi, or a longer future translation) must
+                    truncate rather than wrap/grow. Belt-and-suspenders with
+                    ctaPillText's own sizing below, which is chosen to fit the
+                    known real strings without this ever actually kicking in
+                    under normal use. */}
+                <Text style={styles.ctaPillText} numberOfLines={1}>{ctaLabel}</Text>
               </TouchableOpacity>
             </View>
           </>
@@ -831,9 +818,9 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
               {isSettingWallpaper ? (
                 <ActivityIndicator size="small" color="#fff" />
               ) : (
-                <Ionicons name={ctaIcon} size={16} color="#fff" />
+                <Ionicons name={ctaIcon} size={14} color="#fff" />
               )}
-              <Text style={styles.ctaPillText}>{ctaLabel}</Text>
+              <Text style={styles.ctaPillText} numberOfLines={1}>{ctaLabel}</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -878,6 +865,146 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
         </View>
       </View>
     </View>
+  );
+}
+
+interface AudioPlaybackControllerProps {
+  feedIdStr: string;
+  audioSourceUri: string | undefined;
+  isEffectivelyActive: boolean;
+}
+
+// Owns the actual native player - only ever rendered by the parent while
+// shouldMountAudioPlayer is true (see the comment there for the full leak
+// fix). useAudioPlayer's useReleasingSharedObject already releases the
+// native instance automatically on unmount, so simply not rendering this
+// component when the card is irrelevant is the entire fix - no manual
+// release() call is needed here.
+function AudioPlaybackController({ feedIdStr, audioSourceUri, isEffectivelyActive }: AudioPlaybackControllerProps) {
+  const player = useAudioPlayer(null);
+  const status = useAudioPlayerStatus(player);
+  const hasLoadedSourceRef = useRef(false);
+
+  useEffect(() => {
+    if (!audioSourceUri) return;
+    let isEffectCurrent = true;
+
+    const activate = async () => {
+      try {
+        if (!hasLoadedSourceRef.current) {
+          const cachedUri = await getCachedLocalUri(feedIdStr, audioSourceUri);
+          if (!isEffectCurrent) return; // deactivated again while the cache check was in flight
+          const sourceUri = cachedUri ?? audioSourceUri;
+          player.replace({ uri: sourceUri });
+          hasLoadedSourceRef.current = true;
+          if (!cachedUri) {
+            downloadToCacheInBackground(feedIdStr, audioSourceUri);
+          }
+        }
+        player.seekTo(0);
+        player.play();
+      } catch (error) {
+        console.error('AutoplayFeedCard: error activating audio playback:', error);
+      }
+    };
+
+    const deactivate = async () => {
+      try {
+        player.pause();
+        await player.seekTo(0);
+      } catch (error) {
+        console.error('AutoplayFeedCard: error deactivating audio playback:', error);
+      }
+      cancelBackgroundDownload(feedIdStr);
+    };
+
+    if (isEffectivelyActive) {
+      activate();
+    } else {
+      deactivate();
+    }
+
+    return () => {
+      isEffectCurrent = false;
+    };
+  }, [isEffectivelyActive, audioSourceUri, feedIdStr, player]);
+
+  // Shared with handleToggleAudioPlayPause below - both need the exact same
+  // "has this track reached its cap" definition, kept as one function so
+  // the two can't drift apart.
+  const getPlaybackCapSeconds = () =>
+    status.duration > 0 ? Math.min(AUDIO_PLAYBACK_CAP_SECONDS, status.duration) : AUDIO_PLAYBACK_CAP_SECONDS;
+
+  // 30s-or-natural-length cap - pauses, no further prompt (the CTA pill
+  // already covers "want more").
+  useEffect(() => {
+    if (!isEffectivelyActive || !status.playing) return;
+    if (status.currentTime >= getPlaybackCapSeconds()) {
+      try {
+        player.pause();
+      } catch (error) {
+        console.error('AutoplayFeedCard: error pausing at playback cap:', error);
+      }
+    }
+  }, [status.currentTime, status.playing, status.duration, isEffectivelyActive, player]);
+
+  // Defensive - this component now mounts/unmounts exactly as often as it
+  // becomes relevant/irrelevant (see shouldMountAudioPlayer in the parent).
+  // player.isLoaded read is guarded the same way RingtoneFeedCard's unmount
+  // cleanup guards it: by the time this runs, useAudioPlayer's own internal
+  // release may have already fired (React runs effect cleanups in
+  // declaration order), so merely reading player.isLoaded can throw
+  // "already released."
+  useEffect(() => {
+    return () => {
+      try {
+        if (player.isLoaded) {
+          player.pause();
+        }
+      } catch (error) {
+        console.error('AutoplayFeedCard: error pausing on unmount (player likely already released):', error);
+      }
+      cancelBackgroundDownload(feedIdStr);
+    };
+  }, [player, feedIdStr]);
+
+  // Manual play/pause tap, independent of the isEffectivelyActive-driven
+  // autoplay effect above - since neither `isEffectivelyActive` nor any of
+  // that effect's other deps change when the user taps this, the effect
+  // never refires and doesn't fight this. Scrolling away and back still
+  // resets to 0 and autoplays again as before (unrelated to this manual
+  // override).
+  const handleToggleAudioPlayPause = () => {
+    try {
+      if (status.playing) {
+        player.pause();
+      } else {
+        // If the cap already fired, currentTime is parked at/past the cap -
+        // calling play() alone would immediately get paused right back by
+        // the cap effect above (its guard sees currentTime >= cap again the
+        // instant playing flips true), making the button look unresponsive.
+        // Seek to 0 first so this is a genuine restart. A normal mid-track
+        // manual pause (currentTime still under the cap) is untouched -
+        // resumes exactly where it left off, same as before.
+        if (status.currentTime >= getPlaybackCapSeconds()) {
+          player.seekTo(0);
+        }
+        player.play();
+      }
+    } catch (error) {
+      console.error('AutoplayFeedCard: error toggling play/pause:', error);
+    }
+  };
+
+  return (
+    <TouchableOpacity style={styles.audioPlayPauseButton} onPress={handleToggleAudioPlayPause} activeOpacity={0.8}>
+      <Ionicons
+        name={status.playing ? 'pause' : 'play'}
+        size={26}
+        color="#fff"
+        style={status.playing ? undefined : styles.playIconNudge}
+      />
+    </TouchableOpacity>
   );
 }
 
@@ -971,11 +1098,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: 4,
     // Slightly taller than the original 10 - closer to (but still under)
     // audioPlayPauseButton's 48px, for a more balanced controls row.
     paddingVertical: 12,
-    paddingHorizontal: 20,
+    // Reduced from 20 - a fixed-width pill needs more of its own width left
+    // over for the icon+text, not eaten by padding on both sides.
+    paddingHorizontal: 8,
+    // Fixed, not content-driven - see AUDIO_CTA_PILL_WIDTH's own comment
+    // above. This is the actual fix for the pill growing/shrinking with
+    // whatever ctaLabel text was showing (English "Listen" vs. Hindi
+    // "रिंगटोन सेट करें" vs. "Setting..." all used to produce visibly
+    // different pill widths/positions in the same row).
+    width: AUDIO_CTA_PILL_WIDTH,
     borderRadius: goldenTempleTheme.borderRadius.full,
     backgroundColor: goldenTempleTheme.colors.primary.DEFAULT,
     shadowColor: '#000',
@@ -995,11 +1130,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   ctaPill: {
+    // Already fixed/content-independent (a percentage of this pill's own
+    // parent, ctaPillWrapper - not of the text inside it), unlike
+    // audioCtaPill above before its fix. gap matched to audioCtaPill's for
+    // visual consistency between the two CTA pill variants.
     width: '70%',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: 4,
     paddingVertical: 10,
     borderRadius: goldenTempleTheme.borderRadius.full,
     backgroundColor: goldenTempleTheme.colors.primary.DEFAULT,
@@ -1011,7 +1150,23 @@ const styles = StyleSheet.create({
   },
   ctaPillText: {
     color: '#fff',
-    fontSize: 13,
+    // Reduced from 13 so the longest real CTA string (English "Set as
+    // Ringtone" / Hindi "रिंगटोन सेट करें") comfortably fits inside
+    // audioCtaPill's fixed width - see AUDIO_CTA_PILL_WIDTH's comment.
+    // Reasoned through width math against a typical device's THUMBNAIL_SIZE,
+    // not yet confirmed on a real device; numberOfLines={1} at each usage
+    // site is the safety net (ellipsis) if a specific device ever comes up
+    // short.
+    fontSize: 11,
+    // Explicit, NOT left to the shared Text atom's default 'body' variant
+    // lineHeight - that default is dynamic (20 for plain text, but jumps to
+    // 24 for any Devanagari text via the atom's Hindi-aware
+    // getEnhancedLineHeight path, meant for multi-line headings with matras
+    // headroom - see Text.tsx). Left unset, this pill's own height would
+    // genuinely differ between English and Hindi even with a fixed width -
+    // pinning it here is what makes the pill "fixed size/shape regardless of
+    // language," not just regardless of text length.
+    lineHeight: 14,
     fontWeight: '700',
   },
   footer: {
