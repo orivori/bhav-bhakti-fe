@@ -68,8 +68,14 @@ const isValidArtworkUrl = (url: string | undefined): url is string =>
 // mirrors RingtoneFeedCard.tsx's cache-key choice, but avoids its latent
 // collision risk (two feeds sharing/sanitizing down to the same title would
 // silently share one cache file). feedId is guaranteed unique.
+// cacheDirectory, not documentDirectory - matches AutoplayFeedCard.tsx's
+// identical naming convention for this exact cache (see its own comment on
+// why both files must agree), and means this re-downloadable playback cache
+// no longer accumulates forever/is untouched by Android's "Clear Cache". See
+// cacheEviction.ts for the startup age-based sweep that now backstops this
+// too.
 const getLocalCachePath = (feedIdForCache: string, audioUri: string): string =>
-  `${FileSystem.documentDirectory}audio_player_${feedIdForCache}.${getAudioFileExtension(audioUri)}`;
+  `${FileSystem.cacheDirectory}audio_player_${feedIdForCache}.${getAudioFileExtension(audioUri)}`;
 
 // Module-scope (not component state) so it's shared across remounts of this
 // screen (e.g. navigating between two different mantras reuses the same
@@ -935,10 +941,23 @@ export default function AudioPlayerScreen() {
       // startDeferredCacheDownload below.
       const previousFeedId =
         loadedFeedIdRef.current && loadedFeedIdRef.current !== feedId ? loadedFeedIdRef.current : null;
+      // Retry-gap fix: always stop the player right before the replace()
+      // below, not just when switching to a genuinely different feed. When
+      // loadedFeedIdRef.current === feedId, we're retrying a load that got
+      // stuck (e.g. the 10s "did it ever load" timeout above gave up and
+      // alerted, but never touched the native player) - the old code only
+      // paused in the previousFeedId branch, so a same-feed retry skipped
+      // this entirely and called player.replace() directly on top of
+      // whatever the first attempt was still silently doing. replace() alone
+      // is not a reliable cancel for an in-flight native load, so pausing
+      // first - every time, retry included - is what makes each attempt a
+      // clean, fresh one instead of stacking on the stuck one.
       if (previousFeedId) {
         console.log('🔀 Switching mantras - stopping previously loaded feed:', previousFeedId);
-        player.pause();
+      } else if (loadedFeedIdRef.current === feedId) {
+        console.log('🔁 Retrying a stuck/failed load for the same feed - resetting player before reattempting:', feedId);
       }
+      player.pause();
 
       console.log('🎵 Audio Player: Loading audio from URL:', contentData.audioUrl);
       setIsAudioLoading(true);
