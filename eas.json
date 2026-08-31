@@ -35,6 +35,7 @@
     },
     "production": {
       "node": "20.18.0",
+      "channel": "production",
       "env": {
         "NODE_ENV": "production",
         "EXPO_OPTIMIZE": "true",
@@ -51,8 +52,7 @@
       },
       "android": {
         "buildType": "app-bundle",
-        "gradleCommand": ":app:bundleRelease",
-        "image": "latest"
+        "gradleCommand": ":app:bundleRelease"
       }
     },
     "preview-small": {
