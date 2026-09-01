@@ -2681,9 +2681,25 @@ const styles = StyleSheet.create({
   // Sized down from an initial h3 match with the title (24px, confirmed
   // too large) to caption (14px) - color kept matching the title's own
   // color, set explicitly since variant alone doesn't carry color.
+  // CLAUDE.md real root cause (adb uiautomator-dump confirmed): the Hindi
+  // "आगे बजेगा" was measuring/laying out to a box only wide enough for its
+  // first word ("आगे") before wrapping - the second word then fell outside
+  // the label's own rendered bounds and got silently clipped (no ellipsis,
+  // since numberOfLines is unlimited for Devanagari text - the accessibility
+  // tree still reported the full un-clipped string throughout). minWidth
+  // guarantees room for the full phrase without an intrinsic-measure
+  // dependency; textAlign center keeps it visually centered at any width so
+  // English "Up Next" (which never needed the extra room) doesn't shift.
+  // textAlignVertical is forced back to 'auto' here, undoing the shared Text
+  // atom's Devanagari-only 'center' override (getOptimizedTextStyle) - that
+  // override is meant for single-line vertical centering and is the likely
+  // reason a wrap silently clipped instead of just growing the box taller.
   queueSwipeHandleLabel: {
     color: '#5D4E37',
     marginBottom: goldenTempleTheme.spacing.sm,
+    minWidth: '70%',
+    textAlign: 'center',
+    textAlignVertical: 'auto',
   },
   // Width now 50% of the screen (was a fixed 36px) - queueSwipeHandleZone
   // spans the full width (left:0, right:0) and centers its child, so a

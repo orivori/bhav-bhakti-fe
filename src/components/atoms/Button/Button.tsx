@@ -13,6 +13,13 @@ interface ButtonProps {
   icon?: React.ReactNode;
   fullWidth?: boolean;
   style?: ViewStyle;
+  // Optional override merged onto the title Text's own style (after
+  // textVariantStyles/textSizeStyles, so it wins) - added so a call site
+  // whose pill dimensions must stay fixed (e.g. Profile's Logout button,
+  // CLAUDE.md's confirmed recurring two-word-Hindi-clipping bug) can shrink
+  // just the font to guarantee a fit, without touching size/variant which
+  // would also change the pill's padding/minHeight.
+  textStyle?: TextStyle;
 }
 
 const Button: React.FC<ButtonProps> = ({
@@ -25,6 +32,7 @@ const Button: React.FC<ButtonProps> = ({
   icon,
   fullWidth = false,
   style,
+  textStyle: textStyleOverride,
 }) => {
   const variantStyles: Record<string, ViewStyle> = {
     primary: { backgroundColor: goldenTempleTheme.colors.primary.DEFAULT },
@@ -66,6 +74,7 @@ const Button: React.FC<ButtonProps> = ({
   const textStyle = [
     textVariantStyles[variant],
     textSizeStyles[size],
+    textStyleOverride,
   ];
 
   return (

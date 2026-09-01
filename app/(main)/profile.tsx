@@ -318,6 +318,24 @@ export default function ProfileScreen() {
         </View>
 
         {/* Logout Button */}
+        {/* CLAUDE.md confirmed recurring bug: "लॉग आउट" (two words) was
+            losing its second word after the space. Pill dimensions
+            (variant/fullWidth/size, hence padding+minHeight) are
+            deliberately untouched - only the title Text's own style is
+            adjusted via Button's textStyle override.
+            First attempt (fontSize 13 + textAlignVertical:'auto' alone) was
+            adb-confirmed NOT to fix this - the TextView still measured to
+            ~53dp wide (room for "लॉग" only) despite the button offering
+            ~361dp, and app/_layout.tsx's font-loading gate (return null
+            until fontsLoaded) rules out a font-load race as the cause since
+            no screen can mount before the Devanagari font is ready. What DID
+            work on the identical Up Next bug was forcing an explicit width
+            floor instead of relying on intrinsic measurement - minWidth here
+            applies that same proven fix, sized for this row+icon layout
+            (not Up Next's 70%-of-screen value, which would needlessly
+            separate the icon from the text here). textAlign:'center' keeps
+            the label centered within that wider box so the icon+text group
+            still reads as a tight, centered unit. */}
         <View style={styles.logoutContainer}>
           <Button
             title={t('profile.logout')}
@@ -325,6 +343,7 @@ export default function ProfileScreen() {
             variant="outline"
             fullWidth
             icon={<Ionicons name="log-out-outline" size={18} color="#dc2626" />}
+            textStyle={{ fontSize: 13, textAlignVertical: 'auto', minWidth: 150, textAlign: 'center' }}
           />
         </View>
 

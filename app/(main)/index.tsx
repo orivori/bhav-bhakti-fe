@@ -21,6 +21,7 @@ import SearchBar from '@/components/molecules/SearchBar';
 import { useFeed } from '@/features/feed/hooks';
 import { Feed } from '@/types/feed';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
+import { containsDevanagari, getEnhancedLineHeight } from '@/utils/textUtils';
 import { useTranslation } from 'react-i18next';
 import { useI18nStore } from '@/shared/stores/i18nStore';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
@@ -247,8 +248,33 @@ export default function HomeScreen() {
       </View>
 
       {/* Choose where to start Header */}
+      {/* CLAUDE.md real root cause (adb-confirmed via full width-chain
+          measurement): this title genuinely needs 2 lines in Hindi
+          ("कहां से शुरू करना है चुनें", 5 words) - there was never a real
+          space constraint (measured ~361dp of real row width available,
+          88% of the 409dp screen), so the earlier text-shortening workaround
+          is reverted in favor of fixing the actual defect. chooseStartTitle
+          hardcodes fontSize:18 without overriding lineHeight, so it was
+          inheriting the Text atom's Devanagari lineHeight computed from the
+          'body' variant's fontSize (14) instead of the real 18 - undersized
+          even for one line, badly undersized across two. lineHeight is now
+          computed correctly for fontSize 18, and minHeight guarantees room
+          for a genuine 2-line box instead of relying on the same broken
+          auto-height measurement that clipped it before. Both are gated on
+          containsDevanagari so English ("Choose where to start", never
+          wraps) keeps its original single-line auto height untouched. */}
       <View style={styles.chooseStartHeader}>
-        <Text style={styles.chooseStartTitle}>
+        <Text
+          style={[
+            styles.chooseStartTitle,
+            {
+              lineHeight: getEnhancedLineHeight(18, t('chooseStart.headerTitle'), false),
+              minHeight: containsDevanagari(t('chooseStart.headerTitle'))
+                ? getEnhancedLineHeight(18, t('chooseStart.headerTitle'), false) * 2
+                : undefined,
+            },
+          ]}
+        >
           {t('chooseStart.headerTitle')}
         </Text>
         <Pressable
@@ -323,7 +349,16 @@ export default function HomeScreen() {
       {/* Recommended Section Header */}
       {feeds.length > 0 && (
         <View style={styles.recommendedHeader}>
-          <Text style={styles.recommendedTitle}>
+          {/* CLAUDE.md preventive fix: same latent bug as chooseStartTitle -
+              recommendedTitle hardcodes fontSize:18 without overriding
+              lineHeight, so it was inheriting the Text atom's Devanagari
+              line-height computed from the 'body' variant's fontSize (14),
+              not the real rendered 18. Not currently triggered (this phrase
+              never wraps), but a one-line fix now avoids it becoming a live
+              bug if the string ever gets longer. Mirrors the Text atom's own
+              internal calculation exactly, so English is unaffected (falls
+              back to the same fontSize*1.2 it already used). */}
+          <Text style={[styles.recommendedTitle, { lineHeight: getEnhancedLineHeight(18, t('home.recommendedForYou'), false) }]}>
             {t('home.recommendedForYou')}
           </Text>
         </View>
@@ -434,10 +469,30 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 6,
   },
+  // CLAUDE.md real root cause (adb-confirmed): "सभी देखें" was measuring to
+  // a box only wide enough for "सभी" - the earlier textAlignVertical-only
+  // change here did NOT fix it (same clipped-second-word signature as Up
+  // Next/Logout before their own width fixes, and as AutoplayFeedCard's
+  // identical headerSeeAllText bug - see that file's comment). minWidth
+  // applies the same proven fix. Real, adb-measured available width for this
+  // row is ~361dp (1074px at this device's density) - chooseStartTitle now
+  // wraps to 2 lines with its own explicit lineHeight/minHeight (see
+  // chooseStartTitle below) but is left width-unconstrained, so it simply
+  // wraps within whatever space remains after this fixed-minWidth box takes
+  // its share - no collision, since wrapping is exactly what prevents
+  // overflow here.
+  // textAlign is 'right', not 'center' - same reasoning as
+  // AutoplayFeedCard's headerSeeAllText: this is the last child of a
+  // space-between row, so its box's right edge is already flush with the
+  // row's boundary. Right-aligning keeps the visible glyphs hugging that
+  // edge instead of floating inward with dead space to their right.
   seeAllText: {
     fontSize: 14,
     color: goldenTempleTheme.colors.primary.DEFAULT,
     fontWeight: '500',
+    textAlignVertical: 'auto',
+    minWidth: 100,
+    textAlign: 'right',
   },
   // Choose where to start header styles
   chooseStartHeader: {

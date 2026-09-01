@@ -1039,10 +1039,29 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: goldenTempleTheme.colors.text.primary,
   },
+  // CLAUDE.md real root cause (adb-confirmed): "सभी देखें" was measuring to
+  // a box only wide enough for "सभी" - the earlier textAlignVertical-only
+  // change here did NOT fix it (same clipped-second-word signature as Up
+  // Next/Logout before their own width fixes). minWidth applies the same
+  // proven fix, sized modestly for this row (headerRow has ~344dp available,
+  // shared with headerTypeLabel on the left with plenty of gap to spare -
+  // no risk of collision).
+  // textAlign is 'right', not 'center' - this Text sits as the LAST child of
+  // a space-between row, so its box's right edge is already flush with the
+  // row's right boundary regardless of width. Centering the glyphs inside a
+  // wider-than-needed box would leave visible blank space to their right,
+  // making the link appear to float away from the edge instead of sitting
+  // flush the way the (broken, narrower) "सभी"-only render used to. Right-
+  // aligning keeps the visible text hugging that same edge; the extra
+  // minWidth padding is invisibly absorbed on the left instead, which only
+  // eats into the harmless gap toward headerTypeLabel.
   headerSeeAllText: {
     fontSize: 13,
     fontWeight: '600',
     color: goldenTempleTheme.colors.primary.DEFAULT,
+    textAlignVertical: 'auto',
+    minWidth: 100,
+    textAlign: 'right',
   },
   contentArea: {
     overflow: 'hidden',
