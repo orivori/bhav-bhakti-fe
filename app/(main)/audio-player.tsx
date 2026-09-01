@@ -32,6 +32,8 @@ import { useTranslation } from 'react-i18next';
 import { useI18nStore } from '@/shared/stores/i18nStore';
 import { CounterSheet, MoreTargetsSheet, QueueSheet } from '@/components/molecules/AudioPlayerSheets';
 import { usePlaybackStore, QueueItem } from '@/store/playbackStore';
+import { useChantHintStore } from '@/store/chantHintStore';
+import ChantHintBubble from '@/components/molecules/ChantHintBubble/ChantHintBubble';
 
 import { useFeedStore } from '@/store/feedStore';
 import { formatCount } from '@/utils/formatCount';
@@ -393,6 +395,14 @@ export default function AudioPlayerScreen() {
   const [chantCount, setChantCount] = useState(0);
   const [targetCount, setTargetCount] = useState(108);
 
+  // Chant-counter attention bubble (CLAUDE.md): shown ~1s after a genuinely
+  // new mantra loads, capped via chantHintStore (3/calendar-day + once per
+  // app session - see that store's own comments). chantHintTimeoutRef lets a
+  // rapid feedId-to-feedId switch cancel a still-pending timer from the
+  // PREVIOUS track before it fires for content no longer being viewed.
+  const [showChantHint, setShowChantHint] = useState(false);
+  const chantHintTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Audio state. Playback position/duration/playing/loaded state all come
   // reactively from `status` below - no local state mirrors them, matching
   // the pattern already proven in RingtoneFeedCard.tsx (avoids the class of
@@ -634,6 +644,30 @@ export default function AudioPlayerScreen() {
       setChantCount(0);
       setTargetCount(108);
 
+      // Chant hint bubble: clear immediately (a bubble left over from the
+      // previous track shouldn't carry into this one) and cancel any timer
+      // still pending from that previous track's own scheduling below.
+      setShowChantHint(false);
+      if (chantHintTimeoutRef.current) {
+        clearTimeout(chantHintTimeoutRef.current);
+        chantHintTimeoutRef.current = null;
+      }
+      // feed.type/feed.isRepeatable read directly off THIS fetch's own
+      // response, not contentData/feedData state (which haven't updated yet
+      // at this point in the function) - avoids the exact staleness class of
+      // bug getContentData's own comment above warns about. showTrackNav's
+      // own definition (contentData.type === 'aarti' || 'bhajan') is mirrored
+      // here rather than reused, since showTrackNav itself is derived from
+      // the (still-stale-at-this-point) contentData.
+      const isMantraWithCounter =
+        feed.type !== 'aarti' && feed.type !== 'bhajan' && feed.isRepeatable;
+      if (isMantraWithCounter && useChantHintStore.getState().canShow()) {
+        chantHintTimeoutRef.current = setTimeout(() => {
+          setShowChantHint(true);
+          useChantHintStore.getState().recordShown();
+        }, 1000);
+      }
+
       // Track view - fire-and-forget (matches AutoplayFeedCard's pattern),
       // not awaited: view-tracking has no bearing on whether this screen is
       // ready to show/play its content, so it must not add to isFeedLoading's
@@ -820,6 +854,15 @@ export default function AudioPlayerScreen() {
   // Fetch feed data on component mount
   useEffect(() => {
     fetchFeedData();
+    // Covers a genuine unmount (leaving this screen entirely) - a feedId
+    // change is already handled by fetchFeedData's own clear at its top, but
+    // that only runs on the NEXT call, never on final unmount.
+    return () => {
+      if (chantHintTimeoutRef.current) {
+        clearTimeout(chantHintTimeoutRef.current);
+        chantHintTimeoutRef.current = null;
+      }
+    };
   }, [feedId]);
 
   // Initialize audio session for persistent (background-surviving) playback,
@@ -1951,7 +1994,22 @@ export default function AudioPlayerScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView
+      style={styles.container}
+      // Chant hint bubble, requirement 2: dismiss on a tap ANYWHERE on this
+      // screen, without blocking any other touch. onStartShouldSetResponderCapture
+      // fires (capture phase, top-down) on every touch start anywhere in this
+      // subtree BEFORE any child gets a chance to claim the responder -
+      // returning false here means this handler never actually claims it,
+      // so play/pause, the seek bar, the counter button, etc. all keep
+      // receiving and handling their own touches completely normally. The
+      // showChantHint check inside makes this a no-op whenever the bubble
+      // isn't showing, so it's safe to always have attached.
+      onStartShouldSetResponderCapture={() => {
+        if (showChantHint) setShowChantHint(false);
+        return false;
+      }}
+    >
       {/* Header - CLAUDE.md §56 Phase 1: stripped down to just a collapse
           icon, matching a "minimize to mini-player" convention (Spotify/YT
           Music) rather than a literal "Back" label - purely visual, onPress
@@ -2332,16 +2390,34 @@ export default function AudioPlayerScreen() {
                     resolved params-then-fetch source as everything else
                     here, closing that gap too. */}
                 {contentData.isRepeatable ? (
-                  <TouchableOpacity
-                    onPress={() => counterSheetRef.current?.present()}
-                    style={styles.roundControlButton}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons name="stats-chart-outline" size={26} color={designSystemTheme.colors.primary} />
-                    <View style={styles.counterBadge}>
-                      <Text weight="semibold" style={styles.counterBadgeText}>{chantCount}/{targetCount}</Text>
-                    </View>
-                  </TouchableOpacity>
+                  // Wrapper is sized only by its child (the 80x80 button) -
+                  // its alignItems:'flex-end' is what right-aligns
+                  // ChantHintBubble's edge to the button's own right edge
+                  // (the bubble is absolutely positioned with no left/right
+                  // of its own), so adding this wrapper doesn't perturb
+                  // mantraControlsRow's own space-between math at all.
+                  <View style={styles.counterButtonWrapper}>
+                    <TouchableOpacity
+                      onPress={() => {
+                        // Tapping the counter button dismisses the hint
+                        // immediately, per CLAUDE.md's spec, regardless of
+                        // whether its own 3.5s auto-dismiss has fired yet.
+                        setShowChantHint(false);
+                        counterSheetRef.current?.present();
+                      }}
+                      style={styles.roundControlButton}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name="stats-chart-outline" size={26} color={designSystemTheme.colors.primary} />
+                      <View style={styles.counterBadge}>
+                        <Text weight="semibold" style={styles.counterBadgeText}>{chantCount}/{targetCount}</Text>
+                      </View>
+                    </TouchableOpacity>
+                    <ChantHintBubble
+                      visible={showChantHint}
+                      onHide={() => setShowChantHint(false)}
+                    />
+                  </View>
                 ) : (
                   <View style={styles.roundControlButtonPlaceholder} />
                 )}
@@ -2610,6 +2686,15 @@ const styles = StyleSheet.create({
   // ITS size/shape instead of Play being shrunk down to match them. Neutral
   // cream fill (vs. Play's orange gradient) is the only intentional
   // difference, per request - same size and round shape, not same color.
+  // No explicit width/height - wraps tightly to the 80x80 button so it can't
+  // affect mantraControlsRow's own space-between math (see the JSX comment).
+  // alignItems: 'flex-end' (not 'center') - the bubble is right-aligned to
+  // this wrapper's own right edge (= the button's right edge = the page's
+  // standard right margin), not centered - see ChantHintBubble's own
+  // container style comment for why.
+  counterButtonWrapper: {
+    alignItems: 'flex-end',
+  },
   roundControlButton: {
     width: 80,
     height: 80,

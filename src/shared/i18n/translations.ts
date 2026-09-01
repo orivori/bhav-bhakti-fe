@@ -35,6 +35,7 @@ export const translations = {
     resetCounter: 'Reset Counter',
     resetCounterConfirm: 'Are you sure you want to reset your chant counter to 0?',
     resetCounterConfirmText: 'This will permanently reset your progress to 0.',
+    chantHint: 'Chant this mantra',
     reset: 'Reset',
     // Audio error messages
     audioNotAvailableTitle: 'Audio Not Available',
@@ -83,6 +84,7 @@ export const translations = {
     resetCounter: 'काउंटर रीसेट करें',
     resetCounterConfirm: 'क्या आप वाकई अपना जप काउंटर 0 पर रीसेट करना चाहते हैं?',
     resetCounterConfirmText: 'यह आपकी प्रगति को स्थायी रूप से 0 पर रीसेट कर देगा।',
+    chantHint: 'जाप करें',
     reset: 'रीसेट',
     // Audio error messages
     audioNotAvailableTitle: 'ऑडियो उपलब्ध नहीं',
@@ -131,6 +133,7 @@ export const translations = {
     resetCounter: 'કાઉન્ટર રીસેટ કરો',
     resetCounterConfirm: 'શું તમે ખરેખર તમારા જપ કાઉન્ટરને 0 પર રીસેટ કરવા માંગો છો?',
     resetCounterConfirmText: 'આ તમારી પ્રગતિને કાયમ માટે 0 પર રીસેટ કરી દેશે.',
+    chantHint: 'આ મંત્રનો જાપ કરો',
     reset: 'રીસેટ',
     // Audio error messages
     audioNotAvailableTitle: 'ઓડિયો ઉપલબ્ધ નથી',
@@ -179,6 +182,7 @@ export const translations = {
     resetCounter: 'কাউন্টার রিসেট করুন',
     resetCounterConfirm: 'আপনি কি সত্যিই আপনার জপ কাউন্টার 0-এ রিসেট করতে চান?',
     resetCounterConfirmText: 'এটি আপনার অগ্রগতি স্থায়ীভাবে 0-এ রিসেট করে দেবে।',
+    chantHint: 'এই মন্ত্র জপ করুন',
     reset: 'রিসেট',
     // Audio error messages
     audioNotAvailableTitle: 'অডিও উপলব্ধ নেই',
