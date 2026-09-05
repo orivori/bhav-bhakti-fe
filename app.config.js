@@ -1,6 +1,12 @@
+const APP_VARIANT = process.env.APP_VARIANT || "production";
+const IS_DEV_VARIANT = APP_VARIANT !== "production";
+
+const APP_NAME = IS_DEV_VARIANT ? "Bhav Bhakti (Dev)" : "Bhav Bhakti";
+const PACKAGE_NAME = IS_DEV_VARIANT ? "com.orivori.bhavbhakti.dev" : "com.orivori.bhavbhakti";
+
 module.exports = {
   expo: {
-    name: "Bhav Bhakti",
+    name: APP_NAME,
     slug: "bhav-bhakti",
     version: "1.0.0",
     orientation: "portrait",
@@ -16,7 +22,7 @@ module.exports = {
     },
     ios: {
       supportsTablet: true,
-      bundleIdentifier: "com.orivori.bhavbhakti",
+      bundleIdentifier: PACKAGE_NAME,
       infoPlist: {
         NSPhotoLibraryUsageDescription: "This app needs access to your photo library to save wallpapers.",
         NSPhotoLibraryAddUsageDescription: "This app needs permission to save wallpapers to your photo library.",
@@ -34,7 +40,7 @@ module.exports = {
       },
       edgeToEdgeEnabled: true,
       predictiveBackGestureEnabled: false,
-      package: "com.orivori.bhavbhakti",
+      package: PACKAGE_NAME,
       googleServicesFile: process.env.GOOGLE_SERVICES_JSON ?? "./google-services.json",
       softwareKeyboardLayoutMode: "pan",
       permissions: [
