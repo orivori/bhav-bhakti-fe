@@ -111,6 +111,11 @@ module.exports = {
     ],
     extra: {
       router: {},
+      // Readable at runtime via Constants.expoConfig.extra.appVariant - lets
+      // the app tell the backend it's the .dev variant (e.g. for the
+      // isTestAccount signal on login) without needing an EXPO_PUBLIC_-
+      // prefixed duplicate of the build-time-only APP_VARIANT above.
+      appVariant: APP_VARIANT,
       eas: {
         projectId: "565b0611-1665-4d59-b95e-33f4058e4144",
       },

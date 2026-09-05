@@ -9,7 +9,8 @@
       "distribution": "internal",
       "node": "20.18.0",
       "env": {
-        "APP_VARIANT": "development"
+        "APP_VARIANT": "development",
+        "EXPO_PUBLIC_API_ENV": "hosted"
       },
       "ios": {
         "simulator": false,

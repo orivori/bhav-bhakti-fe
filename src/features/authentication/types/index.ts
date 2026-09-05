@@ -42,6 +42,9 @@ export interface VerifyOTPRequest {
 export interface VerifyFirebasePhoneAuthRequest {
   idToken: string;
   countryCode: string;
+  // True only for the .dev app variant - tells the backend to resolve/create
+  // a separate, test-only User row instead of a real customer's account.
+  isTestAccount?: boolean;
 }
 
 export interface VerifyOTPResponse {
