@@ -27,7 +27,16 @@ async function main() {
   const extraArgs = process.argv.slice(2);
   const hasRolloutFlag = extraArgs.some((arg) => arg.startsWith('--rollout-percentage'));
   const rolloutArgs = hasRolloutFlag ? [] : ['--rollout-percentage', DEFAULT_ROLLOUT_PERCENTAGE];
-  const easArgs = ['update', '--channel', 'production', ...rolloutArgs, ...extraArgs];
+  const hasEnvironmentFlag = extraArgs.some((arg) => arg.startsWith('--environment'));
+  // Without this, app.config.js resolves APP_VARIANT from whatever's in the
+  // local .env instead of EAS's "production" environment variable - which
+  // would ship extra.appVariant wrong (e.g. "development") on a real
+  // production update, silently breaking the isTestAccount signal for real
+  // users. Not overridable via extraArgs the way rollout-percentage is -
+  // there's no legitimate reason this script should ever target anything
+  // other than the production environment.
+  const environmentArgs = hasEnvironmentFlag ? [] : ['--environment', 'production'];
+  const easArgs = ['update', '--channel', 'production', ...rolloutArgs, ...environmentArgs, ...extraArgs];
 
   console.log('');
   console.log('##########################################################');
