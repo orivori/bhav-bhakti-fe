@@ -232,10 +232,10 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
   const { toggleLike, incrementDownload, incrementView } = useFeedStore();
   const isVideoMuted = useSoundPreferenceStore((s) => s.isVideoMuted);
   const setVideoMuted = useSoundPreferenceStore((s) => s.setVideoMuted);
-  // Consolidated onto the shared store - see premiumStore.ts's
-  // DEV_OVERRIDE_IS_PREMIUM comment. Was a local `const isPremiumUser =
-  // false;` here; the store's own default is also false, so this is a
-  // behavior-identical swap.
+  // Consolidated onto the shared store - see premiumStore.ts and, upstream
+  // of it, featureFlagStore.ts's enablePremiumSubscriptionUI flag. Was a
+  // local `const isPremiumUser = false;` here; the flag's own default is
+  // also false, so this is a behavior-identical swap.
   const { isPremium: isPremiumUser } = usePremiumStore();
 
   const isMountedRef = useRef(true);

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { PremiumSubscription } from '../types/user';
+import { useFeatureFlagStore } from './featureFlagStore';
 
 // TEMPORARY/PLACEHOLDER - there is no real entitlement/paywall system
 // anywhere in this app yet. This is now the ONE seam for the app's
@@ -9,10 +10,18 @@ import { PremiumSubscription } from '../types/user';
 // no longer reads this at all - Rashifal was made free for everyone,
 // unconditionally, as a deliberate product decision, removing its gate
 // entirely rather than just flipping it open. AutoplayFeedCard.tsx and
-// useViewingWindow.ts remain real consumers). Flip this single value to test
-// as premium; every remaining gate in the app updates together, so there's
-// nowhere left for copies to drift apart.
-const DEV_OVERRIDE_IS_PREMIUM = false;
+// useViewingWindow.ts remain real consumers).
+//
+// Formerly a hardcoded local constant (DEV_OVERRIDE_IS_PREMIUM); now seeded
+// from featureFlagStore's enablePremiumSubscriptionUI flag instead, so this
+// stub can be flipped via the backend (no app update) once the Premium
+// Subscription frontend work begins, rather than needing a code change.
+// Read synchronously via getState() at module-init time - this only ever
+// sees the flag's hardcoded default (see featureFlagStore.ts), never a
+// later remote-fetched value, since a Zustand store's initializer runs
+// once. That's fine for today's single real caller of this seam; if this
+// ever needs to react live to a remote flag change, it'd need to subscribe
+// to the flag store instead of reading it once here.
 
 interface PremiumState {
   isPremium: boolean;
@@ -24,7 +33,7 @@ interface PremiumState {
 }
 
 export const usePremiumStore = create<PremiumState>((set, get) => ({
-  isPremium: DEV_OVERRIDE_IS_PREMIUM,
+  isPremium: useFeatureFlagStore.getState().flags.enablePremiumSubscriptionUI,
   subscription: null,
   showPaywall: false,
 

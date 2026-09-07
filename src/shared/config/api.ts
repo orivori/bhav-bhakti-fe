@@ -71,6 +71,9 @@ export const API_ENDPOINTS = {
     PROFILE: '/v1/profile',
     UPDATE_PROFILE: '/v1/profile',
   },
+  FEATURE_FLAGS: {
+    GET: '/v1/feature-flags',
+  },
   HOROSCOPE: {
     CALCULATE_ZODIAC: '/v1/horoscope/zodiac/calculate',
     GET_MY_ZODIAC: '/v1/horoscope/zodiac/me',

@@ -23,6 +23,7 @@ import {
 import i18n from '@/shared/i18n';
 import { useI18nStore } from '@/shared/stores/i18nStore';
 import { runCacheEviction } from '@/utils/cacheEviction';
+import { useFeatureFlagStore } from '@/store/featureFlagStore';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -97,6 +98,15 @@ export default function RootLayout() {
     // the splash screen or anything else below, since disk cleanup has no
     // reason to delay the app becoming usable.
     runCacheEviction();
+  }, []);
+
+  React.useEffect(() => {
+    // One remote fetch per cold start, merged over the hardcoded defaults
+    // already in featureFlagStore's initial state - see that file for the
+    // full rationale. Fire-and-forget, same as cache eviction above: never
+    // gates the splash screen, and a failed/offline fetch silently keeps
+    // the defaults already in effect.
+    useFeatureFlagStore.getState().fetchRemoteFlags();
   }, []);
 
   React.useEffect(() => {

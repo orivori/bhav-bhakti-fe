@@ -41,11 +41,12 @@ export function useViewingWindow({ feeds, onLike, onShare, onDownload }: UseView
   // `feeds` below on every render, so it can never go stale the way a
   // captured object reference would.
   const [feedId, setFeedId] = useState<string | null>(null);
-  // Consolidated onto the shared store - see premiumStore.ts's
-  // DEV_OVERRIDE_IS_PREMIUM comment. Was a local `const isPremiumUser =
-  // true;` here, which had drifted to disagree with every other gate in the
-  // app - the store's default is false, so this closes the Viewing Window
-  // gate to match the app's actual intended (and everywhere-else) behavior.
+  // Consolidated onto the shared store - see premiumStore.ts and, upstream
+  // of it, featureFlagStore.ts's enablePremiumSubscriptionUI flag. Was a
+  // local `const isPremiumUser = true;` here, which had drifted to disagree
+  // with every other gate in the app - the flag's default is false, so this
+  // closes the Viewing Window gate to match the app's actual intended (and
+  // everywhere-else) behavior.
   const { isPremium: isPremiumUser } = usePremiumStore();
 
   const feed = useMemo(
