@@ -40,9 +40,20 @@ const OTPInput: React.FC<OTPInputProps> = ({
       const newOTP = Array(length).fill('').map((_, i) => otpArray[i] || '').join('');
       onChange(newOTP);
 
-      // Focus on the last filled input or the next empty one
-      const nextIndex = Math.min(numericText.length, length - 1);
-      inputRefs.current[nextIndex]?.focus();
+      // Only shift focus if the paste left boxes still empty to fill. A
+      // paste that already completes the code has nothing left to focus
+      // for - and focusing the just-filled last box would immediately fire
+      // handleFocus below, which exists to clear a box when a user taps
+      // back into it to redo it manually. That collides with a just-landed
+      // autofill paste (e.g. Android's OS-level SMS code suggestion, the
+      // first real trigger for this app now that it's genuinely Play Store
+      // distributed): it can clear the pasted last digit right as the
+      // parent's auto-submit effect is reading the "complete" code, firing
+      // a second, fully automatic onChange with no user action involved.
+      if (numericText.length < length) {
+        const nextIndex = Math.min(numericText.length, length - 1);
+        inputRefs.current[nextIndex]?.focus();
+      }
       return;
     }
 

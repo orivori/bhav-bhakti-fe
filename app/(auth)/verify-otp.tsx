@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  Alert,
   TouchableOpacity,
   StyleSheet,
 } from 'react-native';
@@ -34,6 +33,19 @@ export default function VerifyOTPScreen() {
 
   const { verifyOTP, sendOTP } = useAuth();
   const { showToast } = useToast();
+
+  // Guards against the auto-submit effect below and a manual "Verify Code"
+  // tap both calling handleVerifyOTP concurrently. isLoading (state) can't be
+  // used for this - a state update from setIsLoading(true) isn't guaranteed
+  // to have committed by the time a near-simultaneous second call checks it,
+  // leaving a real window (worse on slow/real-world networks, where an
+  // impatient tester re-taps) for both calls to reach Firebase's confirm()
+  // on the same verification session. Firebase's code is single-use: the
+  // first call to land succeeds (creating the Firebase Auth user), the
+  // second gets rejected as already-consumed (auth/code-expired /
+  // auth/session-expired) - and if that rejection resolves first, the user
+  // sees "code expired" despite the login having actually succeeded.
+  const isVerifyingRef = useRef(false);
 
   // No mount-time "Verification Code Sent" toast here - phone-login.tsx
   // already shows it at the actual moment the send succeeds. Firing it again
@@ -76,6 +88,9 @@ export default function VerifyOTPScreen() {
       return;
     }
 
+    if (isVerifyingRef.current) return;
+    isVerifyingRef.current = true;
+
     try {
       setIsLoading(true);
 
@@ -89,14 +104,18 @@ export default function VerifyOTPScreen() {
 
       // Navigation will be handled by the root layout based on auth state
     } catch (error) {
+      const friendlyMessage = error instanceof Error ? error.message : 'Invalid verification code. Please try again.';
+
       showToast({
         type: 'error',
         title: 'Verification Failed',
-        message: error instanceof Error ? error.message : 'Invalid verification code. Please try again.'
+        message: friendlyMessage,
       });
+
       setOtp(''); // Clear OTP on error
     } finally {
       setIsLoading(false);
+      isVerifyingRef.current = false;
     }
   };
 

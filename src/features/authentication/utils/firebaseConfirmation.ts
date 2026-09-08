@@ -1,4 +1,5 @@
-import type { ConfirmationResult } from '@react-native-firebase/auth';
+import type { ConfirmationResult, User, Unsubscribe } from '@react-native-firebase/auth';
+import { getAuth, onIdTokenChanged } from '@react-native-firebase/auth';
 
 // The object signInWithPhoneNumber() hands back is live and non-serializable
 // (it wraps a native verification session) - it can't go through
@@ -12,12 +13,56 @@ import type { ConfirmationResult } from '@react-native-firebase/auth';
 // something only two imperative call sites (sendOTP, verifyOTP) ever touch.
 let currentConfirmation: ConfirmationResult | null = null;
 
+// Android's native phone-auth flow can silently auto-complete sign-in in the
+// background (SMS Retriever), independently of confirmationResult.confirm() -
+// confirmed via a real device logcat capture: Firebase's own SDK logs
+// "signInWithPhoneNumber:autoVerified:signInWithCredential:onComplete:success"
+// several seconds BEFORE our own "confirmationResultConfirm:...:onComplete:
+// failure" for the same login attempt, once the background path has already
+// won. This tracks that background winner per verification attempt, so
+// useAuth.tsx's verifyOTP can use it once the user's own typed input is
+// ready, instead of only ever trusting confirm()'s own result (which is
+// guaranteed to fail once the background path has already completed).
+let autoVerifiedUser: User | null = null;
+let autoVerifiedUnsubscribe: Unsubscribe | null = null;
+
 export const setFirebaseConfirmation = (confirmation: ConfirmationResult): void => {
   currentConfirmation = confirmation;
+
+  // Every sendOTP() call (initial send or resend) starts its own
+  // verification session - reset tracking and start watching fresh so a
+  // previous attempt's listener/result can never leak into this one.
+  autoVerifiedUnsubscribe?.();
+  autoVerifiedUser = null;
+
+  // onIdTokenChanged fires immediately on subscribe with whatever auth state
+  // already exists (e.g. a stale session left over from an earlier
+  // successful login with the same account) - that first callback is not a
+  // real event from THIS attempt, so it's ignored; only a later invocation
+  // represents a genuinely new token, which is what a real background
+  // auto-verification for this attempt produces.
+  let isFirstCallback = true;
+  autoVerifiedUnsubscribe = onIdTokenChanged(getAuth(), (user) => {
+    if (isFirstCallback) {
+      isFirstCallback = false;
+      return;
+    }
+    autoVerifiedUser = user;
+  });
 };
 
 export const getFirebaseConfirmation = (): ConfirmationResult | null => currentConfirmation;
 
+// The background auto-verification winner for the CURRENT verification
+// attempt, if it has already completed - null otherwise. Deliberately not
+// acted on by anything until the caller decides to (see verifyOTP), so the
+// user's visible typing experience is never interrupted by a background
+// event they can't see.
+export const getAutoVerifiedUser = (): User | null => autoVerifiedUser;
+
 export const clearFirebaseConfirmation = (): void => {
   currentConfirmation = null;
+  autoVerifiedUnsubscribe?.();
+  autoVerifiedUnsubscribe = null;
+  autoVerifiedUser = null;
 };

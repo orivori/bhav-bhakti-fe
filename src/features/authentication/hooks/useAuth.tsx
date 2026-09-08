@@ -8,6 +8,7 @@ import { SendOTPRequest, VerifyOTPRequest, AuthTokens } from '../types';
 import {
   setFirebaseConfirmation,
   getFirebaseConfirmation,
+  getAutoVerifiedUser,
   clearFirebaseConfirmation,
 } from '../utils/firebaseConfirmation';
 
@@ -102,11 +103,60 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw new Error('Verification session expired. Please request a new code.');
       }
 
-      const userCredential = await confirmation.confirm(data.otp);
-      if (!userCredential?.user) {
+      // Android's native phone-auth flow always also runs its own
+      // auto-retrieval/instant-verification path (SMS Retriever) alongside
+      // this manual confirm() call - react-native-firebase's JS API never
+      // surfaces that native path directly, so it's tracked separately via
+      // firebaseConfirmation.ts's onIdTokenChanged listener instead.
+      // Confirmed via a real device logcat capture (Play Store build):
+      // Firebase's own SDK logs
+      // "signInWithPhoneNumber:autoVerified:signInWithCredential:onComplete:
+      // success" several seconds BEFORE this "confirmationResultConfirm:...
+      // :onComplete:failure" for the exact same login attempt - the native
+      // auto path had already signed the user in for real by the time our
+      // explicit confirm(otp) lost the race and got rejected as stale. Only
+      // reachable once Play Integrity attestation succeeds, which is why
+      // this never showed up on any pre-Play-Store sideloaded build (Play
+      // Integrity was structurally unavailable there).
+      //
+      // This function only ever runs once the user's visible OTP input has
+      // reached 6 digits (verify-otp.tsx's existing auto-submit/manual-tap
+      // gate) - the auto-verification signal below is read here for the
+      // first time, never acted on earlier, so the screen never jumps ahead
+      // of what the user has actually typed.
+      const expectedPhoneNumber = `${data.countryCode}${data.phoneNumber.replace(/\D/g, '')}`;
+      let firebaseUser = null;
+
+      const backgroundWinner = getAutoVerifiedUser();
+      if (backgroundWinner?.phoneNumber === expectedPhoneNumber) {
+        // Background auto-verification already completed for this attempt -
+        // confirm() would only fail against the now-consumed session (per
+        // the evidence above), so skip it entirely rather than force a
+        // guaranteed-failing round trip.
+        firebaseUser = backgroundWinner;
+      } else {
+        try {
+          const userCredential = await confirmation.confirm(data.otp);
+          firebaseUser = userCredential?.user ?? null;
+        } catch (confirmError: any) {
+          // Narrow timing window: the background path could have won in the
+          // moments while this confirm() call was in flight. Re-check the
+          // same signal before giving up.
+          const isStaleCodeError =
+            confirmError?.code === 'auth/code-expired' || confirmError?.code === 'auth/session-expired';
+          const raceWinner = getAutoVerifiedUser();
+          if (isStaleCodeError && raceWinner?.phoneNumber === expectedPhoneNumber) {
+            firebaseUser = raceWinner;
+          } else {
+            throw confirmError;
+          }
+        }
+      }
+
+      if (!firebaseUser) {
         throw new Error('Firebase did not return a verified user.');
       }
-      const idToken = await userCredential.user.getIdToken();
+      const idToken = await firebaseUser.getIdToken();
       // Cleared as soon as it's been consumed - a confirmation is single-use
       // by nature (Firebase invalidates the verification session on
       // confirm() either way), so nothing legitimate needs it held any

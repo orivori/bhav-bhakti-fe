@@ -37,6 +37,11 @@ async function main() {
   // other than the production environment.
   const environmentArgs = hasEnvironmentFlag ? [] : ['--environment', 'production'];
   const easArgs = ['update', '--channel', 'production', ...rolloutArgs, ...environmentArgs, ...extraArgs];
+  // This system has no bare `eas` on PATH - only `npx eas-cli@latest` resolves.
+  // Pinned to @latest (not a bare `npx eas`) so npx doesn't silently fall
+  // back to whatever older eas-cli happens to be cached locally.
+  const easCommand = 'npx';
+  const easCommandArgs = ['eas-cli@latest', ...easArgs];
 
   console.log('');
   console.log('##########################################################');
@@ -44,7 +49,7 @@ async function main() {
   console.log('#  Real users on the production channel will receive it.  #');
   console.log('##########################################################');
   console.log('');
-  console.log(`About to run: eas ${easArgs.join(' ')}`);
+  console.log(`About to run: ${easCommand} ${easCommandArgs.join(' ')}`);
   console.log('');
 
   const answer = await ask(`Type ${CONFIRM_WORD} to continue, anything else to abort: `);
@@ -54,9 +59,9 @@ async function main() {
     process.exit(1);
   }
 
-  console.log(`\nConfirmed. Running: eas ${easArgs.join(' ')}\n`);
+  console.log(`\nConfirmed. Running: ${easCommand} ${easCommandArgs.join(' ')}\n`);
 
-  const result = spawnSync('eas', easArgs, { stdio: 'inherit', shell: true });
+  const result = spawnSync(easCommand, easCommandArgs, { stdio: 'inherit', shell: true });
   process.exit(result.status === null ? 1 : result.status);
 }
 

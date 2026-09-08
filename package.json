@@ -9,7 +9,7 @@
     "web": "expo start --web",
     "postinstall": "patch-package",
     "update:production": "node scripts/confirm-production-update.js",
-    "update:production:complete-rollout": "eas update:edit --branch production --rollout-percentage 100"
+    "update:production:complete-rollout": "npx eas-cli@latest update:edit --branch production --rollout-percentage 100"
   },
   "expo": {
     "autolinking": {
