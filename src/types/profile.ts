@@ -18,6 +18,10 @@ export interface ProfileData {
   id: string;
   phoneNumber: string;
   name: string | null;
+  // Exposed only for deriving the frontend's "Support ID" display (see
+  // shared/utils/supportId.ts) - not used for anything auth-related
+  // client-side.
+  firebaseUid?: string | null;
   profile: {
     dateOfBirth: string | null;
     gender: ProfileGender | null;

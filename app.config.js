@@ -64,6 +64,18 @@ module.exports = {
         "android.permission.WAKE_LOCK",
         "android.permission.FOREGROUND_SERVICE",
       ],
+      // Android 11+ (API 30+) package-visibility restrictions can make
+      // Linking.canOpenURL('mailto:...')/openURL() silently fail in a real
+      // release build without this - needed for the account-deletion
+      // screen's mailto: handoff.
+      queries: {
+        intent: [
+          {
+            action: "android.intent.action.SENDTO",
+            data: { scheme: "mailto" },
+          },
+        ],
+      },
     },
     web: {
       favicon: "./assets/favicon.png",

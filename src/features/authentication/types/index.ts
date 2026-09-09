@@ -5,6 +5,9 @@ export interface User {
   isVerified: boolean;
   createdAt: string;
   updatedAt: string;
+  // Exposed only for deriving the frontend's "Support ID" display - not used
+  // for anything auth-related client-side.
+  firebaseUid?: string | null;
 }
 
 export interface AuthTokens {

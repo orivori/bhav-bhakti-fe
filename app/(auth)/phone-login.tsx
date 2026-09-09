@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   View,
   Image,
@@ -13,14 +13,18 @@ import { router } from 'expo-router';
 import { useForm, Controller } from 'react-hook-form';
 // Removed zod dependency for smaller bundle size
 import { validatePhoneNumber } from '@/shared/utils/phoneValidation';
+import type { BottomSheetModal } from '@gorhom/bottom-sheet';
 
 import { Button, Text } from '@/components/atoms';
 import { PhoneInput } from '@/components/molecules';
+import { LegalDocumentSheet } from '@/components/molecules/LegalDocumentViewer';
 import { useAuth } from '@/features/authentication/hooks/useAuth';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useToast } from '@/components/atoms/Toast';
 import { PhoneStorageService } from '@/utils/phoneStorage';
 import { useLocalSearchParams } from 'expo-router';
+import type { LegalDocType } from '@/shared/config/legalDocuments';
+import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 
 // Form data type
 type PhoneFormData = {
@@ -34,8 +38,15 @@ export default function PhoneLoginScreen() {
   const { showToast } = useToast();
   const params = useLocalSearchParams<{ phoneNumber?: string }>();
   const [isLoading, setIsLoading] = useState(false);
+  const [legalDocType, setLegalDocType] = useState<LegalDocType | null>(null);
+  const legalSheetRef = useRef<BottomSheetModal>(null);
 
   const { sendOTP } = useAuth();
+
+  const openLegalDocument = (docType: LegalDocType) => {
+    setLegalDocType(docType);
+    legalSheetRef.current?.present();
+  };
 
   // Form setup - moved before useEffect that uses setValue
   const {
@@ -199,15 +210,34 @@ export default function PhoneLoginScreen() {
                   style={styles.button}
                 />
 
-                {/* Terms and Privacy */}
+                {/* Terms and Privacy - both segments are real tappable links,
+                    opened as a bottom sheet (not full-screen) per the login
+                    screen's lighter-weight disclaimer context. */}
                 <Text variant="caption" color="secondary" align="center" style={styles.terms}>
-                  By continuing, you agree to our Terms of Service and Privacy Policy
+                  By continuing, you agree to our{' '}
+                  <Text
+                    variant="caption"
+                    style={styles.termsLink}
+                    onPress={() => openLegalDocument('terms')}
+                  >
+                    Terms and Conditions
+                  </Text>{' '}
+                  and{' '}
+                  <Text
+                    variant="caption"
+                    style={styles.termsLink}
+                    onPress={() => openLegalDocument('privacy')}
+                  >
+                    Privacy Policy
+                  </Text>
                 </Text>
               </View>
             </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <LegalDocumentSheet ref={legalSheetRef} docType={legalDocType} />
     </SafeAreaView>
   );
 }
@@ -269,5 +299,9 @@ const styles = StyleSheet.create({
   },
   terms: {
     paddingHorizontal: 16,
+  },
+  termsLink: {
+    color: goldenTempleTheme.colors.info,
+    textDecorationLine: 'underline',
   },
 });

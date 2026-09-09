@@ -130,6 +130,20 @@ export default function MainLayout() {
         }}
       />
       <Tabs.Screen
+        name="legal-document"
+        options={{
+          href: null, // Hide from tabs - only accessible from Profile
+          headerShown: false,
+        }}
+      />
+      <Tabs.Screen
+        name="delete-account"
+        options={{
+          href: null, // Hide from tabs - only accessible from Profile
+          headerShown: false,
+        }}
+      />
+      <Tabs.Screen
         name="wallpapers"
         options={{
           href: null, // Hide from tabs but keep for navigation

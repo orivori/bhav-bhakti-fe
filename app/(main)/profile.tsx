@@ -15,6 +15,7 @@ import { useTranslation } from 'react-i18next';
 import { useI18nStore, SELECTABLE_LANGUAGES } from '@/shared/stores/i18nStore';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
 import { profileService } from '@/features/profile/services/profileService';
+import { deriveSupportId } from '@/shared/utils/supportId';
 
 export default function ProfileScreen() {
   const { user, logout } = useAuth();
@@ -24,6 +25,7 @@ export default function ProfileScreen() {
   const { contentPadding } = useTabBarHeight();
   const [showLanguageModal, setShowLanguageModal] = useState(false);
   const [displayName, setDisplayName] = useState<string | null>(null);
+  const [supportId, setSupportId] = useState<string | null>(null);
 
   // Refetches on every focus (not just mount) so returning from Edit Profile
   // reflects a just-saved name without a full app restart - matches the
@@ -35,7 +37,9 @@ export default function ProfileScreen() {
       profileService
         .getProfile()
         .then((profile) => {
-          if (isMounted) setDisplayName(profile.name || null);
+          if (!isMounted) return;
+          setDisplayName(profile.name || null);
+          setSupportId(deriveSupportId(profile.firebaseUid));
         })
         .catch((error) => {
           console.error('Failed to load profile:', error);
@@ -109,6 +113,13 @@ export default function ProfileScreen() {
         : (language === 'hi' ? 'प्रीमियम में अपग्रेड करें' : 'Upgrade to premium'),
       onPress: handleManageSubscription,
     },
+    {
+      id: 3,
+      title: language === 'hi' ? 'खाता हटाएं' : 'Delete Account',
+      icon: 'trash-outline',
+      description: language === 'hi' ? 'अपना खाता स्थायी रूप से हटाएं' : 'Permanently delete your account',
+      onPress: () => router.push('/(main)/delete-account'),
+    },
   ];
 
   const appOptions = [
@@ -130,22 +141,22 @@ export default function ProfileScreen() {
       id: 3,
       title: t('profile.privacy'),
       icon: 'shield-checkmark-outline',
-      description: language === 'hi' ? 'अपनी गोपनीयता सेटिंग्स नियंत्रित करें' : 'Control your privacy settings',
-      onPress: () => Alert.alert(t('profile.privacy'), language === 'hi' ? 'गोपनीयता सेटिंग्स प्रबंधित करें' : 'Manage privacy settings'),
+      description: language === 'hi' ? 'हमारी गोपनीयता नीति देखें' : 'View our privacy policy',
+      onPress: () => router.push({ pathname: '/(main)/legal-document', params: { docType: 'privacy' } }),
     },
     {
       id: 4,
       title: t('profile.termsAndConditions'),
       icon: 'document-text-outline',
-      description: language === 'hi' ? 'हमारी सेवा की शर्तें देखें' : 'View our terms of service',
-      onPress: () => Alert.alert(t('profile.termsAndConditions'), language === 'hi' ? 'यह सुविधा जल्द आ रही है' : 'This feature is coming soon!'),
+      description: language === 'hi' ? 'हमारी सेवा की शर्तें देखें' : 'View our terms and conditions',
+      onPress: () => router.push({ pathname: '/(main)/legal-document', params: { docType: 'terms' } }),
     },
     {
       id: 5,
       title: t('profile.refundPolicy'),
       icon: 'cash-outline',
       description: language === 'hi' ? 'हमारी धनवापसी नीति देखें' : 'View our refund policy',
-      onPress: () => Alert.alert(t('profile.refundPolicy'), language === 'hi' ? 'यह सुविधा जल्द आ रही है' : 'This feature is coming soon!'),
+      onPress: () => router.push({ pathname: '/(main)/legal-document', params: { docType: 'refund' } }),
     },
     {
       id: 6,
@@ -284,6 +295,26 @@ export default function ProfileScreen() {
                 <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
               </TouchableOpacity>
             ))}
+            {supportId && (
+              <View style={[styles.optionItem, styles.optionItemStatic]}>
+                <View style={styles.optionIcon}>
+                  <Ionicons name="finger-print-outline" size={20} color="#3b82f6" />
+                </View>
+                <View style={styles.optionContent}>
+                  <Text variant="body" weight="medium">
+                    {language === 'hi' ? 'सहायता आईडी' : 'Support ID'}
+                  </Text>
+                  <Text variant="caption" color="secondary">
+                    {language === 'hi'
+                      ? 'सहायता से संपर्क करते समय इसे साझा करें'
+                      : 'Share this when contacting support'}
+                  </Text>
+                </View>
+                <Text variant="body" weight="semibold">
+                  {supportId}
+                </Text>
+              </View>
+            )}
           </View>
         </View>
 
@@ -512,6 +543,9 @@ const styles = StyleSheet.create({
     padding: 16,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(229, 231, 235, 0.3)',
+  },
+  optionItemStatic: {
+    borderBottomWidth: 0,
   },
   optionIcon: {
     width: 40,
