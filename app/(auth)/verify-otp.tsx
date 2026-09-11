@@ -110,8 +110,25 @@ export default function VerifyOTPScreen() {
   // background win already existed. Registered once on mount and persists
   // across a resend (registerAutoVerifiedListener isn't reset by a fresh
   // sendOTP() call - see firebaseConfirmation.ts).
+  //
+  // Real bug found on .dev: onIdTokenChanged (the signal this listener rides
+  // on, see firebaseConfirmation.ts) fires for ANY successful sign-in on the
+  // auth instance - not just a genuine background win. Our own manual
+  // confirmation.confirm(otp) call ALSO triggers it internally (confirm()
+  // calls signInWithCredential() under the hood), so without the guard
+  // below, this fired - and showed "Verified automatically" - on completely
+  // normal manual logins too, 100% of the time on .dev (which has no
+  // Play Integrity/SMS Retriever path to genuinely win in the first place).
+  // isVerifyingRef is true for the ENTIRE span of any verification attempt
+  // already in progress (manual confirm(), or an earlier-detected
+  // background win still being processed) - if one's already running, this
+  // firing is that attempt's own sign-in completing, not a fresh, unprompted
+  // background win worth telling the UI about. A genuine early win (nothing
+  // typed/submitted yet) correctly finds isVerifyingRef still false and
+  // proceeds as before.
   useEffect(() => {
     registerAutoVerifiedListener(() => {
+      if (isVerifyingRef.current) return;
       setIsAutoVerified(true);
       finalizeVerification(otpRef.current);
     });
