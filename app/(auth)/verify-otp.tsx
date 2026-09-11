@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Button, Text } from '@/components/atoms';
 import { OTPInput } from '@/components/molecules';
 import { useAuth } from '@/features/authentication/hooks/useAuth';
+import { registerAutoVerifiedListener } from '@/features/authentication/utils/firebaseConfirmation';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useToast } from '@/components/atoms/Toast';
 import { PhoneStorageService } from '@/utils/phoneStorage';
@@ -30,6 +31,12 @@ export default function VerifyOTPScreen() {
   const [isResending, setIsResending] = useState(false);
   const [resendTimer, setResendTimer] = useState(60);
   const [canResend, setCanResend] = useState(false);
+  // True the moment Android's background SMS auto-verification wins (see
+  // registerAutoVerifiedListener effect below) - drives the visible "Verified
+  // automatically" state so the screen reacts to that real event immediately,
+  // instead of silently waiting for the user's own typing to reach 6 digits
+  // while a background success has already made whatever they type moot.
+  const [isAutoVerified, setIsAutoVerified] = useState(false);
 
   const { verifyOTP, sendOTP } = useAuth();
   const { showToast } = useToast();
@@ -46,6 +53,18 @@ export default function VerifyOTPScreen() {
   // auth/session-expired) - and if that rejection resolves first, the user
   // sees "code expired" despite the login having actually succeeded.
   const isVerifyingRef = useRef(false);
+
+  // Mirrors otp state for the auto-verified listener below, which is
+  // registered once on mount (empty deps) and would otherwise close over a
+  // stale otp value. In practice the value passed through is moot anyway -
+  // useAuth.tsx's verifyOTP() never reads data.otp once a background winner
+  // exists (Option A, comparing typed digits against the real code, was
+  // deliberately deferred) - but keeping it correct here avoids relying on
+  // that being true forever.
+  const otpRef = useRef(otp);
+  useEffect(() => {
+    otpRef.current = otp;
+  }, [otp]);
 
   // No mount-time "Verification Code Sent" toast here - phone-login.tsx
   // already shows it at the actual moment the send succeeds. Firing it again
@@ -82,12 +101,25 @@ export default function VerifyOTPScreen() {
     }
   }, [otp]);
 
-  const handleVerifyOTP = async () => {
-    if (otp.length !== 6) {
-      showToast({ type: 'error', message: 'Please enter a 6-digit verification code.' });
-      return;
-    }
+  // Reacts to Android's background SMS auto-verification the moment it
+  // completes (real, first-of-its-kind Play Store timing confirmed in the
+  // session-expired investigation this fixed originally - it typically wins
+  // several seconds before most people finish typing). Deliberately NOT
+  // gated on otp.length === 6 here, unlike handleVerifyOTP below - waiting
+  // for that is exactly what let gibberish input appear to "succeed" once a
+  // background win already existed. Registered once on mount and persists
+  // across a resend (registerAutoVerifiedListener isn't reset by a fresh
+  // sendOTP() call - see firebaseConfirmation.ts).
+  useEffect(() => {
+    registerAutoVerifiedListener(() => {
+      setIsAutoVerified(true);
+      finalizeVerification(otpRef.current);
+    });
+    return () => registerAutoVerifiedListener(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
+  const finalizeVerification = async (otpValue: string) => {
     if (isVerifyingRef.current) return;
     isVerifyingRef.current = true;
 
@@ -97,7 +129,7 @@ export default function VerifyOTPScreen() {
       await verifyOTP({
         phoneNumber: phoneNumber!,
         countryCode: countryCode!,
-        otp,
+        otp: otpValue,
         ...(sessionId && { sessionId }),
         orderId: orderId!,
       });
@@ -113,10 +145,20 @@ export default function VerifyOTPScreen() {
       });
 
       setOtp(''); // Clear OTP on error
+      setIsAutoVerified(false); // A failure past this point is a real error, not the auto-verified success path
     } finally {
       setIsLoading(false);
       isVerifyingRef.current = false;
     }
+  };
+
+  const handleVerifyOTP = async () => {
+    if (otp.length !== 6) {
+      showToast({ type: 'error', message: 'Please enter a 6-digit verification code.' });
+      return;
+    }
+
+    await finalizeVerification(otp);
   };
 
   const handleResendOTP = async () => {
@@ -133,6 +175,7 @@ export default function VerifyOTPScreen() {
         setCanResend(false);
         setResendTimer(60);
         setOtp(''); // Clear current OTP
+        setIsAutoVerified(false); // A resend starts a genuinely new verification session
       }
     } catch (error) {
       showToast({
@@ -200,6 +243,21 @@ export default function VerifyOTPScreen() {
               disabled={isLoading}
               style={styles.otpInput}
             />
+
+            {/* Shown the moment Android's background SMS auto-verification
+                wins (see registerAutoVerifiedListener effect above) - the
+                boxes above are already locked via disabled={isLoading} by
+                that same event, so this tells the user WHY, instead of the
+                screen just silently reacting to a background success they
+                can't see. */}
+            {isAutoVerified && (
+              <View style={styles.autoVerifiedBanner}>
+                <Ionicons name="checkmark-circle" size={18} color="#16a34a" />
+                <Text variant="caption" weight="semibold" style={styles.autoVerifiedText}>
+                  Verified automatically
+                </Text>
+              </View>
+            )}
 
             {/* Verify Button */}
             <Button
@@ -282,6 +340,17 @@ const styles = StyleSheet.create({
   },
   otpInput: {
     marginBottom: 32,
+  },
+  autoVerifiedBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: -20,
+    marginBottom: 20,
+  },
+  autoVerifiedText: {
+    color: '#16a34a',
   },
   verifyButton: {
     marginBottom: 24,

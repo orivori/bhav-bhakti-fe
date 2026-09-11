@@ -26,6 +26,20 @@ let currentConfirmation: ConfirmationResult | null = null;
 let autoVerifiedUser: User | null = null;
 let autoVerifiedUnsubscribe: Unsubscribe | null = null;
 
+// verify-otp.tsx registers this so it can react the MOMENT background
+// auto-verification wins, rather than only discovering it lazily whenever
+// the user's own typing happens to reach 6 digits (the getAutoVerifiedUser()
+// path below, still used by verifyOTP's own read at submit time). Deliberately
+// a plain module-level slot, not reset by setFirebaseConfirmation() below -
+// unlike autoVerifiedUser/autoVerifiedUnsubscribe (which are genuinely
+// per-attempt), the screen's listener registration must survive a resend
+// (a fresh sendOTP() call), since the screen itself never unmounts across one.
+let autoVerifiedListener: ((user: User) => void) | null = null;
+
+export const registerAutoVerifiedListener = (listener: ((user: User) => void) | null): void => {
+  autoVerifiedListener = listener;
+};
+
 export const setFirebaseConfirmation = (confirmation: ConfirmationResult): void => {
   currentConfirmation = confirmation;
 
@@ -48,16 +62,20 @@ export const setFirebaseConfirmation = (confirmation: ConfirmationResult): void 
       return;
     }
     autoVerifiedUser = user;
+    if (user) {
+      autoVerifiedListener?.(user);
+    }
   });
 };
 
 export const getFirebaseConfirmation = (): ConfirmationResult | null => currentConfirmation;
 
 // The background auto-verification winner for the CURRENT verification
-// attempt, if it has already completed - null otherwise. Deliberately not
-// acted on by anything until the caller decides to (see verifyOTP), so the
-// user's visible typing experience is never interrupted by a background
-// event they can't see.
+// attempt, if it has already completed - null otherwise. This is the lazy
+// read verifyOTP() falls back on (e.g. the narrow in-flight-confirm() race
+// window); verify-otp.tsx's own reaction to the SAME event is no longer
+// lazy - see registerAutoVerifiedListener above, which fires the moment it
+// happens rather than waiting for a caller to ask.
 export const getAutoVerifiedUser = (): User | null => autoVerifiedUser;
 
 export const clearFirebaseConfirmation = (): void => {
