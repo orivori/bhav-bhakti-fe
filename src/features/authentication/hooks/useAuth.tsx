@@ -119,11 +119,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // this never showed up on any pre-Play-Store sideloaded build (Play
       // Integrity was structurally unavailable there).
       //
-      // This function only ever runs once the user's visible OTP input has
-      // reached 6 digits (verify-otp.tsx's existing auto-submit/manual-tap
-      // gate) - the auto-verification signal below is read here for the
-      // first time, never acted on earlier, so the screen never jumps ahead
-      // of what the user has actually typed.
+      // This function runs either once the user's visible OTP input reaches
+      // 6 digits (verify-otp.tsx's auto-submit/manual-tap gate), OR
+      // immediately the moment this background signal itself fires, via
+      // verify-otp.tsx's registerAutoVerifiedListener subscription -
+      // deliberately NOT gated on 6 digits in that second path, since
+      // waiting there is exactly what let a user's mistyped digits appear to
+      // "succeed" once a background win already existed (see
+      // firebaseConfirmation.ts's own comment on registerAutoVerifiedListener).
+      // Either way, whatever's actually in data.otp is irrelevant once
+      // backgroundWinner matches below - not compared against the real code
+      // (deliberately deferred, see CLAUDE.md).
       const expectedPhoneNumber = `${data.countryCode}${data.phoneNumber.replace(/\D/g, '')}`;
       let firebaseUser = null;
 
