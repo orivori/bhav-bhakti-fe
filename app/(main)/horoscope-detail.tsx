@@ -5,9 +5,11 @@ import {
   TouchableOpacity,
   ScrollView,
   Share,
+  BackHandler,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import WhatsAppIcon from '../../assets/icons/whatsapp.svg';
@@ -46,6 +48,30 @@ export default function HoroscopeDetailScreen() {
     }
     router.back();
   }, [returnTo]);
+
+  // Android's hardware back button AND its edge-swipe back gesture both
+  // dispatch through 'hardwareBackPress', bypassing this screen's own
+  // in-app back button entirely - same class of bug already fixed on
+  // audio-player.tsx, legal-document.tsx, and delete-account.tsx (see
+  // audio-player.tsx's own comment on this same pattern for the full
+  // predictiveBackGestureEnabled:false rationale). Without this listener,
+  // hardware/gesture back falls through to React Navigation's default pop,
+  // which doesn't know about returnTo and always lands on Home regardless
+  // of actual entry point. Routing through the EXACT SAME handleBack the
+  // chevron already uses correctly keeps both back paths in permanent
+  // lockstep by construction. useFocusEffect (not mount/unmount) is
+  // required since Tabs screens in this app don't unmount between
+  // navigations - a mount-only effect would keep hijacking back presses
+  // even while a different tab is focused.
+  useFocusEffect(
+    useCallback(() => {
+      const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+        handleBack();
+        return true;
+      });
+      return () => subscription.remove();
+    }, [handleBack])
+  );
 
   // Rashifal is today-only for MVP - no past/future browsing, so this is a
   // plain constant now, not state (the date-navigation pill that used to
