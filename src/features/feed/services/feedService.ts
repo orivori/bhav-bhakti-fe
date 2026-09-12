@@ -106,27 +106,30 @@ class FeedService {
    * Like a feed
    */
   async likeFeed(feedId: string): Promise<LikeFeedResponse> {
-    return await apiClient.post<LikeFeedResponse>(API_ENDPOINTS.FEED.LIKE(feedId), {});
+    return await apiClient.post<LikeFeedResponse>(API_ENDPOINTS.FEED.LIKE(feedId), {}, { promptOnAuthFailure: true });
   }
 
   /**
    * Unlike a feed
    */
   async unlikeFeed(feedId: string): Promise<UnlikeFeedResponse> {
-    return await apiClient.delete<UnlikeFeedResponse>(API_ENDPOINTS.FEED.UNLIKE(feedId));
+    return await apiClient.delete<UnlikeFeedResponse>(API_ENDPOINTS.FEED.UNLIKE(feedId), { promptOnAuthFailure: true });
   }
 
   /**
    * Track feed download
    */
   async downloadFeed(feedId: string): Promise<DownloadFeedResponse> {
-    return await apiClient.post<DownloadFeedResponse>(API_ENDPOINTS.FEED.DOWNLOAD(feedId), {});
+    return await apiClient.post<DownloadFeedResponse>(API_ENDPOINTS.FEED.DOWNLOAD(feedId), {}, { promptOnAuthFailure: true });
   }
 
   /**
    * Track feed share
    */
   async shareFeed(feedId: string, shareData: ShareFeedRequest = {}): Promise<ShareFeedResponse> {
+    // Deliberately NOT flagged with promptOnAuthFailure - the OS share sheet has
+    // already completed by the time this call fires, so a 401 here should stay
+    // silent exactly as it does today, not interrupt the user after the fact.
     return await apiClient.post<ShareFeedResponse>(API_ENDPOINTS.FEED.SHARE(feedId), shareData);
   }
 
@@ -155,7 +158,7 @@ class FeedService {
     if (params.label) queryParams.append('label', params.label);
 
     const url = `${API_ENDPOINTS.FEED.USER_LIKED}?${queryParams.toString()}`;
-    const apiResponse = await apiClient.get<ApiUserLikedFeedsResponse>(url);
+    const apiResponse = await apiClient.get<ApiUserLikedFeedsResponse>(url, { promptOnAuthFailure: true });
 
     // Transform API response to client format
     return {

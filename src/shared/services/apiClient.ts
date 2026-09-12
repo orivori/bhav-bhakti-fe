@@ -2,6 +2,7 @@ import axios, { AxiosInstance, AxiosError, AxiosResponse } from 'axios';
 import { API_CONFIG, API_ENDPOINTS } from '@/shared/config/api';
 import { secureStorage } from '@/shared/utils/secureStorage';
 import { AuthTokens, ApiError } from '@/features/authentication/types';
+import { useAuthPromptStore } from '@/store/authPromptStore';
 
 class ApiClient {
   private client: AxiosInstance;
@@ -84,6 +85,22 @@ class ApiClient {
           originalRequest.baseURL = API_CONFIG.FALLBACK_BASE_URL;
           originalRequest._fallbackRetry = true;
           return this.client(originalRequest);
+        }
+
+        // Contextual "please log in again" prompt - ONLY for the app's genuinely
+        // login-gated actions (like/unlike, download, the Liked filter, profile
+        // load/save), each of which opts in explicitly via `promptOnAuthFailure:
+        // true` in its own call's config (see feedService.ts/profileService.ts).
+        // Deliberately NOT a blanket "any 401 anywhere" trigger - most of this
+        // app's endpoints are public or optionalAuth (browsing Home, Search,
+        // Rashifal, etc.), and those must never be interrupted by this modal even
+        // if a stale token happens to make one of them fail too. Share is also
+        // deliberately excluded (not flagged) - its 401 should stay silent, since
+        // the OS share sheet has already completed by the time this call fires.
+        // A pure state flip only - no navigation/logout happens here, so this can
+        // never fire unsafely during early boot (see authPromptStore.ts).
+        if (error.response?.status === 401 && originalRequest?.promptOnAuthFailure) {
+          useAuthPromptStore.getState().setShowLoginPrompt(true);
         }
 
         if (error.response?.status === 401 && !originalRequest._retry) {

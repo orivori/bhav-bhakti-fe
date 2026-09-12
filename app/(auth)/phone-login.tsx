@@ -36,7 +36,11 @@ const COUNTRY_CODE = '+91';
 
 export default function PhoneLoginScreen() {
   const { showToast } = useToast();
-  const params = useLocalSearchParams<{ phoneNumber?: string }>();
+  // returnTo/returnParams: present only when this screen was reached via
+  // LoginPromptModal (a stale-session re-auth), not on a normal fresh login -
+  // forwarded through to verify-otp.tsx unchanged, same convention already
+  // used elsewhere in this app (see audio-player.tsx/legal-document.tsx).
+  const params = useLocalSearchParams<{ phoneNumber?: string; returnTo?: string; returnParams?: string }>();
   const [isLoading, setIsLoading] = useState(false);
   const [legalDocType, setLegalDocType] = useState<LegalDocType | null>(null);
   const legalSheetRef = useRef<BottomSheetModal>(null);
@@ -129,6 +133,8 @@ export default function PhoneLoginScreen() {
             countryCode: COUNTRY_CODE,
             ...(response.sessionId && { sessionId: response.sessionId }),
             orderId: response.orderId,
+            ...(params.returnTo && { returnTo: params.returnTo }),
+            ...(params.returnParams && { returnParams: params.returnParams }),
           },
         });
       }
