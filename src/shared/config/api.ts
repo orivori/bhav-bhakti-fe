@@ -1,9 +1,16 @@
 import Constants from 'expo-constants';
 import * as Device from 'expo-device';
 
-// The real, permanently hosted Railway backend - used whenever EXPO_PUBLIC_API_ENV
-// is set to 'hosted' during dev-client testing, and always for release builds.
-const HOSTED_BASE_URL = 'https://bhav-bhakti-be-production.up.railway.app/api';
+// Custom domain (CNAME'd to the same Railway service) - the primary hosted URL, used
+// whenever EXPO_PUBLIC_API_ENV is set to 'hosted' during dev-client testing, and always
+// for release builds.
+const HOSTED_BASE_URL = 'https://api.orivori.com/api';
+
+// The underlying Railway URL, kept alive in the background as an automatic fallback -
+// apiClient.ts switches to this for the rest of the app session if a request against
+// the custom domain ever fails at the network level (DNS not resolving, connection
+// refused, etc.), so a DNS/domain issue can't take the app down on its own.
+const HOSTED_FALLBACK_BASE_URL = 'https://bhav-bhakti-be-production.up.railway.app/api';
 
 const getDevBaseUrl = () => {
   // hostUri is the Metro dev server's <host>:<port>, e.g. "192.168.1.5:8081" on a
@@ -48,6 +55,9 @@ const isHostedEnv = process.env.EXPO_PUBLIC_API_ENV === 'hosted';
 
 export const API_CONFIG = {
   BASE_URL: !__DEV__ || isHostedEnv ? HOSTED_BASE_URL : getDevBaseUrl(),
+  // Only meaningful alongside the hosted BASE_URL above - the local dev LAN backend has
+  // no fallback concept, so this stays undefined for that path.
+  FALLBACK_BASE_URL: !__DEV__ || isHostedEnv ? HOSTED_FALLBACK_BASE_URL : undefined,
   TIMEOUT: 10000,
   RETRY_ATTEMPTS: 2,
 };

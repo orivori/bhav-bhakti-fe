@@ -65,6 +65,27 @@ class ApiClient {
           timestamp: new Date().toISOString(),
         });
 
+        // A network-level failure (no response at all - DNS not resolving, connection
+        // refused, timeout) against the primary hosted domain: retry once against the
+        // Railway fallback, then keep using it for the rest of this app session. Not
+        // re-tried per request after that, since a custom-domain outage rarely clears
+        // mid-session and re-trying the primary every time would just double the
+        // failure latency of every call until the app restarts.
+        if (
+          !error.response &&
+          API_CONFIG.FALLBACK_BASE_URL &&
+          this.client.defaults.baseURL === API_CONFIG.BASE_URL &&
+          !originalRequest?._fallbackRetry
+        ) {
+          console.warn(
+            `⚠️ Primary API host unreachable (${API_CONFIG.BASE_URL}) - switching to fallback (${API_CONFIG.FALLBACK_BASE_URL}) for this session.`
+          );
+          this.client.defaults.baseURL = API_CONFIG.FALLBACK_BASE_URL;
+          originalRequest.baseURL = API_CONFIG.FALLBACK_BASE_URL;
+          originalRequest._fallbackRetry = true;
+          return this.client(originalRequest);
+        }
+
         if (error.response?.status === 401 && !originalRequest._retry) {
           if (this.isRefreshing) {
             return new Promise((resolve) => {
