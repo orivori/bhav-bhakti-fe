@@ -19,11 +19,17 @@ import { useToast } from '@/components/atoms/Toast';
 import { PhoneStorageService } from '@/utils/phoneStorage';
 
 export default function VerifyOTPScreen() {
-  const { phoneNumber, countryCode, sessionId, orderId } = useLocalSearchParams<{
+  // returnTo/returnParams: present only when this verification is a re-auth
+  // triggered by LoginPromptModal (see apiClient.ts/authPromptStore.ts) - used
+  // below to send the user back to exactly the screen they were on instead of
+  // the normal fresh-login destination (Home).
+  const { phoneNumber, countryCode, sessionId, orderId, returnTo, returnParams } = useLocalSearchParams<{
     phoneNumber: string;
     countryCode: string;
     sessionId?: string;
     orderId: string;
+    returnTo?: string;
+    returnParams?: string;
   }>();
 
   const [otp, setOtp] = useState('');
@@ -151,7 +157,23 @@ export default function VerifyOTPScreen() {
         orderId: orderId!,
       });
 
-      // Navigation will be handled by the root layout based on auth state
+      // verifyOTP() above already replaced the stack with '/(main)' (its own
+      // hardcoded destination for a normal fresh login) - if this was instead
+      // a re-auth from LoginPromptModal, immediately replace again to send
+      // the user back to their actual screen. Both are synchronous
+      // router.replace calls in the same tick, so there's no intermediate
+      // Home flash; a normal login (no returnTo) is unaffected.
+      if (returnTo) {
+        let parsedReturnParams: Record<string, string> | undefined;
+        if (returnParams) {
+          try {
+            parsedReturnParams = JSON.parse(returnParams);
+          } catch (parseError) {
+            console.error('Failed to parse returnParams, navigating without them:', parseError);
+          }
+        }
+        router.replace({ pathname: returnTo as any, params: parsedReturnParams });
+      }
     } catch (error) {
       const friendlyMessage = error instanceof Error ? error.message : 'Invalid verification code. Please try again.';
 

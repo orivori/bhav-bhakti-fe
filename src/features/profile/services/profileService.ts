@@ -5,7 +5,8 @@ import type { ProfileData, UpdateProfileRequest } from '@/types/profile';
 class ProfileService {
   async getProfile(): Promise<ProfileData> {
     const response = await apiClient.get<{ data: ProfileData }>(
-      API_ENDPOINTS.USER.PROFILE
+      API_ENDPOINTS.USER.PROFILE,
+      { promptOnAuthFailure: true }
     );
     return response.data;
   }
@@ -13,7 +14,8 @@ class ProfileService {
   async updateProfile(data: UpdateProfileRequest): Promise<ProfileData> {
     const response = await apiClient.put<{ data: ProfileData }>(
       API_ENDPOINTS.USER.UPDATE_PROFILE,
-      data
+      data,
+      { promptOnAuthFailure: true }
     );
     return response.data;
   }
