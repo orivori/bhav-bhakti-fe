@@ -18,7 +18,7 @@ import { profileService } from '@/features/profile/services/profileService';
 import { deriveSupportId } from '@/shared/utils/supportId';
 
 export default function ProfileScreen() {
-  const { user, logout, debugSimulateShortSession } = useAuth();
+  const { user, logout, debugSimulateShortSession, debugForceLiveAuthFailure } = useAuth();
   const { isPremium, setShowPaywall } = usePremiumStore();
   const { t } = useTranslation();
   const { language, setLanguage, getLanguageLabel } = useI18nStore();
@@ -80,6 +80,21 @@ export default function ProfileScreen() {
             Alert.alert('Done', 'Logged in with a ~10s token. Wait 10+ seconds, then force-quit and reopen the app.');
           },
         },
+      ]
+    );
+  };
+
+  // .dev-only: verifies the 401/login-prompt fix live, no restart needed -
+  // logs in with a bad-signature token, then calls a real protected+flagged
+  // endpoint (Get Profile) to trigger a genuine 401 from the backend.
+  // LoginPromptModal should appear immediately as a side effect.
+  const handleDebugForceLiveAuthFailure = () => {
+    Alert.alert(
+      'Simulate live 401',
+      "This logs you in with a bad-signature token, then immediately calls Get Profile, which the backend will reject with a real 401. The login prompt should appear right away - no restart needed.",
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Simulate', onPress: debugForceLiveAuthFailure },
       ]
     );
   };
@@ -378,7 +393,7 @@ export default function ProfileScreen() {
             </Text>
             <View style={styles.optionsList}>
               <TouchableOpacity
-                style={[styles.optionItem, styles.optionItemStatic]}
+                style={styles.optionItem}
                 onPress={handleDebugShortSession}
                 activeOpacity={0.7}
               >
@@ -391,6 +406,24 @@ export default function ProfileScreen() {
                   </Text>
                   <Text variant="caption" color="secondary">
                     Logs in with a fabricated token to test session-expiry handling
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.optionItem, styles.optionItemStatic]}
+                onPress={handleDebugForceLiveAuthFailure}
+                activeOpacity={0.7}
+              >
+                <View style={styles.optionIcon}>
+                  <Ionicons name="alert-circle-outline" size={20} color="#3b82f6" />
+                </View>
+                <View style={styles.optionContent}>
+                  <Text variant="body" weight="medium">
+                    Simulate live 401 (login prompt)
+                  </Text>
+                  <Text variant="caption" color="secondary">
+                    Forces a real 401 from a protected endpoint - login prompt should appear immediately
                   </Text>
                 </View>
                 <Ionicons name="chevron-forward" size={20} color="#9ca3af" />

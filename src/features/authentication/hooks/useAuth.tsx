@@ -4,6 +4,7 @@ import Constants from 'expo-constants';
 import { getAuth, signInWithPhoneNumber } from '@react-native-firebase/auth';
 import { useAuthStore } from '@/shared/stores/authStore';
 import { authService } from '../services/authService';
+import { profileService } from '@/features/profile/services/profileService';
 import { SendOTPRequest, VerifyOTPRequest, AuthTokens, User } from '../types';
 import {
   setFirebaseConfirmation,
@@ -55,9 +56,10 @@ interface AuthContextType {
   verifyOTP: (data: VerifyOTPRequest) => Promise<void>;
   logout: () => Promise<void>;
 
-  // .dev-only debug tool (see profile.tsx) - inert (no-op) on a production
+  // .dev-only debug tools (see profile.tsx) - inert (no-op) on a production
   // build, matching IS_TEST_ACCOUNT's own gating.
   debugSimulateShortSession: (expiresInSeconds?: number) => Promise<void>;
+  debugForceLiveAuthFailure: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -286,6 +288,53 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await login(debugUser, tokens);
   };
 
+  // .dev-only debug tool: logs in with a fabricated token (exp set an hour
+  // out, deliberately long, so the CLIENT-side exp check above is never what
+  // fails here), then immediately calls a real, protected+flagged endpoint -
+  // triggering a genuine LIVE 401 from the backend (the token's signature is
+  // never real, so jwt.util.js/auth.middleware.js reject it as a
+  // JsonWebTokenError -> 401) surfaced through apiClient.ts's
+  // promptOnAuthFailure handling. Unlike debugSimulateShortSession above
+  // (which only proves the separate cold-start expiry check), this proves
+  // LoginPromptModal appears immediately, live, with no restart needed.
+  const debugForceLiveAuthFailure = async () => {
+    if (!IS_TEST_ACCOUNT) {
+      return;
+    }
+
+    const fabricatedToken = buildFabricatedTokenForTesting(
+      { userId: user?.id ?? 'debug-user', sessionId: 'debug-session' },
+      60 * 60
+    );
+
+    const tokens: AuthTokens = {
+      accessToken: fabricatedToken,
+      refreshToken: '',
+      expiresAt: getJwtExpiryMs(fabricatedToken) ?? 0,
+    };
+
+    const debugUser: User = user ?? {
+      id: 'debug-user',
+      phoneNumber: '0000000000',
+      countryCode: '+91',
+      isVerified: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    await login(debugUser, tokens);
+
+    // getProfile() is one of the 6 real promptOnAuthFailure-flagged calls
+    // (profileService.ts) - any of the six would do. The 401 is expected;
+    // the interceptor triggers the modal as a side effect of this rejection,
+    // which is the entire point of this tool.
+    try {
+      await profileService.getProfile();
+    } catch (error) {
+      console.log('✅ Expected live 401 from fabricated token:', error);
+    }
+  };
+
   const value: AuthContextType = {
     user,
     isAuthenticated,
@@ -294,6 +343,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     verifyOTP,
     logout,
     debugSimulateShortSession,
+    debugForceLiveAuthFailure,
   };
 
   return (
