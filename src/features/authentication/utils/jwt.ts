@@ -89,3 +89,70 @@ export function getJwtExpiryMs(token: string): number | null {
     return null;
   }
 }
+
+// --- Test-only below: builds a JWT-SHAPED string, not a real signed token ---
+// Used exclusively by the .dev-only debug tool (profile.tsx) that fabricates a
+// near-future exp claim to verify the session-expiry check end-to-end without
+// waiting for a real backend-issued token to actually expire. Never used on any
+// real login path - production login always uses the real token the backend
+// returns. The signature segment is a fixed placeholder: nothing that reads this
+// token client-side verifies it, and it's never sent anywhere signature
+// verification would matter for this debug flow to work.
+
+function utf8StringToBytes(input: string): number[] {
+  const bytes: number[] = [];
+  for (let i = 0; i < input.length; i++) {
+    const code = input.charCodeAt(i);
+    if (code < 0x80) {
+      bytes.push(code);
+    } else if (code < 0x800) {
+      bytes.push(0xc0 | (code >> 6), 0x80 | (code & 0x3f));
+    } else {
+      bytes.push(0xe0 | (code >> 12), 0x80 | ((code >> 6) & 0x3f), 0x80 | (code & 0x3f));
+    }
+  }
+  return bytes;
+}
+
+function bytesToBase64Url(bytes: number[]): string {
+  let output = '';
+
+  for (let i = 0; i < bytes.length; i += 3) {
+    const b1 = bytes[i];
+    const b2 = bytes[i + 1];
+    const b3 = bytes[i + 2];
+    const hasB2 = b2 !== undefined;
+    const hasB3 = b3 !== undefined;
+
+    output += BASE64_CHARS[b1 >> 2];
+    output += BASE64_CHARS[((b1 & 0x03) << 4) | (hasB2 ? b2 >> 4 : 0)];
+    if (hasB2) {
+      output += BASE64_CHARS[((b2 & 0x0f) << 2) | (hasB3 ? b3 >> 6 : 0)];
+    }
+    if (hasB3) {
+      output += BASE64_CHARS[b3 & 0x3f];
+    }
+  }
+
+  // base64url per the JWT spec: no '=' padding.
+  return output;
+}
+
+/**
+ * TEST-ONLY. Builds a `header.payload.signature`-shaped string whose payload's
+ * `exp` claim is `expiresInSeconds` from now, for exercising getJwtExpiryMs() and
+ * the app's real session-expiry path without waiting for a real token to expire.
+ */
+export function buildFabricatedTokenForTesting(
+  claims: Record<string, unknown>,
+  expiresInSeconds: number
+): string {
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  const header = { alg: 'none', typ: 'JWT' };
+  const payload = { ...claims, iat: nowSeconds, exp: nowSeconds + expiresInSeconds };
+
+  const headerSegment = bytesToBase64Url(utf8StringToBytes(JSON.stringify(header)));
+  const payloadSegment = bytesToBase64Url(utf8StringToBytes(JSON.stringify(payload)));
+
+  return `${headerSegment}.${payloadSegment}.debug-signature`;
+}

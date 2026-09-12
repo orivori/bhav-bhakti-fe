@@ -4,22 +4,24 @@ import Constants from 'expo-constants';
 import { getAuth, signInWithPhoneNumber } from '@react-native-firebase/auth';
 import { useAuthStore } from '@/shared/stores/authStore';
 import { authService } from '../services/authService';
-import { SendOTPRequest, VerifyOTPRequest, AuthTokens } from '../types';
+import { SendOTPRequest, VerifyOTPRequest, AuthTokens, User } from '../types';
 import {
   setFirebaseConfirmation,
   getFirebaseConfirmation,
   getAutoVerifiedUser,
   clearFirebaseConfirmation,
 } from '../utils/firebaseConfirmation';
-import { getJwtExpiryMs } from '../utils/jwt';
+import { getJwtExpiryMs, buildFabricatedTokenForTesting } from '../utils/jwt';
 
 // True only for the .dev app variant (development/preview builds) - never
 // true in production, since app.config.js's APP_VARIANT defaults to
 // "production" and only the .dev variant sets it otherwise. Read from
 // Constants.expoConfig.extra rather than an EXPO_PUBLIC_ env var, since it's
 // tied directly to the same APP_VARIANT that already decides the app's
-// package name/identity, not a separately-maintained duplicate.
-const IS_TEST_ACCOUNT = Constants.expoConfig?.extra?.appVariant !== 'production';
+// package name/identity, not a separately-maintained duplicate. Exported so
+// the same check gates the .dev-only debug UI in profile.tsx, rather than
+// that screen re-deriving its own copy of the same condition.
+export const IS_TEST_ACCOUNT = Constants.expoConfig?.extra?.appVariant !== 'production';
 
 // A handful of the Firebase phone-auth error codes actually likely to be hit
 // in practice (invalid number, wrong/expired code, rate limiting) mapped to
@@ -52,6 +54,10 @@ interface AuthContextType {
   sendOTP: (data: SendOTPRequest) => Promise<{ success: boolean; sessionId: string; orderId: string }>;
   verifyOTP: (data: VerifyOTPRequest) => Promise<void>;
   logout: () => Promise<void>;
+
+  // .dev-only debug tool (see profile.tsx) - inert (no-op) on a production
+  // build, matching IS_TEST_ACCOUNT's own gating.
+  debugSimulateShortSession: (expiresInSeconds?: number) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -239,6 +245,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // .dev-only debug tool: logs in with a fabricated token whose exp claim is
+  // expiresInSeconds from now, so the app's real cold-start session-expiry
+  // check (authStore.ts's initializeAuth -> expiresAt > Date.now()) can be
+  // observed directly - force-quit and reopen the app after the window
+  // passes and confirm it's correctly logged out - instead of waiting for a
+  // real 10-day JWT to actually expire. See CLAUDE.md §87/91.
+  //
+  // Gated the same way IS_TEST_ACCOUNT is: inert on a production build even
+  // if somehow invoked, on top of profile.tsx never rendering the button
+  // that calls it there in the first place.
+  const debugSimulateShortSession = async (expiresInSeconds: number = 10) => {
+    if (!IS_TEST_ACCOUNT) {
+      return;
+    }
+
+    const fabricatedToken = buildFabricatedTokenForTesting(
+      { userId: user?.id ?? 'debug-user', sessionId: 'debug-session' },
+      expiresInSeconds
+    );
+
+    const tokens: AuthTokens = {
+      accessToken: fabricatedToken,
+      refreshToken: '',
+      expiresAt: getJwtExpiryMs(fabricatedToken) ?? 0,
+    };
+
+    // Reuses the real, already-logged-in user when there is one (so profile
+    // info stays sane on-screen); falls back to a minimal stub otherwise, so
+    // this also works from a signed-out state with nothing to reuse.
+    const debugUser: User = user ?? {
+      id: 'debug-user',
+      phoneNumber: '0000000000',
+      countryCode: '+91',
+      isVerified: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    await login(debugUser, tokens);
+  };
+
   const value: AuthContextType = {
     user,
     isAuthenticated,
@@ -246,6 +293,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     sendOTP,
     verifyOTP,
     logout,
+    debugSimulateShortSession,
   };
 
   return (

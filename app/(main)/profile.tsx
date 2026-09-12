@@ -9,7 +9,7 @@ import Constants from 'expo-constants';
 import * as Updates from 'expo-updates';
 
 import { Button, Text } from '@/components/atoms';
-import { useAuth } from '@/features/authentication/hooks/useAuth';
+import { useAuth, IS_TEST_ACCOUNT } from '@/features/authentication/hooks/useAuth';
 import { usePremiumStore } from '@/store/premiumStore';
 import { useTranslation } from 'react-i18next';
 import { useI18nStore, SELECTABLE_LANGUAGES } from '@/shared/stores/i18nStore';
@@ -18,7 +18,7 @@ import { profileService } from '@/features/profile/services/profileService';
 import { deriveSupportId } from '@/shared/utils/supportId';
 
 export default function ProfileScreen() {
-  const { user, logout } = useAuth();
+  const { user, logout, debugSimulateShortSession } = useAuth();
   const { isPremium, setShowPaywall } = usePremiumStore();
   const { t } = useTranslation();
   const { language, setLanguage, getLanguageLabel } = useI18nStore();
@@ -60,6 +60,28 @@ export default function ProfileScreen() {
       { text: t('profile.no'), style: 'cancel' },
       { text: t('profile.yes'), style: 'destructive', onPress: logout },
     ]);
+  };
+
+  // .dev-only: verifies the frontend's session-expiry fix (CLAUDE.md §87/91)
+  // without waiting for a real 10-day JWT to expire. Logs in with a
+  // fabricated token expiring in ~10s; the actual check only runs on a cold
+  // start (authStore.ts's initializeAuth), so a force-quit+reopen after the
+  // window passes is what actually proves it - this button alone doesn't.
+  const handleDebugShortSession = () => {
+    Alert.alert(
+      'Simulate short session',
+      "This logs you in with a token expiring in ~10 seconds - real API calls will start failing right after, that's expected. Wait 10+ seconds, then force-quit and reopen the app to confirm it correctly signs you out.",
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Simulate',
+          onPress: async () => {
+            await debugSimulateShortSession(10);
+            Alert.alert('Done', 'Logged in with a ~10s token. Wait 10+ seconds, then force-quit and reopen the app.');
+          },
+        },
+      ]
+    );
   };
 
   const handleEditProfile = () => {
@@ -347,6 +369,35 @@ export default function ProfileScreen() {
             ))}
           </View>
         </View>
+
+        {/* Debug Section - .dev app variant only, structurally inert on production (see IS_TEST_ACCOUNT) */}
+        {IS_TEST_ACCOUNT && (
+          <View style={styles.section}>
+            <Text variant="h4" weight="semibold" style={styles.sectionTitle}>
+              Debug (.dev only)
+            </Text>
+            <View style={styles.optionsList}>
+              <TouchableOpacity
+                style={[styles.optionItem, styles.optionItemStatic]}
+                onPress={handleDebugShortSession}
+                activeOpacity={0.7}
+              >
+                <View style={styles.optionIcon}>
+                  <Ionicons name="timer-outline" size={20} color="#3b82f6" />
+                </View>
+                <View style={styles.optionContent}>
+                  <Text variant="body" weight="medium">
+                    Simulate ~10s session expiry
+                  </Text>
+                  <Text variant="caption" color="secondary">
+                    Logs in with a fabricated token to test session-expiry handling
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
 
         {/* Logout Button */}
         {/* CLAUDE.md confirmed recurring bug: "लॉग आउट" (two words) was
