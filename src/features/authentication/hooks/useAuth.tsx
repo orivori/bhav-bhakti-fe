@@ -11,6 +11,7 @@ import {
   getAutoVerifiedUser,
   clearFirebaseConfirmation,
 } from '../utils/firebaseConfirmation';
+import { getJwtExpiryMs } from '../utils/jwt';
 
 // True only for the .dev app variant (development/preview builds) - never
 // true in production, since app.config.js's APP_VARIANT defaults to
@@ -179,11 +180,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (response.success) {
         console.log('✅ OTP verification successful, processing login...');
 
-        // Convert token to tokens format expected by the store
+        // Convert token to tokens format expected by the store. expiresAt is read
+        // straight from the JWT's own exp claim so the local session check matches
+        // the backend's real, server-enforced expiry (JWT_EXPIRES_IN, currently 10d)
+        // instead of a separately-maintained guess going stale (see CLAUDE.md §83/87).
+        // A malformed token or a missing exp claim is treated as already-expired
+        // (0), never as long-lived.
+        const expiresAt = getJwtExpiryMs(response.data.token) ?? 0;
         const tokens: AuthTokens = {
           accessToken: response.data.token,
           refreshToken: '', // API doesn't provide refresh token
-          expiresAt: Date.now() + (24 * 60 * 60 * 1000), // 24 hours from now
+          expiresAt,
         };
 
         console.log('👤 User to login:', response.data.user);
