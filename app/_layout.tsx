@@ -8,6 +8,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '@/features/authentication/hooks/useAuth';
 import { PremiumPaywall } from '@/components/molecules/PremiumPaywall';
 import { LoginPromptModal } from '@/components/molecules/LoginPromptModal';
+import { ErrorBoundary } from '@/components/molecules/ErrorBoundary';
 import { useScreenshotProtection } from '@/hooks/useScreenshotProtection';
 import { ToastProvider } from '@/components/atoms/Toast';
 import { Audio } from 'expo-av';
@@ -139,10 +140,12 @@ export default function RootLayout() {
             <AuthProvider>
               <View style={styles.container}>
                 <NavigationThemeProvider value={MyTheme}>
-                  <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: goldenTempleTheme.colors.background } }}>
-                    <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-                    <Stack.Screen name="(main)" options={{ headerShown: false }} />
-                  </Stack>
+                  <ErrorBoundary>
+                    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: goldenTempleTheme.colors.background } }}>
+                      <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+                      <Stack.Screen name="(main)" options={{ headerShown: false }} />
+                    </Stack>
+                  </ErrorBoundary>
                 </NavigationThemeProvider>
               </View>
               <StatusBar style="dark" translucent backgroundColor="transparent" />
