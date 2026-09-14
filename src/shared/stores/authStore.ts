@@ -1,6 +1,8 @@
 import { create } from 'zustand';
+import { getCrashlytics, setUserId } from '@react-native-firebase/crashlytics';
 import { AuthState, User, AuthTokens } from '@/features/authentication/types';
 import { secureStorage } from '@/shared/utils/secureStorage';
+import { deriveSupportId } from '@/shared/utils/supportId';
 
 interface AuthActions {
   login: (user: User, tokens: AuthTokens) => Promise<void>;
@@ -38,6 +40,8 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         isLoading: false,
       });
 
+      setUserId(getCrashlytics(), deriveSupportId(user.firebaseUid) ?? '').catch(console.error);
+
       console.log('✅ Auth state updated - user is now authenticated!');
       console.log('🎯 isAuthenticated:', true);
     } catch (error) {
@@ -47,6 +51,8 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   },
 
   logout: async () => {
+    setUserId(getCrashlytics(), '').catch(console.error);
+
     try {
       await secureStorage.clearAll();
 
@@ -113,6 +119,8 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
             isAuthenticated: true,
             isLoading: false,
           });
+
+          setUserId(getCrashlytics(), deriveSupportId(savedUser.firebaseUid) ?? '').catch(console.error);
         } else {
           // Tokens expired, clear storage (non-blocking)
           secureStorage.clearAll().catch(console.error);
