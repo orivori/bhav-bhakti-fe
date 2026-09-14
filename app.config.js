@@ -120,6 +120,7 @@ module.exports = {
       "@react-native-community/datetimepicker",
       "@react-native-firebase/app",
       "@react-native-firebase/auth",
+      "@react-native-firebase/crashlytics",
     ],
     extra: {
       router: {},

@@ -11,6 +11,7 @@ import { LoginPromptModal } from '@/components/molecules/LoginPromptModal';
 import { useScreenshotProtection } from '@/hooks/useScreenshotProtection';
 import { ToastProvider } from '@/components/atoms/Toast';
 import { Audio } from 'expo-av';
+import { getCrashlytics, setCrashlyticsCollectionEnabled } from '@react-native-firebase/crashlytics';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
@@ -99,6 +100,13 @@ export default function RootLayout() {
     // the splash screen or anything else below, since disk cleanup has no
     // reason to delay the app becoming usable.
     runCacheEviction();
+  }, []);
+
+  React.useEffect(() => {
+    // Release builds collect by default, but debug builds (the `development`
+    // EAS profile) don't - force it on regardless of build type so the
+    // `.dev`/debug-client testing path also reports crashes.
+    setCrashlyticsCollectionEnabled(getCrashlytics(), true).catch(console.error);
   }, []);
 
   React.useEffect(() => {
