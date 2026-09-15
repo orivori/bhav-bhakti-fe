@@ -7,6 +7,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import * as IntentLauncher from 'expo-intent-launcher';
 import Constants from 'expo-constants';
 import * as Updates from 'expo-updates';
+import { getCrashlytics, crash as triggerCrash } from '@react-native-firebase/crashlytics';
 
 import { Button, Text } from '@/components/atoms';
 import { useAuth, IS_TEST_ACCOUNT } from '@/features/authentication/hooks/useAuth';
@@ -95,6 +96,22 @@ export default function ProfileScreen() {
       [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Simulate', onPress: debugForceLiveAuthFailure },
+      ]
+    );
+  };
+
+  // .dev-only: forces a real, native JS-thread crash via
+  // crashlytics().crash() to confirm Crashlytics is actually reporting -
+  // this immediately kills the app, so it's a real crash, not a simulation.
+  // Reopen the app afterward; the report reaches the Firebase Console within
+  // a few minutes (sometimes needs a second cold start to flush).
+  const handleDebugTestCrash = () => {
+    Alert.alert(
+      'Test crash',
+      'This will force-close the app immediately to send a real test crash to Crashlytics. Reopen the app after, and check the Firebase Console in a few minutes.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Crash now', style: 'destructive', onPress: () => triggerCrash(getCrashlytics()) },
       ]
     );
   };
@@ -411,7 +428,7 @@ export default function ProfileScreen() {
                 <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.optionItem, styles.optionItemStatic]}
+                style={styles.optionItem}
                 onPress={handleDebugForceLiveAuthFailure}
                 activeOpacity={0.7}
               >
@@ -424,6 +441,24 @@ export default function ProfileScreen() {
                   </Text>
                   <Text variant="caption" color="secondary">
                     Forces a real 401 from a protected endpoint - login prompt should appear immediately
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.optionItem, styles.optionItemStatic]}
+                onPress={handleDebugTestCrash}
+                activeOpacity={0.7}
+              >
+                <View style={styles.optionIcon}>
+                  <Ionicons name="skull-outline" size={20} color="#ef4444" />
+                </View>
+                <View style={styles.optionContent}>
+                  <Text variant="body" weight="medium">
+                    Test crash (Crashlytics)
+                  </Text>
+                  <Text variant="caption" color="secondary">
+                    Force-closes the app immediately to send a real test crash report
                   </Text>
                 </View>
                 <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
