@@ -11,6 +11,7 @@ import WallpapersIcon from '../../assets/icons/sun_solid.svg';
 import RashifalIcon from '../../assets/icons/sun.svg';
 import { logFirstNavigationChoiceIfNewUser } from '@/utils/analytics/activationEvents';
 import { logHeroMenuClicked } from '@/utils/analytics/engagementEvents';
+import { resolvePendingAppReopened } from '@/utils/analytics/retentionEvents';
 
 export default function MainLayout() {
   const insets = useSafeAreaInsets();
@@ -79,6 +80,7 @@ export default function MainLayout() {
           tabPress: () => {
             logHeroMenuClicked({ tab_name: 'mantra' });
             logFirstNavigationChoiceIfNewUser('mantra');
+            resolvePendingAppReopened('mantra');
           },
         }}
       />
@@ -99,6 +101,7 @@ export default function MainLayout() {
           tabPress: () => {
             logHeroMenuClicked({ tab_name: 'audio' });
             logFirstNavigationChoiceIfNewUser('audio');
+            resolvePendingAppReopened('audio');
           },
         }}
       />
@@ -119,6 +122,7 @@ export default function MainLayout() {
           tabPress: () => {
             logHeroMenuClicked({ tab_name: 'wallpapers' });
             logFirstNavigationChoiceIfNewUser('wallpapers');
+            resolvePendingAppReopened('wallpapers');
           },
         }}
       />
@@ -139,6 +143,7 @@ export default function MainLayout() {
           tabPress: () => {
             logHeroMenuClicked({ tab_name: 'rashifal' });
             logFirstNavigationChoiceIfNewUser('rashifal');
+            resolvePendingAppReopened('rashifal');
           },
         }}
       />

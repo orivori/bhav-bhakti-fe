@@ -33,6 +33,7 @@ import { useNotificationPermissionStore } from '@/store/notificationPermissionSt
 import { requestNotificationPermissionAndSubscribe } from '@/utils/notifications/permission';
 import { navigateFromNotificationData } from '@/utils/notifications/deepLink';
 import { logAnalyticsScreenView } from '@/utils/analytics/logEvent';
+import { recordSessionStartForRetention } from '@/utils/analytics/retentionEvents';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -123,6 +124,16 @@ export default function RootLayout() {
     // gates the splash screen, and a failed/offline fetch silently keeps
     // the defaults already in effect.
     useFeatureFlagStore.getState().fetchRemoteFlags();
+  }, []);
+
+  React.useEffect(() => {
+    // Retention bucket: arms a pending app_reopened check if this cold start
+    // follows a real day-boundary gap since the last one - see
+    // retentionEvents.ts for the full mechanism. Runs once per cold start,
+    // same as every other effect in this cluster (this app's screens/
+    // providers don't unmount on simple backgrounding - see CLAUDE.md §17/§83
+    // - so this never re-fires on a background/foreground toggle).
+    recordSessionStartForRetention();
   }, []);
 
   // Requests push-notification permission + subscribes to the broadcast
