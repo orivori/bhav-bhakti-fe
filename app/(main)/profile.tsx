@@ -17,6 +17,7 @@ import { useI18nStore, SELECTABLE_LANGUAGES } from '@/shared/stores/i18nStore';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
 import { profileService } from '@/features/profile/services/profileService';
 import { deriveSupportId } from '@/shared/utils/supportId';
+import { logPaywallHit, logUpgradeCtaClicked } from '@/utils/analytics/conversionEvents';
 
 export default function ProfileScreen() {
   const { user, logout, debugSimulateShortSession, debugForceLiveAuthFailure } = useAuth();
@@ -122,6 +123,7 @@ export default function ProfileScreen() {
 
   const handleManageSubscription = () => {
     if (!isPremium) {
+      logPaywallHit({ trigger_feature: 'manage_subscription' });
       setShowPaywall(true);
       return;
     }
@@ -267,7 +269,10 @@ export default function ProfileScreen() {
           {!isPremium && (
             <TouchableOpacity
               style={styles.premiumButton}
-              onPress={() => setShowPaywall(true)}
+              onPress={() => {
+                logUpgradeCtaClicked({ source: 'header' });
+                setShowPaywall(true);
+              }}
             >
               <Ionicons name="star" size={16} color="#fff" />
               <Text variant="caption" style={styles.premiumText}>
@@ -304,7 +309,10 @@ export default function ProfileScreen() {
           ) : (
             <TouchableOpacity
               style={styles.upgradeCard}
-              onPress={() => setShowPaywall(true)}
+              onPress={() => {
+                logUpgradeCtaClicked({ source: 'profile_card' });
+                setShowPaywall(true);
+              }}
             >
               <View style={styles.upgradeIcon}>
                 <Ionicons name="star" size={24} color="#fbbf24" />

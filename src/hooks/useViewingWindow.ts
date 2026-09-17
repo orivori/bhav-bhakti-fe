@@ -3,6 +3,7 @@ import { Alert } from 'react-native';
 import ViewingWindowSheet from '@/components/molecules/ViewingWindowSheet/ViewingWindowSheet';
 import { Feed } from '@/types/feed';
 import { usePremiumStore } from '@/store/premiumStore';
+import { logPaywallHit } from '@/utils/analytics/conversionEvents';
 
 interface UseViewingWindowArgs {
   // The SAME live array each hub tab already renders its grid from
@@ -59,6 +60,7 @@ export function useViewingWindow({ feeds, onLike, onShare, onDownload }: UseView
   // Home's existing AutoplayFeedCard CTA gate behaves today.
   const open = useCallback((targetFeed: Feed) => {
     if (!isPremiumUser) {
+      logPaywallHit({ trigger_feature: 'wallpaper_viewing_window' });
       Alert.alert('Premium Feature', 'This will be available with Bhav Bhakti Premium. Stay tuned!');
       return;
     }

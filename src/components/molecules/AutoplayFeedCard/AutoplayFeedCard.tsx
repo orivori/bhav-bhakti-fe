@@ -22,6 +22,7 @@ import { formatCount } from '@/utils/formatCount';
 import { getMediaFileExtension } from '@/utils/getMediaFileExtension';
 import { shareContent } from '@/utils/shareContent';
 import { ensureMediaLibraryPermission } from '@/utils/mediaLibraryPermission';
+import { logPaywallHit } from '@/utils/analytics/conversionEvents';
 import WhatsAppIcon from '../../../../assets/icons/whatsapp.svg';
 
 interface AutoplayFeedCardProps {
@@ -644,6 +645,14 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
   // the three real handlers applies to this feed.
   const handleCtaPress = () => {
     if (!isPremiumUser) {
+      // Same branch logic as the real dispatch below, just used to name
+      // which action was actually blocked - hasAudioMedia/isRingtoneType are
+      // unrelated to the premium check itself, so this is available even on
+      // the early-return path.
+      const triggerFeature = hasAudioMedia
+        ? (isRingtoneType ? 'set_as_ringtone' : 'listen')
+        : 'set_as_wallpaper';
+      logPaywallHit({ trigger_feature: triggerFeature });
       showPaywallPlaceholder();
       return;
     }
