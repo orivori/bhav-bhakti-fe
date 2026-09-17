@@ -270,6 +270,7 @@ export default function MantrasScreen() {
       <SearchBar
         placeholder={t('mantras.searchPlaceholder')}
         onSearchSubmit={handleSearchSubmit}
+        analyticsSourceScreen="mantra_explorer"
         containerStyle={styles.headerSearchBar}
       />
     </View>

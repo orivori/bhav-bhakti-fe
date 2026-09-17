@@ -268,6 +268,7 @@ export default function HomeScreen() {
         <SearchBar
           placeholder={t('home.searchPlaceholder')}
           onSearchSubmit={handleSearchSubmit}
+          analyticsSourceScreen="home"
         />
       </View>
 
@@ -412,6 +413,7 @@ export default function HomeScreen() {
         onRetry={retry}
         autoPlayVideo={true}
         enableViewportAutoplay={true}
+        enableScrollDepthTracking={true}
         ListHeaderComponent={renderHeader}
         contentContainerStyle={{
           paddingBottom: contentPadding

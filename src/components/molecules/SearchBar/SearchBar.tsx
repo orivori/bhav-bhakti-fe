@@ -2,6 +2,7 @@ import React from 'react';
 import { View, TextInput, TouchableOpacity, StyleSheet, ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
+import { logSearchBarTapped } from '@/utils/analytics/engagementEvents';
 
 interface SearchBarProps {
   placeholder: string;
@@ -10,6 +11,12 @@ interface SearchBarProps {
   // Home's own page edges) - callers embedding this inline next to other
   // header content (e.g. a back button) need that margin removed/replaced.
   containerStyle?: ViewStyle;
+  // Identifies which of this shared component's 4 real call sites (Home,
+  // Mantra Explorer, Audio hub, Wallpaper hub) a search_bar_tapped event came
+  // from - defaults to 'unknown' rather than being required, so a future
+  // caller that forgets this prop still compiles and logs something
+  // meaningful instead of failing silently.
+  analyticsSourceScreen?: string;
 }
 
 // Local state deliberately kept INSIDE this component (not lifted to the
@@ -17,11 +24,20 @@ interface SearchBarProps {
 // (CLAUDE.md, index.tsx's former IsolatedSearchBar) specifically to avoid a
 // real keyboard-dismiss bug that a lifted/controlled input reintroduces.
 // Preserve this shape in every future caller.
-const SearchBar: React.FC<SearchBarProps> = ({ placeholder, onSearchSubmit, containerStyle }) => {
+const SearchBar: React.FC<SearchBarProps> = ({
+  placeholder,
+  onSearchSubmit,
+  containerStyle,
+  analyticsSourceScreen = 'unknown',
+}) => {
   const [localSearchText, setLocalSearchText] = React.useState('');
 
   const handleSubmit = () => {
     onSearchSubmit(localSearchText.trim());
+  };
+
+  const handleFocus = () => {
+    logSearchBarTapped({ source_screen: analyticsSourceScreen });
   };
 
   return (
@@ -38,6 +54,7 @@ const SearchBar: React.FC<SearchBarProps> = ({ placeholder, onSearchSubmit, cont
         placeholderTextColor="#8B7355"
         value={localSearchText}
         onChangeText={setLocalSearchText}
+        onFocus={handleFocus}
         returnKeyType="search"
         onSubmitEditing={handleSubmit}
         autoCapitalize="none"

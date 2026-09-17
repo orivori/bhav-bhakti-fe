@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useId, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useId, useMemo, useRef } from 'react';
 import {
   View,
   TouchableOpacity,
@@ -35,6 +35,7 @@ import { usePlaybackStore, QueueItem } from '@/store/playbackStore';
 import { useChantHintStore } from '@/store/chantHintStore';
 import ChantHintBubble from '@/components/molecules/ChantHintBubble/ChantHintBubble';
 import { logFirstContentCompletedIfNewUser } from '@/utils/analytics/activationEvents';
+import { logContentProgress, logChantCounterUsed } from '@/utils/analytics/engagementEvents';
 
 import { useFeedStore } from '@/store/feedStore';
 import { formatCount } from '@/utils/formatCount';
@@ -1362,6 +1363,33 @@ export default function AudioPlayerScreen() {
     }
   }, [status.didJustFinish, player, showTrackNav, queue, navigateToQueueItem, contentData.type]);
 
+  // Engagement bucket: content_progress checkpoints (25/50/75/100%) - see
+  // Bhav_Bhakti_Analytics_Event_Plan.md §3. Scoped to this screen only,
+  // matching first_content_completed's identical Activation-bucket decision -
+  // ringtones and Home's capped/muted AutoplayFeedCard previews never reach
+  // here, so they're excluded by construction, not a special case below.
+  // loggedProgressCheckpointsRef resets per feedId so re-opening the same
+  // track later logs fresh checkpoints again, rather than being silently
+  // suppressed forever by a stale Set from a previous visit.
+  const loggedProgressCheckpointsRef = useRef<Set<number>>(new Set());
+  useEffect(() => {
+    loggedProgressCheckpointsRef.current = new Set();
+  }, [feedId]);
+
+  useEffect(() => {
+    if (!feedId || !status.isLoaded || status.duration <= 0) return;
+
+    const percent = (status.currentTime / status.duration) * 100;
+    const checkpoints: Array<25 | 50 | 75 | 100> = [25, 50, 75, 100];
+
+    for (const checkpoint of checkpoints) {
+      if (percent >= checkpoint && !loggedProgressCheckpointsRef.current.has(checkpoint)) {
+        loggedProgressCheckpointsRef.current.add(checkpoint);
+        logContentProgress({ feed_id: feedId, content_type: contentData.type, progress_percent: checkpoint });
+      }
+    }
+  }, [status.currentTime, status.duration, status.isLoaded, feedId, contentData.type]);
+
   // Tracks whether THIS player instance already has an active native
   // lock-screen/notification session, so activateLockScreenControls (below)
   // can update it in place on subsequent skips instead of unconditionally
@@ -1744,6 +1772,10 @@ export default function AudioPlayerScreen() {
     if (chantCount < targetCount) {
       const newCount = chantCount + 1;
       setChantCount(newCount);
+
+      if (feedId) {
+        logChantCounterUsed({ feed_id: feedId });
+      }
 
       // Celebrate completion
       if (newCount === targetCount) {

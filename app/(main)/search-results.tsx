@@ -16,6 +16,7 @@ import { Feed, FeedFilters } from '@/types/feed';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { useTranslation } from 'react-i18next';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
+import { logSearchQueryZeroResults } from '@/utils/analytics/engagementEvents';
 
 export default function SearchResultsScreen() {
   const { contentPadding } = useTabBarHeight();
@@ -65,6 +66,21 @@ export default function SearchResultsScreen() {
     },
     limit: 10,
   });
+
+  // Fires once per genuinely completed zero-result search - the ref (keyed
+  // by the query string) guards against re-firing on unrelated re-renders
+  // once isLoading/feeds have already settled for this query (e.g. a
+  // pagination retry), and resets naturally the moment the user searches
+  // again with a different query.
+  const loggedZeroResultsForQueryRef = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    if (isLoading || !query?.trim()) return;
+    if (feeds.length > 0) return;
+    if (loggedZeroResultsForQueryRef.current === query) return;
+
+    loggedZeroResultsForQueryRef.current = query;
+    logSearchQueryZeroResults({ query: query.trim() });
+  }, [isLoading, feeds.length, query]);
 
   const handleBackPress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);

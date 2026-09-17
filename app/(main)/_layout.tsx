@@ -10,6 +10,7 @@ import WallpapersIcon from '../../assets/icons/sun_solid.svg';
 // TEMPORARY: Rashifal is borrowing sun.svg until this tab becomes Stories.
 import RashifalIcon from '../../assets/icons/sun.svg';
 import { logFirstNavigationChoiceIfNewUser } from '@/utils/analytics/activationEvents';
+import { logHeroMenuClicked } from '@/utils/analytics/engagementEvents';
 
 export default function MainLayout() {
   const insets = useSafeAreaInsets();
@@ -59,6 +60,7 @@ export default function MainLayout() {
             />
           ),
         }}
+        listeners={{ tabPress: () => logHeroMenuClicked({ tab_name: 'home' }) }}
       />
       <Tabs.Screen
         name="mantras"
@@ -73,7 +75,12 @@ export default function MainLayout() {
             />
           ),
         }}
-        listeners={{ tabPress: () => logFirstNavigationChoiceIfNewUser('mantra') }}
+        listeners={{
+          tabPress: () => {
+            logHeroMenuClicked({ tab_name: 'mantra' });
+            logFirstNavigationChoiceIfNewUser('mantra');
+          },
+        }}
       />
       <Tabs.Screen
         name="ringtones"
@@ -88,7 +95,12 @@ export default function MainLayout() {
             />
           ),
         }}
-        listeners={{ tabPress: () => logFirstNavigationChoiceIfNewUser('audio') }}
+        listeners={{
+          tabPress: () => {
+            logHeroMenuClicked({ tab_name: 'audio' });
+            logFirstNavigationChoiceIfNewUser('audio');
+          },
+        }}
       />
       <Tabs.Screen
         name="daily-status"
@@ -103,7 +115,12 @@ export default function MainLayout() {
             />
           ),
         }}
-        listeners={{ tabPress: () => logFirstNavigationChoiceIfNewUser('wallpapers') }}
+        listeners={{
+          tabPress: () => {
+            logHeroMenuClicked({ tab_name: 'wallpapers' });
+            logFirstNavigationChoiceIfNewUser('wallpapers');
+          },
+        }}
       />
       <Tabs.Screen
         name="horoscope"
@@ -118,7 +135,12 @@ export default function MainLayout() {
             />
           ),
         }}
-        listeners={{ tabPress: () => logFirstNavigationChoiceIfNewUser('rashifal') }}
+        listeners={{
+          tabPress: () => {
+            logHeroMenuClicked({ tab_name: 'rashifal' });
+            logFirstNavigationChoiceIfNewUser('rashifal');
+          },
+        }}
       />
       <Tabs.Screen
         name="profile"

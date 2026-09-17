@@ -13,6 +13,7 @@ import { Text } from '@/components/atoms';
 import { Deity } from '@/types/feed';
 import { useI18nStore } from '@/shared/stores/i18nStore';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
+import { logDeityFilterUsed } from '@/utils/analytics/engagementEvents';
 
 // Sub-tab-agnostic selection value - the hub owns the actual state (see
 // CLAUDE.md's deity-filter redesign notes), this component only reflects and
@@ -109,8 +110,22 @@ export default function DeityFilterRow({ deities, selected, onSelect }: DeityFil
   const isOverflowSelected = selected.kind === 'deity' &&
     overflowDeities.some((d) => d.id === selected.deityId);
 
+  // Single wrapper around every real onSelect call site below (trending/
+  // liked/primary deity/overflow deity) - the one shared hook point for
+  // deity_filter_used, reused unchanged across all 3 hub screens that render
+  // this component (Mantra Explorer/Audio hub/Wallpaper hub).
+  const emitSelect = (selection: DeityFilterSelection) => {
+    logDeityFilterUsed({
+      filter_type: selection.kind,
+      ...(selection.kind === 'deity'
+        ? { deity_name: deities.find((d) => d.id === selection.deityId)?.name ?? 'unknown' }
+        : {}),
+    });
+    onSelect(selection);
+  };
+
   const handleSelectDeity = (deityId: number) => {
-    onSelect({ kind: 'deity', deityId });
+    emitSelect({ kind: 'deity', deityId });
     setMoreVisible(false);
   };
 
@@ -125,7 +140,7 @@ export default function DeityFilterRow({ deities, selected, onSelect }: DeityFil
             parent initializes `selected` to. */}
         <TouchableOpacity
           style={styles.chipColumn}
-          onPress={() => onSelect({ kind: 'trending' })}
+          onPress={() => emitSelect({ kind: 'trending' })}
           activeOpacity={0.75}
         >
           <View style={[styles.circleWrapper, selected.kind === 'trending' && styles.circleWrapperSelected]}>
@@ -150,7 +165,7 @@ export default function DeityFilterRow({ deities, selected, onSelect }: DeityFil
             CLAUDE.md). Same visual treatment as the "All" chip above. */}
         <TouchableOpacity
           style={styles.chipColumn}
-          onPress={() => onSelect({ kind: 'liked' })}
+          onPress={() => emitSelect({ kind: 'liked' })}
           activeOpacity={0.75}
         >
           <View style={[styles.circleWrapper, selected.kind === 'liked' && styles.circleWrapperSelected]}>
