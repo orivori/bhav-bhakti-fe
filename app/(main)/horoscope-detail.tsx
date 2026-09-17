@@ -25,6 +25,7 @@ import { LanguageToggle } from '@/components/molecules/LanguageToggle';
 import { getLocalDateString } from '@/shared/utils/dateUtil';
 import type { ZodiacSign } from '@/types/horoscope';
 import { logRashifalViewed } from '@/utils/analytics/engagementEvents';
+import { resolvePendingAppReopened } from '@/utils/analytics/retentionEvents';
 
 export default function HoroscopeDetailScreen() {
   // Rashifal is free for everyone, unconditionally - no paywall anywhere on
@@ -43,11 +44,14 @@ export default function HoroscopeDetailScreen() {
   const { contentPadding } = useTabBarHeight();
 
   // Fires once per mount - covers both real entry points (Home's card and
-  // the 12-sign grid), since both navigate to this one shared screen.
+  // the 12-sign grid), since both navigate to this one shared screen. Also
+  // resolves a pending Retention-bucket app_reopened check (see
+  // retentionEvents.ts) - a no-op when nothing is pending.
   useEffect(() => {
     if (zodiacSign) {
       logRashifalViewed({ zodiac_sign: zodiacSign });
     }
+    resolvePendingAppReopened('rashifal');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
