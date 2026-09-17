@@ -25,6 +25,7 @@ import { PhoneStorageService } from '@/utils/phoneStorage';
 import { useLocalSearchParams } from 'expo-router';
 import type { LegalDocType } from '@/shared/config/legalDocuments';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
+import { logLoginStarted } from '@/utils/analytics/activationEvents';
 
 // Form data type
 type PhoneFormData = {
@@ -104,6 +105,7 @@ export default function PhoneLoginScreen() {
 
     try {
       setIsLoading(true);
+      logLoginStarted();
 
       const response = await sendOTP({
         phoneNumber: data.phoneNumber,

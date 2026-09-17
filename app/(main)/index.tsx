@@ -29,6 +29,7 @@ import { useScrollToTopOnTabPress } from '@/hooks/useScrollToTopOnTabPress';
 import * as Haptics from 'expo-haptics';
 import { profileService } from '@/features/profile/services/profileService';
 import type { ZodiacSign } from '@/types/horoscope';
+import { logHomeFirstViewedIfNewUser, logZodiacSignSet } from '@/utils/analytics/activationEvents';
 
 
 export default function HomeScreen() {
@@ -59,10 +60,25 @@ export default function HomeScreen() {
   const [showBirthdateModal, setShowBirthdateModal] = React.useState(false);
   const [isCheckingHoroscopeProfile, setIsCheckingHoroscopeProfile] = React.useState(false);
   const feedListRef = React.useRef<FlatList>(null);
+  // Set true only when a successful profile fetch confirms no zodiac sign
+  // exists yet (the definite case, below) - deliberately NOT set in the
+  // catch's fallback-to-modal branch, since a network/auth failure there
+  // tells us nothing about whether this user already has a zodiac sign.
+  // Consumed once, in handleBirthdateSuccess, so zodiac_sign_set only fires
+  // for a genuine first-time set through this specific entry point.
+  const wasZodiacUnsetRef = React.useRef(false);
 
   useScrollToTopOnTabPress(React.useCallback(() => {
     feedListRef.current?.scrollToOffset({ offset: 0, animated: true });
   }, []));
+
+  // Fires at most once, ever - the store-level gate (see
+  // activationEventsStore.ts) is what actually decides whether this does
+  // anything, so it's safe to call on every Home mount unconditionally,
+  // including every returning user's normal app open.
+  React.useEffect(() => {
+    logHomeFirstViewedIfNewUser();
+  }, []);
 
   const handleSearchSubmit = (query: string) => {
     if (query.trim()) {
@@ -196,13 +212,17 @@ export default function HomeScreen() {
           params: { zodiacSign: profile.profile.zodiacSign, returnTo: '/(main)' },
         });
       } else {
+        wasZodiacUnsetRef.current = true;
         setShowBirthdateModal(true);
       }
     } catch (error) {
       console.error('Failed to check horoscope profile:', error);
       // Network/auth failure on the check - fall back to the modal rather
       // than dead-ending the tap. Worst case for a user who already has a
-      // birthdate saved is re-entering it, which is harmless.
+      // birthdate saved is re-entering it, which is harmless. Deliberately
+      // does NOT set wasZodiacUnsetRef - we genuinely don't know their prior
+      // state here, so zodiac_sign_set stays silent for this path rather
+      // than risk a false positive on an existing user.
       setShowBirthdateModal(true);
     } finally {
       setIsCheckingHoroscopeProfile(false);
@@ -210,6 +230,10 @@ export default function HomeScreen() {
   };
 
   const handleBirthdateSuccess = (zodiacSign: ZodiacSign) => {
+    if (wasZodiacUnsetRef.current) {
+      logZodiacSignSet(zodiacSign);
+      wasZodiacUnsetRef.current = false;
+    }
     setShowBirthdateModal(false);
     router.push({
       pathname: '/(main)/horoscope-detail',

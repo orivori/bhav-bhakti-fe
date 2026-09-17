@@ -13,6 +13,7 @@ import {
   clearFirebaseConfirmation,
 } from '../utils/firebaseConfirmation';
 import { getJwtExpiryMs, buildFabricatedTokenForTesting } from '../utils/jwt';
+import { logOtpSent, logLoginCompleted, logLoginFailed } from '@/utils/analytics/activationEvents';
 
 // True only for the .dev app variant (development/preview builds) - never
 // true in production, since app.config.js's APP_VARIANT defaults to
@@ -52,7 +53,10 @@ interface AuthContextType {
   isLoading: boolean;
 
   // Actions
-  sendOTP: (data: SendOTPRequest) => Promise<{ success: boolean; sessionId: string; orderId: string }>;
+  sendOTP: (
+    data: SendOTPRequest,
+    options?: { isResend?: boolean }
+  ) => Promise<{ success: boolean; sessionId: string; orderId: string }>;
   verifyOTP: (data: VerifyOTPRequest) => Promise<void>;
   logout: () => Promise<void>;
 
@@ -79,7 +83,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     initializeAuth();
   }, [initializeAuth]);
 
-  const sendOTP = async (data: SendOTPRequest) => {
+  const sendOTP = async (data: SendOTPRequest, options?: { isResend?: boolean }) => {
     try {
       setLoading(true);
 
@@ -90,12 +94,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const confirmation = await signInWithPhoneNumber(getAuth(), fullPhoneNumber);
       setFirebaseConfirmation(confirmation);
 
+      // is_resend distinguishes phone-login.tsx's initial send (false) from
+      // verify-otp.tsx's "Resend Code" tap (true) - both funnel through this
+      // same function, but login_started (phone-login.tsx only) doesn't fire
+      // again on a resend, so this parameter is what keeps the two visible
+      // in the data instead of otp_sent silently over-counting resends as if
+      // they were fresh funnel entries.
+      logOtpSent({ is_resend: !!options?.isResend });
+
       return {
         success: true,
         sessionId: '', // vestigial - API never returned this even before Firebase
         orderId: '', // vestigial - OTPless-specific, Firebase has no equivalent; the confirmation object itself is what verifyOTP now needs, held via firebaseConfirmation.ts instead of passed through here
       };
-    } catch (error) {
+    } catch (error: any) {
+      logLoginFailed({ stage: 'otp_request', reason: error?.code || 'unknown_error' });
       throw new Error(getFirebaseAuthErrorMessage(error));
     } finally {
       setLoading(false);
@@ -207,13 +220,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await login(response.data.user, tokens);
         console.log('🎉 Login completed successfully!');
 
+        // is_new_user reused directly from the backend's own real signal
+        // (see CLAUDE.md §83/87 - computed correctly for months, never once
+        // read by the frontend until now). Also arms the three "new user's
+        // first X" Activation milestones (home_first_viewed,
+        // first_navigation_choice, first_content_completed) - see
+        // logLoginCompleted's own comment.
+        logLoginCompleted({ is_new_user: !!response.data.isNewUser });
+
         // Force navigation to main after successful login
         router.replace('/(main)');
       } else {
         console.log('❌ OTP verification failed:', response.message);
+        logLoginFailed({ stage: 'otp_verify', reason: 'verification_unsuccessful' });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('💥 OTP verification error:', error);
+      logLoginFailed({ stage: 'otp_verify', reason: error?.code || 'unknown_error' });
       // Covers all three real error shapes here: a missing-confirmation
       // Error, a Firebase auth/* error from confirm(), or an ApiError from
       // the backend call - the helper's fallback branch (error?.message)

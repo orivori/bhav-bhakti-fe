@@ -9,6 +9,7 @@ import AudioIcon from '../../assets/icons/audio.svg';
 import WallpapersIcon from '../../assets/icons/sun_solid.svg';
 // TEMPORARY: Rashifal is borrowing sun.svg until this tab becomes Stories.
 import RashifalIcon from '../../assets/icons/sun.svg';
+import { logFirstNavigationChoiceIfNewUser } from '@/utils/analytics/activationEvents';
 
 export default function MainLayout() {
   const insets = useSafeAreaInsets();
@@ -72,6 +73,7 @@ export default function MainLayout() {
             />
           ),
         }}
+        listeners={{ tabPress: () => logFirstNavigationChoiceIfNewUser('mantra') }}
       />
       <Tabs.Screen
         name="ringtones"
@@ -86,6 +88,7 @@ export default function MainLayout() {
             />
           ),
         }}
+        listeners={{ tabPress: () => logFirstNavigationChoiceIfNewUser('audio') }}
       />
       <Tabs.Screen
         name="daily-status"
@@ -100,6 +103,7 @@ export default function MainLayout() {
             />
           ),
         }}
+        listeners={{ tabPress: () => logFirstNavigationChoiceIfNewUser('wallpapers') }}
       />
       <Tabs.Screen
         name="horoscope"
@@ -114,6 +118,7 @@ export default function MainLayout() {
             />
           ),
         }}
+        listeners={{ tabPress: () => logFirstNavigationChoiceIfNewUser('rashifal') }}
       />
       <Tabs.Screen
         name="profile"

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { getCrashlytics, setUserId } from '@react-native-firebase/crashlytics';
+import { getAnalytics, setUserId as setAnalyticsUserId } from '@react-native-firebase/analytics';
 import { AuthState, User, AuthTokens } from '@/features/authentication/types';
 import { secureStorage } from '@/shared/utils/secureStorage';
 import { deriveSupportId } from '@/shared/utils/supportId';
@@ -41,6 +42,11 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       });
 
       setUserId(getCrashlytics(), deriveSupportId(user.firebaseUid) ?? '').catch(console.error);
+      // Same Support ID as Crashlytics, so a user's Activation funnel can be
+      // connected to their later Engagement/Conversion behavior in Firebase
+      // Console - null (not '', unlike Crashlytics above) is Analytics' own
+      // documented way to clear a user ID, used symmetrically in logout().
+      setAnalyticsUserId(getAnalytics(), deriveSupportId(user.firebaseUid) ?? null).catch(console.error);
 
       console.log('✅ Auth state updated - user is now authenticated!');
       console.log('🎯 isAuthenticated:', true);
@@ -52,6 +58,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
 
   logout: async () => {
     setUserId(getCrashlytics(), '').catch(console.error);
+    setAnalyticsUserId(getAnalytics(), null).catch(console.error);
 
     try {
       await secureStorage.clearAll();
@@ -121,6 +128,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
           });
 
           setUserId(getCrashlytics(), deriveSupportId(savedUser.firebaseUid) ?? '').catch(console.error);
+          setAnalyticsUserId(getAnalytics(), deriveSupportId(savedUser.firebaseUid) ?? null).catch(console.error);
         } else {
           // Tokens expired, clear storage (non-blocking)
           secureStorage.clearAll().catch(console.error);

@@ -34,6 +34,7 @@ import { CounterSheet, MoreTargetsSheet, QueueSheet } from '@/components/molecul
 import { usePlaybackStore, QueueItem } from '@/store/playbackStore';
 import { useChantHintStore } from '@/store/chantHintStore';
 import ChantHintBubble from '@/components/molecules/ChantHintBubble/ChantHintBubble';
+import { logFirstContentCompletedIfNewUser } from '@/utils/analytics/activationEvents';
 
 import { useFeedStore } from '@/store/feedStore';
 import { formatCount } from '@/utils/formatCount';
@@ -1277,6 +1278,16 @@ export default function AudioPlayerScreen() {
 
     console.log('🎵 Audio Player: Audio playback finished');
 
+    // A genuine natural end of playback (mantra/aarti/bhajan, the app's only
+    // content types with a real "completion" concept) - fires on the FIRST
+    // full listen-through even for content that then auto-loops (mantra chant
+    // counter) or auto-advances (Aarti/Bhajan queue) afterward, since one full
+    // playback is already the "real, meaningful first experience" the plan
+    // describes. Ringtones and Home's capped/muted AutoplayFeedCard previews
+    // deliberately never reach this screen/effect at all, so they're
+    // naturally excluded, not specially filtered out here.
+    logFirstContentCompletedIfNewUser(contentData.type);
+
     // Aarti/Bhajan only, and only early-returns when there's actually
     // somewhere to advance to - showTrackNav is false for mantra (see its
     // own definition below), so this can never fire for mantra content and
@@ -1349,7 +1360,7 @@ export default function AudioPlayerScreen() {
         handleIncrementCount();
       }
     }
-  }, [status.didJustFinish, player, showTrackNav, queue, navigateToQueueItem]);
+  }, [status.didJustFinish, player, showTrackNav, queue, navigateToQueueItem, contentData.type]);
 
   // Tracks whether THIS player instance already has an active native
   // lock-screen/notification session, so activateLockScreenControls (below)
