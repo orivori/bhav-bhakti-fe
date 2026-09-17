@@ -13,6 +13,7 @@ import { useScreenshotProtection } from '@/hooks/useScreenshotProtection';
 import { ToastProvider } from '@/components/atoms/Toast';
 import { Audio } from 'expo-av';
 import { getCrashlytics, setCrashlyticsCollectionEnabled } from '@react-native-firebase/crashlytics';
+import { getMessaging, onNotificationOpenedApp, getInitialNotification } from '@react-native-firebase/messaging';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
@@ -27,6 +28,10 @@ import i18n from '@/shared/i18n';
 import { useI18nStore } from '@/shared/stores/i18nStore';
 import { runCacheEviction } from '@/utils/cacheEviction';
 import { useFeatureFlagStore } from '@/store/featureFlagStore';
+import { useAuthStore } from '@/shared/stores/authStore';
+import { useNotificationPermissionStore } from '@/store/notificationPermissionStore';
+import { requestNotificationPermissionAndSubscribe } from '@/utils/notifications/permission';
+import { navigateFromNotificationData } from '@/utils/notifications/deepLink';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -117,6 +122,49 @@ export default function RootLayout() {
     // gates the splash screen, and a failed/offline fetch silently keeps
     // the defaults already in effect.
     useFeatureFlagStore.getState().fetchRemoteFlags();
+  }, []);
+
+  // Requests push-notification permission + subscribes to the broadcast
+  // topic at most once, ever, per install - fires the moment the user is
+  // authenticated, whether via a fresh login (authStore.login()) or, for an
+  // existing already-logged-in user opening the app for the first time after
+  // this feature ships, authStore.initializeAuth() restoring a still-valid
+  // session on cold start. Both set isAuthenticated the same way, so this one
+  // check covers both cases with no special-casing - see
+  // notificationPermissionStore.ts and CLAUDE.md's push-notification plan.
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  React.useEffect(() => {
+    if (!isAuthenticated) {
+      return;
+    }
+
+    const { hasRequestedPermission, markRequested } = useNotificationPermissionStore.getState();
+    if (hasRequestedPermission) {
+      return;
+    }
+
+    requestNotificationPermissionAndSubscribe().finally(markRequested);
+  }, [isAuthenticated]);
+
+  React.useEffect(() => {
+    // The app's first-ever deep-link handler (see deepLink.ts). Two separate
+    // lifecycle signals are needed since a notification tap can happen from
+    // two different app states.
+    const messagingInstance = getMessaging();
+
+    // App was backgrounded, tap brought it back to the foreground.
+    const unsubscribeOpenedApp = onNotificationOpenedApp(messagingInstance, (remoteMessage) => {
+      navigateFromNotificationData(remoteMessage?.data);
+    });
+
+    // App was fully killed, tap cold-started it - checked once, on mount.
+    getInitialNotification(messagingInstance).then((remoteMessage) => {
+      if (remoteMessage) {
+        navigateFromNotificationData(remoteMessage.data);
+      }
+    });
+
+    return unsubscribeOpenedApp;
   }, []);
 
   React.useEffect(() => {

@@ -1,3 +1,9 @@
+const {
+  ANDROID_NOTIFICATION_CHANNEL_ID,
+  ANDROID_NOTIFICATION_CHANNEL_NAME,
+  NOTIFICATION_ACCENT_COLOR,
+} = require("./src/shared/config/notificationChannel");
+
 const APP_VARIANT = process.env.APP_VARIANT || "production";
 const IS_DEV_VARIANT = APP_VARIANT !== "production";
 
@@ -63,6 +69,7 @@ module.exports = {
         "android.permission.MODIFY_AUDIO_SETTINGS",
         "android.permission.WAKE_LOCK",
         "android.permission.FOREGROUND_SERVICE",
+        "android.permission.POST_NOTIFICATIONS",
       ],
       // Android 11+ (API 30+) package-visibility restrictions can make
       // Linking.canOpenURL('mailto:...')/openURL() silently fail in a real
@@ -122,6 +129,16 @@ module.exports = {
       "@react-native-firebase/auth",
       "@react-native-firebase/crashlytics",
       "@react-native-firebase/analytics",
+      "@react-native-firebase/messaging",
+      [
+        "./plugins/withNotifications",
+        {
+          icon: "./assets/images/notification-icon.png",
+          color: NOTIFICATION_ACCENT_COLOR,
+          channelId: ANDROID_NOTIFICATION_CHANNEL_ID,
+          channelName: ANDROID_NOTIFICATION_CHANNEL_NAME,
+        },
+      ],
     ],
     extra: {
       router: {},
