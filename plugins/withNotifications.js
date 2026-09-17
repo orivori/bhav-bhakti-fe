@@ -71,12 +71,30 @@ function withNotificationColorResource(config, { color }) {
   });
 }
 
-// FCM's Android SDK reads these three meta-data keys straight off
-// <application> to pick the small status-bar icon, its tint, and which
-// Android 8+ channel to post through - this is the actual, documented
-// mechanism (react-native-firebase GitHub issue #1796), just wired up by hand
-// instead of by a plugin belonging to a second notification library.
-function withNotificationManifestMetadata(config, { channelId }) {
+// FCM's Android SDK reads default_notification_icon off <application> to
+// pick the small status-bar icon - this is the actual, documented mechanism
+// (react-native-firebase GitHub issue #1796), just wired up by hand instead
+// of by a plugin belonging to a second notification library.
+//
+// default_notification_channel_id/default_notification_color are
+// DELIBERATELY NOT written here, even though FCM reads them the same way -
+// @react-native-firebase/messaging's own bundled AndroidManifest.xml already
+// declares both (as Gradle manifest placeholders, `${firebaseJsonNotification
+// ChannelId}`/`${firebaseJsonNotificationColor}`), resolved from a
+// `firebase.json` file at the project root (see that file, and RNFB's own
+// android/firebase-json.gradle + messaging/android/build.gradle). Writing
+// them here too would mean two independent sources permanently claiming the
+// same two meta-data keys - AGP's manifest merger only tolerates that when
+// both sides declare the exact same value, so this file's hardcoded values
+// would have to be kept manually in sync with firebase.json forever, and any
+// drift between them (e.g. changing one file but forgetting the other) would
+// silently reintroduce the original manifest-merger failure. firebase.json is
+// the single, authoritative source for these two specific keys instead,
+// matching RNFB's own intended configuration mechanism for them.
+// No firebase.json equivalent exists for the icon, so it stays here as our
+// app's only declaration of that one key - confirmed via RNFB's own
+// bundled manifest, which never declares default_notification_icon at all.
+function withNotificationManifestMetadata(config) {
   return withAndroidManifest(config, (config) => {
     const mainApplication = AndroidConfig.Manifest.getMainApplicationOrThrow(config.modResults);
 
@@ -85,18 +103,6 @@ function withNotificationManifestMetadata(config, { channelId }) {
       'com.google.firebase.messaging.default_notification_icon',
       `@drawable/${NOTIFICATION_ICON_DRAWABLE_NAME}`,
       'resource'
-    );
-    AndroidConfig.Manifest.addMetaDataItemToMainApplication(
-      mainApplication,
-      'com.google.firebase.messaging.default_notification_color',
-      `@color/${NOTIFICATION_COLOR_RESOURCE_NAME}`,
-      'resource'
-    );
-    AndroidConfig.Manifest.addMetaDataItemToMainApplication(
-      mainApplication,
-      'com.google.firebase.messaging.default_notification_channel_id',
-      channelId,
-      'value'
     );
 
     return config;
@@ -154,7 +160,7 @@ function withNotificationChannelNative(config, { channelId, channelName }) {
 module.exports = function withNotifications(config, { icon, color, channelId, channelName }) {
   config = withNotificationIconFile(config, { icon });
   config = withNotificationColorResource(config, { color });
-  config = withNotificationManifestMetadata(config, { channelId });
+  config = withNotificationManifestMetadata(config);
   config = withNotificationChannelNative(config, { channelId, channelName });
   return config;
 };
