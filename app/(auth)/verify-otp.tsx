@@ -204,10 +204,13 @@ export default function VerifyOTPScreen() {
     try {
       setIsResending(true);
 
-      const response = await sendOTP({
-        phoneNumber: phoneNumber!,
-        countryCode: countryCode!,
-      });
+      const response = await sendOTP(
+        {
+          phoneNumber: phoneNumber!,
+          countryCode: countryCode!,
+        },
+        { isResend: true }
+      );
 
       if (response.success) {
         showToast({ type: 'success', message: 'Verification Code Sent', duration: 2000 });

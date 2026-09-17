@@ -1,5 +1,5 @@
 import React from 'react';
-import { Stack } from 'expo-router';
+import { Stack, usePathname } from 'expo-router';
 import { DefaultTheme, ThemeProvider as NavigationThemeProvider } from '@react-navigation/native';
 import { StyleSheet, View } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
@@ -32,6 +32,7 @@ import { useAuthStore } from '@/shared/stores/authStore';
 import { useNotificationPermissionStore } from '@/store/notificationPermissionStore';
 import { requestNotificationPermissionAndSubscribe } from '@/utils/notifications/permission';
 import { navigateFromNotificationData } from '@/utils/notifications/deepLink';
+import { logAnalyticsScreenView } from '@/utils/analytics/logEvent';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -166,6 +167,18 @@ export default function RootLayout() {
 
     return unsubscribeOpenedApp;
   }, []);
+
+  // The app's React Navigation/screen_view integration - Expo Router's own
+  // usePathname() is the simplest correct hook point (no manual navigationRef/
+  // onStateChange plumbing needed, unlike a bare React Navigation setup),
+  // since it already only changes on a genuine navigation, not on a params-
+  // only update (feedId/zodiacSign/etc. never appear in the pathname itself).
+  // Firebase's own recipe sets screen_name and screen_class to the same
+  // value for a router-driven integration like this one.
+  const pathname = usePathname();
+  React.useEffect(() => {
+    logAnalyticsScreenView(pathname);
+  }, [pathname]);
 
   React.useEffect(() => {
     // Don't reveal the app until the Devanagari font is ready (or has failed

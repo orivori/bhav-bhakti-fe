@@ -15,6 +15,7 @@ import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { feedService } from '@/features/feed/services/feedService';
 import { useFeedStore } from '@/store/feedStore';
 import { useWallpaperActions } from './useWallpaperActions';
+import { logWallpaperEngaged } from '@/utils/analytics/engagementEvents';
 
 interface WallpaperFeedCardProps {
   feed: Feed;
@@ -103,6 +104,16 @@ export default function WallpaperFeedCard({
     } catch (error) {
       console.error('Error tracking view:', error);
     }
+
+    // Fires on every tap, regardless of what onPress does next (e.g. the
+    // Viewing Window's premium gate, see useViewingWindow.ts) - this is a
+    // genuine Engagement-bucket signal (which content people try to engage
+    // with), deliberately distinct from a paywall_hit Conversion event,
+    // which would only fire for the subset that's actually gated.
+    logWallpaperEngaged({
+      deity: feed.deity?.name ?? 'unknown',
+      format: feed.media?.[0]?.type === 'video' ? 'video' : 'static',
+    });
 
     onPress?.(feed);
   };

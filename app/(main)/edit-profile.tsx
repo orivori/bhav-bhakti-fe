@@ -24,6 +24,7 @@ import { horoscopeService } from '@/features/horoscope/services/horoscopeService
 import { getLocalDateString } from '@/shared/utils/dateUtil';
 import type { ProfileGender } from '@/types/profile';
 import type { UpdateProfileRequest } from '@/types/profile';
+import { logZodiacSignSet } from '@/utils/analytics/activationEvents';
 
 // Same bounds as BirthdateModal.tsx's DateTimePicker - kept identical since
 // this reuses that exact picker pattern, just inlined into a form instead of
@@ -129,6 +130,16 @@ export default function EditProfileScreen() {
           payload.dateOfBirth = dateStr;
           payload.zodiacSign = zodiacResult.zodiacSign;
           payload.rashi = zodiacResult.rashiName;
+
+          // originalDateOfBirthRef.current is only null when the profile had
+          // no dateOfBirth at all before this screen loaded - since zodiac is
+          // always derived from dateOfBirth in this codebase, that also means
+          // no zodiac sign existed yet, so this Save is a genuine first-time
+          // set (via this entry point, distinct from Home's BirthdateModal
+          // flow - see index.tsx's own comment for that one).
+          if (originalDateOfBirthRef.current === null) {
+            logZodiacSignSet(zodiacResult.zodiacSign);
+          }
         }
       }
 
