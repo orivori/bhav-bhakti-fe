@@ -8,6 +8,8 @@ import {
   TouchableOpacity,
   ListRenderItemInfo,
   ViewToken,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from 'react-native';
 import { Text } from '@/components/atoms';
 import FeedCard from '../FeedCard/FeedCard';
@@ -17,6 +19,7 @@ import AutoplayFeedCard from '../AutoplayFeedCard/AutoplayFeedCard';
 import { Feed, FeedFilters } from '@/types/feed';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { useFeedStore } from '@/store/feedStore';
+import { logHomeFeedScrolled } from '@/utils/analytics/engagementEvents';
 
 interface FeedListProps {
   feeds: Feed[];
@@ -75,7 +78,22 @@ interface FeedListProps {
    * matching padding (e.g. search-results.tsx's) doesn't get double-padded.
    */
   itemHorizontalPadding?: number;
+  /**
+   * Opt-in home_feed_scrolled Engagement event (see Bhav_Bhakti_Analytics_
+   * Event_Plan.md §3) - fires once per screen mount, the first time the user
+   * scrolls past SCROLL_DEPTH_THRESHOLD_PX. Scoped to Home only (its only
+   * real consumer, alongside enableViewportAutoplay's identical scoping
+   * pattern) - false/unattached everywhere else, so Search Results and any
+   * future FeedList consumer are unaffected.
+   */
+  enableScrollDepthTracking?: boolean;
 }
+
+// Roughly "scrolled past the first card" at this app's typical card heights
+// (matches estimatedItemSize's own 600px default below) - not meant to be a
+// precise fraction of content height, which FlatList can't cheaply know for a
+// virtualized, variable-height list anyway.
+const SCROLL_DEPTH_THRESHOLD_PX = 600;
 
 // Each card type's own self-provided marginBottom today, needed to compute
 // the exact cancelling offset for the itemSpacing override above. Coupled by
@@ -129,7 +147,16 @@ function FeedList({
   audioCardReturnParams,
   itemSpacing,
   itemHorizontalPadding,
+  enableScrollDepthTracking = false,
 }: FeedListProps, ref: React.Ref<FlatList>) {
+  const hasLoggedScrollDepthRef = useRef(false);
+  const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    if (!enableScrollDepthTracking || hasLoggedScrollDepthRef.current) return;
+    if (event.nativeEvent.contentOffset.y > SCROLL_DEPTH_THRESHOLD_PX) {
+      hasLoggedScrollDepthRef.current = true;
+      logHomeFeedScrolled();
+    }
+  }, [enableScrollDepthTracking]);
 
   // --- Viewport autoplay election (Phase 1 — infra only, no card wiring yet) ---
   // One shared "elected" feedId: the topmost item currently ≥60% visible for ≥400ms.
@@ -405,6 +432,8 @@ function FeedList({
       }
       onEndReached={handleEndReached}
       onEndReachedThreshold={0.7}
+      onScroll={enableScrollDepthTracking ? handleScroll : undefined}
+      scrollEventThrottle={200}
       {...(enableViewportAutoplay
         ? { viewabilityConfigCallbackPairs: viewabilityConfigCallbackPairsRef.current }
         : {})}

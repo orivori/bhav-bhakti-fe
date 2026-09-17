@@ -5,6 +5,7 @@ import { Feed, FeedMedia } from '@/types/feed';
 import { feedService } from '@/features/feed/services/feedService';
 import { useFeedStore } from '@/store/feedStore';
 import { getMediaFileExtension, getMediaMimeType } from './getMediaFileExtension';
+import { logContentShared } from './analytics/engagementEvents';
 
 // Placeholder until a real app-store/download link exists - swap this one
 // constant when it does, nothing else in the share flow below needs to
@@ -157,6 +158,7 @@ export async function shareContent(feed: Feed, options?: ShareContentOptions): P
     });
 
     if (result.success) {
+      logContentShared({ content_type: feed.type });
       onShared?.(feedId);
     }
   } catch (error) {

@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import {
   View,
   StyleSheet,
@@ -24,6 +24,7 @@ import { getZodiacBySign } from '@/data/zodiacData';
 import { LanguageToggle } from '@/components/molecules/LanguageToggle';
 import { getLocalDateString } from '@/shared/utils/dateUtil';
 import type { ZodiacSign } from '@/types/horoscope';
+import { logRashifalViewed } from '@/utils/analytics/engagementEvents';
 
 export default function HoroscopeDetailScreen() {
   // Rashifal is free for everyone, unconditionally - no paywall anywhere on
@@ -40,6 +41,15 @@ export default function HoroscopeDetailScreen() {
   const { t } = useTranslation();
   const { language } = useI18nStore();
   const { contentPadding } = useTabBarHeight();
+
+  // Fires once per mount - covers both real entry points (Home's card and
+  // the 12-sign grid), since both navigate to this one shared screen.
+  useEffect(() => {
+    if (zodiacSign) {
+      logRashifalViewed({ zodiac_sign: zodiacSign });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleBack = useCallback(() => {
     if (returnTo) {

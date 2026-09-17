@@ -143,6 +143,7 @@ export default function AudioHubScreen() {
         <SearchBar
           placeholder={t('audio.searchPlaceholder')}
           onSearchSubmit={handleSearchSubmit}
+          analyticsSourceScreen="audio_hub"
           containerStyle={styles.headerSearchBar}
         />
       </View>

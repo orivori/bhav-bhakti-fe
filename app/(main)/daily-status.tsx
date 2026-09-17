@@ -130,6 +130,7 @@ export default function WallpaperHubScreen() {
         <SearchBar
           placeholder={t('wallpaperHub.searchPlaceholder')}
           onSearchSubmit={handleSearchSubmit}
+          analyticsSourceScreen="wallpaper_hub"
           containerStyle={styles.headerSearchBar}
         />
       </View>

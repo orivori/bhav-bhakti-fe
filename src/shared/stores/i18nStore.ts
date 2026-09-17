@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { logLanguageSwitched } from '@/utils/analytics/engagementEvents';
 
 export type Language = 'en' | 'hi' | 'gu' | 'bn';
 
@@ -26,10 +27,19 @@ export const useI18nStore = create<I18nState>()(
       isRTL: false,
 
       setLanguage: (language: Language) => {
+        const previousLanguage = get().language;
+
         set({
           language,
           isRTL: false, // All supported languages are LTR
         });
+
+        // Only a genuine change - never fires on rehydration, since
+        // zustand's persist middleware merges persisted state directly
+        // rather than calling this action.
+        if (language !== previousLanguage) {
+          logLanguageSwitched({ from_language: previousLanguage, to_language: language });
+        }
       },
 
       toggleLanguage: () => {
