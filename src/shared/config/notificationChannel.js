@@ -8,6 +8,14 @@
 // the JS side subscribes to at runtime - and so it's obvious, in one place,
 // what to type into Firebase Console's composer "Notification channel" field
 // so a real campaign actually lands on the channel this app created.
+//
+// NOTE: the channel id and color must ALSO match /firebase.json's
+// react-native.messaging_android_notification_channel_id/_color values
+// exactly - that file is plain, static JSON read directly by
+// @react-native-firebase's Gradle build (see its own android/firebase-
+// json.gradle), not something this module or app.config.js can generate or
+// import into, so it's a third place these two specific values live and must
+// be kept in sync by hand if either ever changes.
 module.exports = {
   ANDROID_NOTIFICATION_CHANNEL_ID: 'general',
   ANDROID_NOTIFICATION_CHANNEL_NAME: 'General',
