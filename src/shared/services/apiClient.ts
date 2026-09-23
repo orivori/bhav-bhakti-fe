@@ -189,13 +189,17 @@ class ApiClient {
   }
 
   async post<T>(url: string, data?: any, config?: any): Promise<T> {
-     console.log(`url:${url}`,data)
+    if (__DEV__) {
+      console.log(`url:${url}`,data)
+    }
     const response = await this.client.post(url, data, config);
     return response.data;
   }
 
   async put<T>(url: string, data?: any, config?: any): Promise<T> {
-     console.log(`url:${url}`,data)
+    if (__DEV__) {
+      console.log(`url:${url}`,data)
+    }
     const response = await this.client.put(url, data, config);
     return response.data;
   }
