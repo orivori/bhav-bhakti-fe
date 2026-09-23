@@ -29,10 +29,12 @@ class ApiClient {
         if ( tokens?.accessToken) {
           config.headers.Authorization = `Bearer ${tokens.accessToken}`;
         }
-        console.log('🚀 API Request:', {
-          url: `URL===>${config.baseURL}${config.url}`,
-          payload: config.data,
-        });
+        if (__DEV__) {
+          console.log('🚀 API Request:', {
+            url: `URL===>${config.baseURL}${config.url}`,
+            payload: config.data,
+          });
+        }
 
         return config;
       },
@@ -45,9 +47,11 @@ class ApiClient {
     // Response interceptor to handle token refresh and log responses
     this.client.interceptors.response.use(
       (response: AxiosResponse) => {
-        console.log('✅ API Response:', {
-          data: response.data?.data,
-        });
+        if (__DEV__) {
+          console.log('✅ API Response:', {
+            data: response.data?.data,
+          });
+        }
 
         return response;
       },
@@ -55,16 +59,18 @@ class ApiClient {
         const originalRequest = error.config as any;
 
         // Log API error details
-        console.error('❌ API Error:', {
-          method: error.config?.method?.toUpperCase(),
-          url: `${error.config?.baseURL}${error.config?.url}`,
-          status: error.response?.status,
-          statusText: error.response?.statusText,
-          headers: error.response?.headers,
-          errorData: error.response?.data,
-          message: error.message,
-          timestamp: new Date().toISOString(),
-        });
+        if (__DEV__) {
+          console.error('❌ API Error:', {
+            method: error.config?.method?.toUpperCase(),
+            url: `${error.config?.baseURL}${error.config?.url}`,
+            status: error.response?.status,
+            statusText: error.response?.statusText,
+            headers: error.response?.headers,
+            errorData: error.response?.data,
+            message: error.message,
+            timestamp: new Date().toISOString(),
+          });
+        }
 
         // A network-level failure (no response at all - DNS not resolving, connection
         // refused, timeout) against the primary hosted domain: retry once against the
