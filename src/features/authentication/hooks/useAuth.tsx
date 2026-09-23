@@ -188,7 +188,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         countryCode: data.countryCode,
         isTestAccount: IS_TEST_ACCOUNT,
       });
-      console.log('📨 OTP verification response:', response);
+      if (__DEV__) {
+        console.log('📨 OTP verification response:', response);
+      }
 
       if (response.success) {
         console.log('✅ OTP verification successful, processing login...');
@@ -206,8 +208,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           expiresAt,
         };
 
-        console.log('👤 User to login:', response.data.user);
-        console.log('🔑 Tokens to save:', tokens);
+        if (__DEV__) {
+          console.log('👤 User to login:', response.data.user);
+          console.log('🔑 Tokens to save:', tokens);
+        }
 
         await login(response.data.user, tokens);
         console.log('🎉 Login completed successfully!');

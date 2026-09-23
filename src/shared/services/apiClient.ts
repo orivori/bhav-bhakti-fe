@@ -172,9 +172,13 @@ class ApiClient {
 
   // Public methods
   async get<T>(url: string, config?: any): Promise<T> {
-     console.log(`url:${url}`)
+    if (__DEV__) {
+      console.log(`url:${url}`)
+    }
     const response = await this.client.get(url, config);
-    console.log("response",response)
+    if (__DEV__) {
+      console.log("response",response)
+    }
     return response.data;
   }
 
