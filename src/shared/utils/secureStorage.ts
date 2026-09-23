@@ -36,9 +36,11 @@ export const secureStorage = {
   // User data management
   async saveUser(user: any): Promise<void> {
     try {
-      console.log('Saving user:', user);
-      console.log('User type:', typeof user);
-      console.log('User keys:', Object.keys(user || {}));
+      if (__DEV__) {
+        console.log('Saving user:', user);
+        console.log('User type:', typeof user);
+        console.log('User keys:', Object.keys(user || {}));
+      }
 
       // Clean the user object to remove any non-serializable values
       const cleanUser = this.cleanObjectForStorage(user);
