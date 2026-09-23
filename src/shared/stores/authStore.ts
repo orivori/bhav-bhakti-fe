@@ -25,8 +25,10 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   login: async (user: User, tokens: AuthTokens) => {
     try {
       console.log('🔐 Starting login process...');
-      console.log('👤 User to save:', user);
-      console.log('🔑 Tokens to save:', tokens);
+      if (__DEV__) {
+        console.log('👤 User to save:', user);
+        console.log('🔑 Tokens to save:', tokens);
+      }
 
       await secureStorage.saveUser(user);
       console.log('✅ User saved to secure storage');
