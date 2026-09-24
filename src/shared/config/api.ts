@@ -12,6 +12,18 @@ const HOSTED_BASE_URL = 'https://api.orivori.com/api';
 // refused, etc.), so a DNS/domain issue can't take the app down on its own.
 const HOSTED_FALLBACK_BASE_URL = 'https://bhav-bhakti-be-production.up.railway.app/api';
 
+// Railway's separate development environment (own database, deployed from
+// bhav-bhakti-be's `develop` branch) - what the .dev app talks to, so testing
+// never touches real production data. Custom domain for the same Jio reason
+// as the production one above.
+const DEV_ENV_BASE_URL = 'https://api-dev.orivori.com/api';
+
+// Keyed off extra.appVariant rather than an EXPO_PUBLIC_ env var: it's the same
+// APP_VARIANT that decides the app's package identity, and the production push
+// script force-sets it to 'production' via --environment production, so no
+// leftover local setting can ever make a production update resolve to dev.
+const APP_VARIANT = Constants.expoConfig?.extra?.appVariant;
+
 const getDevBaseUrl = () => {
   // hostUri is the Metro dev server's <host>:<port>, e.g. "192.168.1.5:8081" on a
   // physical device over WiFi, or the emulator's routable host alias — same value
@@ -53,11 +65,32 @@ const getDevBaseUrl = () => {
 // other than 'hosted' preserves the exact pre-existing local-IP behavior.
 const isHostedEnv = process.env.EXPO_PUBLIC_API_ENV === 'hosted';
 
+// Resolution order: an explicit 'production' variant always wins; the
+// 'development' variant goes to the Railway dev environment; anything else
+// (e.g. the preview build's embedded 'preview' bundle, or no variant at all)
+// keeps the exact pre-existing __DEV__/EXPO_PUBLIC_API_ENV behavior.
+const resolveApiTarget = (): { baseUrl: string; fallbackBaseUrl?: string } => {
+  if (APP_VARIANT === 'production') {
+    return { baseUrl: HOSTED_BASE_URL, fallbackBaseUrl: HOSTED_FALLBACK_BASE_URL };
+  }
+  if (APP_VARIANT === 'development') {
+    // No fallback - same as the local target, apiClient.ts's fallback retry
+    // is skipped entirely when FALLBACK_BASE_URL is undefined.
+    return { baseUrl: DEV_ENV_BASE_URL };
+  }
+  if (!__DEV__ || isHostedEnv) {
+    return { baseUrl: HOSTED_BASE_URL, fallbackBaseUrl: HOSTED_FALLBACK_BASE_URL };
+  }
+  return { baseUrl: getDevBaseUrl() };
+};
+
+const apiTarget = resolveApiTarget();
+
 export const API_CONFIG = {
-  BASE_URL: !__DEV__ || isHostedEnv ? HOSTED_BASE_URL : getDevBaseUrl(),
-  // Only meaningful alongside the hosted BASE_URL above - the local dev LAN backend has
-  // no fallback concept, so this stays undefined for that path.
-  FALLBACK_BASE_URL: !__DEV__ || isHostedEnv ? HOSTED_FALLBACK_BASE_URL : undefined,
+  BASE_URL: apiTarget.baseUrl,
+  // Only meaningful alongside the hosted BASE_URL above - the dev environment and
+  // local LAN backend have no fallback concept, so this stays undefined for those.
+  FALLBACK_BASE_URL: apiTarget.fallbackBaseUrl,
   TIMEOUT: 10000,
   RETRY_ATTEMPTS: 2,
 };
