@@ -35,9 +35,6 @@ class FeedService {
     if (params.type) {
       queryParams.append('type', Array.isArray(params.type) ? params.type.join(',') : params.type);
     }
-    if (params.categoryId) {
-      queryParams.append('categoryId', params.categoryId.toString());
-    }
     if (params.deityId) {
       queryParams.append('deityId', params.deityId.toString());
     }
