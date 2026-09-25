@@ -115,11 +115,6 @@ export const API_ENDPOINTS = {
     TRENDING: '/v1/feed/trending',
     POPULAR_TAGS: '/v1/feed/tags/popular',
   },
-  CATEGORIES: {
-    LIST: '/v1/categories',
-    GET_BY_ID: (categoryId: number) => `/v1/categories/${categoryId}`,
-    FEEDS: (categoryId: number) => `/v1/categories/${categoryId}/feeds`,
-  },
   DEITIES: {
     LIST: '/v1/deities',
     GET_BY_ID: (deityId: number) => `/v1/deities/${deityId}`,

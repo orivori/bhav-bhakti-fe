@@ -11,17 +11,6 @@ export interface FeedMedia {
   metadata?: Record<string, any> | null;
 }
 
-export interface Category {
-  id: number;
-  categoryName: string;
-  displayName: {
-    en: string;
-    hi: string;
-  };
-  icon?: string;
-  colors?: string[];
-}
-
 export interface Deity {
   id: number;
   name: string;
@@ -39,8 +28,6 @@ export interface Feed {
   caption?: string;
   location?: string;
   type: 'general' | 'mantra' | 'ringtone' | 'wallpaper' | 'aarti' | 'bhajan' | 'thought';
-  categoryId?: number | null;
-  category?: Category | null;
   deityId?: number | null;
   deity?: Deity | null;
   label?: 'good_morning' | 'good_evening' | 'good_night' | 'festive' | 'peace' | 'strength' | 'protection' | 'positivity' | null;
@@ -140,7 +127,6 @@ export interface FeedFilters {
   // convention `tags` already used; feed.service.js on the backend already
   // AND-combines this with `search` either way.
   type?: FeedType | FeedType[];
-  categoryId?: number;
   deityId?: number;
   // 'none' is a sentinel meaning "must have no occasion set" (IS NULL server-side) -
   // omitting this field entirely means "don't filter by it at all" (the Status
