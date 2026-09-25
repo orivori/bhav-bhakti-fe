@@ -157,12 +157,4 @@ export const API_ENDPOINTS = {
     LIST: '/v1/deities',
     GET_BY_ID: (deityId: number) => `/v1/deities/${deityId}`,
   },
-  QUIZ: {
-    GET_QUIZ: (type: string) => `/v1/quiz/${type}`,
-    START: (type: string) => `/v1/quiz/${type}/start`,
-    GET_QUESTION: (sessionId: string, questionNumber: number) => `/v1/quiz/question/${sessionId}/${questionNumber}`,
-    SUBMIT_ANSWER: '/v1/quiz/answer',
-    GET_RESULTS: (sessionId: string) => `/v1/quiz/results/${sessionId}`,
-    HISTORY: '/v1/quiz/history',
-  },
 } as const;

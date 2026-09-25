@@ -217,13 +217,6 @@ export default function MainLayout() {
         }}
       />
       <Tabs.Screen
-        name="mantra-quiz"
-        options={{
-          href: null, // Hide from tabs - only accessible from mantras page
-          headerShown: false,
-        }}
-      />
-      <Tabs.Screen
         name="choose-start"
         options={{
           href: null, // Hide from tabs - only accessible via navigation

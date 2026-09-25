@@ -146,7 +146,6 @@ Re-run this extraction (or check other pages/frames in the file) if the design s
 | `app/(main)/horoscope-detail.tsx` | 1 |
 | `app/(main)/daily-status.tsx` (Wallpaper Hub) | 1 |
 | `app/(main)/ringtones.tsx` (Audio hub) | 1 |
-| `app/(main)/mantra-quiz.tsx` | 1 |
 | `app/(main)/choose-start.tsx` | 1 |
 | `src/components/molecules/MiniPlayer/MiniPlayer.tsx` | 1 |
 | `src/styles/goldenTempleTheme.ts` (the 3 dead tokens) | 3 |

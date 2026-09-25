@@ -308,40 +308,6 @@ export default function MantrasScreen() {
           />
         }
       >
-        {/* Find Perfect Mantra Card - hidden pending the mood-pill rework
-            (CLAUDE.md §56, Phase 4). This was the quiz's sole navigational
-            entry point; route/backend/data are intentionally left untouched. */}
-        {/*
-        <View style={[styles.section, styles.firstSection]}>
-          <TouchableOpacity
-            onPress={() => {
-              console.log('🎯 Find Your Perfect Mantra clicked');
-              router.push('/mantra-quiz' as any);
-            }}
-            activeOpacity={0.8}
-          >
-            <LinearGradient
-              colors={['#ff6b35', '#f7931e']}
-              style={styles.promoCard}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            >
-              <View style={styles.promoIconContainer}>
-                <Ionicons name="star-outline" size={32} color="#ffffff" />
-              </View>
-              <View style={styles.promoContent}>
-                <Text variant="h3" weight="bold" style={styles.promoTitle}>
-                  Find Your Perfect Mantra
-                </Text>
-                <Text variant="body" style={styles.promoDescription}>
-                  Based on your birth date, name and spiritual goals
-                </Text>
-              </View>
-            </LinearGradient>
-          </TouchableOpacity>
-        </View>
-        */}
-
         {/* Mood pills (CLAUDE.md §56 Phase 4). Tapping fetches one random
             mantra tagged with that mood and opens it directly in the shared
             player - see handleMoodPress. Styling mirrors horoscope.tsx's
@@ -501,35 +467,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 24,
     textAlign: 'center',
-  },
-  promoCard: {
-    borderRadius: 16,
-    padding: goldenTempleTheme.spacing.lg,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  promoIconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: goldenTempleTheme.spacing.md,
-  },
-  promoContent: {
-    flex: 1,
-  },
-  promoTitle: {
-    color: '#ffffff',
-    marginBottom: goldenTempleTheme.spacing.xs,
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  promoDescription: {
-    color: 'rgba(255, 255, 255, 0.9)',
-    fontSize: 14,
-    lineHeight: 20,
   },
   loadingContainer: {
     alignItems: 'center',
