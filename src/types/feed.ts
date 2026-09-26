@@ -1,5 +1,8 @@
 export type FeedMediaType = 'image' | 'video' | 'audio';
 
+// The backend's tag groups (tags.group). An unknown group is a 400.
+export type TagGroup = 'mood' | 'occasion';
+
 export interface Deity {
   id: number;
   name: string;
@@ -119,15 +122,13 @@ export interface FeedFilters {
   // AND-combines this with `search` either way.
   type?: FeedType | FeedType[];
   deityId?: number;
-  // Only 'none' is used: the backend reads it as "carries no tag from the
-  // occasion group" (the Wallpaper Hub's Wallpapers tab), regardless of any
-  // other tag the feed has. It stays on `label` because `tags` can only
-  // include, not exclude, and the trending/liked endpoints accept `label` but
-  // not `tags`. Omitting it means "don't filter by occasion" (Status).
-  label?: 'none';
-  // Tag keys; matches feeds carrying ANY of them. GET /feed only - the
-  // trending and liked endpoints ignore it.
+  // Tag keys; matches feeds carrying ANY of them.
   tags?: string[];
+  // Drops feeds carrying any tag from this group, whatever other tags they
+  // have - 'occasion' is the Wallpaper Hub's Wallpapers tab. Omitting it
+  // means "don't exclude anything" (the Status tab). Accepted by the list,
+  // trending and liked endpoints alike.
+  excludeTagGroup?: TagGroup;
   search?: string;
   sortBy?: 'createdAt' | 'likesCount' | 'downloadsCount' | 'sharesCount' | 'viewsCount' | 'random';
   sortOrder?: 'ASC' | 'DESC';

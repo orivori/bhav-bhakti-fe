@@ -18,6 +18,7 @@ import {
   TrendingFeedsResponse,
   PopularTagsResponse,
   UserLikedFeedsResponse,
+  TagGroup,
 } from '@/types/feed';
 
 class FeedService {
@@ -38,7 +39,7 @@ class FeedService {
     if (params.deityId) {
       queryParams.append('deityId', params.deityId.toString());
     }
-    if (params.label) queryParams.append('label', params.label);
+    if (params.excludeTagGroup) queryParams.append('excludeTagGroup', params.excludeTagGroup);
     if (params.search) queryParams.append('search', params.search);
     if (params.sortBy) queryParams.append('sortBy', params.sortBy);
     if (params.sortOrder) queryParams.append('sortOrder', params.sortOrder);
@@ -147,12 +148,12 @@ class FeedService {
   /**
    * Get user's liked feeds
    */
-  async getUserLikedFeeds(params: { limit?: number; offset?: number; type?: string; label?: string } = {}): Promise<UserLikedFeedsResponse> {
+  async getUserLikedFeeds(params: { limit?: number; offset?: number; type?: string; excludeTagGroup?: TagGroup } = {}): Promise<UserLikedFeedsResponse> {
     const queryParams = new URLSearchParams();
     if (params.limit) queryParams.append('limit', params.limit.toString());
     if (params.offset) queryParams.append('offset', params.offset.toString());
     if (params.type) queryParams.append('type', params.type);
-    if (params.label) queryParams.append('label', params.label);
+    if (params.excludeTagGroup) queryParams.append('excludeTagGroup', params.excludeTagGroup);
 
     const url = `${API_ENDPOINTS.FEED.USER_LIKED}?${queryParams.toString()}`;
     const apiResponse = await apiClient.get<ApiUserLikedFeedsResponse>(url, { promptOnAuthFailure: true });
@@ -169,13 +170,13 @@ class FeedService {
   /**
    * Get trending feeds
    */
-  async getTrendingFeeds(params: { limit?: number; offset?: number; days?: number; type?: string; label?: string } = {}): Promise<TrendingFeedsResponse> {
+  async getTrendingFeeds(params: { limit?: number; offset?: number; days?: number; type?: string; excludeTagGroup?: TagGroup } = {}): Promise<TrendingFeedsResponse> {
     const queryParams = new URLSearchParams();
     if (params.limit) queryParams.append('limit', params.limit.toString());
     if (params.offset) queryParams.append('offset', params.offset.toString());
     if (params.days) queryParams.append('days', params.days.toString());
     if (params.type) queryParams.append('type', params.type);
-    if (params.label) queryParams.append('label', params.label);
+    if (params.excludeTagGroup) queryParams.append('excludeTagGroup', params.excludeTagGroup);
 
     const url = `${API_ENDPOINTS.FEED.TRENDING}?${queryParams.toString()}`;
     const apiResponse = await apiClient.get<ApiTrendingFeedsResponse>(url);
