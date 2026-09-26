@@ -23,16 +23,20 @@ export interface AuthorizeMediaActionOptions {
  * not call feedService.downloadFeed/shareFeed themselves. For view it only
  * asks (GET /feed/:id/view-access).
  *
- * Returns true to go ahead, false when the backend's premium gate said no -
- * in which case the paywall has already been shown and the caller just stops.
- * Which types/actions are gated, and whether gating is on at all
+ * Returns true to go ahead, false when the caller must stop. Which
+ * types/actions are gated, and whether gating is on at all
  * (PREMIUM_GATING_ENABLED), is decided entirely by the backend.
  *
- * Fail-open: only an explicit PREMIUM_REQUIRED refusal blocks. Anything else
- * - no network, a timeout, a server error, an expired session - lets the
- * action go ahead rather than blocking the user on a check that couldn't be
- * made. (An expired session also shows the session-expired prompt, which
- * apiClient does for every 401.)
+ * Two definitive answers block:
+ * - 403 PREMIUM_REQUIRED: the paywall is shown here.
+ * - 401: the server says there is no valid login. apiClient has already
+ *   cleared the session and shown the session-expired prompt
+ *   (sessionExpiry.ts). Going ahead would let a dead or missing token skip
+ *   the premium check entirely, since the backend checks the login first.
+ *
+ * Fail-open for everything ambiguous - no network, a timeout, a server error
+ * (5xx), a missing feed (404): the action goes ahead rather than blocking the
+ * user on a check that couldn't be made.
  */
 export async function authorizeMediaAction(
   feed: { id: number | string },
@@ -50,9 +54,14 @@ export async function authorizeMediaAction(
     }
     return true;
   } catch (error) {
-    if ((error as ApiError | undefined)?.code === 'PREMIUM_REQUIRED') {
+    const apiError = error as ApiError | undefined;
+    if (apiError?.code === 'PREMIUM_REQUIRED') {
       logPaywallHit({ trigger_feature: options.triggerFeature ?? action });
       usePremiumStore.getState().setShowPaywall(true);
+      return false;
+    }
+    if (apiError?.statusCode === 401) {
+      // The session-expired prompt is already showing (apiClient).
       return false;
     }
     if (__DEV__) {
