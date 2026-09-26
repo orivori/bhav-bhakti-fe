@@ -20,6 +20,7 @@ import { useSoundPreferenceStore } from '@/store/soundPreferenceStore';
 import { usePremiumStore } from '@/store/premiumStore';
 import { formatCount } from '@/utils/formatCount';
 import { getMediaFileExtension } from '@/utils/getMediaFileExtension';
+import { getFeedSubtitle, getFeedThumbnailUrl } from '@/utils/feedFields';
 import { shareContent } from '@/utils/shareContent';
 import { ensureMediaLibraryPermission } from '@/utils/mediaLibraryPermission';
 import { logPaywallHit } from '@/utils/analytics/conversionEvents';
@@ -294,17 +295,14 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
   const feedIdStr = feed.id.toString();
   const usableViewportHeight = windowHeight - insets.top - tabBarHeight;
 
-  const audioMedia = feed.media?.find((m) => m.type === 'audio' || m.type === 'image_audio');
-  const hasAudioMedia = !!audioMedia;
-  const audioSourceUri = audioMedia?.audioUrl || audioMedia?.mediaUrl;
+  const hasAudioMedia = feed.mediaType === 'audio';
+  const audioSourceUri = hasAudioMedia ? feed.url : undefined;
+  const thumbnailUrl = getFeedThumbnailUrl(feed);
   // Ringtone gets its own CTA (direct set-as-ringtone, no navigation) -
   // mantra/aarti/bhajan share the 'Listen'-into-full-player behavior.
   const isRingtoneType = feed.type === 'ringtone';
 
-  const visualMedia =
-    feed.media?.find((m) => m.type === 'video') || feed.media?.find((m) => m.type === 'image') || feed.media?.[0];
-
-  const title = feed.title?.[language] || feed.title?.en || feed.caption || 'Untitled';
+  const title = feed.title?.[language] || feed.title?.en || getFeedSubtitle(feed, language) || 'Untitled';
 
   // Header row (above the thumbnail): plain content-type identity, not an
   // action description - deliberately separate from the CTA pill's own
@@ -455,7 +453,7 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
   };
 
   // shareContent resolves audio-vs-visual and thumbnail-vs-file itself from
-  // feed.media - no need to pass hasAudioMedia/audioSourceUri/visualMedia
+  // the feed - no need to pass hasAudioMedia/audioSourceUri/thumbnailUrl
   // through, and it already handles its own errors (see its own doc
   // comment), so no try/catch needed here either.
   const [isSharing, setIsSharing] = useState(false);
@@ -497,7 +495,7 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
         // corruption investigation. Every other real entry point into
         // audio-player.tsx does the same encode at its own params site.
         audioUrl: encodeURIComponent(audioSourceUri || ''),
-        thumbnailUrl: encodeURIComponent(audioMedia?.thumbnailUrl || ''),
+        thumbnailUrl: encodeURIComponent(thumbnailUrl || ''),
         autoPlay: 'true',
         returnTo: '/(main)/',
       },
@@ -505,14 +503,14 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
   };
 
   const handleSetAsWallpaperPress = async () => {
-    if (isSettingWallpaper || !visualMedia?.mediaUrl) return;
+    if (isSettingWallpaper || !feed.url) return;
     if (isMountedRef.current) setIsSettingWallpaper(true);
     try {
       const hasPermission = await ensureMediaLibraryPermission('common.permissionReasonSetWallpaper');
       if (!hasPermission) {
         return;
       }
-      const extension = getMediaFileExtension(visualMedia.mediaUrl, visualMedia.type);
+      const extension = getMediaFileExtension(feed.url, feed.mediaType);
       // Timestamp suffix guarantees a unique local path on every attempt -
       // see useWallpaperActions.ts's handleDownload for the full explanation
       // (MediaStore's own collision handling otherwise silently reused an
@@ -522,7 +520,7 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
       // means a failed/skipped delete doesn't leak into persistent storage
       // forever. See cacheEviction.ts for the startup age-based sweep.
       const fileUri = `${FileSystem.cacheDirectory}autoplay_visual_${feed.id}_${Date.now()}.${extension}`;
-      const downloadResult = await FileSystem.downloadAsync(visualMedia.mediaUrl, fileUri);
+      const downloadResult = await FileSystem.downloadAsync(feed.url, fileUri);
       if (downloadResult.status === 200) {
         await MediaLibrary.saveToLibraryAsync(downloadResult.uri);
         // Clean up the local staging copy now that it's safely in the
@@ -704,9 +702,9 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
             {/* Blurred background - same thumbnail, scaled to fill, blurred.
                 Falls back to a flat color (no image to blur) when there's no
                 thumbnail at all. */}
-            {audioMedia?.thumbnailUrl ? (
+            {thumbnailUrl ? (
               <Image
-                source={{ uri: audioMedia.thumbnailUrl }}
+                source={{ uri: thumbnailUrl }}
                 style={StyleSheet.absoluteFill}
                 resizeMode="cover"
                 blurRadius={AUDIO_BACKGROUND_BLUR_RADIUS}
@@ -718,9 +716,9 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
             {/* Sharp thumbnail - centered on both axes within contentArea,
                 independent of the controls row below it (see
                 audioThumbnailTop/Left above). */}
-            {audioMedia?.thumbnailUrl ? (
+            {thumbnailUrl ? (
               <Image
-                source={{ uri: audioMedia.thumbnailUrl }}
+                source={{ uri: thumbnailUrl }}
                 style={[styles.audioThumbnail, { top: audioThumbnailTop, left: audioThumbnailLeft }]}
                 resizeMode="cover"
               />
@@ -784,18 +782,18 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
               </TouchableOpacity>
             </View>
           </>
-        ) : visualMedia?.type === 'video' ? (
+        ) : feed.mediaType === 'video' ? (
           <Video
-            source={{ uri: visualMedia.mediaUrl }}
+            source={{ uri: feed.url }}
             style={StyleSheet.absoluteFill}
             resizeMode={ResizeMode.COVER}
             isLooping
             shouldPlay={isEffectivelyActive}
             isMuted={isVideoMuted}
-            posterSource={visualMedia.thumbnailUrl ? { uri: visualMedia.thumbnailUrl } : undefined}
+            posterSource={thumbnailUrl ? { uri: thumbnailUrl } : undefined}
           />
-        ) : visualMedia?.mediaUrl ? (
-          <Image source={{ uri: visualMedia.mediaUrl }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+        ) : feed.url ? (
+          <Image source={{ uri: feed.url }} style={StyleSheet.absoluteFill} resizeMode="cover" />
         ) : (
           <View style={[StyleSheet.absoluteFill, styles.audioFallback]}>
             <Ionicons name="image" size={48} color={goldenTempleTheme.colors.primary.DEFAULT} />
@@ -803,7 +801,7 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
         )}
 
         {/* Mute toggle - video content only */}
-        {!hasAudioMedia && visualMedia?.type === 'video' && (
+        {!hasAudioMedia && feed.mediaType === 'video' && (
           <TouchableOpacity
             style={styles.muteButton}
             onPress={() => setVideoMuted(!isVideoMuted)}

@@ -8,6 +8,7 @@ import { designSystemTheme } from '@/styles/designSystemTheme';
 import { useI18nStore } from '@/shared/stores/i18nStore';
 import { usePlaybackStore } from '@/store/playbackStore';
 import { MOOD_OPTIONS } from '@/data/moodData';
+import { getFeedThumbnailUrl } from '@/utils/feedFields';
 
 interface MantraFeedCardProps {
   feed: Feed;
@@ -39,7 +40,11 @@ export default function MantraFeedCard({ feed, onPress, onLike }: MantraFeedCard
   const nowPlayingIsPlaying = usePlaybackStore((s) => s.persistent?.nowPlaying.isPlaying);
   const isCurrentlyPlaying = nowPlayingFeedId === feed.id.toString() && !!nowPlayingIsPlaying;
 
-  const mood = feed.label ? MOOD_OPTIONS.find((m) => m.label === feed.label) : undefined;
+  // One pill per mood tag the feed carries, in the feed's own tag order.
+  // Tags outside the mood group (e.g. an occasion tag) have no mood pill.
+  const moods = (feed.tags || [])
+    .map((tag) => MOOD_OPTIONS.find((m) => m.tag === tag))
+    .filter((m): m is (typeof MOOD_OPTIONS)[number] => !!m);
 
   const handlePress = () => onPress?.(feed);
   const handleLike = (event: GestureResponderEvent) => {
@@ -55,7 +60,7 @@ export default function MantraFeedCard({ feed, onPress, onLike }: MantraFeedCard
     >
       <Image
         source={{
-          uri: feed.media?.[0]?.thumbnailUrl || feed.media?.[0]?.mediaUrl || 'https://via.placeholder.com/80x80',
+          uri: getFeedThumbnailUrl(feed) || feed.url || 'https://via.placeholder.com/80x80',
         }}
         style={styles.mantraImage}
         resizeMode="cover"
@@ -81,13 +86,17 @@ export default function MantraFeedCard({ feed, onPress, onLike }: MantraFeedCard
         >
           {feed.title ? (feed.title[language] || feed.title.en || 'Untitled Mantra') : 'Untitled Mantra'}
         </Text>
-        {/* Renders only when the mantra actually has a label - no empty/
+        {/* Renders only when the mantra actually has a mood tag - no empty/
             placeholder pill for untagged content. */}
-        {mood && (
-          <View style={[styles.labelPill, { backgroundColor: mood.gradientColors[0] }]}>
-            <Text variant="caption" weight="semibold" style={styles.labelPillText}>
-              {mood.name[language as 'en' | 'hi'] || mood.name.en}
-            </Text>
+        {moods.length > 0 && (
+          <View style={styles.labelPillRow}>
+            {moods.map((mood) => (
+              <View key={mood.id} style={[styles.labelPill, { backgroundColor: mood.gradientColors[0] }]}>
+                <Text variant="caption" weight="semibold" style={styles.labelPillText}>
+                  {mood.name[language as 'en' | 'hi'] || mood.name.en}
+                </Text>
+              </View>
+            ))}
           </View>
         )}
       </View>
@@ -182,6 +191,14 @@ const styles = StyleSheet.create({
   // it grow naturally for longer text (e.g. "सकारात्मकता"/"Positivity").
   // marginTop dropped - mantraContent's own space-between now owns all
   // spacing between the title row and this pill.
+  // A single row (no wrap) - mantraContent's fixed 64px height has room for
+  // one line of pills under a two-line title. Extra pills are clipped rather
+  // than pushing the card taller.
+  labelPillRow: {
+    flexDirection: 'row',
+    gap: goldenTempleTheme.spacing.xs,
+    overflow: 'hidden',
+  },
   labelPill: {
     alignSelf: 'flex-start',
     minWidth: 44,

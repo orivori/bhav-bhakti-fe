@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React from 'react';
 import {
   View,
   Image,
@@ -11,6 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Video, ResizeMode } from 'expo-av';
 import FeedMedia from '../FeedMedia/FeedMedia';
 import { Feed } from '@/types/feed';
+import { getFeedThumbnailUrl } from '@/utils/feedFields';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { feedService } from '@/features/feed/services/feedService';
 import { useFeedStore } from '@/store/feedStore';
@@ -45,8 +46,6 @@ export default function WallpaperFeedCard({
   onPress,
   variant = 'default',
 }: WallpaperFeedCardProps) {
-  const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const { incrementView } = useFeedStore();
   const { isLiking, isDownloading, isSharing, handleLike, handleShare, handleDownload } = useWallpaperActions({
     feed,
@@ -54,48 +53,6 @@ export default function WallpaperFeedCard({
     onShare,
     onDownload,
   });
-
-  // Auto-slide functionality for multiple images
-  useEffect(() => {
-    // Only enable auto-sliding if there are multiple media items
-    if (feed.media && feed.media.length > 1) {
-      intervalRef.current = setInterval(() => {
-        setCurrentMediaIndex((prevIndex) => {
-          const nextIndex = (prevIndex + 1) % feed.media.length;
-          return nextIndex;
-        });
-      }, 5000); // 5 seconds
-
-      return () => {
-        if (intervalRef.current) {
-          clearInterval(intervalRef.current);
-        }
-      };
-    }
-  }, [feed.media?.length]);
-
-  // Clean up interval on unmount
-  useEffect(() => {
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-    };
-  }, []);
-
-  const handleNextMedia = () => {
-    if (feed.media && feed.media.length > 1) {
-      const total = feed.media.length;
-      setCurrentMediaIndex((prevIndex) => (prevIndex + 1) % total);
-    }
-  };
-
-  const handlePrevMedia = () => {
-    if (feed.media && feed.media.length > 1) {
-      const total = feed.media.length;
-      setCurrentMediaIndex((prevIndex) => (prevIndex - 1 + total) % total);
-    }
-  };
 
   const handlePress = async () => {
     try {
@@ -112,21 +69,20 @@ export default function WallpaperFeedCard({
     // which would only fire for the subset that's actually gated.
     logWallpaperEngaged({
       deity: feed.deity?.name ?? 'unknown',
-      format: feed.media?.[0]?.type === 'video' ? 'video' : 'static',
+      format: feed.mediaType === 'video' ? 'video' : 'static',
     });
 
     onPress?.(feed);
   };
 
+  const thumbnailUrl = getFeedThumbnailUrl(feed);
+
   if (variant === 'grid-tile') {
-    // Pure visual tile: no title/description, no carousel (always the first
-    // media item - a 2-column grid tile has no room for prev/next controls),
+    // Pure visual tile: no title/description,
     // a plain <Image> with resizeMode="contain" inside a 9:16 box so the
     // photo scales to fit without cropping (unlike the default variant's
     // FeedMedia, which is hardcoded to resizeMode="cover" - deliberately not
     // reused here rather than risk changing FeedMedia's shared behavior).
-    const gridMedia = feed.media?.[0];
-
     return (
       <TouchableOpacity
         style={styles.gridTile}
@@ -134,7 +90,7 @@ export default function WallpaperFeedCard({
         activeOpacity={0.9}
       >
         <View style={styles.gridImageBox}>
-          {gridMedia && gridMedia.type === 'video' ? (
+          {feed.url && feed.mediaType === 'video' ? (
             // Instagram-grid-thumbnail behavior: loops continuously,
             // UNCONDITIONALLY silent - deliberately hardcoded `true`, not
             // read from the shared soundPreferenceStore, so the grid can
@@ -143,17 +99,17 @@ export default function WallpaperFeedCard({
             // viewability gating - a grid tile has no exclusivity concern the
             // way a single full-bleed autoplay card does.
             <Video
-              source={{ uri: gridMedia.mediaUrl }}
+              source={{ uri: feed.url }}
               style={styles.gridImage}
               resizeMode={ResizeMode.CONTAIN}
               isLooping
               shouldPlay
               isMuted={true}
-              posterSource={gridMedia.thumbnailUrl ? { uri: gridMedia.thumbnailUrl } : undefined}
+              posterSource={thumbnailUrl ? { uri: thumbnailUrl } : undefined}
             />
-          ) : gridMedia && (
+          ) : !!feed.url && (
             <Image
-              source={{ uri: gridMedia.mediaUrl }}
+              source={{ uri: feed.url }}
               style={styles.gridImage}
               resizeMode="contain"
             />
@@ -208,14 +164,12 @@ export default function WallpaperFeedCard({
     );
   }
 
-  const currentMedia = feed.media && feed.media.length > 1 ? feed.media[currentMediaIndex] : feed.media?.[0];
-
   return (
     <View style={styles.container}>
       {/* Main Wallpaper Image with gap from container */}
       <View style={styles.imageContainer}>
         <TouchableOpacity onPress={handlePress} activeOpacity={0.95}>
-          {currentMedia && currentMedia.type === 'video' ? (
+          {feed.url && feed.mediaType === 'video' ? (
             // Matches the grid-tile variant's own video treatment exactly: a
             // 9:16 aspectRatio box with resizeMode CONTAIN (letterboxes
             // instead of cropping) and unconditional loop/mute/play.
@@ -227,18 +181,18 @@ export default function WallpaperFeedCard({
             // behavior would affect them too.
             <View style={styles.wallpaperVideoBox}>
               <Video
-                source={{ uri: currentMedia.mediaUrl }}
+                source={{ uri: feed.url }}
                 style={styles.wallpaperVideo}
                 resizeMode={ResizeMode.CONTAIN}
                 isLooping
                 shouldPlay
                 isMuted={true}
-                posterSource={currentMedia.thumbnailUrl ? { uri: currentMedia.thumbnailUrl } : undefined}
+                posterSource={thumbnailUrl ? { uri: thumbnailUrl } : undefined}
               />
             </View>
           ) : (
             <FeedMedia
-              media={feed.media && feed.media.length > 1 ? [feed.media[currentMediaIndex]] : (feed.media || [])}
+              feed={feed}
               onMediaPress={handlePress}
               autoPlay={false}
               showControls={false}
@@ -248,43 +202,6 @@ export default function WallpaperFeedCard({
           )}
         </TouchableOpacity>
 
-        {/* Side Navigation Buttons for multiple images */}
-        {feed.media && feed.media.length > 1 && (
-          <>
-            {/* Previous Button */}
-            <TouchableOpacity
-              style={[styles.navButton, styles.navButtonLeft]}
-              onPress={handlePrevMedia}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="chevron-back" size={24} color="#fff" />
-            </TouchableOpacity>
-
-            {/* Next Button */}
-            <TouchableOpacity
-              style={[styles.navButton, styles.navButtonRight]}
-              onPress={handleNextMedia}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="chevron-forward" size={24} color="#fff" />
-            </TouchableOpacity>
-          </>
-        )}
-
-        {/* Media Indicators for multiple images */}
-        {feed.media && feed.media.length > 1 && (
-          <View style={styles.indicators}>
-            {feed.media.map((_, index) => (
-              <View
-                key={index}
-                style={[
-                  styles.indicator,
-                  index === currentMediaIndex && styles.indicatorActive,
-                ]}
-              />
-            ))}
-          </View>
-        )}
       </View>
 
       {/* Content Section Below Image - title/description intentionally
@@ -415,54 +332,6 @@ const styles = StyleSheet.create({
   },
   actionButtonLiked: {
     backgroundColor: 'rgba(196, 30, 58, 0.1)',
-  },
-  indicators: {
-    position: 'absolute',
-    top: 16,
-    left: '50%',
-    transform: [{ translateX: -50 }],
-    flexDirection: 'row',
-    gap: 8,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-  },
-  indicator: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.6)',
-  },
-  indicatorActive: {
-    backgroundColor: '#fff',
-    shadowColor: '#fff',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.5,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  navButton: {
-    position: 'absolute',
-    top: '50%',
-    transform: [{ translateY: -22 }],
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  navButtonLeft: {
-    left: 16,
-  },
-  navButtonRight: {
-    right: 16,
   },
   // --- grid-tile variant only, below this point - default variant's styles
   // above are all untouched. ---

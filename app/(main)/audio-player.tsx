@@ -39,6 +39,7 @@ import { logContentProgress, logChantCounterUsed } from '@/utils/analytics/engag
 
 import { useFeedStore } from '@/store/feedStore';
 import { formatCount } from '@/utils/formatCount';
+import { getFeedThumbnailUrl } from '@/utils/feedFields';
 import { containsDevanagari } from '@/utils/textUtils';
 import WhatsAppIcon from '../../assets/icons/whatsapp.svg';
 
@@ -727,10 +728,8 @@ export default function AudioPlayerScreen() {
   // title/audioUrl/thumbnailUrl alongside feedId, so the fallback is
   // accurate for the new content, not just a placeholder.
   const getContentData = () => {
-    if (feedData && feedData.media && Array.isArray(feedData.media) && feedData.id.toString() === feedId) {
-      const audioMedia = feedData.media.find(media =>
-        media.type === 'audio' || media.type === 'image_audio'
-      );
+    if (feedData && feedData.id.toString() === feedId) {
+      const isAudio = feedData.mediaType === 'audio';
 
       // Get deity name from the deity relationship or fallback
       const deityName = feedData.deity?.displayName
@@ -753,19 +752,15 @@ export default function AudioPlayerScreen() {
         // `artist` field, load-bearing and unrelated to this on-screen
         // `artist` field.
         title: getLocalizedText(feedData.title, t('sacredMantra')),
-        // The new on-screen "artist" subtitle - `caption`'s intended role
-        // going forward. Not yet real per-content artist data (caption
-        // currently still holds the same English-title copy caption always
-        // has), so this will visibly duplicate the title until the CSV
-        // pipeline's write-side is updated separately - a known, accepted
-        // consequence of this data-routing fix, not a bug in it.
-        artist: feedData.caption || '',
+        // The on-screen "artist" line - the feed's bilingual `subtitle`, in
+        // the current language like `title` above.
+        artist: getLocalizedText(feedData.subtitle, ''),
         description,
         tags: feedData.tags,
         deity: deityName,
         objective,
-        audioUrl: audioMedia?.mediaUrl || audioMedia?.audioUrl,
-        thumbnailUrl: audioMedia?.thumbnailUrl,
+        audioUrl: isAudio ? feedData.url : undefined,
+        thumbnailUrl: isAudio ? getFeedThumbnailUrl(feedData) ?? undefined : undefined,
         feedId: feedData.id.toString(),
         // Real, confirmed data - always wins once available. See the
         // params-fallback branch below for why this pair exists at all.
@@ -779,7 +774,7 @@ export default function AudioPlayerScreen() {
       title: params.title || t('sacredMantra'),
       // See the loaded branch's comment above - params.artist is already
       // sent by every real entry point (mantras.tsx/index.tsx/search-
-      // results.tsx, updated alongside this), sourced from caption.
+      // results.tsx, updated alongside this), sourced from subtitle.
       artist: params.artist ? params.artist.toString() : '',
       description: params.description || t('mantraDescription'),
       tags: params.tags ? params.tags.toString().split(',') : [t('mantras')],

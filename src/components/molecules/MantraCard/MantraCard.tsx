@@ -17,6 +17,7 @@ import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { feedService } from '@/features/feed/services/feedService';
 import { useFeedStore } from '@/store/feedStore';
 import { useI18nStore } from '@/shared/stores/i18nStore';
+import { getFeedSubtitle, getFeedThumbnailUrl } from '@/utils/feedFields';
 
 interface MantraCardProps {
   feed: Feed;
@@ -71,10 +72,10 @@ export default function MantraCard({
       incrementShare(feed.id.toString());
 
       const result = await Share.share({
-        message: (feed.caption || feed.title?.[language] || feed.title?.en)
-          ? `Listen to this beautiful mantra: ${feed.caption || feed.title?.[language] || feed.title?.en}\n\nShared from Bhav Bhakti App`
+        message: (getFeedSubtitle(feed, language) || feed.title?.[language] || feed.title?.en)
+          ? `Listen to this beautiful mantra: ${getFeedSubtitle(feed, language) || feed.title?.[language] || feed.title?.en}\n\nShared from Bhav Bhakti App`
           : 'Listen to this beautiful mantra from Bhav Bhakti App!',
-        url: feed.media[0]?.mediaUrl,
+        url: feed.url,
       });
 
       if (result.action === Share.sharedAction) {
@@ -93,12 +94,11 @@ export default function MantraCard({
 
   const getImageUrl = () => {
     // Get the thumbnail or media URL for the image
-    const mediaItem = feed.media?.[0];
-    return mediaItem?.thumbnailUrl || mediaItem?.mediaUrl || 'https://via.placeholder.com/300x400';
+    return getFeedThumbnailUrl(feed) || feed.url || 'https://via.placeholder.com/300x400';
   };
 
   const getMantraTitle = () => {
-    return feed.caption || 'Sacred Mantra';
+    return getFeedSubtitle(feed, language) || 'Sacred Mantra';
   };
 
   const getMantraDescription = () => {

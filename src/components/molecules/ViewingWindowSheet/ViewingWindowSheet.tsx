@@ -7,6 +7,7 @@ import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { Feed } from '@/types/feed';
 import { useEffectivelyActive } from '@/hooks/useEffectivelyActive';
 import { useWallpaperActions } from '../WallpaperFeedCard/useWallpaperActions';
+import { getFeedThumbnailUrl } from '@/utils/feedFields';
 
 interface ViewingWindowSheetProps {
   visible: boolean;
@@ -56,7 +57,8 @@ export default function ViewingWindowSheet({
     onDownload,
   });
 
-  const media = feed?.media?.[0];
+  const mediaUrl = feed?.url;
+  const thumbnailUrl = feed ? getFeedThumbnailUrl(feed) : null;
 
   // Confirmed root cause: the declarative `shouldPlay` prop alone isn't
   // enough to stop this specific player on backgrounding. This window's video
@@ -102,20 +104,20 @@ export default function ViewingWindowSheet({
             <Ionicons name="close" size={22} color="#fff" />
           </TouchableOpacity>
 
-          {media?.type === 'video' ? (
+          {mediaUrl && feed?.mediaType === 'video' ? (
             <Video
               ref={videoRef}
-              source={{ uri: media.mediaUrl }}
+              source={{ uri: mediaUrl }}
               style={styles.media}
               resizeMode={ResizeMode.CONTAIN}
               isLooping
               shouldPlay={isEffectivelyActive}
               isMuted={false}
-              posterSource={media.thumbnailUrl ? { uri: media.thumbnailUrl } : undefined}
+              posterSource={thumbnailUrl ? { uri: thumbnailUrl } : undefined}
             />
-          ) : media ? (
+          ) : mediaUrl ? (
             <Image
-              source={{ uri: media.mediaUrl }}
+              source={{ uri: mediaUrl }}
               style={styles.media}
               resizeMode="contain"
             />

@@ -30,6 +30,7 @@ import { useScrollToTopOnTabPress } from '@/hooks/useScrollToTopOnTabPress';
 import { MOOD_OPTIONS, MoodOption } from '@/data/moodData';
 import { feedService } from '@/features/feed/services/feedService';
 import type { Feed } from '@/types/feed';
+import { getFeedSubtitle, getFeedThumbnailUrl } from '@/utils/feedFields';
 
 // Mirrors horoscope.tsx's zodiac grid width calculation approach - 2 columns
 // with even spacing, computed from screen width. The 64 = section's own
@@ -43,7 +44,7 @@ const MOOD_ITEM_WIDTH = (SCREEN_WIDTH - 64) / 2;
 // Shared by handleMantraPress and handleMoodPress (CLAUDE.md §56 Phase 4b) -
 // both navigate into the same shared player the same way, just reached via a
 // different entry point (a tapped list card vs. a randomly-picked mantra).
-function buildAudioPlayerParams(mantra: Feed) {
+function buildAudioPlayerParams(mantra: Feed, language: string) {
   return {
     feedId: mantra.id.toString(),
     // CLAUDE.md §56 Phase 0: the real bilingual title field, not caption -
@@ -62,13 +63,13 @@ function buildAudioPlayerParams(mantra: Feed) {
     // on-device logcat capture (CLAUDE.md's route-param URL corruption
     // investigation). This encode is what makes that one guaranteed decode
     // correctly restore the original URL instead of corrupting it.
-    audioUrl: encodeURIComponent(mantra.media?.[0]?.audioUrl || mantra.media?.[0]?.mediaUrl || ''),
-    thumbnailUrl: encodeURIComponent(mantra.media?.[0]?.thumbnailUrl || mantra.media?.[0]?.mediaUrl || ''),
-    // caption is the intended "artist" source going forward (§56 Phase 0) -
+    audioUrl: encodeURIComponent(mantra.url || ''),
+    thumbnailUrl: encodeURIComponent(getFeedThumbnailUrl(mantra) || mantra.url || ''),
+    // subtitle is the "artist" line (§56 Phase 0), in the current language -
     // not mantra.user?.name, which was almost always the hardcoded
     // 'Unknown Artist' fallback in practice, never real per-content data.
-    artist: mantra.caption || '',
-    duration: mantra.media?.[0]?.duration?.toString() || '0',
+    artist: getFeedSubtitle(mantra, language),
+    duration: mantra.duration?.toString() || '0',
     isLiked: mantra.isLiked ? 'true' : 'false',
     // Lets audio-player.tsx render the correct control layout from the
     // first frame instead of defaulting to mantra until its own fetch
@@ -152,9 +153,9 @@ export default function MantrasScreen() {
     // Navigate to audio player with mantra data
     router.push({
       pathname: '/(main)/audio-player',
-      params: buildAudioPlayerParams(mantra),
+      params: buildAudioPlayerParams(mantra, language),
     });
-  }, [viewFeed]);
+  }, [viewFeed, language]);
 
   const handleLikePress = useCallback((mantraId: string) => {
     likeFeed(mantraId);
@@ -179,7 +180,7 @@ export default function MantrasScreen() {
       // wired up here.
       const response = await feedService.getFeeds({
         type: 'mantra',
-        label: mood.label,
+        tags: [mood.tag],
         sortBy: 'random',
         limit: 1,
       });
@@ -200,10 +201,10 @@ export default function MantrasScreen() {
 
       router.push({
         pathname: '/(main)/audio-player',
-        params: buildAudioPlayerParams(randomMantra),
+        params: buildAudioPlayerParams(randomMantra, language),
       });
     } catch (err) {
-      console.error('❌ Error fetching random mantra for mood:', mood.label, err);
+      console.error('❌ Error fetching random mantra for mood:', mood.tag, err);
       Alert.alert(
         language === 'hi' ? 'त्रुटि' : 'Error',
         language === 'hi'

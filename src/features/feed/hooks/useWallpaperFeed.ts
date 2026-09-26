@@ -24,7 +24,9 @@ const TRENDING_DAYS = 7;
 
 // Shared by StatusTabContent and WallpapersTabContent - the only difference
 // between the two buckets is the label argument (undefined for Status's
-// superset, 'none' for Wallpapers' general-purpose-only bucket).
+// superset, 'none' for Wallpapers' general-purpose-only bucket - no tag from
+// the occasion group). `label` rather than `tags` because only `label`
+// supports this exclusion and the trending/liked endpoints accept it too.
 // Architecture mirrors useRingtones exactly (Phase 6 of the Audio hub's
 // deity-filter work): trending (a ranking view) and a deity selection (a
 // stored filter) are different query mechanics hitting different endpoints,

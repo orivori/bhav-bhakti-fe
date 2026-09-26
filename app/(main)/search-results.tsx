@@ -17,10 +17,13 @@ import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { useTranslation } from 'react-i18next';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
 import { logSearchQueryZeroResults } from '@/utils/analytics/engagementEvents';
+import { useI18nStore } from '@/shared/stores/i18nStore';
+import { getFeedSubtitle, getFeedThumbnailUrl } from '@/utils/feedFields';
 
 export default function SearchResultsScreen() {
   const { contentPadding } = useTabBarHeight();
   const { t } = useTranslation();
+  const { language } = useI18nStore();
   // `type` is optional - present when a caller (e.g. Mantra Explorer's own
   // search bar) wants results restricted to one content type; absent for
   // Home's unscoped search. feed.service.js already AND-combines `type`
@@ -108,8 +111,7 @@ export default function SearchResultsScreen() {
     console.log('🎵 SearchResults: Feed pressed:', {
       id: feed.id,
       type: feed.type,
-      caption: feed.caption,
-      mediaCount: feed.media?.length || 0
+      mediaType: feed.mediaType
     });
 
     // Track view
@@ -124,13 +126,12 @@ export default function SearchResultsScreen() {
     // Aarti/Bhajan search results silently no-opping, since that content is
     // isRepeatable: false by design (sung-through, not chant-repeated) but
     // still needs to open in this same shared player.
-    const audioMedia = feed.media?.find(media => media.type === 'audio');
-
-    if (audioMedia) {
+    if (feed.mediaType === 'audio' && feed.url) {
+      const thumbnailUrl = getFeedThumbnailUrl(feed);
       console.log('✅ SearchResults: Found audio media, navigating to audio player:', {
         feedId: feed.id.toString(),
-        audioUrl: audioMedia.mediaUrl,
-        thumbnailUrl: audioMedia.thumbnailUrl
+        audioUrl: feed.url,
+        thumbnailUrl
       });
 
       // Navigate to audio player with feed data
@@ -142,16 +143,16 @@ export default function SearchResultsScreen() {
           // pre-fetch fallback only, matches audio-player.tsx's own
           // English-first resolution once its real fetch takes over.
           title: feed.title?.en || feed.title?.hi || 'Sacred Mantra',
-          // caption is the intended "artist" source going forward.
-          artist: feed.caption || '',
+          // subtitle is the "artist" line, in the current language.
+          artist: getFeedSubtitle(feed, language),
           // encodeURIComponent: these Firebase Storage URLs already contain
           // their own legitimate %2F/%20 sequences - useLocalSearchParams()
           // unconditionally decodeURIComponent's every string param once on
           // the way out with no matching encode on the way in, which
           // silently corrupts the URL (%2F -> literal /) without this - see
           // CLAUDE.md's route-param URL corruption investigation.
-          audioUrl: encodeURIComponent(audioMedia.mediaUrl),
-          thumbnailUrl: encodeURIComponent(audioMedia.thumbnailUrl || ''),
+          audioUrl: encodeURIComponent(feed.url),
+          thumbnailUrl: encodeURIComponent(thumbnailUrl || ''),
           tags: feed.tags?.join(',') || '',
           // Lets audio-player.tsx render the correct control layout from
           // the first frame instead of defaulting to mantra until its own
