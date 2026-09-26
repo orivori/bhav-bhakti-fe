@@ -661,3 +661,13 @@ The quiz never produced recommendations and its only entry point had been hidden
 **PRODUCTION ORDER MATTERS:** production's app build still sends `label`. The backend's label-removal commit (`f158805`) and its migration must NOT reach production until the app's label-free build (`9573ce8` or later) has actually reached production users — otherwise every Wallpapers and mood request from the old build gets a 400.
 
 **Deferred to a later session** (found during on-device testing, logged in full in `Bhav_Bhakti_Handoff.md`): a wallpaper download appears in the gallery but the file won't open; and the hardware back button minimizes the app after opening the player.
+
+## 104. 2026-09-26 session (continued) — Feeds schema redesign: FULLY COMPLETE, live in production
+
+**DONE, live in production as of 2026-09-26 — dev build-out through production promotion.** Supersedes the "NOT in production" status in §102/§103. Backend `main` at merge `24091f6`; frontend `production`/`master` at `0e0c9a7`. **Full record: `D:hav_bhakti_Claude_docsBhav_Bhakti_Feeds_Schema_Redesign_Plan.md` (Part 9)** — this is a pointer/summary.
+
+Production now runs: `categories` retired; single-value `label` replaced by a many-to-many `tags`/`feed_tags` system (filter with `tags=` / `excludeTagGroup=`; a `label` param now returns 400); `feed_media` merged into `feeds` (storage paths, bilingual `subtitle`); and the `media[]`/`caption`/`label` compatibility shims retired — feed responses carry only the new fields.
+
+The promotion went out in five staged releases: (A) prep — the feed log-flooding fix and `bhav-bhakti-be/scripts/migrate-production.js` (production-only, typed `PRODUCTION` confirmation, mandatory `--to`); (B) backend release 1 plus migrations 000001–000005 (categories, tags, media merge); (C) the app OTA update; (D) the adoption wait — waived by founder decision; (E) backend release 2 plus migration 000006 (label drop) and shim retirement. One ~10-minute outage in total (Stage B, between deploy and migrations). Full database backups were taken before each migration stage; production-specific JSON backups are in `bhav-bhakti-be/archive/production-*-2026-09-26.json`.
+
+**One open follow-up, no urgency:** a `versionCode` 7 Play Store build from `production`. The current Play Store build (`versionCode` 6) embeds pre-redesign code, so a brand-new install's first launch briefly runs it (feed cards, Wallpapers and mood tiles broken) until the OTA update applies on restart. Expected to ship alongside the upcoming Meta SDK integration.
