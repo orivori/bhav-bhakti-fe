@@ -24,6 +24,7 @@ import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { containsDevanagari, getEnhancedLineHeight } from '@/utils/textUtils';
 import { useTranslation } from 'react-i18next';
 import { useI18nStore } from '@/shared/stores/i18nStore';
+import { getFeedSubtitle, getFeedThumbnailUrl } from '@/utils/feedFields';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
 import { useScrollToTopOnTabPress } from '@/hooks/useScrollToTopOnTabPress';
 import * as Haptics from 'expo-haptics';
@@ -126,8 +127,7 @@ export default function HomeScreen() {
     console.log('🎵 Home: Feed pressed:', {
       id: feed.id,
       type: feed.type,
-      caption: feed.caption,
-      mediaCount: feed.media?.length || 0
+      mediaType: feed.mediaType
     });
 
     // Track view
@@ -144,13 +144,12 @@ export default function HomeScreen() {
     // open in this same shared player. Ringtone-type feeds never reach this
     // handler in the first place - FeedList routes those to
     // RingtoneFeedCard directly, before onFeedPress is ever involved.
-    const audioMedia = feed.media?.find(media => media.type === 'audio');
-
-    if (audioMedia) {
+    if (feed.mediaType === 'audio' && feed.url) {
+      const thumbnailUrl = getFeedThumbnailUrl(feed);
       console.log('✅ Home: Found audio media, navigating to audio player:', {
         feedId: feed.id.toString(),
-        audioUrl: audioMedia.mediaUrl,
-        thumbnailUrl: audioMedia.thumbnailUrl
+        audioUrl: feed.url,
+        thumbnailUrl
       });
 
       router.push({
@@ -161,16 +160,16 @@ export default function HomeScreen() {
           // pre-fetch fallback only, matches audio-player.tsx's own
           // English-first resolution once its real fetch takes over.
           title: feed.title?.en || feed.title?.hi || 'Sacred Mantra',
-          // caption is the intended "artist" source going forward.
-          artist: feed.caption || '',
+          // subtitle is the "artist" line, in the current language.
+          artist: getFeedSubtitle(feed, currentLanguage),
           // encodeURIComponent: these Firebase Storage URLs already contain
           // their own legitimate %2F/%20 sequences - useLocalSearchParams()
           // unconditionally decodeURIComponent's every string param once on
           // the way out with no matching encode on the way in, which
           // silently corrupts the URL (%2F -> literal /) without this - see
           // CLAUDE.md's route-param URL corruption investigation.
-          audioUrl: encodeURIComponent(audioMedia.mediaUrl),
-          thumbnailUrl: encodeURIComponent(audioMedia.thumbnailUrl || ''),
+          audioUrl: encodeURIComponent(feed.url),
+          thumbnailUrl: encodeURIComponent(thumbnailUrl || ''),
           tags: feed.tags?.join(',') || '',
           // Lets audio-player.tsx render the correct control layout from
           // the first frame instead of defaulting to mantra until its own

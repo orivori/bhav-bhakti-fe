@@ -30,6 +30,7 @@ import { feedService } from '@/features/feed/services/feedService';
 import { useFeedStore } from '@/store/feedStore';
 import { usePlaybackStore } from '@/store/playbackStore';
 import { useI18nStore } from '@/shared/stores/i18nStore';
+import { getFeedSubtitle, getFeedThumbnailUrl } from '@/utils/feedFields';
 
 // Module-scope (not component state) so it's shared across every rendered
 // RingtoneFeedCard instance and reachable from every place playback for a
@@ -148,12 +149,10 @@ export default function RingtoneFeedCard({
 
   const { toggleLike, incrementShare, incrementView } = useFeedStore();
 
-  // Get the main audio media - optional-chained since some sources (e.g.
-  // getUserLikedFeeds, before its own fix) can omit `media` entirely; a
-  // missing/empty array now degrades to no playable source instead of
-  // throwing during render.
-  const audioMedia = feed.media?.find(m => m.type === 'audio') || feed.media?.[0];
-  const audioSourceUri = audioMedia?.audioUrl || audioMedia?.mediaUrl;
+  // The feed's single media item. A missing url degrades to no playable
+  // source instead of throwing during render.
+  const audioSourceUri: string | undefined = feed.url || undefined;
+  const thumbnailUrl = getFeedThumbnailUrl(feed);
 
   // One stable, predictable local filename per ringtone - derived from the
   // title, not the feed ID/a timestamp - so playback caching, download, and
@@ -371,12 +370,12 @@ export default function RingtoneFeedCard({
         type: feed.type,
         mode: 'ephemeral',
         title,
-        thumbnailUrl: audioMedia?.thumbnailUrl ?? undefined,
+        thumbnailUrl: thumbnailUrl ?? undefined,
       },
       {
         isPlaying: true,
         positionSeconds: 0,
-        durationSeconds: audioMedia?.duration || 0,
+        durationSeconds: feed.duration || 0,
       },
       {
         // stop/pause below are also called externally (e.g. ringtones.tsx's
@@ -437,7 +436,6 @@ export default function RingtoneFeedCard({
       // applied to app/(main)/audio-player.tsx.
       setIsLoading(true);
       console.log('🎧 Audio source URI:', audioSourceUri);
-      console.log('🎼 Audio media:', audioMedia);
 
       if (audioSourceUri) {
         const cachedUri = await getCachedRingtoneUri();
@@ -538,13 +536,13 @@ export default function RingtoneFeedCard({
       incrementShare(feed.id.toString());
 
       const result = await Share.share({
-        // Real title first, caption only as a last resort (CLAUDE.md §56
+        // Real title first, subtitle only as a last resort (CLAUDE.md §56
         // Phase 0) - matches AutoplayFeedCard/AudioContentCard's already-
-        // correct pattern; caption is no longer a reliable title proxy.
-        message: (feed.title?.[language] || feed.title?.en || feed.caption)
-          ? `Check out this ringtone: ${feed.title?.[language] || feed.title?.en || feed.caption}\n\nShared from Bhav Bhakti App`
+        // correct pattern; subtitle is not a reliable title proxy.
+        message: (feed.title?.[language] || feed.title?.en || getFeedSubtitle(feed, language))
+          ? `Check out this ringtone: ${feed.title?.[language] || feed.title?.en || getFeedSubtitle(feed, language)}\n\nShared from Bhav Bhakti App`
           : 'Check out this amazing ringtone from Bhav Bhakti App!',
-        url: audioMedia?.mediaUrl,
+        url: feed.url,
       });
 
       if (result.action === Share.sharedAction) {
@@ -568,7 +566,7 @@ export default function RingtoneFeedCard({
 
       console.log('🎧 Starting ringtone setup...');
       console.log('📱 Audio source URI:', audioSourceUri);
-      console.log('🎵 Audio media details:', audioMedia);
+      console.log('🎵 Audio media type:', feed.mediaType);
 
       const localUri = await ensureLocalFile();
       const fileName = localUri.split('/').pop() || localFileName;
@@ -704,9 +702,9 @@ export default function RingtoneFeedCard({
       <View style={styles.mainLayout}>
         {/* Thumbnail */}
         <View style={styles.thumbnailContainer}>
-          {audioMedia?.thumbnailUrl ? (
+          {thumbnailUrl ? (
             <Image
-              source={{ uri: audioMedia.thumbnailUrl }}
+              source={{ uri: thumbnailUrl }}
               style={styles.thumbnail}
               resizeMode="cover"
             />
@@ -779,7 +777,7 @@ export default function RingtoneFeedCard({
 
             {/* Duration */}
             <Text style={styles.duration}>
-              {formatTime((status.duration || audioMedia?.duration || 0) * 1000)} sec
+              {formatTime((status.duration || feed.duration || 0) * 1000)} sec
             </Text>
           </View>
 

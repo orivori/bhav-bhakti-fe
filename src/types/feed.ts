@@ -1,15 +1,4 @@
-export interface FeedMedia {
-  id: number;
-  type: 'image' | 'video' | 'audio' | 'image_audio';
-  mediaUrl: string;
-  audioUrl?: string | null;
-  thumbnailUrl?: string | null;
-  duration?: number | null; // seconds
-  width?: number;
-  height?: number;
-  order: number;
-  metadata?: Record<string, any> | null;
-}
+export type FeedMediaType = 'image' | 'video' | 'audio';
 
 export interface Deity {
   id: number;
@@ -25,15 +14,21 @@ export interface Feed {
   id: number;
   userId: number;
   title?: Record<string, string> | null;
-  caption?: string;
+  subtitle?: Record<string, string> | null;
   location?: string;
   type: 'general' | 'mantra' | 'ringtone' | 'wallpaper' | 'aarti' | 'bhajan' | 'thought';
   deityId?: number | null;
   deity?: Deity | null;
-  label?: 'good_morning' | 'good_evening' | 'good_night' | 'festive' | 'peace' | 'strength' | 'protection' | 'positivity' | null;
   description?: Record<string, string> | null;
   objective?: Record<string, string> | null;
-  mediaCount: number;
+  // One media item per feed. url and the thumbnails are full public URLs
+  // (the backend builds them per response). Use getFeedThumbnailUrl() rather
+  // than reading a thumbnail field directly.
+  url: string;
+  mediaType: FeedMediaType;
+  thumbnailSquareUrl?: string | null;
+  thumbnailPortraitUrl?: string | null;
+  duration?: number | null; // seconds
   likesCount: number;
   commentsCount: number;
   downloadsCount: number;
@@ -50,8 +45,9 @@ export interface Feed {
     name: string;
     profilePicture?: string | null;
   };
+  // Tag keys only (e.g. ['peace', 'strength']) - the API doesn't send each
+  // tag's group or display name here.
   tags: string[];
-  media: FeedMedia[];
   isLiked: boolean;
   isDownloaded: boolean;
 }
@@ -100,21 +96,16 @@ export interface FeedListResponse {
 
 export interface CreateFeedRequest {
   type?: 'general' | 'mantra' | 'ringtone' | 'wallpaper' | 'aarti' | 'bhajan' | 'thought';
-  caption?: string;
+  subtitle?: Record<string, string>;
   location?: string;
   allowComments?: boolean;
   allowDownloads?: boolean;
   isRepeatable?: boolean;
-  media: {
-    type: 'image' | 'video' | 'audio' | 'image_audio';
-    mediaUrl: string;
-    audioUrl?: string;
-    thumbnailUrl?: string;
-    duration?: number;
-    width?: number;
-    height?: number;
-    metadata?: Record<string, any>;
-  }[];
+  url: string;
+  mediaType: FeedMediaType;
+  thumbnailSquareUrl?: string;
+  thumbnailPortraitUrl?: string;
+  duration?: number;
   tags?: string[];
 }
 
@@ -128,10 +119,14 @@ export interface FeedFilters {
   // AND-combines this with `search` either way.
   type?: FeedType | FeedType[];
   deityId?: number;
-  // 'none' is a sentinel meaning "must have no occasion set" (IS NULL server-side) -
-  // omitting this field entirely means "don't filter by it at all" (the Status
-  // superset case), so a distinct value is needed for the opposite (Wallpapers).
-  label?: 'good_morning' | 'good_evening' | 'good_night' | 'festive' | 'peace' | 'strength' | 'protection' | 'positivity' | 'none';
+  // Only 'none' is used: the backend reads it as "carries no tag from the
+  // occasion group" (the Wallpaper Hub's Wallpapers tab), regardless of any
+  // other tag the feed has. It stays on `label` because `tags` can only
+  // include, not exclude, and the trending/liked endpoints accept `label` but
+  // not `tags`. Omitting it means "don't filter by occasion" (Status).
+  label?: 'none';
+  // Tag keys; matches feeds carrying ANY of them. GET /feed only - the
+  // trending and liked endpoints ignore it.
   tags?: string[];
   search?: string;
   sortBy?: 'createdAt' | 'likesCount' | 'downloadsCount' | 'sharesCount' | 'viewsCount' | 'random';

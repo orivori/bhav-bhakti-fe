@@ -38,8 +38,8 @@ interface StatusTabContentProps {
 // FeedList.
 //
 // Status is the superset bucket: all wallpaper-type content regardless of
-// label - no label filter is applied at all, unlike WallpapersTabContent
-// which specifically excludes occasion-labeled content.
+// tags - no occasion filter is applied at all, unlike WallpapersTabContent
+// which specifically excludes occasion-tagged content.
 // `filter` is owned and shared by the hub (survives switching sub-tabs) -
 // this component just forwards whatever it's given into useWallpaperFeed().
 function StatusTabContent({ filter }: StatusTabContentProps, ref: React.Ref<FlatList>) {

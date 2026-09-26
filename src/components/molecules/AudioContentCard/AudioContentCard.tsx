@@ -8,21 +8,18 @@ import { useI18nStore } from '@/shared/stores/i18nStore';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { designSystemTheme } from '@/styles/designSystemTheme';
 import { usePlaybackStore, QueueItem } from '@/store/playbackStore';
+import { getFeedSubtitle, getFeedThumbnailUrl } from '@/utils/feedFields';
 
 // Shared by both this card's own display fields and the queue-item mapping
 // in handlePress below - kept as one function so a list of N cards resolving
 // title/audio/thumbnail for themselves and handlePress resolving the same
 // fields for all N feeds (to seed the queue) can never drift apart into two
 // slightly different definitions of "this feed's title."
-//
-// Matches audio-player.tsx's own getContentData() media lookup (checks both
-// 'audio' and 'image_audio'), not the narrower 'audio'-only checks in
-// index.tsx/search-results.tsx - Aarti/Bhajan content may use either shape.
 const resolveQueueItem = (feed: Feed, language: string): QueueItem => {
-  const title = feed.title?.[language] || feed.title?.en || feed.caption || 'Untitled';
-  const audioMedia = feed.media?.find(m => m.type === 'audio' || m.type === 'image_audio');
-  const audioUrl = audioMedia?.mediaUrl || audioMedia?.audioUrl || '';
-  const thumbnailUrl = audioMedia?.thumbnailUrl || (audioMedia?.mediaUrl !== audioUrl ? audioMedia?.mediaUrl : undefined);
+  const title = feed.title?.[language] || feed.title?.en || getFeedSubtitle(feed, language) || 'Untitled';
+  const isAudio = feed.mediaType === 'audio';
+  const audioUrl = isAudio ? feed.url || '' : '';
+  const thumbnailUrl = isAudio ? getFeedThumbnailUrl(feed) ?? undefined : undefined;
 
   return { feedId: feed.id.toString(), title, audioUrl, thumbnailUrl, type: feed.type, isRepeatable: feed.isRepeatable };
 };

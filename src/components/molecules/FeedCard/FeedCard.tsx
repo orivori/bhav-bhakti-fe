@@ -22,6 +22,7 @@ import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { feedService } from '@/features/feed/services/feedService';
 import { useFeedStore } from '@/store/feedStore';
 import { useI18nStore } from '@/shared/stores/i18nStore';
+import { getFeedSubtitle } from '@/utils/feedFields';
 import { getMediaFileExtension } from '@/utils/getMediaFileExtension';
 
 interface FeedCardProps {
@@ -86,15 +87,15 @@ export default function FeedCard({
 
       const result = await Share.share({
         message: (() => {
-          // Real title first, caption only as a last resort (CLAUDE.md §56
+          // Real title first, subtitle only as a last resort (CLAUDE.md §56
           // Phase 0) - matches AutoplayFeedCard/AudioContentCard's already-
-          // correct pattern; caption is no longer a reliable title proxy.
-          const shareTitle = feed.title?.[language] || feed.title?.en || feed.caption;
+          // correct pattern; subtitle is not a reliable title proxy.
+          const shareTitle = feed.title?.[language] || feed.title?.en || getFeedSubtitle(feed, language);
           return shareTitle
             ? `Check out this post: ${shareTitle}\n\nShared from Bhav Bhakti App`
             : 'Check out this amazing post from Bhav Bhakti App!';
         })(),
-        url: feed.media?.[0]?.mediaUrl,
+        url: feed.url,
       });
 
       if (result.action === Share.sharedAction) {
@@ -116,11 +117,9 @@ export default function FeedCard({
         return;
       }
 
-      // Download first media item
-      const mediaToDownload = feed.media?.[0];
-      if (!mediaToDownload) return;
+      if (!feed.url) return;
 
-      const extension = getMediaFileExtension(mediaToDownload.mediaUrl, mediaToDownload.type);
+      const extension = getMediaFileExtension(feed.url, feed.mediaType);
       // Timestamp suffix guarantees a unique local path on every attempt -
       // see useWallpaperActions.ts's handleDownload for the full explanation
       // (MediaStore's own collision handling otherwise silently reused an
@@ -129,9 +128,9 @@ export default function FeedCard({
       // MediaLibrary, deleted right after on success below; cacheDirectory
       // means a failed/skipped delete doesn't leak into persistent storage
       // forever. See cacheEviction.ts for the startup age-based sweep.
-      const fileUri = FileSystem?.cacheDirectory + `feed_${feed.id}_${mediaToDownload.id}_${Date.now()}.${extension}`;
+      const fileUri = FileSystem?.cacheDirectory + `feed_${feed.id}_${Date.now()}.${extension}`;
       const downloadResult = await FileSystem.downloadAsync(
-        mediaToDownload.mediaUrl,
+        feed.url,
         fileUri
       );
 
@@ -239,7 +238,7 @@ export default function FeedCard({
     <View style={styles.container}>
       {/* Media */}
       <FeedMedia
-        media={feed.media}
+        feed={feed}
         onMediaPress={handlePress}
         autoPlay={autoPlayVideo}
         showControls={true}

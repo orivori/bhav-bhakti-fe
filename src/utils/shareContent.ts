@@ -1,11 +1,12 @@
 import { Alert } from 'react-native';
 import Share from 'react-native-share';
 import * as FileSystem from 'expo-file-system/legacy';
-import { Feed, FeedMedia } from '@/types/feed';
+import { Feed } from '@/types/feed';
 import { feedService } from '@/features/feed/services/feedService';
 import { useFeedStore } from '@/store/feedStore';
 import { getMediaFileExtension, getMediaMimeType } from './getMediaFileExtension';
 import { logContentShared } from './analytics/engagementEvents';
+import { getFeedThumbnailUrl } from './feedFields';
 
 // Placeholder until a real app-store/download link exists - swap this one
 // constant when it does, nothing else in the share flow below needs to
@@ -45,35 +46,11 @@ async function downloadForShare(
   return { localUri: downloadResult.uri, mimeType };
 }
 
-// Dispatch is based on content SHAPE (does this feed have an audio media
-// item), not feed.type - a type-string whitelist is exactly the bug class
-// this project has hit twice before (see CLAUDE.md's Home/Search Results
+// Dispatch is based on content SHAPE (is this feed's media audio), not
+// feed.type - a type-string whitelist is exactly the bug class this project
+// has hit twice before (see CLAUDE.md's Home/Search Results
 // isRepeatable-gating fixes), where a new/unlisted type silently fell
-// through. image_audio is included since it's still audio content, just
-// paired with an image (see resolveAudioThumbnailUrl below).
-function resolveAudioMedia(feed: Feed): FeedMedia | undefined {
-  return feed.media?.find((m) => m.type === 'audio' || m.type === 'image_audio');
-}
-
-function resolveVisualMedia(feed: Feed): FeedMedia | undefined {
-  return (
-    feed.media?.find((m) => m.type === 'video') ||
-    feed.media?.find((m) => m.type === 'image') ||
-    feed.media?.[0]
-  );
-}
-
-// Mirrors AudioContentCard.tsx's resolveQueueItem: an image_audio row's own
-// mediaUrl IS a usable image (distinct from audioUrl, the actual track)
-// when there's no explicit thumbnailUrl. Returns null (not '') on a genuine
-// miss - audio-player.tsx's isValidArtworkUrl guard exists specifically
-// because expo-audio's native lock-screen call crashed on '' where
-// undefined was expected; this function never produces that shape.
-function resolveAudioThumbnailUrl(audioMedia: FeedMedia): string | null {
-  if (audioMedia.thumbnailUrl) return audioMedia.thumbnailUrl;
-  const audioUrl = audioMedia.audioUrl || audioMedia.mediaUrl;
-  return audioMedia.mediaUrl && audioMedia.mediaUrl !== audioUrl ? audioMedia.mediaUrl : null;
-}
+// through.
 
 // Per-feedId re-entrancy guard against a second share tap while one's
 // already downloading/in-flight. Module-level (not component state) since
@@ -84,8 +61,8 @@ function resolveAudioThumbnailUrl(audioMedia: FeedMedia): string | null {
 const inFlightShares = new Set<string>();
 
 // Standalone, reusable share entry point for any feed - not tied to any
-// component's React lifecycle. Internally reads ONLY our own Feed/FeedMedia
-// data (thumbnailUrl, the caption built above) - it never opens or inspects
+// component's React lifecycle. Internally reads ONLY our own Feed data
+// (the thumbnail, the caption built above) - it never opens or inspects
 // the audio file itself, so it can't pick up embedded file metadata even by
 // accident (see CLAUDE.md §18/§28's lock-screen artwork-mismatch bug, a
 // real instance of that exact confusion elsewhere in this app).
@@ -127,9 +104,8 @@ export interface ShareContentOptions {
 export async function shareContent(feed: Feed, options?: ShareContentOptions): Promise<void> {
   const { onShared, onSharePresenting } = options ?? {};
   const feedId = feed.id.toString();
-  const audioMedia = resolveAudioMedia(feed);
-  const visualMedia = audioMedia ? undefined : resolveVisualMedia(feed);
-  if (!audioMedia && !visualMedia) return;
+  if (!feed.url) return;
+  const isAudio = feed.mediaType === 'audio';
 
   if (inFlightShares.has(feedId)) return;
   inFlightShares.add(feedId);
@@ -140,13 +116,13 @@ export async function shareContent(feed: Feed, options?: ShareContentOptions): P
 
     let fileToShare: { localUri: string; mimeType: string } | null = null;
 
-    if (audioMedia) {
-      const thumbnailUrl = resolveAudioThumbnailUrl(audioMedia);
+    if (isAudio) {
+      const thumbnailUrl = getFeedThumbnailUrl(feed);
       if (thumbnailUrl) {
         fileToShare = await downloadForShare(thumbnailUrl, 'image', feedId);
       }
-    } else if (visualMedia) {
-      fileToShare = await downloadForShare(visualMedia.mediaUrl, visualMedia.type, feedId);
+    } else {
+      fileToShare = await downloadForShare(feed.url, feed.mediaType, feedId);
     }
 
     onSharePresenting?.();

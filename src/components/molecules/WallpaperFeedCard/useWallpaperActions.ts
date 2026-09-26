@@ -107,10 +107,9 @@ export function useWallpaperActions({ feed, onLike, onShare, onDownload }: UseWa
         return;
       }
 
-      const mediaToDownload = feed.media?.[0];
-      if (!mediaToDownload) return;
+      if (!feed.url) return;
 
-      const extension = getMediaFileExtension(mediaToDownload.mediaUrl, mediaToDownload.type);
+      const extension = getMediaFileExtension(feed.url, feed.mediaType);
       // Timestamp suffix guarantees a unique local path on every attempt -
       // without it, downloading the same content twice reused the identical
       // deterministic path, and MediaStore's own collision handling on at
@@ -124,9 +123,9 @@ export function useWallpaperActions({ feed, onLike, onShare, onDownload }: UseWa
       // best-effort delete (or a crash before it runs) doesn't leak into
       // persistent storage forever, and Android's "Clear Cache" can reclaim
       // it either way. See cacheEviction.ts for the startup age-based sweep.
-      const fileUri = FileSystem?.cacheDirectory + `wallpaper_${feed.id}_${mediaToDownload.id}_${Date.now()}.${extension}`;
+      const fileUri = FileSystem?.cacheDirectory + `wallpaper_${feed.id}_${Date.now()}.${extension}`;
       const downloadResult = await FileSystem.downloadAsync(
-        mediaToDownload.mediaUrl,
+        feed.url,
         fileUri
       );
 

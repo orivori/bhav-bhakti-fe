@@ -255,10 +255,10 @@ function FeedList({
     // enableViewportAutoplay is always false for them, leaving the existing
     // RingtoneFeedCard/FeedCard path as the only path, exactly as before Phase 2.
     // Routes on "has any media" rather than an enumerated type/audio check - video
-    // isn't its own Feed.type (it's a FeedMedia.type value), so this already covers
+    // isn't its own Feed.type (it's a Feed.mediaType value), so this already covers
     // wallpaper/thought/future-video with no per-type whitelist to maintain.
     if (enableViewportAutoplay) {
-      const hasAnyMedia = feed.media && feed.media.length > 0;
+      const hasAnyMedia = !!feed.url;
       if (hasAnyMedia) {
         return <AutoplayFeedCard feed={feed} isActive={isActive} />;
       }
