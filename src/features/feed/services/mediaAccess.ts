@@ -31,8 +31,8 @@ export interface AuthorizeMediaActionOptions {
  * Fail-open: only an explicit PREMIUM_REQUIRED refusal blocks. Anything else
  * - no network, a timeout, a server error, an expired session - lets the
  * action go ahead rather than blocking the user on a check that couldn't be
- * made. (An expired session on a download still shows the login prompt, via
- * apiClient's promptOnAuthFailure, exactly as before.)
+ * made. (An expired session also shows the session-expired prompt, which
+ * apiClient does for every 401.)
  */
 export async function authorizeMediaAction(
   feed: { id: number | string },

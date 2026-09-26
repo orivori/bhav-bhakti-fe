@@ -1,7 +1,7 @@
 import React from 'react';
 import { Stack, usePathname } from 'expo-router';
 import { DefaultTheme, ThemeProvider as NavigationThemeProvider } from '@react-navigation/native';
-import { StyleSheet, View } from 'react-native';
+import { AppState, StyleSheet, View } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -29,6 +29,7 @@ import { useI18nStore } from '@/shared/stores/i18nStore';
 import { runCacheEviction } from '@/utils/cacheEviction';
 import { useFeatureFlagStore } from '@/store/featureFlagStore';
 import { useAuthStore } from '@/shared/stores/authStore';
+import { checkSessionOnResume } from '@/shared/services/sessionExpiry';
 import { useNotificationPermissionStore } from '@/store/notificationPermissionStore';
 import { requestNotificationPermissionAndSubscribe } from '@/utils/notifications/permission';
 import { navigateFromNotificationData } from '@/utils/notifications/deepLink';
@@ -43,7 +44,10 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 5 * 60 * 1000,
-      retry: 2,
+      // A 401 means the session is dead (apiClient has already shown the
+      // session-expired prompt) - retrying can only fail the same way.
+      retry: (failureCount, error) =>
+        (error as { statusCode?: number } | null)?.statusCode !== 401 && failureCount < 2,
     },
   },
 });
@@ -157,6 +161,16 @@ export default function RootLayout() {
 
     requestNotificationPermissionAndSubscribe().finally(markRequested);
   }, [isAuthenticated]);
+
+  // Re-checks the session's expiry date whenever the app comes back to the
+  // foreground - the cold-start check (authStore.initializeAuth) never sees a
+  // session that expired while the app sat in the background.
+  React.useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') checkSessionOnResume();
+    });
+    return () => subscription.remove();
+  }, []);
 
   React.useEffect(() => {
     // The app's first-ever deep-link handler (see deepLink.ts). Two separate

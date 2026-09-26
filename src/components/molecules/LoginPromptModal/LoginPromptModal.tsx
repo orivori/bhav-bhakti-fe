@@ -2,17 +2,24 @@ import React, { useEffect, useRef } from 'react';
 import { View, Modal, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, usePathname, useGlobalSearchParams } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 
 import { Button, Text } from '@/components/atoms';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { useAuthPromptStore } from '@/store/authPromptStore';
 import { useAuthStore } from '@/shared/stores/authStore';
 
-// Contextual "please log in again" prompt, shown in place over whatever screen the
-// user was on when a genuinely login-gated action 401'd (see apiClient.ts) - the
-// same architecture as PremiumPaywall (one global boolean in a Zustand store, one
-// modal mounted once at the app root), not a full-app redirect.
+// "Session expired - please log in again" prompt, shown in place over whatever
+// screen the user was on when their session died: any request's 401 (apiClient)
+// or the app-resume expiry check (sessionExpiry.ts) - the same architecture as
+// PremiumPaywall (one global boolean in a Zustand store, one modal mounted once
+// at the app root), not a full-app redirect.
+//
+// Not dismissible: by the time it shows, the session has already been cleared
+// and every screen needs a login, so closing it would only leave the user in a
+// logged-out app where nothing loads. Login is the only way forward.
 export function LoginPromptModal() {
+  const { t } = useTranslation();
   const { showLoginPrompt, setShowLoginPrompt } = useAuthPromptStore();
   const { logout } = useAuthStore();
 
@@ -56,7 +63,8 @@ export function LoginPromptModal() {
       visible={showLoginPrompt}
       transparent
       animationType="fade"
-      onRequestClose={() => setShowLoginPrompt(false)}
+      // Android back: deliberately does nothing - see the note above.
+      onRequestClose={() => {}}
     >
       <View style={styles.overlay}>
         <View style={styles.card}>
@@ -65,14 +73,14 @@ export function LoginPromptModal() {
           </View>
 
           <Text variant="h4" weight="bold" align="center" style={styles.title}>
-            Session Expired
+            {t('auth.sessionExpired.title')}
           </Text>
 
           <Text variant="body" color="secondary" align="center" style={styles.message}>
-            Your login session has expired. Please login again to continue using the app.
+            {t('auth.sessionExpired.message')}
           </Text>
 
-          <Button title="Login" onPress={handleLogin} variant="primary" fullWidth />
+          <Button title={t('auth.sessionExpired.login')} onPress={handleLogin} variant="primary" fullWidth />
         </View>
       </View>
     </Modal>

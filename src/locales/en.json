@@ -203,7 +203,13 @@
     "invalidPhone": "Invalid phone number",
     "invalidOTP": "Invalid OTP",
     "otpSent": "OTP sent successfully",
-    "otpVerified": "OTP verified successfully"
+    "otpVerified": "OTP verified successfully",
+    "sessionExpired": {
+      "title": "Session Expired",
+      "message": "Your login session has expired. Please login again to continue using the app.",
+      "login": "Login",
+      "errorMessage": "Your session has expired. Please login again."
+    }
   },
   "premium": {
     "title": "Upgrade to Premium",

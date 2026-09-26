@@ -2,12 +2,15 @@ import axios, { AxiosInstance, AxiosError, AxiosResponse } from 'axios';
 import { API_CONFIG, API_ENDPOINTS } from '@/shared/config/api';
 import { secureStorage } from '@/shared/utils/secureStorage';
 import { AuthTokens, ApiError } from '@/features/authentication/types';
-import { useAuthPromptStore } from '@/store/authPromptStore';
+import i18n from '@/shared/i18n';
+import { handleSessionExpired } from './sessionExpiry';
+
+// Login/logout requests - a 401 from these is a failed login, not an expired
+// session, so it must not trigger the session-expired prompt.
+const isAuthEndpoint = (url?: string): boolean => !!url && url.includes('/v1/auth/');
 
 class ApiClient {
   private client: AxiosInstance;
-  private isRefreshing = false;
-  private refreshSubscribers: Array<(token: string) => void> = [];
 
   constructor() {
     this.client = axios.create({
@@ -93,68 +96,35 @@ class ApiClient {
           return this.client(originalRequest);
         }
 
-        // Contextual "please log in again" prompt - ONLY for the app's genuinely
-        // login-gated actions (like/unlike, download, the Liked filter, profile
-        // load/save), each of which opts in explicitly via `promptOnAuthFailure:
-        // true` in its own call's config (see feedService.ts/profileService.ts).
-        // Deliberately NOT a blanket "any 401 anywhere" trigger - most of this
-        // app's endpoints are public or optionalAuth (browsing Home, Search,
-        // Rashifal, etc.), and those must never be interrupted by this modal even
-        // if a stale token happens to make one of them fail too. Share is also
-        // deliberately excluded (not flagged) - its 401 should stay silent, since
-        // the OS share sheet has already completed by the time this call fires.
-        // A pure state flip only - no navigation/logout happens here, so this can
-        // never fire unsafely during early boot (see authPromptStore.ts).
-        if (error.response?.status === 401 && originalRequest?.promptOnAuthFailure) {
-          useAuthPromptStore.getState().setShowLoginPrompt(true);
+        // A dead session - the backend's 401 for an expired token, a token it no
+        // longer accepts, or a deleted user - is handled here, for every request:
+        // the session is cleared and the "Session Expired" prompt shown, once
+        // (see sessionExpiry.ts). There is no token refresh; the user logs in
+        // again. The login/logout endpoints themselves are excluded, so a failed
+        // login attempt never triggers it.
+        const isDeadSession = error.response?.status === 401 && !isAuthEndpoint(originalRequest?.url);
+        if (isDeadSession) {
+          handleSessionExpired();
         }
 
-        if (error.response?.status === 401 && !originalRequest._retry) {
-          if (this.isRefreshing) {
-            return new Promise((resolve) => {
-              this.refreshSubscribers.push((token: string) => {
-                if (originalRequest.headers) {
-                  originalRequest.headers.Authorization = `Bearer ${token}`;
-                }
-                resolve(this.client(originalRequest));
-              });
-            });
-          }
-
-          originalRequest._retry = true;
-          this.isRefreshing = true;
-
-          try {
-            // Token refresh logic would go here
-            // const newTokens = await this.refreshToken();
-            // this.refreshSubscribers.forEach((callback) =>
-            //   callback(newTokens.accessToken)
-            // );
-            // this.refreshSubscribers = [];
-
-            // if (originalRequest.headers) {
-            //   originalRequest.headers.Authorization = `Bearer ${newTokens.accessToken}`;
-            // }
-            // return this.client(originalRequest);
-          } catch (refreshError) {
-            // Refresh failed, logout user
-            await secureStorage.clearAll();
-            console.error('❌ Token refresh failed:', refreshError);
-            // You can emit an event here to redirect to login
-            return Promise.reject(refreshError);
-          } finally {
-            this.isRefreshing = false;
-          }
-        }
-
-        return Promise.reject(this.handleApiError(error));
+        return Promise.reject(this.handleApiError(error, isDeadSession));
       }
     );
   }
 
- 
 
-  private handleApiError(error: AxiosError): ApiError {
+
+  private handleApiError(error: AxiosError, isDeadSession = false): ApiError {
+    if (isDeadSession) {
+      // Friendly, translated text instead of the server's raw token error
+      // ("jwt expired", "invalid signature") - screens show this message as-is.
+      // Not applied to a failed login (auth endpoints keep their own message).
+      return {
+        message: i18n.t('auth.sessionExpired.errorMessage'),
+        code: 'SESSION_EXPIRED',
+        statusCode: 401,
+      };
+    }
     if (error.response) {
       return {
         message: (error.response.data as any)?.message || 'An error occurred',

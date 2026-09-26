@@ -317,13 +317,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // .dev-only debug tool: logs in with a fabricated token (exp set an hour
   // out, deliberately long, so the CLIENT-side exp check above is never what
-  // fails here), then immediately calls a real, protected+flagged endpoint -
+  // fails here), then immediately calls a real, protected endpoint -
   // triggering a genuine LIVE 401 from the backend (the token's signature is
   // never real, so jwt.util.js/auth.middleware.js reject it as a
-  // JsonWebTokenError -> 401) surfaced through apiClient.ts's
-  // promptOnAuthFailure handling. Unlike debugSimulateShortSession above
-  // (which only proves the separate cold-start expiry check), this proves
-  // LoginPromptModal appears immediately, live, with no restart needed.
+  // JsonWebTokenError -> 401) surfaced through apiClient.ts's central 401
+  // handling (sessionExpiry.ts). This is exactly the "server rejects a token
+  // whose expiry date hasn't passed" case (e.g. after a JWT_SECRET rotation).
+  // Unlike debugSimulateShortSession above (which only proves the separate
+  // cold-start expiry check), this proves LoginPromptModal appears
+  // immediately, live, with no restart needed.
   const debugForceLiveAuthFailure = async () => {
     if (!IS_TEST_ACCOUNT) {
       return;
@@ -351,10 +353,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     await login(debugUser, tokens);
 
-    // getProfile() is one of the 6 real promptOnAuthFailure-flagged calls
-    // (profileService.ts) - any of the six would do. The 401 is expected;
-    // the interceptor triggers the modal as a side effect of this rejection,
-    // which is the entire point of this tool.
+    // Any authenticated request would do - apiClient handles every 401 the
+    // same way. The 401 is expected; the interceptor triggers the modal as a
+    // side effect of this rejection, which is the entire point of this tool.
     try {
       await profileService.getProfile();
     } catch (error) {
