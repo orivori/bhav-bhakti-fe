@@ -664,7 +664,7 @@ The quiz never produced recommendations and its only entry point had been hidden
 
 ## 104. 2026-09-26 session (continued) — Feeds schema redesign: FULLY COMPLETE, live in production
 
-**DONE, live in production as of 2026-09-26 — dev build-out through production promotion.** Supersedes the "NOT in production" status in §102/§103. Backend `main` at merge `24091f6`; frontend `production`/`master` at `0e0c9a7`. **Full record: `D:hav_bhakti_Claude_docsBhav_Bhakti_Feeds_Schema_Redesign_Plan.md` (Part 9)** — this is a pointer/summary.
+**DONE, live in production as of 2026-09-26 — dev build-out through production promotion.** Supersedes the "NOT in production" status in §102/§103. Backend `main` at merge `24091f6`; frontend `production`/`master` at `0e0c9a7`. **Full record: `D:\bhav_bhakti_Claude_docs\Bhav_Bhakti_Feeds_Schema_Redesign_Plan.md` (Part 9)** — this is a pointer/summary.
 
 Production now runs: `categories` retired; single-value `label` replaced by a many-to-many `tags`/`feed_tags` system (filter with `tags=` / `excludeTagGroup=`; a `label` param now returns 400); `feed_media` merged into `feeds` (storage paths, bilingual `subtitle`); and the `media[]`/`caption`/`label` compatibility shims retired — feed responses carry only the new fields.
 
