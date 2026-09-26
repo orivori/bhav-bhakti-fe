@@ -15,15 +15,14 @@ import { useTabBarHeight } from '@/hooks/useTabBarHeight';
 import { useI18nStore } from '@/shared/stores/i18nStore';
 import { containsDevanagari } from '@/utils/textUtils';
 import { feedService } from '@/features/feed/services/feedService';
+import { authorizeMediaAction } from '@/features/feed/services/mediaAccess';
 import { useFeedStore } from '@/store/feedStore';
 import { useSoundPreferenceStore } from '@/store/soundPreferenceStore';
-import { usePremiumStore } from '@/store/premiumStore';
 import { formatCount } from '@/utils/formatCount';
 import { getMediaFileExtension } from '@/utils/getMediaFileExtension';
 import { getFeedSubtitle, getFeedThumbnailUrl } from '@/utils/feedFields';
 import { shareContent } from '@/utils/shareContent';
 import { ensureMediaLibraryPermission } from '@/utils/mediaLibraryPermission';
-import { logPaywallHit } from '@/utils/analytics/conversionEvents';
 import WhatsAppIcon from '../../../../assets/icons/whatsapp.svg';
 
 interface AutoplayFeedCardProps {
@@ -234,11 +233,6 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
   const { toggleLike, incrementDownload, incrementView } = useFeedStore();
   const isVideoMuted = useSoundPreferenceStore((s) => s.isVideoMuted);
   const setVideoMuted = useSoundPreferenceStore((s) => s.setVideoMuted);
-  // Consolidated onto the shared store - see premiumStore.ts and, upstream
-  // of it, featureFlagStore.ts's enablePremiumSubscriptionUI flag. Was a
-  // local `const isPremiumUser = false;` here; the flag's own default is
-  // also false, so this is a behavior-identical swap.
-  const { isPremium: isPremiumUser } = usePremiumStore();
 
   const isMountedRef = useRef(true);
   useEffect(() => {
@@ -510,6 +504,10 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
       if (!hasPermission) {
         return;
       }
+      // Records the download and runs the premium gate - see mediaAccess.ts.
+      if (!(await authorizeMediaAction(feed, 'download', { triggerFeature: 'set_as_wallpaper' }))) {
+        return;
+      }
       const extension = getMediaFileExtension(feed.url, feed.mediaType);
       // Timestamp suffix guarantees a unique local path on every attempt -
       // see useWallpaperActions.ts's handleDownload for the full explanation
@@ -532,7 +530,6 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
         // has for iOS) - this saves to the gallery and hands off manually,
         // rather than implying full automation.
         Alert.alert(t('feedCard.wallpaperSavedTitle'), t('feedCard.wallpaperSavedMessage'));
-        await feedService.downloadFeed(feedIdStr);
         incrementDownload(feedIdStr);
       }
     } catch (error) {
@@ -578,7 +575,14 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
         return;
       }
 
+      // Records the download (previously never counted) and runs the
+      // premium gate - see mediaAccess.ts.
+      if (!(await authorizeMediaAction(feed, 'download', { triggerFeature: 'set_as_ringtone' }))) {
+        return;
+      }
+
       const localUri = await ensureLocalAudioFile();
+      incrementDownload(feedIdStr);
 
       if (Platform.OS === 'android') {
         try {
@@ -633,27 +637,10 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
     }
   };
 
-  const showPaywallPlaceholder = () => {
-    // TEMPORARY/PLACEHOLDER - stands in for the real paywall/upsell screen.
-    Alert.alert(t('feedCard.premiumFeatureTitle'), t('feedCard.premiumFeatureMessage'));
-  };
-
-  // Single dispatcher behind the CTA pill - gates all three real actions
-  // behind the placeholder premium check above, then routes to whichever of
-  // the three real handlers applies to this feed.
+  // Single dispatcher behind the CTA pill. Listen is always free; Set as
+  // Wallpaper / Set as Ringtone are premium-gated inside their own handlers,
+  // via the same authorizeMediaAction gate as every other download.
   const handleCtaPress = () => {
-    if (!isPremiumUser) {
-      // Same branch logic as the real dispatch below, just used to name
-      // which action was actually blocked - hasAudioMedia/isRingtoneType are
-      // unrelated to the premium check itself, so this is available even on
-      // the early-return path.
-      const triggerFeature = hasAudioMedia
-        ? (isRingtoneType ? 'set_as_ringtone' : 'listen')
-        : 'set_as_wallpaper';
-      logPaywallHit({ trigger_feature: triggerFeature });
-      showPaywallPlaceholder();
-      return;
-    }
     if (hasAudioMedia) {
       if (isRingtoneType) {
         handleSetRingtone();

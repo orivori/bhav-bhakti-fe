@@ -20,6 +20,7 @@ import MantraFeedCard from '../MantraFeedCard/MantraFeedCard';
 import { Feed } from '@/types/feed';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { feedService } from '@/features/feed/services/feedService';
+import { authorizeMediaAction } from '@/features/feed/services/mediaAccess';
 import { useFeedStore } from '@/store/feedStore';
 import { useI18nStore } from '@/shared/stores/i18nStore';
 import { getFeedSubtitle } from '@/utils/feedFields';
@@ -82,7 +83,8 @@ export default function FeedCard({
 
   const handleShare = async () => {
     try {
-      await feedService.shareFeed(feed.id.toString(), { platform: 'native_share' });
+      // Records the share and runs the premium gate - see mediaAccess.ts.
+      if (!(await authorizeMediaAction(feed, 'share'))) return;
       incrementShare(feed.id.toString());
 
       const result = await Share.share({
@@ -119,6 +121,9 @@ export default function FeedCard({
 
       if (!feed.url) return;
 
+      // Records the download and runs the premium gate - see mediaAccess.ts.
+      if (!(await authorizeMediaAction(feed, 'download'))) return;
+
       const extension = getMediaFileExtension(feed.url, feed.mediaType);
       // Timestamp suffix guarantees a unique local path on every attempt -
       // see useWallpaperActions.ts's handleDownload for the full explanation
@@ -143,8 +148,6 @@ export default function FeedCard({
         FileSystem.deleteAsync(downloadResult.uri, { idempotent: true }).catch(() => {});
         Alert.alert('Success', 'Media saved to your gallery!');
 
-        // Track download
-        await feedService.downloadFeed(feed.id.toString());
         incrementDownload(feed.id.toString());
         onDownload?.(feed.id.toString());
       }

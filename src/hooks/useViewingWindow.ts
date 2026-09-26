@@ -1,9 +1,7 @@
-import React, { useCallback, useMemo, useState } from 'react';
-import { Alert } from 'react-native';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import ViewingWindowSheet from '@/components/molecules/ViewingWindowSheet/ViewingWindowSheet';
 import { Feed } from '@/types/feed';
-import { usePremiumStore } from '@/store/premiumStore';
-import { logPaywallHit } from '@/utils/analytics/conversionEvents';
+import { authorizeMediaAction } from '@/features/feed/services/mediaAccess';
 
 interface UseViewingWindowArgs {
   // The SAME live array each hub tab already renders its grid from
@@ -42,30 +40,30 @@ export function useViewingWindow({ feeds, onLike, onShare, onDownload }: UseView
   // `feeds` below on every render, so it can never go stale the way a
   // captured object reference would.
   const [feedId, setFeedId] = useState<string | null>(null);
-  // Consolidated onto the shared store - see premiumStore.ts and, upstream
-  // of it, featureFlagStore.ts's enablePremiumSubscriptionUI flag. Was a
-  // local `const isPremiumUser = true;` here, which had drifted to disagree
-  // with every other gate in the app - the flag's default is false, so this
-  // closes the Viewing Window gate to match the app's actual intended (and
-  // everywhere-else) behavior.
-  const { isPremium: isPremiumUser } = usePremiumStore();
+  // Ignores further taps while one tile's access check is still in flight.
+  const isOpeningRef = useRef(false);
 
   const feed = useMemo(
     () => (feedId ? feeds.find((f) => f.id.toString() === feedId) ?? null : null),
     [feedId, feeds]
   );
 
-  // Gates the TAP itself, before the window ever opens - non-premium users
-  // see the paywall stub directly and the window never appears, matching how
-  // Home's existing AutoplayFeedCard CTA gate behaves today.
-  const open = useCallback((targetFeed: Feed) => {
-    if (!isPremiumUser) {
-      logPaywallHit({ trigger_feature: 'wallpaper_viewing_window' });
-      Alert.alert('Premium Feature', 'This will be available with Bhav Bhakti Premium. Stay tuned!');
-      return;
+  // Gates the TAP itself, before the window ever opens, through the same
+  // backend premium gate as downloads/shares ('view' action - see
+  // mediaAccess.ts). When it's refused the paywall shows instead and the
+  // window never appears; with premium gating off it always opens.
+  const open = useCallback(async (targetFeed: Feed) => {
+    if (isOpeningRef.current) return;
+    isOpeningRef.current = true;
+    try {
+      const allowed = await authorizeMediaAction(targetFeed, 'view', {
+        triggerFeature: 'wallpaper_viewing_window',
+      });
+      if (allowed) setFeedId(targetFeed.id.toString());
+    } finally {
+      isOpeningRef.current = false;
     }
-    setFeedId(targetFeed.id.toString());
-  }, [isPremiumUser]);
+  }, []);
 
   // Fires on backdrop tap and Android hardware-back alike (both handled by
   // ViewingWindowSheet's Modal) - the single place feed state gets cleared

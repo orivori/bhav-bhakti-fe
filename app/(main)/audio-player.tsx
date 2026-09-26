@@ -27,6 +27,7 @@ import { Text } from '@/components/atoms';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { designSystemTheme } from '@/styles/designSystemTheme';
 import { feedService } from '@/features/feed/services/feedService';
+import { authorizeMediaAction } from '@/features/feed/services/mediaAccess';
 import { Feed } from '@/types/feed';
 import { useTranslation } from 'react-i18next';
 import { useI18nStore } from '@/shared/stores/i18nStore';
@@ -2008,7 +2009,8 @@ export default function AudioPlayerScreen() {
     const sharedFeedId = currentFeedData.id.toString();
 
     try {
-      await feedService.shareFeed(sharedFeedId, { platform: 'native_share' });
+      // Records the share and runs the premium gate - see mediaAccess.ts.
+      if (!(await authorizeMediaAction(currentFeedData, 'share'))) return;
 
       if (isMountedRef.current && feedIdRef.current === sharedFeedId) {
         setFeedData((prev) =>

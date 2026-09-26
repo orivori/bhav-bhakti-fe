@@ -22,8 +22,6 @@ export function useFeed(options: UseFeedOptions = {}) {
     setError,
     setPagination,
     resetPagination,
-    incrementDownload,
-    incrementShare,
     incrementView,
   } = useFeedStore();
 
@@ -143,23 +141,6 @@ export function useFeed(options: UseFeedOptions = {}) {
     },
   });
 
-  // Download mutation
-  const downloadMutation = useMutation({
-    mutationFn: (feedId: string) => feedService.downloadFeed(feedId),
-    onSuccess: (_, feedId) => {
-      incrementDownload(feedId);
-    },
-  });
-
-  // Share mutation
-  const shareMutation = useMutation({
-    mutationFn: ({ feedId, platform }: { feedId: string; platform?: string }) =>
-      feedService.shareFeed(feedId, { platform }),
-    onSuccess: (_, { feedId }) => {
-      incrementShare(feedId);
-    },
-  });
-
   // View mutation
   const viewMutation = useMutation({
     mutationFn: (feedId: string) => feedService.viewFeed(feedId),
@@ -191,13 +172,13 @@ export function useFeed(options: UseFeedOptions = {}) {
     }
   };
 
-  const handleDownload = (feedId: string) => {
-    downloadMutation.mutate(feedId);
-  };
+  // Cards call these AFTER a download/share already went through: the card
+  // itself recorded it with the backend (authorizeMediaAction) and bumped
+  // the shared store's count, so there is nothing left to do here. They used
+  // to call the API and bump the count again, counting everything twice.
+  const handleDownload = (_feedId: string) => {};
 
-  const handleShare = (feedId: string, platform?: string) => {
-    shareMutation.mutate({ feedId, platform });
-  };
+  const handleShare = (_feedId: string, _platform?: string) => {};
 
   const handleView = (feedId: string) => {
     viewMutation.mutate(feedId);
@@ -232,8 +213,6 @@ export function useFeed(options: UseFeedOptions = {}) {
 
     // Mutation states
     isLiking: likeMutation.isPending,
-    isDownloading: downloadMutation.isPending,
-    isSharing: shareMutation.isPending,
   };
 }
 

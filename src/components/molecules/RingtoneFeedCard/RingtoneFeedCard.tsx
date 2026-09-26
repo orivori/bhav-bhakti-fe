@@ -27,6 +27,7 @@ import { Text } from '@/components/atoms';
 import { Feed } from '@/types/feed';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { feedService } from '@/features/feed/services/feedService';
+import { authorizeMediaAction } from '@/features/feed/services/mediaAccess';
 import { useFeedStore } from '@/store/feedStore';
 import { usePlaybackStore } from '@/store/playbackStore';
 import { useI18nStore } from '@/shared/stores/i18nStore';
@@ -147,7 +148,7 @@ export default function RingtoneFeedCard({
     setLocalLikesCount(feed.likesCount);
   }, [feed.isLiked, feed.likesCount]);
 
-  const { toggleLike, incrementShare, incrementView } = useFeedStore();
+  const { toggleLike, incrementShare, incrementDownload, incrementView } = useFeedStore();
 
   // The feed's single media item. A missing url degrades to no playable
   // source instead of throwing during render.
@@ -532,7 +533,8 @@ export default function RingtoneFeedCard({
 
   const handleShare = async () => {
     try {
-      await feedService.shareFeed(feed.id.toString(), { platform: 'native_share' });
+      // Records the share and runs the premium gate - see mediaAccess.ts.
+      if (!(await authorizeMediaAction(feed, 'share'))) return;
       incrementShare(feed.id.toString());
 
       const result = await Share.share({
@@ -568,7 +570,14 @@ export default function RingtoneFeedCard({
       console.log('📱 Audio source URI:', audioSourceUri);
       console.log('🎵 Audio media type:', feed.mediaType);
 
+      // Records the download (previously never counted) and runs the
+      // premium gate - see mediaAccess.ts.
+      if (!(await authorizeMediaAction(feed, 'download', { triggerFeature: 'set_as_ringtone' }))) {
+        return;
+      }
+
       const localUri = await ensureLocalFile();
+      incrementDownload(feed.id.toString());
       const fileName = localUri.split('/').pop() || localFileName;
       console.log('✅ Local file ready:', localUri);
 

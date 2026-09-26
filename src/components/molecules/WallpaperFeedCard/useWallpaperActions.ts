@@ -4,6 +4,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as MediaLibrary from 'expo-media-library';
 import { Feed } from '@/types/feed';
 import { feedService } from '@/features/feed/services/feedService';
+import { authorizeMediaAction } from '@/features/feed/services/mediaAccess';
 import { useFeedStore } from '@/store/feedStore';
 import { getMediaFileExtension } from '@/utils/getMediaFileExtension';
 import { shareContent } from '@/utils/shareContent';
@@ -109,6 +110,9 @@ export function useWallpaperActions({ feed, onLike, onShare, onDownload }: UseWa
 
       if (!feed.url) return;
 
+      // Records the download and runs the premium gate - see mediaAccess.ts.
+      if (!(await authorizeMediaAction(feed, 'download'))) return;
+
       const extension = getMediaFileExtension(feed.url, feed.mediaType);
       // Timestamp suffix guarantees a unique local path on every attempt -
       // without it, downloading the same content twice reused the identical
@@ -139,7 +143,6 @@ export function useWallpaperActions({ feed, onLike, onShare, onDownload }: UseWa
         FileSystem.deleteAsync(downloadResult.uri, { idempotent: true }).catch(() => {});
         Alert.alert('Success', 'Wallpaper saved to your gallery!');
 
-        await feedService.downloadFeed(feed.id.toString());
         incrementDownload(feed.id.toString());
         onDownload?.(feed.id.toString());
       }

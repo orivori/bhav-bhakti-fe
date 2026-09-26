@@ -162,34 +162,25 @@ export function useMantraFeed(filter: DeityFilterSelection): UseMantraFeedResult
     }
   }, [feeds]);
 
-  const shareFeedHandler = useCallback(async (feedId: string) => {
-    try {
-      await feedService.shareFeed(feedId, { platform: 'native_share' });
-
-      setFeeds(prev => prev.map(feed => {
-        if (feed.id.toString() === feedId) {
-          return { ...feed, sharesCount: feed.sharesCount + 1 };
-        }
-        return feed;
-      }));
-    } catch (error) {
-      console.error('❌ Error sharing mantra feed:', error);
-    }
+  // Local-count updates for a card to call AFTER a share/download already
+  // went through (and was recorded by the backend) via authorizeMediaAction -
+  // no API call here, so nothing is counted twice.
+  const shareFeedHandler = useCallback((feedId: string) => {
+    setFeeds(prev => prev.map(feed => {
+      if (feed.id.toString() === feedId) {
+        return { ...feed, sharesCount: feed.sharesCount + 1 };
+      }
+      return feed;
+    }));
   }, []);
 
-  const downloadFeedHandler = useCallback(async (feedId: string) => {
-    try {
-      await feedService.downloadFeed(feedId);
-
-      setFeeds(prev => prev.map(feed => {
-        if (feed.id.toString() === feedId) {
-          return { ...feed, downloadsCount: feed.downloadsCount + 1, isDownloaded: true };
-        }
-        return feed;
-      }));
-    } catch (error) {
-      console.error('❌ Error downloading mantra feed:', error);
-    }
+  const downloadFeedHandler = useCallback((feedId: string) => {
+    setFeeds(prev => prev.map(feed => {
+      if (feed.id.toString() === feedId) {
+        return { ...feed, downloadsCount: feed.downloadsCount + 1, isDownloaded: true };
+      }
+      return feed;
+    }));
   }, []);
 
   // Fires on mount and whenever the filter changes. Resets pagination state
