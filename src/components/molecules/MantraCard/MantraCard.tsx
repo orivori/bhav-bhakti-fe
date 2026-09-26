@@ -15,6 +15,7 @@ import { Text } from '@/components/atoms';
 import { Feed } from '@/types/feed';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { feedService } from '@/features/feed/services/feedService';
+import { authorizeMediaAction } from '@/features/feed/services/mediaAccess';
 import { useFeedStore } from '@/store/feedStore';
 import { useI18nStore } from '@/shared/stores/i18nStore';
 import { getFeedSubtitle, getFeedThumbnailUrl } from '@/utils/feedFields';
@@ -68,7 +69,7 @@ export default function MantraCard({
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-      await feedService.shareFeed(feed.id.toString(), { platform: 'native_share' });
+      if (!(await authorizeMediaAction(feed, 'share'))) return;
       incrementShare(feed.id.toString());
 
       const result = await Share.share({

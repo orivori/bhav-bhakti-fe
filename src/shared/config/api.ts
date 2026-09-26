@@ -109,6 +109,7 @@ export const API_ENDPOINTS = {
     UNLIKE: (feedId: string) => `/v1/feed/${feedId}/like`,
     DOWNLOAD: (feedId: string) => `/v1/feed/${feedId}/download`,
     SHARE: (feedId: string) => `/v1/feed/${feedId}/share`,
+    VIEW_ACCESS: (feedId: string) => `/v1/feed/${feedId}/view-access`,
     VIEW: (feedId: string) => `/v1/feed/${feedId}/view`,
     PLAY: (feedId: string) => `/v1/feed/${feedId}/play`,
     USER_LIKED: '/v1/feed/user/liked',

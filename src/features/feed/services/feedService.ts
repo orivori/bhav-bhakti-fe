@@ -21,6 +21,11 @@ import {
   TagGroup,
 } from '@/types/feed';
 
+// Timeout for the calls authorizeMediaAction makes before a download, share
+// or enlarged view. Shorter than the app-wide default, since the action now
+// waits on this call and goes ahead anyway if it fails (fail-open).
+const MEDIA_ACCESS_TIMEOUT_MS = 6000;
+
 class FeedService {
   /**
    * Get feeds with filters and pagination
@@ -115,20 +120,36 @@ class FeedService {
   }
 
   /**
-   * Track feed download
+   * Track feed download. Call through authorizeMediaAction (mediaAccess.ts),
+   * before the file is fetched - this same request is where the backend's
+   * premium gate answers.
    */
   async downloadFeed(feedId: string): Promise<DownloadFeedResponse> {
-    return await apiClient.post<DownloadFeedResponse>(API_ENDPOINTS.FEED.DOWNLOAD(feedId), {}, { promptOnAuthFailure: true });
+    return await apiClient.post<DownloadFeedResponse>(
+      API_ENDPOINTS.FEED.DOWNLOAD(feedId),
+      {},
+      { promptOnAuthFailure: true, timeout: MEDIA_ACCESS_TIMEOUT_MS }
+    );
   }
 
   /**
-   * Track feed share
+   * Track feed share. Call through authorizeMediaAction (mediaAccess.ts),
+   * before the share sheet opens.
    */
   async shareFeed(feedId: string, shareData: ShareFeedRequest = {}): Promise<ShareFeedResponse> {
-    // Deliberately NOT flagged with promptOnAuthFailure - the OS share sheet has
-    // already completed by the time this call fires, so a 401 here should stay
-    // silent exactly as it does today, not interrupt the user after the fact.
-    return await apiClient.post<ShareFeedResponse>(API_ENDPOINTS.FEED.SHARE(feedId), shareData);
+    // Deliberately NOT flagged with promptOnAuthFailure - a stale session
+    // shouldn't interrupt a share; it goes ahead unrecorded (fail-open).
+    return await apiClient.post<ShareFeedResponse>(API_ENDPOINTS.FEED.SHARE(feedId), shareData, {
+      timeout: MEDIA_ACCESS_TIMEOUT_MS,
+    });
+  }
+
+  /**
+   * Asks whether a feed's enlarged view (the viewing window) is allowed.
+   * Call through authorizeMediaAction (mediaAccess.ts). Records nothing.
+   */
+  async checkViewAccess(feedId: string): Promise<void> {
+    await apiClient.get(API_ENDPOINTS.FEED.VIEW_ACCESS(feedId), { timeout: MEDIA_ACCESS_TIMEOUT_MS });
   }
 
   /**

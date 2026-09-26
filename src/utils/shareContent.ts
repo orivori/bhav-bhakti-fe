@@ -2,7 +2,7 @@ import { Alert } from 'react-native';
 import Share from 'react-native-share';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Feed } from '@/types/feed';
-import { feedService } from '@/features/feed/services/feedService';
+import { authorizeMediaAction } from '@/features/feed/services/mediaAccess';
 import { useFeedStore } from '@/store/feedStore';
 import { getMediaFileExtension, getMediaMimeType } from './getMediaFileExtension';
 import { logContentShared } from './analytics/engagementEvents';
@@ -76,7 +76,7 @@ const inFlightShares = new Set<string>();
 // decision, not an oversight.
 //
 // No mounted-check/cleanup equivalent needed: this function has no
-// component-bound state of its own. feedService.shareFeed/incrementShare/
+// component-bound state of its own. authorizeMediaAction/incrementShare/
 // downloadForShare/Share.open are all either global-store updates (safe
 // post-unmount by construction, same reasoning the pre-extraction code in
 // useWallpaperActions.ts already relied on) or native imperative calls with
@@ -111,7 +111,11 @@ export async function shareContent(feed: Feed, options?: ShareContentOptions): P
   inFlightShares.add(feedId);
 
   try {
-    await feedService.shareFeed(feedId, { platform: 'native_share' });
+    // Records the share and runs the premium gate - see mediaAccess.ts.
+    if (!(await authorizeMediaAction(feed, 'share'))) {
+      onSharePresenting?.();
+      return;
+    }
     useFeedStore.getState().incrementShare(feedId);
 
     let fileToShare: { localUri: string; mimeType: string } | null = null;

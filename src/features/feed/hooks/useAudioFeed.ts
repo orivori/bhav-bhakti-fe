@@ -156,42 +156,33 @@ export function useAudioFeed(type: AudioFeedType, filter: DeityFilterSelection):
     }
   }, [items, type]);
 
-  const handleShare = useCallback(async (feedId: string) => {
-    try {
-      await feedService.shareFeed(feedId, { platform: 'native_share' });
+  // Local-count updates for a card to call AFTER a share/download already
+  // went through (and was recorded by the backend) via authorizeMediaAction -
+  // no API call here, so nothing is counted twice.
+  const handleShare = useCallback((feedId: string) => {
+    setItems(prev => prev.map(item => {
+      if (item.id.toString() === feedId) {
+        return {
+          ...item,
+          sharesCount: item.sharesCount + 1
+        };
+      }
+      return item;
+    }));
+  }, []);
 
-      setItems(prev => prev.map(item => {
-        if (item.id.toString() === feedId) {
-          return {
-            ...item,
-            sharesCount: item.sharesCount + 1
-          };
-        }
-        return item;
-      }));
-    } catch (error) {
-      console.error(`❌ Error sharing ${type}:`, error);
-    }
-  }, [type]);
-
-  const handleDownload = useCallback(async (feedId: string) => {
-    try {
-      await feedService.downloadFeed(feedId);
-
-      setItems(prev => prev.map(item => {
-        if (item.id.toString() === feedId) {
-          return {
-            ...item,
-            downloadsCount: item.downloadsCount + 1,
-            isDownloaded: true
-          };
-        }
-        return item;
-      }));
-    } catch (error) {
-      console.error(`❌ Error downloading ${type}:`, error);
-    }
-  }, [type]);
+  const handleDownload = useCallback((feedId: string) => {
+    setItems(prev => prev.map(item => {
+      if (item.id.toString() === feedId) {
+        return {
+          ...item,
+          downloadsCount: item.downloadsCount + 1,
+          isDownloaded: true
+        };
+      }
+      return item;
+    }));
+  }, []);
 
   // Fires on mount and whenever type/filter changes. Resets pagination state
   // synchronously first - trending and deity-filtered lists are different

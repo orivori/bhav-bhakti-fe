@@ -163,51 +163,32 @@ export function useRingtones(filter: DeityFilterSelection): UseRingtonesResult {
     }
   }, [ringtones]);
 
-  const handleShare = useCallback(async (feedId: string) => {
-    console.log('📤 Handling share for ringtone:', feedId);
-
-    try {
-      await feedService.shareFeed(feedId, { platform: 'native_share' });
-
-      // Update share count
-      setRingtones(prev => prev.map(ringtone => {
-        if (ringtone.id.toString() === feedId) {
-          return {
-            ...ringtone,
-            sharesCount: ringtone.sharesCount + 1
-          };
-        }
-        return ringtone;
-      }));
-
-      console.log('✅ Successfully shared ringtone');
-    } catch (error) {
-      console.error('❌ Error sharing ringtone:', error);
-    }
+  // Called by the card AFTER a share/download already went through (and was
+  // recorded by the backend) via authorizeMediaAction - only this list's
+  // local counts are updated here, so nothing is counted twice.
+  const handleShare = useCallback((feedId: string) => {
+    setRingtones(prev => prev.map(ringtone => {
+      if (ringtone.id.toString() === feedId) {
+        return {
+          ...ringtone,
+          sharesCount: ringtone.sharesCount + 1
+        };
+      }
+      return ringtone;
+    }));
   }, []);
 
-  const handleDownload = useCallback(async (feedId: string) => {
-    console.log('💾 Handling download for ringtone:', feedId);
-
-    try {
-      await feedService.downloadFeed(feedId);
-
-      // Update download count
-      setRingtones(prev => prev.map(ringtone => {
-        if (ringtone.id.toString() === feedId) {
-          return {
-            ...ringtone,
-            downloadsCount: ringtone.downloadsCount + 1,
-            isDownloaded: true
-          };
-        }
-        return ringtone;
-      }));
-
-      console.log('✅ Successfully downloaded ringtone');
-    } catch (error) {
-      console.error('❌ Error downloading ringtone:', error);
-    }
+  const handleDownload = useCallback((feedId: string) => {
+    setRingtones(prev => prev.map(ringtone => {
+      if (ringtone.id.toString() === feedId) {
+        return {
+          ...ringtone,
+          downloadsCount: ringtone.downloadsCount + 1,
+          isDownloaded: true
+        };
+      }
+      return ringtone;
+    }));
   }, []);
 
   // Fires on mount and whenever the filter changes (loadRingtones's identity
