@@ -1,7 +1,7 @@
 import React from 'react';
 import { useInfiniteQuery, useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { feedService } from '../services/feedService';
-import { FeedQueryParams, Feed, FeedFilters, FeedType } from '@/types/feed';
+import { FeedQueryParams, Feed, FeedFilters, FeedType, TagGroup } from '@/types/feed';
 import { useFeedStore } from '@/store/feedStore';
 
 interface UseFeedOptions {
@@ -270,20 +270,20 @@ export function useTrendingFeeds(options: { limit?: number; days?: number; enabl
 }
 
 // Hook for user's liked feeds
-export function useUserLikedFeeds(options: { limit?: number; enabled?: boolean; type?: FeedType; label?: string } = {}) {
-  const { limit = 20, enabled = true, type, label } = options;
+export function useUserLikedFeeds(options: { limit?: number; enabled?: boolean; type?: FeedType; excludeTagGroup?: TagGroup } = {}) {
+  const { limit = 20, enabled = true, type, excludeTagGroup } = options;
 
   return useInfiniteQuery({
-    // type/label included in the key so different hubs' "Liked" queries get
+    // type/excludeTagGroup included in the key so different hubs' "Liked" queries get
     // separate cache entries instead of colliding on one, mirroring
     // useTrendingFeeds' own cache-key shape above.
-    queryKey: ['feeds', 'liked', { type, label }],
+    queryKey: ['feeds', 'liked', { type, excludeTagGroup }],
     queryFn: async ({ pageParam = 0 }) => {
       return await feedService.getUserLikedFeeds({
         limit,
         offset: pageParam as number,
         type,
-        label,
+        excludeTagGroup,
       });
     },
     initialPageParam: 0,

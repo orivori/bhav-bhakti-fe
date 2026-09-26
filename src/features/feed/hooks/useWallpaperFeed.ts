@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Feed, FeedListResponse } from '@/types/feed';
+import { Feed, FeedListResponse, TagGroup } from '@/types/feed';
 import { feedService } from '@/features/feed/services/feedService';
 import { DeityFilterSelection } from '@/components/molecules/DeityFilterRow';
 
@@ -23,10 +23,10 @@ const PAGE_LIMIT = 10;
 const TRENDING_DAYS = 7;
 
 // Shared by StatusTabContent and WallpapersTabContent - the only difference
-// between the two buckets is the label argument (undefined for Status's
-// superset, 'none' for Wallpapers' general-purpose-only bucket - no tag from
-// the occasion group). `label` rather than `tags` because only `label`
-// supports this exclusion and the trending/liked endpoints accept it too.
+// between the two buckets is the excludeTagGroup argument (undefined for
+// Status's superset, 'occasion' for Wallpapers' general-purpose-only bucket -
+// no tag from the occasion group). Applied the same way to the trending,
+// liked and deity-filtered queries.
 // Architecture mirrors useRingtones exactly (Phase 6 of the Audio hub's
 // deity-filter work): trending (a ranking view) and a deity selection (a
 // stored filter) are different query mechanics hitting different endpoints,
@@ -34,7 +34,7 @@ const TRENDING_DAYS = 7;
 // special-casing a flag.
 export function useWallpaperFeed(
   filter: DeityFilterSelection,
-  label?: 'none'
+  excludeTagGroup?: TagGroup
 ): UseWallpaperFeedResult {
   const [feeds, setFeeds] = useState<Feed[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -49,7 +49,7 @@ export function useWallpaperFeed(
       if (filter.kind === 'trending') {
         return feedService.getTrendingFeeds({
           type: 'wallpaper',
-          label,
+          excludeTagGroup,
           days: TRENDING_DAYS,
           limit: PAGE_LIMIT,
           offset,
@@ -58,14 +58,14 @@ export function useWallpaperFeed(
       if (filter.kind === 'liked') {
         return feedService.getUserLikedFeeds({
           type: 'wallpaper',
-          label,
+          excludeTagGroup,
           limit: PAGE_LIMIT,
           offset,
         });
       }
       return feedService.getFeeds({
         type: 'wallpaper',
-        label,
+        excludeTagGroup,
         deityId: filter.deityId,
         limit: PAGE_LIMIT,
         offset,
@@ -73,7 +73,7 @@ export function useWallpaperFeed(
         sortOrder: 'DESC',
       });
     },
-    [filter.kind, filter.kind === 'deity' ? filter.deityId : undefined, label]
+    [filter.kind, filter.kind === 'deity' ? filter.deityId : undefined, excludeTagGroup]
   );
 
   const loadFeeds = useCallback(async (cursor?: string, refresh = false) => {
@@ -205,7 +205,7 @@ export function useWallpaperFeed(
 
   // Fires on mount and whenever the filter changes (loadFeeds's identity
   // changes whenever fetchPage does, which changes whenever filter.kind/
-  // deityId does - label is fixed per component instance, not a
+  // deityId does - excludeTagGroup is fixed per component instance, not a
   // runtime-changing value). Resets pagination state synchronously first -
   // trending and deity-filtered lists are different result sets, not pages
   // of one query, so switching between them must not append onto the

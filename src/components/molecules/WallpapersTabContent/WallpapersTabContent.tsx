@@ -37,11 +37,11 @@ interface WallpapersTabContentProps {
 // RingtonesTabContent also builds its own dedicated list rather than reusing
 // FeedList.
 //
-// Wallpapers is the general-purpose-only bucket: label: 'none' is a
-// sentinel the backend reads as "carries no tag from the occasion group",
-// regardless of any other tag (e.g. a mood tag) - this is what excludes Good
-// Morning/Evening/Night/Festive content, unlike StatusTabContent which
-// applies no occasion filter at all. `filter` is
+// Wallpapers is the general-purpose-only bucket: excludeTagGroup: 'occasion'
+// drops any feed carrying a tag from the occasion group, regardless of any
+// other tag (e.g. a mood tag) - this is what excludes Good Morning/Evening/
+// Night/Festive content, unlike StatusTabContent which applies no occasion
+// filter at all. `filter` is
 // owned and shared by the hub (survives switching sub-tabs) - this component
 // just forwards whatever it's given into useWallpaperFeed().
 function WallpapersTabContent({ filter }: WallpapersTabContentProps, ref: React.Ref<FlatList>) {
@@ -62,7 +62,7 @@ function WallpapersTabContent({ filter }: WallpapersTabContentProps, ref: React.
     likeFeed,
     shareFeed,
     downloadFeed,
-  } = useWallpaperFeed(filter, 'none');
+  } = useWallpaperFeed(filter, 'occasion');
 
   const { open: openViewingWindow, ViewingWindow } = useViewingWindow({
     feeds,
