@@ -109,14 +109,14 @@ class FeedService {
    * Like a feed
    */
   async likeFeed(feedId: string): Promise<LikeFeedResponse> {
-    return await apiClient.post<LikeFeedResponse>(API_ENDPOINTS.FEED.LIKE(feedId), {}, { promptOnAuthFailure: true });
+    return await apiClient.post<LikeFeedResponse>(API_ENDPOINTS.FEED.LIKE(feedId), {});
   }
 
   /**
    * Unlike a feed
    */
   async unlikeFeed(feedId: string): Promise<UnlikeFeedResponse> {
-    return await apiClient.delete<UnlikeFeedResponse>(API_ENDPOINTS.FEED.UNLIKE(feedId), { promptOnAuthFailure: true });
+    return await apiClient.delete<UnlikeFeedResponse>(API_ENDPOINTS.FEED.UNLIKE(feedId));
   }
 
   /**
@@ -128,7 +128,7 @@ class FeedService {
     return await apiClient.post<DownloadFeedResponse>(
       API_ENDPOINTS.FEED.DOWNLOAD(feedId),
       {},
-      { promptOnAuthFailure: true, timeout: MEDIA_ACCESS_TIMEOUT_MS }
+      { timeout: MEDIA_ACCESS_TIMEOUT_MS }
     );
   }
 
@@ -137,8 +137,8 @@ class FeedService {
    * before the share sheet opens.
    */
   async shareFeed(feedId: string, shareData: ShareFeedRequest = {}): Promise<ShareFeedResponse> {
-    // Deliberately NOT flagged with promptOnAuthFailure - a stale session
-    // shouldn't interrupt a share; it goes ahead unrecorded (fail-open).
+    // A 401 here shows the session-expired prompt like any other request
+    // (apiClient); the share itself still goes ahead (fail-open, mediaAccess.ts).
     return await apiClient.post<ShareFeedResponse>(API_ENDPOINTS.FEED.SHARE(feedId), shareData, {
       timeout: MEDIA_ACCESS_TIMEOUT_MS,
     });
@@ -177,7 +177,7 @@ class FeedService {
     if (params.excludeTagGroup) queryParams.append('excludeTagGroup', params.excludeTagGroup);
 
     const url = `${API_ENDPOINTS.FEED.USER_LIKED}?${queryParams.toString()}`;
-    const apiResponse = await apiClient.get<ApiUserLikedFeedsResponse>(url, { promptOnAuthFailure: true });
+    const apiResponse = await apiClient.get<ApiUserLikedFeedsResponse>(url);
 
     // Transform API response to client format
     return {
