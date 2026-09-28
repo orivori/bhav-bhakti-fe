@@ -10,6 +10,9 @@ const IS_DEV_VARIANT = APP_VARIANT !== "production";
 const APP_NAME = IS_DEV_VARIANT ? "Bhav Bhakti (Dev)" : "Bhav Bhakti";
 const PACKAGE_NAME = IS_DEV_VARIANT ? "com.orivori.bhavbhakti.dev" : "com.orivori.bhavbhakti";
 
+const META_APP_ID = "957510006786328";
+const META_CLIENT_TOKEN = "c84d393bf7fb6e3c92d591cdd2aacd5c";
+
 module.exports = {
   expo: {
     name: APP_NAME,
@@ -139,6 +142,28 @@ module.exports = {
           channelName: ANDROID_NOTIFICATION_CHANNEL_NAME,
         },
       ],
+      // Meta (Facebook) App Events SDK, production package only - the single
+      // Meta App is registered for com.orivori.bhavbhakti alone, and .dev
+      // builds must never send events into it (see Bhav_Bhakti_Meta_SDK_Plan.md,
+      // decision #3). src/utils/analytics/metaEvents.ts no-ops to match.
+      // Neither value is a secret: both ship inside every built APK.
+      ...(IS_DEV_VARIANT
+        ? []
+        : [
+            [
+              "react-native-fbsdk-next",
+              {
+                appID: META_APP_ID,
+                clientToken: META_CLIENT_TOKEN,
+                displayName: APP_NAME,
+                // Initializes on launch and logs installs/app opens with no
+                // JS call needed.
+                isAutoInitEnabled: true,
+                autoLogAppEventsEnabled: true,
+                advertiserIDCollectionEnabled: true,
+              },
+            ],
+          ]),
     ],
     extra: {
       router: {},

@@ -13,6 +13,7 @@ import {
 } from '../utils/firebaseConfirmation';
 import { getJwtExpiryMs } from '../utils/jwt';
 import { logOtpSent, logLoginCompleted, logLoginFailed } from '@/utils/analytics/activationEvents';
+import { logMetaLoginSuccess } from '@/utils/analytics/metaEvents';
 
 // True only for the .dev app variant (development/preview builds) - never
 // true in production, since app.config.js's APP_VARIANT defaults to
@@ -223,6 +224,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // first_navigation_choice, first_content_completed) - see
         // logLoginCompleted's own comment.
         logLoginCompleted({ is_new_user: !!response.data.isNewUser });
+        logMetaLoginSuccess({ isNewUser: !!response.data.isNewUser });
 
         // Force navigation to main after successful login
         router.replace('/(main)');
