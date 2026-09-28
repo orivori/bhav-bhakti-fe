@@ -716,3 +716,15 @@ The promotion went out in five staged releases: (A) prep — the feed log-floodi
 **Group 4 now stands at 7 of 10 steps done/live:** 1, 2, 3, 4, 5, 6, 9 — step 9's billing-alert discrepancy is still open (the audit plan's Item 11 step list still says "Not yet done"; see `Bhav_Bhakti_Security_Audit_Plan.md`). Steps 7 (App Check), 8 (signed URLs) and 10 (lock `storage.rules` entirely — last, gated on 5, 7 and 8) remain not started.
 
 **Branch state after this promotion:** backend `main` contains everything on `develop` (0 commits behind). Frontend `production`/`master` differ from `dev` only in `.dev`-only code that is deliberately never promoted — the debug tools (`app/(main)/profile.tsx`, `useAuth.tsx`, `src/features/authentication/utils/jwt.ts`), the `.dev` app's routing to the Railway dev environment (`src/shared/config/api.ts`, `402ce89`), `app.config.js`'s `versionCode` (6 on production, 4 on dev) — plus CLAUDE.md commits, which never go to frontend `production`/`master`.
+
+## 108. 2026-09-28 session — Security audit Group 4 step 8 (signed URLs for media): DONE, live in production
+
+**Full detail in `Bhav_Bhakti_Security_Audit_Plan.md`** — this is a pointer/summary. Backend-only; no frontend change. Built on `develop` (`17b7c50`), merged to `main` (`5f2942e`), deployed to production (Railway deploy `b1b1ae72`) on 2026-09-28, confirmed working via an on-device production check.
+
+Every feed response now returns V4 signed Cloud Storage URLs (`storage.googleapis.com/...?X-Goog-Signature=...`) for `url`/`thumbnailSquareUrl`/`thumbnailPortraitUrl`, expiring after **72 hours** (`SIGNED_URL_TTL_MS` in `src/utils/feedMedia.util.js`; `version: 'v4'` explicit — the library defaults to V2, which has no expiry ceiling). `applyMediaFields`/`serializeFeed` are now async; all 5 call sites in `feed.service.js` await them, guarded by `feed.service.serialize.test.js`.
+
+**Shipped in a different shape than planned:** the plan had URLs minted at a delivery endpoint; they're actually minted at feed-listing time (every feed response), since autoplay needs a playable URL in the feed itself.
+
+**Not done, still open:** the ~208 existing permanent Firebase download tokens were **not rotated** — old tokened links (and, until step 10 locks `storage.rules`, old token-free links) still work, so signing alone isn't access control yet. Steps 7 (App Check) and 10 (lock `storage.rules`) not started.
+
+**Known side effect:** images (thumbnails/wallpapers, plain RN `Image`, cached by URL) re-download more often, since the signed URL changes on every fetch. Audio/video caching is unaffected (keyed by feed ID/title, not URL).
