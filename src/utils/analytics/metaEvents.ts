@@ -24,12 +24,19 @@ function logMetaEvent(name: string): void {
   }
 }
 
+// Meta's standard CompleteRegistration event name, written out rather than
+// read from AppEventsLogger.AppEvents: that object comes from the native
+// module, which doesn't exist in builds made before the SDK was added. Those
+// builds can still receive this code by OTA, and reading it there would throw
+// outside logMetaEvent's try/catch - turning a successful login into an error.
+const META_COMPLETE_REGISTRATION = 'fb_mobile_complete_registration';
+
 // Every successful login, new or returning user. CompleteRegistration (Meta's
 // standard sign-up event) is logged alongside it for genuinely new users only,
 // using the backend's own isNewUser signal.
 export function logMetaLoginSuccess(params: { isNewUser: boolean }): void {
   logMetaEvent('login_success');
   if (params.isNewUser) {
-    logMetaEvent(AppEventsLogger.AppEvents.CompletedRegistration);
+    logMetaEvent(META_COMPLETE_REGISTRATION);
   }
 }
