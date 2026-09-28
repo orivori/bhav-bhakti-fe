@@ -728,3 +728,13 @@ Every feed response now returns V4 signed Cloud Storage URLs (`storage.googleapi
 **Not done, still open:** the ~208 existing permanent Firebase download tokens were **not rotated** — old tokened links (and, until step 10 locks `storage.rules`, old token-free links) still work, so signing alone isn't access control yet. Steps 7 (App Check) and 10 (lock `storage.rules`) not started.
 
 **Known side effect:** images (thumbnails/wallpapers, plain RN `Image`, cached by URL) re-download more often, since the signed URL changes on every fetch. Audio/video caching is unaffected (keyed by feed ID/title, not URL).
+
+## 109. 2026-09-29 session — Meta (Facebook/Instagram) Ads SDK: DONE, live in production
+
+**Full plan, decisions and build log: `D:\bhav_bhakti_Claude_docs\Bhav_Bhakti_Meta_SDK_Plan.md`** — this is a completion record only. Frontend-only; no backend involvement.
+
+- **`react-native-fbsdk-next`** (Facebook Android SDK 18.x), configured in `app.config.js` for the production package (`com.orivori.bhavbhakti`) **only**. The `.dev` package gets no Meta config, and `src/utils/analytics/metaEvents.ts` no-ops there, so the code is inert in `.dev` builds.
+- **Events, all client-side, no parameters (no PII):** automatic install/app-open (logged by the SDK itself); a custom `login_success` on every login; and Meta's standard `CompleteRegistration` (`fb_mobile_complete_registration`, written out as a literal — never read from the native module) only when the backend's `isNewUser` is true. Both login events fire from `useAuth.tsx`, next to the Firebase `login_completed` event.
+- **Verified** on a real Play Store install of `versionCode` 7 (Closed Testing): app-open and `login_success` confirmed in Meta Events Manager → Test Events. The Play App Signing key hash is registered with Meta; the temporary debug key hash (Meta) and debug SHA-1 (Firebase) have been removed.
+- **Branches:** `feature/meta-sdk` was branched off `production` — a one-time exception to §85, per the plan doc's decision #10. `production` was fast-forwarded to it (`e5dd207`); its two code commits were cherry-picked into `dev` (`4f6e87b`, `1e2878f`; the versionCode bump deliberately not, since `dev` keeps its own); `master` was fast-forwarded to `production`. All pushed.
+- **Still open:** Play Console's Data Safety form and Advertising ID declaration (the SDK already adds the `AD_ID` permission). Deferred to later phases: deferred deep linking, a Purchase event, Advanced Matching.
