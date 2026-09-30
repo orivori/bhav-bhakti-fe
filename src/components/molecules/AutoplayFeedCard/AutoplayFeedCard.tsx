@@ -87,22 +87,33 @@ const CARD_WIDTH = screenWidth - goldenTempleTheme.spacing.lg * 2;
 // something the card's own height is derived from - contentAreaHeight for
 // audio still comes from AUDIO_CONTENT_HEIGHT_RATIO above, just a smaller %.
 // 0.66, not the originally-proposed 0.62 - a slight bump for more presence.
-// Still comfortably fits the smallest realistic device's budget alongside
-// the controls row below it (checked: ~84px of vertical slack remains on
-// an iPhone SE-class screen even after this bump).
-const THUMBNAIL_SIZE = CARD_WIDTH * 0.66;
+// Now a MAXIMUM: since the title was added above the thumbnail (with more
+// spacing around it), a short screen can't always fit the full 0.66 inside
+// the fixed card height - see audioThumbnailSize in the component body,
+// which shrinks it just enough there instead of growing the card.
+const MAX_THUMBNAIL_SIZE = CARD_WIDTH * 0.66;
 
-// Fixed width for the audio row's CTA pill (Listen/Set as Ringtone) -
-// derived once from the row's own fixed width (THUMBNAIL_SIZE), not left to
-// grow/shrink with whatever ctaLabel text happens to be showing. 48 =
-// audioPlayPauseButton's own fixed width; the remaining spacing.xs is the
-// minimum breathing room kept between it and the pill (audioControlsRow's
-// justifyContent: 'space-between' otherwise has nothing stopping the two
-// from touching once the pill's width is no longer content-driven). Still
-// screen-width-responsive like everything else on this card - only content
-// (text length, language) is prevented from affecting it, per the pill's own
-// styles below.
-const AUDIO_CTA_PILL_WIDTH = THUMBNAIL_SIZE - 48 - goldenTempleTheme.spacing.xs;
+// --- Audio card stack: title -> thumbnail -> controls row, centered ---
+// The title gets an explicit lineHeight tall enough for Devanagari matras
+// (Text atom's Hindi value for 16px is max(16*1.6, 24) = 25.6) and is
+// capped at 2 lines. Explicit width + lineHeight is also the proven fix for
+// Android's Devanagari text self-measurement clipping (CLAUDE.md §71).
+const AUDIO_TITLE_FONT_SIZE = 16;
+const AUDIO_TITLE_LINE_HEIGHT = 26;
+const AUDIO_TITLE_MAX_LINES = 2;
+const AUDIO_TITLE_GAP = goldenTempleTheme.spacing.md; // title -> thumbnail
+const AUDIO_CONTROLS_GAP = goldenTempleTheme.spacing.lg; // thumbnail -> controls (was spacing.md)
+const AUDIO_CONTROLS_HEIGHT = 48; // audioPlayPauseButton's height, the row's tallest child
+// Minimum clear space kept above the title and below the controls.
+const AUDIO_STACK_MIN_MARGIN = goldenTempleTheme.spacing.md;
+// Everything in the stack except the thumbnail, budgeting the title at its
+// full 2 lines so a long title can never push the controls off the card.
+const AUDIO_STACK_FIXED_HEIGHT =
+  AUDIO_TITLE_LINE_HEIGHT * AUDIO_TITLE_MAX_LINES +
+  AUDIO_TITLE_GAP +
+  AUDIO_CONTROLS_GAP +
+  AUDIO_CONTROLS_HEIGHT +
+  AUDIO_STACK_MIN_MARGIN * 2;
 
 // Native RN Image blurRadius (no new dependency - see the earlier
 // investigation this session). Applied only to the full-bleed background
@@ -286,6 +297,33 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
 
   const isEffectivelyActive = isActive && isScreenFocused && isAppActive;
 
+  // Video: drive the native player imperatively, not only via the
+  // declarative `shouldPlay` prop below. Root cause of an unmuted Home video
+  // wallpaper's sound continuing after the app was backgrounded: the
+  // AppState listener above DID flip isEffectivelyActive to false, but
+  // (1) app/_layout.tsx's global expo-av `staysActiveInBackground: true`
+  // turns off expo-av's own native pause-on-background (AVManager.onHostPause
+  // skips every player when that flag is set), and (2) a `shouldPlay` prop
+  // change is a view-prop update, which Android doesn't reliably apply while
+  // the app is in the background - so nothing actually paused the player.
+  // Muted videos (the default) hid this, since there was nothing to hear.
+  // pauseAsync()/playAsync() are direct native-module calls, which run in
+  // the background - the same fix ViewingWindowSheet.tsx already uses (§33).
+  // playAsync on the way back makes foregrounding deterministic: the video
+  // resumes only if this card is still the elected one on a focused Home,
+  // exactly like the audio cards, rather than depending on whether a queued
+  // prop diff happens to land. Before the video has loaded, both calls
+  // reject harmlessly and `shouldPlay` covers the initial autoplay.
+  const videoRef = useRef<Video>(null);
+  useEffect(() => {
+    if (feed.mediaType !== 'video') return;
+    const player = videoRef.current;
+    if (!player) return;
+    (isEffectivelyActive ? player.playAsync() : player.pauseAsync()).catch(() => {
+      // No-op: not loaded yet, or already unloaded.
+    });
+  }, [isEffectivelyActive, feed.mediaType]);
+
   const feedIdStr = feed.id.toString();
   const usableViewportHeight = windowHeight - insets.top - tabBarHeight;
 
@@ -338,15 +376,21 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
       ? usableViewportHeight * AUDIO_CONTENT_HEIGHT_RATIO
       : CARD_WIDTH * VISUAL_ASPECT_RATIO) - headerRowHeight;
 
-  // Audio only: the thumbnail is centered on its OWN (both axes) within
-  // contentArea - NOT as part of a combined thumbnail+controls block. The
-  // controls row just sits directly below wherever the thumbnail lands,
-  // aligned to its left/right edges, uninvolved in the centering itself.
-  // Computed here rather than in StyleSheet since contentAreaHeight is a
-  // per-render value (driven by usableViewportHeight).
-  const audioThumbnailTop = (contentAreaHeight - THUMBNAIL_SIZE) / 2;
-  const audioThumbnailLeft = (CARD_WIDTH - THUMBNAIL_SIZE) / 2;
-  const audioControlsRowTop = audioThumbnailTop + THUMBNAIL_SIZE + goldenTempleTheme.spacing.md;
+  // Audio only: title, thumbnail and controls row form one stack, centered
+  // as a whole within contentArea (styles.audioStack). The card's height
+  // stays fixed (AUDIO_CONTENT_HEIGHT_RATIO), so on a short screen the
+  // thumbnail gives up size rather than the card growing. The title and the
+  // controls row both take the thumbnail's width, so all three share the
+  // same left/right edges.
+  const audioThumbnailSize = Math.min(MAX_THUMBNAIL_SIZE, contentAreaHeight - AUDIO_STACK_FIXED_HEIGHT);
+  // Fixed width for the audio row's CTA pill (Listen/Set as Ringtone) -
+  // derived from the row's width (the thumbnail's), not left to grow/shrink
+  // with whatever ctaLabel text happens to be showing. 48 =
+  // audioPlayPauseButton's own fixed width; the remaining spacing.xs is the
+  // minimum breathing room kept between it and the pill (audioControlsRow's
+  // justifyContent: 'space-between' otherwise has nothing stopping the two
+  // from touching once the pill's width is no longer content-driven).
+  const audioCtaPillWidth = audioThumbnailSize - 48 - goldenTempleTheme.spacing.xs;
 
   // --- Player leak fix ---
   // Previously useAudioPlayer(null) was called unconditionally for every
@@ -700,77 +744,79 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
               <View style={[StyleSheet.absoluteFill, styles.audioFallback]} />
             )}
 
-            {/* Sharp thumbnail - centered on both axes within contentArea,
-                independent of the controls row below it (see
-                audioThumbnailTop/Left above). */}
-            {thumbnailUrl ? (
-              <Image
-                source={{ uri: thumbnailUrl }}
-                style={[styles.audioThumbnail, { top: audioThumbnailTop, left: audioThumbnailLeft }]}
-                resizeMode="cover"
-              />
-            ) : (
-              <View
-                style={[
-                  styles.audioThumbnail,
-                  styles.audioFallback,
-                  { top: audioThumbnailTop, left: audioThumbnailLeft },
-                ]}
+            {/* Title -> thumbnail -> controls, centered as one stack (see
+                audioThumbnailSize above). */}
+            <View style={styles.audioStack}>
+              <Text
+                style={[styles.audioTitle, { width: audioThumbnailSize }]}
+                numberOfLines={AUDIO_TITLE_MAX_LINES}
               >
-                <Ionicons name="musical-notes" size={40} color={goldenTempleTheme.colors.primary.DEFAULT} />
-              </View>
-            )}
+                {title}
+              </Text>
 
-            {/* Controls row - anchored directly below the thumbnail's own
-                bottom edge, aligned to its left/right edges (width matches
-                THUMBNAIL_SIZE exactly). Not part of any centering
-                calculation of its own - it just follows the thumbnail. */}
-            <View
-              style={[
-                styles.audioControlsRow,
-                { top: audioControlsRowTop, left: audioThumbnailLeft, width: THUMBNAIL_SIZE },
-              ]}
-            >
-              {/* The real player only exists once this card is genuinely
-                  relevant (see shouldMountAudioPlayer above) - until then this
-                  renders a static, tappable Play affordance that requests
-                  playback (mounting AudioPlaybackController) rather than
-                  eagerly holding a native player instance no one asked for. */}
-              {shouldMountAudioPlayer ? (
-                <AudioPlaybackController
-                  feedIdStr={feedIdStr}
-                  audioSourceUri={audioSourceUri}
-                  isEffectivelyActive={shouldPlayAudio}
+              {thumbnailUrl ? (
+                <Image
+                  source={{ uri: thumbnailUrl }}
+                  style={[styles.audioThumbnail, { width: audioThumbnailSize, height: audioThumbnailSize }]}
+                  resizeMode="cover"
                 />
               ) : (
-                <TouchableOpacity
-                  style={styles.audioPlayPauseButton}
-                  onPress={() => setUserRequestedPlayback(true)}
-                  activeOpacity={0.8}
+                <View
+                  style={[
+                    styles.audioThumbnail,
+                    styles.audioFallback,
+                    { width: audioThumbnailSize, height: audioThumbnailSize },
+                  ]}
                 >
-                  <Ionicons name="play" size={26} color="#fff" style={styles.playIconNudge} />
-                </TouchableOpacity>
+                  <Ionicons name="musical-notes" size={40} color={goldenTempleTheme.colors.primary.DEFAULT} />
+                </View>
               )}
 
-              <TouchableOpacity
-                style={styles.audioCtaPill}
-                onPress={handleCtaPress}
-                disabled={ctaDisabled}
-                activeOpacity={0.85}
-              >
-                <Ionicons name={ctaIcon} size={14} color="#fff" />
-                {/* numberOfLines={1} - a fixed-width pill with variable text
-                    (English vs. Hindi, or a longer future translation) must
-                    truncate rather than wrap/grow. Belt-and-suspenders with
-                    ctaPillText's own sizing below, which is chosen to fit the
-                    known real strings without this ever actually kicking in
-                    under normal use. */}
-                <Text style={styles.ctaPillText} numberOfLines={1}>{ctaLabel}</Text>
-              </TouchableOpacity>
+              {/* Controls row - the thumbnail's width, so its edges line up
+                  with the thumbnail's. */}
+              <View style={[styles.audioControlsRow, { width: audioThumbnailSize }]}>
+                {/* The real player only exists once this card is genuinely
+                    relevant (see shouldMountAudioPlayer above) - until then this
+                    renders a static, tappable Play affordance that requests
+                    playback (mounting AudioPlaybackController) rather than
+                    eagerly holding a native player instance no one asked for. */}
+                {shouldMountAudioPlayer ? (
+                  <AudioPlaybackController
+                    feedIdStr={feedIdStr}
+                    audioSourceUri={audioSourceUri}
+                    isEffectivelyActive={shouldPlayAudio}
+                  />
+                ) : (
+                  <TouchableOpacity
+                    style={styles.audioPlayPauseButton}
+                    onPress={() => setUserRequestedPlayback(true)}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="play" size={26} color="#fff" style={styles.playIconNudge} />
+                  </TouchableOpacity>
+                )}
+
+                <TouchableOpacity
+                  style={[styles.audioCtaPill, { width: audioCtaPillWidth }]}
+                  onPress={handleCtaPress}
+                  disabled={ctaDisabled}
+                  activeOpacity={0.85}
+                >
+                  <Ionicons name={ctaIcon} size={14} color="#fff" />
+                  {/* numberOfLines={1} - a fixed-width pill with variable text
+                      (English vs. Hindi, or a longer future translation) must
+                      truncate rather than wrap/grow. Belt-and-suspenders with
+                      ctaPillText's own sizing below, which is chosen to fit the
+                      known real strings without this ever actually kicking in
+                      under normal use. */}
+                  <Text style={styles.ctaPillText} numberOfLines={1}>{ctaLabel}</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </>
         ) : feed.mediaType === 'video' ? (
           <Video
+            ref={videoRef}
             source={{ uri: feed.url }}
             style={StyleSheet.absoluteFill}
             resizeMode={ResizeMode.COVER}
@@ -1082,22 +1128,38 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  // Fills contentArea over the blurred background and centers the
+  // title/thumbnail/controls stack as one block on both axes.
+  audioStack: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  // White on the blurred thumbnail, with a soft shadow so it stays readable
+  // over light artwork too. width is supplied per-render (the thumbnail's).
+  audioTitle: {
+    fontSize: AUDIO_TITLE_FONT_SIZE,
+    lineHeight: AUDIO_TITLE_LINE_HEIGHT,
+    fontWeight: '700',
+    color: '#fff',
+    textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 0.6)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
+    marginBottom: AUDIO_TITLE_GAP,
+  },
+  // width/height are supplied per-render (audioThumbnailSize).
   audioThumbnail: {
-    position: 'absolute',
-    width: THUMBNAIL_SIZE,
-    height: THUMBNAIL_SIZE,
     borderRadius: goldenTempleTheme.borderRadius.sm,
     overflow: 'hidden',
   },
-  // top/left/width are all supplied per-render (audioThumbnailTop/Left,
-  // audioControlsRowTop in the component body) - width matches
-  // THUMBNAIL_SIZE exactly so the row's edges align with the thumbnail's,
-  // not the card's.
+  // width is supplied per-render (audioThumbnailSize) so the row's edges
+  // align with the thumbnail's, not the card's.
   audioControlsRow: {
-    position: 'absolute',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    marginTop: AUDIO_CONTROLS_GAP,
   },
   audioPlayPauseButton: {
     width: 48,
@@ -1118,12 +1180,11 @@ const styles = StyleSheet.create({
     // Reduced from 20 - a fixed-width pill needs more of its own width left
     // over for the icon+text, not eaten by padding on both sides.
     paddingHorizontal: 8,
-    // Fixed, not content-driven - see AUDIO_CTA_PILL_WIDTH's own comment
-    // above. This is the actual fix for the pill growing/shrinking with
-    // whatever ctaLabel text was showing (English "Listen" vs. Hindi
-    // "रिंगटोन सेट करें" vs. "Setting..." all used to produce visibly
-    // different pill widths/positions in the same row).
-    width: AUDIO_CTA_PILL_WIDTH,
+    // Width is fixed, not content-driven - supplied per-render
+    // (audioCtaPillWidth in the component body). This is the actual fix for
+    // the pill growing/shrinking with whatever ctaLabel text was showing
+    // (English "Listen" vs. Hindi "रिंगटोन सेट करें" vs. "Setting..." all
+    // used to produce visibly different pill widths/positions in the same row).
     borderRadius: goldenTempleTheme.borderRadius.full,
     backgroundColor: goldenTempleTheme.colors.primary.DEFAULT,
     shadowColor: '#000',
@@ -1165,8 +1226,8 @@ const styles = StyleSheet.create({
     color: '#fff',
     // Reduced from 13 so the longest real CTA string (English "Set as
     // Ringtone" / Hindi "रिंगटोन सेट करें") comfortably fits inside
-    // audioCtaPill's fixed width - see AUDIO_CTA_PILL_WIDTH's comment.
-    // Reasoned through width math against a typical device's THUMBNAIL_SIZE,
+    // audioCtaPill's fixed width - see audioCtaPillWidth in the component body.
+    // Reasoned through width math against a typical device's thumbnail size,
     // not yet confirmed on a real device; numberOfLines={1} at each usage
     // site is the safety net (ellipsis) if a specific device ever comes up
     // short.
