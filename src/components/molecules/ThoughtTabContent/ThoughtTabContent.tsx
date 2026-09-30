@@ -58,6 +58,7 @@ function ThoughtTabContent(_props: {}, ref: React.Ref<FlatList>) {
     limit: 10,
     filters: {
       type: 'thought',
+      sortBy: 'weighted',
     },
   });
 

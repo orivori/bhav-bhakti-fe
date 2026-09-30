@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Feed, FeedListResponse } from '@/types/feed';
 import { feedService } from '@/features/feed/services/feedService';
+import { newFeedSeed } from '@/utils/feedSeed';
 import { DeityFilterSelection } from '@/components/molecules/DeityFilterRow';
 
 export interface UseRingtonesResult {
@@ -19,7 +20,6 @@ export interface UseRingtonesResult {
 }
 
 const PAGE_LIMIT = 20;
-const TRENDING_DAYS = 7;
 
 export function useRingtones(filter: DeityFilterSelection): UseRingtonesResult {
   const [ringtones, setRingtones] = useState<Feed[]>([]);
@@ -30,22 +30,17 @@ export function useRingtones(filter: DeityFilterSelection): UseRingtonesResult {
   const [nextCursor, setNextCursor] = useState<string | undefined>();
   const [error, setError] = useState<string | null>(null);
 
-  // Trending (a ranking view), Liked (the user's own liked ringtones, via
-  // the same getUserLikedFeeds() call backing useUserLikedFeeds), and a
-  // deity selection (a stored filter) are different query mechanics hitting
-  // different endpoints - kept as explicit branches here rather than one
-  // fetch function that silently special-cases a flag, per the approved
-  // design.
+  // The scroll session's seed for the weighted ranking - replaced whenever
+  // the list starts over (first load, filter change, refresh), reused for
+  // every following page.
+  const seedRef = useRef(newFeedSeed());
+
+  // Liked (the user's own liked ringtones, via the same getUserLikedFeeds()
+  // call backing useUserLikedFeeds) hits its own endpoint. "All" (the
+  // 'trending' chip) and a deity selection both use the weighted ranking,
+  // the deity chip just adding the deityId filter.
   const fetchPage = useCallback(
-    (offset: number): Promise<FeedListResponse> => {
-      if (filter.kind === 'trending') {
-        return feedService.getTrendingFeeds({
-          type: 'ringtone',
-          days: TRENDING_DAYS,
-          limit: PAGE_LIMIT,
-          offset,
-        });
-      }
+    (offset: number, seed: string): Promise<FeedListResponse> => {
       if (filter.kind === 'liked') {
         return feedService.getUserLikedFeeds({
           type: 'ringtone',
@@ -55,11 +50,11 @@ export function useRingtones(filter: DeityFilterSelection): UseRingtonesResult {
       }
       return feedService.getFeeds({
         type: 'ringtone',
-        deityId: filter.deityId,
+        deityId: filter.kind === 'deity' ? filter.deityId : undefined,
         limit: PAGE_LIMIT,
         offset,
-        sortBy: 'createdAt',
-        sortOrder: 'DESC',
+        sortBy: 'weighted',
+        seed,
       });
     },
     [filter.kind, filter.kind === 'deity' ? filter.deityId : undefined]
@@ -78,7 +73,8 @@ export function useRingtones(filter: DeityFilterSelection): UseRingtonesResult {
       }
 
       const offset = cursor ? parseInt(cursor) : 0;
-      const response = await fetchPage(offset);
+      if (!cursor) seedRef.current = newFeedSeed();
+      const response = await fetchPage(offset, seedRef.current);
 
       // `type: 'ringtone'` is now sent server-side by fetchPage above, so
       // every row returned is already a ringtone - no client-side filtering

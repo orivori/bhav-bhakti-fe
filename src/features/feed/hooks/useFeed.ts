@@ -1,6 +1,7 @@
 import React from 'react';
-import { useInfiniteQuery, useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQueryClient, useQuery, keepPreviousData } from '@tanstack/react-query';
 import { feedService } from '../services/feedService';
+import { newFeedSeed } from '@/utils/feedSeed';
 import { FeedQueryParams, Feed, FeedFilters, FeedType, TagGroup } from '@/types/feed';
 import { useFeedStore } from '@/store/feedStore';
 
@@ -25,8 +26,15 @@ export function useFeed(options: UseFeedOptions = {}) {
     incrementView,
   } = useFeedStore();
 
+  // Weighted ranking: one seed per scroll session (src/utils/feedSeed.ts).
+  // It's part of the query key, so every page of the list shares it, a
+  // fresh mount starts a new session, and a refresh (below) swaps in a new
+  // seed as a new query instead of refetching the loaded pages.
+  const isWeighted = filters.sortBy === 'weighted';
+  const [seed, setSeed] = React.useState(newFeedSeed);
+
   // Create query key based on filters
-  const queryKey = ['feeds', filters];
+  const queryKey = isWeighted ? ['feeds', filters, seed] : ['feeds', filters];
 
   const {
     data,
@@ -38,11 +46,16 @@ export function useFeed(options: UseFeedOptions = {}) {
     error,
     refetch,
     isRefetching,
+    isPlaceholderData,
   } = useInfiniteQuery({
     queryKey,
+    // While a refresh's new seed loads, keep showing the current list (with
+    // the pull-to-refresh spinner) instead of blanking to the loading state.
+    placeholderData: isWeighted ? keepPreviousData : undefined,
     queryFn: async ({ pageParam = 0 }) => {
       const params: FeedQueryParams = {
         ...filters,
+        ...(isWeighted ? { seed } : {}),
         limit,
         offset: pageParam as number,
       };
@@ -60,6 +73,10 @@ export function useFeed(options: UseFeedOptions = {}) {
     refetchOnWindowFocus: false,
   });
 
+  // A weighted refresh is a new query showing the old list as placeholder
+  // data, not a refetch - count that as refreshing too.
+  const isRefreshing = isRefetching || (isPlaceholderData && isFetching);
+
   // Flatten the paginated data
   const feeds = data?.pages.flatMap(page => page.feeds) || [];
 
@@ -67,7 +84,7 @@ export function useFeed(options: UseFeedOptions = {}) {
   React.useEffect(() => {
     setIsLoading(isLoading);
     setIsLoadingMore(isFetchingNextPage);
-    setIsRefreshing(isRefetching);
+    setIsRefreshing(isRefreshing);
     setError(error?.message || null);
 
     if (data) {
@@ -82,7 +99,7 @@ export function useFeed(options: UseFeedOptions = {}) {
   }, [
     isLoading,
     isFetchingNextPage,
-    isRefetching,
+    isRefreshing,
     error,
     data,
     hasNextPage,
@@ -150,14 +167,20 @@ export function useFeed(options: UseFeedOptions = {}) {
   });
 
   const handleLoadMore = () => {
-    if (hasNextPage && !isFetchingNextPage) {
+    // Not while a refresh's placeholder (the previous seed's list) is shown -
+    // that would fetch a page of the new seed onto the old list.
+    if (hasNextPage && !isFetchingNextPage && !isPlaceholderData) {
       fetchNextPage();
     }
   };
 
   const handleRefresh = () => {
     resetPagination();
-    refetch();
+    if (isWeighted) {
+      setSeed(newFeedSeed());
+    } else {
+      refetch();
+    }
   };
 
   const handleLike = (feedId: string) => {
@@ -192,7 +215,7 @@ export function useFeed(options: UseFeedOptions = {}) {
     // Loading states
     isLoading,
     isLoadingMore: isFetchingNextPage,
-    isRefreshing: isRefetching,
+    isRefreshing,
 
     // Pagination
     hasMore: !!hasNextPage,

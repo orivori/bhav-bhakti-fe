@@ -130,8 +130,11 @@ export interface FeedFilters {
   // trending and liked endpoints alike.
   excludeTagGroup?: TagGroup;
   search?: string;
-  sortBy?: 'createdAt' | 'likesCount' | 'downloadsCount' | 'sharesCount' | 'viewsCount' | 'random';
+  // 'weighted' is the weighted ranking - sent with the scroll session's
+  // `seed` (see src/utils/feedSeed.ts).
+  sortBy?: 'createdAt' | 'likesCount' | 'downloadsCount' | 'sharesCount' | 'viewsCount' | 'random' | 'weighted';
   sortOrder?: 'ASC' | 'DESC';
+  seed?: string;
   createdBy?: string;
 }
 

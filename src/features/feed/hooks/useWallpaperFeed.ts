@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Feed, FeedListResponse, TagGroup } from '@/types/feed';
 import { feedService } from '@/features/feed/services/feedService';
+import { newFeedSeed } from '@/utils/feedSeed';
 import { DeityFilterSelection } from '@/components/molecules/DeityFilterRow';
 
 export interface UseWallpaperFeedResult {
@@ -20,18 +21,15 @@ export interface UseWallpaperFeedResult {
 }
 
 const PAGE_LIMIT = 10;
-const TRENDING_DAYS = 7;
 
 // Shared by StatusTabContent and WallpapersTabContent - the only difference
 // between the two buckets is the excludeTagGroup argument (undefined for
 // Status's superset, 'occasion' for Wallpapers' general-purpose-only bucket -
-// no tag from the occasion group). Applied the same way to the trending,
+// no tag from the occasion group). Applied the same way to the "All",
 // liked and deity-filtered queries.
-// Architecture mirrors useRingtones exactly (Phase 6 of the Audio hub's
-// deity-filter work): trending (a ranking view) and a deity selection (a
-// stored filter) are different query mechanics hitting different endpoints,
-// kept as two explicit branches rather than one fetch function silently
-// special-casing a flag.
+// Architecture mirrors useRingtones: "All" (the 'trending' chip) and a deity
+// selection both use the weighted ranking (GET /feed?sortBy=weighted), the
+// deity chip just adding deityId; Liked hits its own endpoint.
 export function useWallpaperFeed(
   filter: DeityFilterSelection,
   excludeTagGroup?: TagGroup
@@ -44,17 +42,13 @@ export function useWallpaperFeed(
   const [nextCursor, setNextCursor] = useState<string | undefined>();
   const [error, setError] = useState<string | null>(null);
 
+  // The scroll session's seed for the weighted ranking - replaced whenever
+  // the list starts over (first load, filter change, refresh), reused for
+  // every following page.
+  const seedRef = useRef(newFeedSeed());
+
   const fetchPage = useCallback(
-    (offset: number): Promise<FeedListResponse> => {
-      if (filter.kind === 'trending') {
-        return feedService.getTrendingFeeds({
-          type: 'wallpaper',
-          excludeTagGroup,
-          days: TRENDING_DAYS,
-          limit: PAGE_LIMIT,
-          offset,
-        });
-      }
+    (offset: number, seed: string): Promise<FeedListResponse> => {
       if (filter.kind === 'liked') {
         return feedService.getUserLikedFeeds({
           type: 'wallpaper',
@@ -66,11 +60,11 @@ export function useWallpaperFeed(
       return feedService.getFeeds({
         type: 'wallpaper',
         excludeTagGroup,
-        deityId: filter.deityId,
+        deityId: filter.kind === 'deity' ? filter.deityId : undefined,
         limit: PAGE_LIMIT,
         offset,
-        sortBy: 'createdAt',
-        sortOrder: 'DESC',
+        sortBy: 'weighted',
+        seed,
       });
     },
     [filter.kind, filter.kind === 'deity' ? filter.deityId : undefined, excludeTagGroup]
@@ -89,7 +83,8 @@ export function useWallpaperFeed(
       }
 
       const offset = cursor ? parseInt(cursor) : 0;
-      const response = await fetchPage(offset);
+      if (!cursor) seedRef.current = newFeedSeed();
+      const response = await fetchPage(offset, seedRef.current);
 
       if (refresh || !cursor) {
         setFeeds(response.feeds);
