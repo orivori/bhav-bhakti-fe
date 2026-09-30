@@ -23,6 +23,7 @@ import { getMediaFileExtension } from '@/utils/getMediaFileExtension';
 import { getFeedSubtitle, getFeedThumbnailUrl } from '@/utils/feedFields';
 import { shareContent } from '@/utils/shareContent';
 import { ensureMediaLibraryPermission } from '@/utils/mediaLibraryPermission';
+import { newPlayRequestId } from '@/utils/playRequest';
 import WhatsAppIcon from '../../../../assets/icons/whatsapp.svg';
 
 interface AutoplayFeedCardProps {
@@ -535,6 +536,8 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
         audioUrl: encodeURIComponent(audioSourceUri || ''),
         thumbnailUrl: encodeURIComponent(thumbnailUrl || ''),
         autoPlay: 'true',
+        // New on every tap - see newPlayRequestId.
+        playRequestId: newPlayRequestId(),
         returnTo: '/(main)/',
       },
     });

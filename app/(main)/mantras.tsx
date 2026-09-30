@@ -31,6 +31,7 @@ import { MOOD_OPTIONS, MoodOption } from '@/data/moodData';
 import { feedService } from '@/features/feed/services/feedService';
 import type { Feed } from '@/types/feed';
 import { getFeedSubtitle, getFeedThumbnailUrl } from '@/utils/feedFields';
+import { newPlayRequestId } from '@/utils/playRequest';
 
 // Mirrors horoscope.tsx's zodiac grid width calculation approach - 2 columns
 // with even spacing, computed from screen width. The 64 = section's own
@@ -80,6 +81,8 @@ function buildAudioPlayerParams(mantra: Feed, language: string) {
     type: mantra.type,
     isRepeatable: mantra.isRepeatable ? 'true' : 'false',
     autoPlay: 'true',
+    // New on every tap - see newPlayRequestId.
+    playRequestId: newPlayRequestId(),
     // See audio-player.tsx's back-button handling - without this, back
     // falls through to router.back(), which is the known bug (always
     // lands on Home instead of back onto Mantra Explorer).

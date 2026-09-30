@@ -9,6 +9,7 @@ import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { designSystemTheme } from '@/styles/designSystemTheme';
 import { usePlaybackStore, QueueItem } from '@/store/playbackStore';
 import { getFeedSubtitle, getFeedThumbnailUrl } from '@/utils/feedFields';
+import { newPlayRequestId } from '@/utils/playRequest';
 
 // Shared by both this card's own display fields and the queue-item mapping
 // in handlePress below - kept as one function so a list of N cards resolving
@@ -123,6 +124,8 @@ export default function AudioContentCard({ feed, subTab, queueItems, queueIndex,
         type: feed.type,
         isRepeatable: feed.isRepeatable ? 'true' : 'false',
         autoPlay: 'true',
+        // New on every tap - see newPlayRequestId.
+        playRequestId: newPlayRequestId(),
         // See audio-player.tsx's back-button handling: without these, back
         // falls through to router.back(), which is the known bug (always
         // lands on Home regardless of where the user actually came from).
