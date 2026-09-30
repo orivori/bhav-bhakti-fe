@@ -1251,10 +1251,13 @@ export default function AudioPlayerScreen() {
   // "Up Next" only exists when there's a queue with something besides the
   // current track - a track opened from Home/Search has no queue, and should
   // read as a single, complete action rather than offer an empty sheet.
+  //
+  // Don't call queueSheetRef.current.dismiss() when this turns false: on a
+  // BottomSheetModal that was never presented (@gorhom/bottom-sheet 5.2.x),
+  // dismiss() leaves its internal status stuck at DISMISSING, and every later
+  // present() is then silently swallowed - "Up Next" stopped opening for the
+  // rest of the app session, since this screen never unmounts.
   const hasUpNext = !!queue && queue.playOrder.length > 1;
-  useEffect(() => {
-    if (!hasUpNext) queueSheetRef.current?.dismiss();
-  }, [hasUpNext]);
 
   // Shared by handlePrevious/handleNext and the didJustFinish auto-advance
   // branch below - reuses the exact same load path any other tap into this
