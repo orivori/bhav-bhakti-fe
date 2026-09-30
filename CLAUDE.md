@@ -672,3 +672,23 @@ Every feed response now returns V4 signed Cloud Storage URLs (`storage.googleapi
 - **Side effect:** the admin-only upload route's response (`uploadService.js`) still builds a bare link, which no longer opens. The route is unused in practice, and `POST /feed` stores paths.
 
 **Access note:** Claude Code can run read-only checks on the production database with `RAILWAY_TOKEN_PROD` (founder-confirmed 2026-09-30), using `railway run --service MySQL` with a script that refuses to run outside the production environment and only SELECTs. Production writes still go through their own typed-confirmation scripts and an explicit go-ahead.
+
+## 113. 2026-10-01 session — Player replay auto-start fix built on dev (not yet tested); audio "views" vs "plays" logged as open
+
+**Bug: replaying the same track didn't auto-start.** Play a track → ✕ on the mini-player → tap Listen/play on that same track again: the player opened paused. Root cause: `audio-player.tsx` is a never-unmounted Tabs screen, and its auto-start check only fired once per track per app session (`autoPlayTriggeredForFeedIdRef` + `loadedFeedIdRef`, neither reset by ✕'s `stop()`); identical route params also meant the check never even re-ran. A different track always worked, because the feedId changed.
+
+**Fix — built on `dev`, type-checks, NOT yet committed or tested on a device:**
+- New `src/utils/playRequest.ts` (`newPlayRequestId()`): every entry point that opens the player with `autoPlay: 'true'` also sends a fresh `playRequestId` (Home's `index.tsx`, `AutoplayFeedCard`'s Listen pill, `search-results.tsx`, `mantras.tsx`, `AudioContentCard`, and the player's own Next/Previous/queue hops).
+- The auto-start effect acts once per request (`lastHandledPlayRequestRef`), not once per track, so a stale id carried over when the mini-player reopens the player (it sends only `feedId`) never restarts playback. A caller with no `playRequestId` falls back to one request per feedId.
+- Guard: if that exact track is already playing, or still loading (`loadingFeedIdRef` covers togglePlayback's cache-check await), a new request does nothing — `togglePlayback` is a toggle and would otherwise pause it.
+- ✕ behaviour unchanged: the track stays attached to the player, paused at 0, so a replay resumes it from the start rather than reloading.
+- **Independent of "currently playing" tracking:** `playRequestId` is read only by the auto-start effect. Card highlighting (`playbackStore`'s `persistent.nowPlaying.feedId`/`isPlaying`, read by `AudioContentCard`/`MantraFeedCard`/`MiniPlayer`), the queue (`queue.position`) and "Up Next" never see it.
+- **Test plan (not yet run):** replay the same track after ✕ (should auto-start); tap Listen on the track that's already playing (should keep playing, not pause); reopen via the mini-player body (should resume in place, not restart).
+
+**Open, found while investigating (not fixed):** the Aarti/Bhajan queue is never cleared (`clearQueue` has no callers). Play from the Audio hub (queue set), then play an aarti/bhajan from Home or Search (no queue) → Next/Previous/auto-advance jump back into the old hub list. Proposed fix: the player drops the queue when it opens a track that isn't the queue's current item. Otherwise the queue already snapshots the on-screen order at tap time, so the weighted ranking (§111) can't reshuffle it mid-session; it only holds the loaded page (20 items).
+
+**Pending product decision — audio "views" vs "plays" (founder, 2026-10-01; not decided, not built):** views are the right metric for visual content (wallpapers), not for audio; audio should show something like a plays count. What exists today:
+- The full player shows a **views** pill (`currentFeedData.viewsCount`) and counts views for audio in up to three places per tap: the list's tap handler (`viewFeed` in `index.tsx`/`mantras.tsx`/`search-results.tsx`), `fetchFeedData` on every player open, and again on each fresh load in `togglePlayback`.
+- **A plays counter already exists but is barely used:** `feeds.plays_count` (migration `20260720000001`), `Feed.incrementPlays()`, and `POST /feed/:feedId/play` (open, no login). Only `AutoplayFeedCard` calls it (`feedService.playFeed`, once when a Home audio card first starts); the full player never does, and the app never displays `playsCount`.
+- Firebase Analytics has play-shaped events but no count: `content_progress` (25/50/75/100% checkpoints, player only) and `first_content_completed` (new users' first full listen).
+- **Open question for a future product discussion:** what counts as a play — any playback start, N seconds listened, or a full listen? Do Home's 30-second autoplay previews count? Do mantra auto-loop repeats count? Should replays after ✕ count?
