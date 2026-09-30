@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Feed, FeedListResponse } from '@/types/feed';
 import { feedService } from '@/features/feed/services/feedService';
+import { newFeedSeed } from '@/utils/feedSeed';
 import { DeityFilterSelection } from '@/components/molecules/DeityFilterRow';
 
 export type AudioFeedType = 'aarti' | 'bhajan';
@@ -21,10 +22,9 @@ export interface UseAudioFeedResult {
 }
 
 const PAGE_LIMIT = 20;
-const TRENDING_DAYS = 7;
 
 // Parameterized version of useRingtones() (see that file) - same
-// trending/deity branching, pagination, and reset-on-filter-change logic,
+// liked/weighted branching, pagination, and reset-on-filter-change logic,
 // just generic over `type` instead of hardcoded to 'ringtone'. Kept as one
 // shared hook rather than two copies since Aarti and Bhajan need identical
 // query mechanics, differing only in which `type` they send server-side.
@@ -37,16 +37,15 @@ export function useAudioFeed(type: AudioFeedType, filter: DeityFilterSelection):
   const [nextCursor, setNextCursor] = useState<string | undefined>();
   const [error, setError] = useState<string | null>(null);
 
+  // The scroll session's seed for the weighted ranking - replaced whenever
+  // the list starts over (first load, filter change, refresh), reused for
+  // every following page.
+  const seedRef = useRef(newFeedSeed());
+
+  // "All" (the 'trending' chip) and a deity selection both use the weighted
+  // ranking, the deity chip just adding the deityId filter.
   const fetchPage = useCallback(
-    (offset: number): Promise<FeedListResponse> => {
-      if (filter.kind === 'trending') {
-        return feedService.getTrendingFeeds({
-          type,
-          days: TRENDING_DAYS,
-          limit: PAGE_LIMIT,
-          offset,
-        });
-      }
+    (offset: number, seed: string): Promise<FeedListResponse> => {
       if (filter.kind === 'liked') {
         return feedService.getUserLikedFeeds({
           type,
@@ -56,11 +55,11 @@ export function useAudioFeed(type: AudioFeedType, filter: DeityFilterSelection):
       }
       return feedService.getFeeds({
         type,
-        deityId: filter.deityId,
+        deityId: filter.kind === 'deity' ? filter.deityId : undefined,
         limit: PAGE_LIMIT,
         offset,
-        sortBy: 'createdAt',
-        sortOrder: 'DESC',
+        sortBy: 'weighted',
+        seed,
       });
     },
     [type, filter.kind, filter.kind === 'deity' ? filter.deityId : undefined]
@@ -79,7 +78,8 @@ export function useAudioFeed(type: AudioFeedType, filter: DeityFilterSelection):
       }
 
       const offset = cursor ? parseInt(cursor) : 0;
-      const response = await fetchPage(offset);
+      if (!cursor) seedRef.current = newFeedSeed();
+      const response = await fetchPage(offset, seedRef.current);
 
       if (refresh || !cursor) {
         setItems(response.feeds);

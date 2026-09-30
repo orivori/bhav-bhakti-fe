@@ -55,6 +55,7 @@ export default function HomeScreen() {
     downloadFeed,
   } = useFeed({
     limit: 10,
+    filters: { sortBy: 'weighted' },
   });
 
 
