@@ -1198,6 +1198,24 @@ export default function AudioPlayerScreen() {
   // (correctly) flags a temporal-dead-zone violation.
   const queue = usePlaybackStore((state) => state.queue);
 
+  // Drop a queue that doesn't belong to the track now open. Every queue-aware
+  // way into this screen (a hub card's setQueue, Next/Previous/auto-advance,
+  // "Up Next") moves the queue to the new track BEFORE navigating, so a
+  // mismatch means the track came from somewhere with no queue (Home, Search,
+  // Mantra Explorer) - without this, Next/Previous/auto-advance jumped back
+  // into whatever hub list was queued earlier. Read from getState(), not the
+  // `queue` selector above, so it sees the store as it is right now.
+  useEffect(() => {
+    if (!feedId) return;
+    const current = usePlaybackStore.getState().queue;
+    if (!current) return;
+    const currentItem = current.originalItems[current.playOrder[current.position]];
+    if (currentItem?.feedId !== feedId) {
+      console.log('🧹 Audio Player: opened a track outside the current queue, clearing it:', feedId);
+      usePlaybackStore.getState().clearQueue();
+    }
+  }, [feedId]);
+
   // One derived flag, not scattered type checks - see CLAUDE.md's
   // player-cleanup notes for why (mirrors the existing contentData.isRepeatable
   // gate already used for the counter button below). Mantra never has a
