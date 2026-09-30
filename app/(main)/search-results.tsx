@@ -19,6 +19,7 @@ import { useTabBarHeight } from '@/hooks/useTabBarHeight';
 import { logSearchQueryZeroResults } from '@/utils/analytics/engagementEvents';
 import { useI18nStore } from '@/shared/stores/i18nStore';
 import { getFeedSubtitle, getFeedThumbnailUrl } from '@/utils/feedFields';
+import { newPlayRequestId } from '@/utils/playRequest';
 
 export default function SearchResultsScreen() {
   const { contentPadding } = useTabBarHeight();
@@ -160,6 +161,8 @@ export default function SearchResultsScreen() {
           type: feed.type,
           isRepeatable: feed.isRepeatable ? 'true' : 'false',
           autoPlay: 'true',
+          // New on every tap - see newPlayRequestId.
+          playRequestId: newPlayRequestId(),
           // See audio-player.tsx's back-button handling - without this,
           // back falls through to router.back(), the known always-lands-
           // on-Home bug, instead of back onto Search Results.

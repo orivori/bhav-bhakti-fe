@@ -42,6 +42,7 @@ import { useFeedStore } from '@/store/feedStore';
 import { formatCount } from '@/utils/formatCount';
 import { getFeedThumbnailUrl } from '@/utils/feedFields';
 import { containsDevanagari } from '@/utils/textUtils';
+import { newPlayRequestId } from '@/utils/playRequest';
 import WhatsAppIcon from '../../assets/icons/whatsapp.svg';
 
 const { width } = Dimensions.get('window');
@@ -298,6 +299,9 @@ export default function AudioPlayerScreen() {
   const params = useLocalSearchParams();
   const feedId = params.feedId?.toString();
   const autoPlay = params.autoPlay === 'true';
+  // One per "play this" tap (see newPlayRequestId) - read only by the
+  // autoPlay effect below.
+  const playRequestId = params.playRequestId?.toString();
   const { t } = useTranslation('player');
   // Real fix, not a rename: getLocalizedText (below) previously had no
   // connection to the app's selected language at all - its own comment
@@ -427,12 +431,20 @@ export default function AudioPlayerScreen() {
   const [showVolumeSlider, setShowVolumeSlider] = useState(false);
   const [isLiking, setIsLiking] = useState(false);
   const [isAutoLooping, setIsAutoLooping] = useState(false); // Auto-loop until target reached
-  // Keyed by feedId, not a plain boolean - this screen is a reused
-  // Tabs.Screen (see loadedFeedIdRef's comment below), so a plain
-  // "have we ever auto-played" flag would permanently latch true after the
-  // first mantra and silently block autoPlay for every mantra tapped after
-  // it in the same app session.
-  const autoPlayTriggeredForFeedIdRef = React.useRef<string | null>(null);
+  // The last play request the autoPlay effect acted on. Keyed by request,
+  // not by feedId: this screen is a reused Tabs.Screen (see loadedFeedIdRef's
+  // comment below), so a per-feedId latch blocked auto-start for every replay
+  // of the same track in a session (e.g. after the mini-player's ✕). Tracking
+  // the last HANDLED request - not just "a request id is present" - is what
+  // keeps a stale id (carried over when the mini-player reopens this screen
+  // with only a feedId) from restarting playback.
+  const lastHandledPlayRequestRef = React.useRef<string | null>(null);
+  // Which feedId togglePlayback is currently loading, set before its cache
+  // check await and cleared once the load is handed to the native player
+  // (loadedFeedIdRef takes over from there) or fails. Lets the autoPlay
+  // effect tell "this track is still loading" apart from "not started yet"
+  // during that await, when loadedFeedIdRef still points at the old track.
+  const loadingFeedIdRef = React.useRef<string | null>(null);
 
   // Tracks whether the app is genuinely, stably foregrounded - guards the
   // lock-screen activation call below against Android 12+'s
@@ -1001,6 +1013,7 @@ export default function AudioPlayerScreen() {
       player.pause();
 
       console.log('🎵 Audio Player: Loading audio from URL:', contentData.audioUrl);
+      loadingFeedIdRef.current = feedId;
       setIsAudioLoading(true);
       setNativeLoadStarted(false);
 
@@ -1022,6 +1035,7 @@ export default function AudioPlayerScreen() {
 
       if (!isMountedRef.current) {
         console.log('⚠️ Audio Player: unmounted while checking audio cache, aborting load');
+        loadingFeedIdRef.current = null;
         return;
       }
 
@@ -1056,6 +1070,7 @@ export default function AudioPlayerScreen() {
       // of reloading, and so a LATER switch to yet another mantra can tell
       // this one apart as "different, needs replacing" too.
       loadedFeedIdRef.current = feedId;
+      loadingFeedIdRef.current = null;
 
       // Views pill tracking (CLAUDE.md §56 Phase 3) - fires exactly once per
       // genuinely-fresh load (this branch only runs when loadedFeedIdRef
@@ -1093,6 +1108,7 @@ export default function AudioPlayerScreen() {
       }
     } catch (error: any) {
       console.error('❌ Audio Player: Error playing audio:', error);
+      loadingFeedIdRef.current = null;
       if (!isMountedRef.current) return;
 
       setIsAudioLoading(false);
@@ -1131,14 +1147,10 @@ export default function AudioPlayerScreen() {
   // togglePlayback is otherwise only ever invoked by a user tap, so without this effect
   // the autoPlay param would have nothing to trigger it.
   //
-  // Gated on loadedFeedIdRef, not status.isLoaded: since this screen is a
-  // reused Tabs.Screen, status.isLoaded stays true forever once ANY mantra
-  // has ever been loaded - gating on it alone meant autoPlay silently never
-  // fired for the second (or third...) mantra tapped in a session, because
-  // the guard was already false before this effect even ran. Comparing
-  // against loadedFeedIdRef.current correctly re-opens the gate whenever
-  // feedId points at content that isn't the one actually attached to
-  // `player` yet - the same distinction togglePlayback itself now makes.
+  // Not gated on status.isLoaded: since this screen is a reused Tabs.Screen,
+  // status.isLoaded stays true forever once ANY mantra has ever been loaded -
+  // gating on it alone meant autoPlay silently never fired for the second
+  // (or third...) mantra tapped in a session.
   //
   // Deliberately NOT gated on !isFeedLoading (removed): that forced every
   // switch to wait on fetchFeedData's network round-trip (GET feed-by-id)
@@ -1150,17 +1162,29 @@ export default function AudioPlayerScreen() {
   // playback-switch feeling slow/spinner-prone/occasionally throwing a false
   // "check your internet connection" alert - not caching, not connection
   // pooling. contentData.audioUrl being present is now the only gate needed.
+  //
+  // Acts once per play request (playRequestId, new on every tap - see
+  // newPlayRequestId), so replaying the same track works: after the
+  // mini-player's ✕ the track is still attached to `player`, paused at 0, and
+  // togglePlayback's resume branch plays it from the start. A caller that
+  // sends no playRequestId falls back to one request per feedId, the old
+  // behaviour.
   useEffect(() => {
-    if (
-      autoPlay &&
-      autoPlayTriggeredForFeedIdRef.current !== feedId &&
-      contentData.audioUrl &&
-      loadedFeedIdRef.current !== feedId
-    ) {
-      autoPlayTriggeredForFeedIdRef.current = feedId ?? null;
-      togglePlayback();
-    }
-  }, [autoPlay, contentData.audioUrl, feedId]);
+    if (!autoPlay || !contentData.audioUrl || !feedId) return;
+
+    const requestKey = playRequestId ?? `feed:${feedId}`;
+    if (lastHandledPlayRequestRef.current === requestKey) return;
+    lastHandledPlayRequestRef.current = requestKey;
+
+    // This exact track is already playing or still loading: leave it alone.
+    // togglePlayback is a toggle, so calling it here would pause it.
+    const isStillLoading =
+      loadingFeedIdRef.current === feedId || (loadedFeedIdRef.current === feedId && isAudioLoading);
+    const isAlreadyPlaying = loadedFeedIdRef.current === feedId && status.playing;
+    if (isStillLoading || isAlreadyPlaying) return;
+
+    togglePlayback();
+  }, [autoPlay, contentData.audioUrl, feedId, playRequestId]);
 
   // Reactive so the Previous/Next buttons' disabled state (and the row
   // itself, if the queue clears) updates live as position changes -
@@ -1219,6 +1243,8 @@ export default function AudioPlayerScreen() {
         ...(item.type ? { type: item.type } : {}),
         ...(item.isRepeatable !== undefined ? { isRepeatable: item.isRepeatable ? 'true' : 'false' } : {}),
         autoPlay: 'true',
+        // New on every tap - see newPlayRequestId.
+        playRequestId: newPlayRequestId(),
         ...(params.returnTo ? { returnTo: params.returnTo.toString() } : {}),
         ...(params.returnParams ? { returnParams: params.returnParams.toString() } : {}),
       },

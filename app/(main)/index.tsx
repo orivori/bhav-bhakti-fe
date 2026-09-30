@@ -25,6 +25,7 @@ import { containsDevanagari, getEnhancedLineHeight } from '@/utils/textUtils';
 import { useTranslation } from 'react-i18next';
 import { useI18nStore } from '@/shared/stores/i18nStore';
 import { getFeedSubtitle, getFeedThumbnailUrl } from '@/utils/feedFields';
+import { newPlayRequestId } from '@/utils/playRequest';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
 import { useScrollToTopOnTabPress } from '@/hooks/useScrollToTopOnTabPress';
 import * as Haptics from 'expo-haptics';
@@ -178,6 +179,8 @@ export default function HomeScreen() {
           type: feed.type,
           isRepeatable: feed.isRepeatable ? 'true' : 'false',
           autoPlay: 'true',
+          // New on every tap - see newPlayRequestId.
+          playRequestId: newPlayRequestId(),
           // See audio-player.tsx's back-button handling - Home is where
           // router.back()'s old always-lands-on-Home behavior happened to
           // already be correct, but this keeps it explicit/consistent with
