@@ -535,6 +535,13 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
         // audio-player.tsx does the same encode at its own params site.
         audioUrl: encodeURIComponent(audioSourceUri || ''),
         thumbnailUrl: encodeURIComponent(thumbnailUrl || ''),
+        // Like every other entry point: the player decides auto-repeat and
+        // its control layout (mantra counter vs. aarti/bhajan track-nav) from
+        // these before its own fetch lands - without them a mantra didn't
+        // repeat on its first play and an aarti/bhajan flashed the mantra
+        // layout.
+        type: feed.type,
+        isRepeatable: feed.isRepeatable ? 'true' : 'false',
         autoPlay: 'true',
         // New on every tap - see newPlayRequestId.
         playRequestId: newPlayRequestId(),

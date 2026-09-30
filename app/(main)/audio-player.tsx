@@ -1186,6 +1186,29 @@ export default function AudioPlayerScreen() {
     togglePlayback();
   }, [autoPlay, contentData.audioUrl, feedId, playRequestId]);
 
+  // Re-decide auto-repeat once this track's own fetch lands. togglePlayback
+  // decides it at play start, before that fetch returns, from route params
+  // (an entry point that omits isRepeatable reads as "not repeatable") and
+  // from chantCount/targetCount that still belong to the PREVIOUS track
+  // (fetchFeedData resets them to 0/108 only when it lands). Either could
+  // leave a mantra not repeating on its first play-through. Only touches a
+  // track that is actually playing or still loading for this feedId - a
+  // paused track is re-decided by togglePlayback's resume branch anyway -
+  // and never overrides the manual repeat toggle.
+  useEffect(() => {
+    if (!feedId || !feedData || feedData.id.toString() !== feedId) return;
+    const isThisTrackActive =
+      loadingFeedIdRef.current === feedId ||
+      (loadedFeedIdRef.current === feedId && (status.playing || isAudioLoading));
+    if (!isThisTrackActive || isLooping) return;
+
+    const shouldAutoLoop = !!feedData.isRepeatable && chantCount < targetCount;
+    if (shouldAutoLoop !== isAutoLooping) {
+      console.log('🔄 Audio Player: re-deciding auto-loop now that feed data has loaded:', shouldAutoLoop);
+      setIsAutoLooping(shouldAutoLoop);
+    }
+  }, [feedData, feedId]);
+
   // Reactive so the Previous/Next buttons' disabled state (and the row
   // itself, if the queue clears) updates live as position changes -
   // computing the "current" item requires the same originalItems[playOrder
@@ -1225,6 +1248,13 @@ export default function AudioPlayerScreen() {
   const showTrackNav = contentData.type === 'aarti' || contentData.type === 'bhajan';
   const canGoPrevious = !!queue && queue.position > 0;
   const canGoNext = !!queue && queue.position < queue.playOrder.length - 1;
+  // "Up Next" only exists when there's a queue with something besides the
+  // current track - a track opened from Home/Search has no queue, and should
+  // read as a single, complete action rather than offer an empty sheet.
+  const hasUpNext = !!queue && queue.playOrder.length > 1;
+  useEffect(() => {
+    if (!hasUpNext) queueSheetRef.current?.dismiss();
+  }, [hasUpNext]);
 
   // Shared by handlePrevious/handleNext and the didJustFinish auto-advance
   // branch below - reuses the exact same load path any other tap into this
@@ -2395,15 +2425,18 @@ export default function AudioPlayerScreen() {
                 discoverable, not just a bare bar - same variant/weight/
                 color as the title (contentTitleCompact) per request.
                 QueueSheet itself is still completely unchanged - only how
-                it gets opened changed. */}
-            <GestureDetector gesture={swipeUpToOpenQueue}>
-              <View style={styles.queueSwipeHandleZone}>
-                <Text variant="caption" weight="bold" style={styles.queueSwipeHandleLabel}>
-                  {t('upNext')}
-                </Text>
-                <View style={styles.queueSwipeHandleBar} />
-              </View>
-            </GestureDetector>
+                it gets opened changed. Not rendered at all without a
+                queue (hasUpNext). */}
+            {hasUpNext && (
+              <GestureDetector gesture={swipeUpToOpenQueue}>
+                <View style={styles.queueSwipeHandleZone}>
+                  <Text variant="caption" weight="bold" style={styles.queueSwipeHandleLabel}>
+                    {t('upNext')}
+                  </Text>
+                  <View style={styles.queueSwipeHandleBar} />
+                </View>
+              </GestureDetector>
+            )}
             </>
           ) : (
             <View>
