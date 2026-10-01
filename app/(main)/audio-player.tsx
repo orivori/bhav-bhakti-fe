@@ -8,7 +8,6 @@ import {
   ActivityIndicator,
   Alert,
   AppState,
-  Share,
   BackHandler,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -27,7 +26,6 @@ import { Text } from '@/components/atoms';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { designSystemTheme } from '@/styles/designSystemTheme';
 import { feedService } from '@/features/feed/services/feedService';
-import { authorizeMediaAction } from '@/features/feed/services/mediaAccess';
 import { Feed } from '@/types/feed';
 import { useTranslation } from 'react-i18next';
 import { useI18nStore } from '@/shared/stores/i18nStore';
@@ -43,6 +41,7 @@ import { formatCount } from '@/utils/formatCount';
 import { getFeedThumbnailUrl } from '@/utils/feedFields';
 import { containsDevanagari } from '@/utils/textUtils';
 import { newPlayRequestId } from '@/utils/playRequest';
+import { shareContent } from '@/utils/shareContent';
 import WhatsAppIcon from '../../assets/icons/whatsapp.svg';
 
 const { width } = Dimensions.get('window');
@@ -2079,39 +2078,25 @@ export default function AudioPlayerScreen() {
     })();
   };
 
-  // Mirrors WallpaperFeedCard's handleShare (call the API, bump the count,
-  // then open the native share sheet) - same staleness guard as handleLike
-  // above around the local setFeedData patch, since (unlike
-  // WallpaperFeedCard's version, which only touches the Zustand feed store)
-  // this one touches this screen's own React state.
+  // Shares through the same shareContent() as Home's cards: the thumbnail
+  // image plus a per-type caption with the Play Store link, never the audio
+  // file. shareContent() runs the premium gate and records the share; the
+  // local setFeedData patch keeps this screen's own count in step, with the
+  // same staleness guard as handleLike above.
   const handleShare = async () => {
     if (!currentFeedData) return;
 
-    const sharedFeedId = currentFeedData.id.toString();
-
-    try {
-      // Records the share and runs the premium gate - see mediaAccess.ts.
-      if (!(await authorizeMediaAction(currentFeedData, 'share'))) return;
-
-      if (isMountedRef.current && feedIdRef.current === sharedFeedId) {
-        setFeedData((prev) =>
-          prev && prev.id.toString() === sharedFeedId
-            ? { ...prev, sharesCount: prev.sharesCount + 1 }
-            : prev
-        );
-      }
-
-      const shareTitle = contentData.title?.toString();
-      await Share.share({
-        message: shareTitle
-          ? `Check out this: ${shareTitle}\n\nShared from Bhav Bhakti App`
-          : 'Check out this amazing content from Bhav Bhakti App!',
-        url: contentData.audioUrl?.toString(),
-      });
-    } catch (error) {
-      console.error('❌ Audio Player: Error sharing:', error);
-      Alert.alert('Error', 'Failed to share. Please try again.');
-    }
+    await shareContent(currentFeedData, {
+      onShareRecorded: (sharedFeedId) => {
+        if (isMountedRef.current && feedIdRef.current === sharedFeedId) {
+          setFeedData((prev) =>
+            prev && prev.id.toString() === sharedFeedId
+              ? { ...prev, sharesCount: prev.sharesCount + 1 }
+              : prev
+          );
+        }
+      },
+    });
   };
 
   return (

@@ -20,6 +20,10 @@
     "permissionReasonDownloadWallpaper": "Please allow access to save wallpaper to your gallery.",
     "alreadySavedTitle": "Already Saved",
     "alreadySavedMessage": "This is already in your gallery, in the Bhav Bhakti album.",
+    "shareCaptionMantra": "Chant this mantra: {{title}} in Bhav Bhakti app, {{link}}",
+    "shareCaptionAarti": "Listen to this aarti: {{title}} in Bhav Bhakti app, {{link}}",
+    "shareCaptionBhajan": "Listen to this bhajan: {{title}} in Bhav Bhakti app, {{link}}",
+    "shareCaptionRingtone": "Set this ringtone: {{title}} in Bhav Bhakti app, {{link}}",
     "language": "Language",
     "english": "English",
     "hindi": "हिंदी",
@@ -249,6 +253,7 @@
   "horoscope": {
     "title": "Horoscope",
     "dailyHoroscope": "Daily Horoscope",
+    "shareCaption": "Read today's {{sign}} horoscope on Bhav Bhakti app, {{link}}",
     "weeklyHoroscope": "Weekly Horoscope",
     "myZodiac": "My Zodiac",
     "selectZodiac": "Select Your Zodiac Sign",

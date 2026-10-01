@@ -23,6 +23,7 @@ import { useTabBarHeight } from '@/hooks/useTabBarHeight';
 import { getZodiacBySign } from '@/data/zodiacData';
 import { LanguageToggle } from '@/components/molecules/LanguageToggle';
 import { getLocalDateString } from '@/shared/utils/dateUtil';
+import { PLAY_STORE_URL } from '@/shared/config/appStoreLink';
 import type { ZodiacSign } from '@/types/horoscope';
 import { logRashifalViewed } from '@/utils/analytics/engagementEvents';
 import { resolvePendingAppReopened } from '@/utils/analytics/retentionEvents';
@@ -96,8 +97,7 @@ export default function HoroscopeDetailScreen() {
   // getLocalDateString(selectedDate), NOT selectedDate.toISOString().split
   // ('T')[0] - the latter converts to UTC first and was rolling this back to
   // the previous calendar day for the first ~5.5 hours of every day in IST,
-  // silently fetching yesterday's horoscope. handleShare()'s own
-  // toLocaleDateString call below was never affected - it's untouched.
+  // silently fetching yesterday's horoscope.
   const dateString = getLocalDateString(selectedDate);
   const { data: horoscope, isLoading, error, refetch } = useHoroscopeBySign(
     zodiacSign as ZodiacSign,
@@ -111,14 +111,12 @@ export default function HoroscopeDetailScreen() {
     if (!horoscope || !zodiacData) return;
 
     try {
-      const formattedDate = selectedDate.toLocaleDateString(
-        language === 'hi' ? 'hi-IN' : 'en-US',
-        { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }
-      );
-
+      // A short caption with the Play Store link, not the reading itself -
+      // the reading stays in the app. Text-only: there's no horoscope image.
+      const signName = zodiacData.name[language as 'en' | 'hi'] || zodiacData.name.en;
       await Share.share({
-        message: `${zodiacData.name[language as 'en' | 'hi'] || zodiacData.name.en} - ${formattedDate}\n\n${horoscope.overallPrediction}\n\n${t('horoscope.luckyNumber')}: ${horoscope.luckyNumber?.join(', ') || 'N/A'}\n${t('horoscope.luckyColor')}: ${horoscope.luckyColor?.join(', ') || 'N/A'}`,
-        title: `${t('horoscope.dailyHoroscope')} - ${zodiacData.name[language as 'en' | 'hi'] || zodiacData.name.en}`,
+        message: t('horoscope.shareCaption', { sign: signName, link: PLAY_STORE_URL }),
+        title: `${t('horoscope.dailyHoroscope')} - ${signName}`,
       });
     } catch (error) {
       console.error('Error sharing:', error);
