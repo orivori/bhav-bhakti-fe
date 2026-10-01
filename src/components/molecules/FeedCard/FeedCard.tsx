@@ -10,9 +10,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import * as FileSystem from 'expo-file-system/legacy';
-import * as MediaLibrary from 'expo-media-library';
-import { ensureMediaLibraryPermission } from '@/utils/mediaLibraryPermission';
+import i18n from 'i18next';
 import { Text } from '@/components/atoms';
 import FeedMedia from '../FeedMedia/FeedMedia';
 import WallpaperFeedCard from '../WallpaperFeedCard/WallpaperFeedCard';
@@ -24,7 +22,7 @@ import { authorizeMediaAction } from '@/features/feed/services/mediaAccess';
 import { useFeedStore } from '@/store/feedStore';
 import { useI18nStore } from '@/shared/stores/i18nStore';
 import { getFeedSubtitle } from '@/utils/feedFields';
-import { getMediaFileExtension } from '@/utils/getMediaFileExtension';
+import { saveFeedToGallery } from '@/utils/saveFeedToGallery';
 
 interface FeedCardProps {
   feed: Feed;
@@ -114,38 +112,14 @@ export default function FeedCard({
 
     setIsDownloading(true);
     try {
-      const hasPermission = await ensureMediaLibraryPermission('common.permissionReasonDownloadMedia');
-      if (!hasPermission) {
-        return;
-      }
-
-      if (!feed.url) return;
-
-      // Records the download and runs the premium gate - see mediaAccess.ts.
-      if (!(await authorizeMediaAction(feed, 'download'))) return;
-
-      const extension = getMediaFileExtension(feed.url, feed.mediaType);
-      // Timestamp suffix guarantees a unique local path on every attempt -
-      // see useWallpaperActions.ts's handleDownload for the full explanation
-      // (MediaStore's own collision handling otherwise silently reused an
-      // existing gallery entry for a repeated deterministic filename).
-      // cacheDirectory, not documentDirectory - staging copy on its way into
-      // MediaLibrary, deleted right after on success below; cacheDirectory
-      // means a failed/skipped delete doesn't leak into persistent storage
-      // forever. See cacheEviction.ts for the startup age-based sweep.
-      const fileUri = FileSystem?.cacheDirectory + `feed_${feed.id}_${Date.now()}.${extension}`;
-      const downloadResult = await FileSystem.downloadAsync(
-        feed.url,
-        fileUri
-      );
-
-      if (downloadResult.status === 200) {
-        // Save to media library
-        await MediaLibrary.saveToLibraryAsync(downloadResult.uri);
-        // Clean up the local staging copy now that it's safely in the
-        // gallery - best-effort, since the gallery save already succeeded
-        // either way.
-        FileSystem.deleteAsync(downloadResult.uri, { idempotent: true }).catch(() => {});
+      // Permission, duplicate check, premium gate and the album save - see
+      // saveFeedToGallery.ts.
+      const result = await saveFeedToGallery(feed, {
+        permissionReasonKey: 'common.permissionReasonDownloadMedia',
+      });
+      if (result === 'already_saved') {
+        Alert.alert(i18n.t('common.alreadySavedTitle'), i18n.t('common.alreadySavedMessage'));
+      } else if (result === 'saved') {
         Alert.alert('Success', 'Media saved to your gallery!');
 
         incrementDownload(feed.id.toString());
