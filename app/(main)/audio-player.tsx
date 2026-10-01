@@ -357,7 +357,11 @@ export default function AudioPlayerScreen() {
           console.error('Failed to parse returnParams, navigating without them:', error);
         }
       }
-      router.replace({ pathname: returnTo as any, params: returnParams });
+      // navigate, not replace: inside Tabs, expo-router's replace drops the
+      // wrong tab-history entry (it uses the tab's bar position as a history
+      // index), so after returning to Mantras or Audio the next hardware back
+      // had nowhere to go and minimized the app.
+      router.navigate({ pathname: returnTo as any, params: returnParams });
       return;
     }
     router.back();

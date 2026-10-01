@@ -98,7 +98,7 @@ export default function SearchResultsScreen() {
           console.error('Failed to parse returnParams, navigating without them:', error);
         }
       }
-      router.replace({ pathname: returnTo as any, params: parsedReturnParams });
+      router.navigate({ pathname: returnTo as any, params: parsedReturnParams });
       return;
     }
 
@@ -167,7 +167,7 @@ export default function SearchResultsScreen() {
           // back falls through to router.back(), the known always-lands-
           // on-Home bug, instead of back onto Search Results.
           returnTo: '/(main)/search-results',
-          // Without this, handleBack's router.replace(returnTo) carries no
+          // Without this, handleBack's router.navigate(returnTo) carries no
           // params at all, landing on a fresh Search Results with an empty
           // query ("Results for ''") and a completely different feed list
           // instead of the one the user was actually viewing - found via
