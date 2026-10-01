@@ -18,6 +18,8 @@
     "permissionReasonSetRingtone": "कृपया रिंगटोन सेट करने के लिए एक्सेस की अनुमति दें।",
     "permissionReasonSetWallpaper": "कृपया इसे अपनी गैलरी में सहेजने के लिए एक्सेस की अनुमति दें।",
     "permissionReasonDownloadWallpaper": "कृपया वॉलपेपर को अपनी गैलरी में सहेजने के लिए एक्सेस की अनुमति दें।",
+    "alreadySavedTitle": "पहले से सहेजा गया",
+    "alreadySavedMessage": "यह पहले से आपकी गैलरी में, Bhav Bhakti एल्बम में है।",
     "language": "भाषा",
     "english": "English",
     "hindi": "हिंदी",
@@ -344,6 +346,7 @@
     "ringtoneErrorMessage": "रिंगटोन सेट करने में विफल। कृपया पुनः प्रयास करें।",
     "wallpaperSavedTitle": "गैलरी में सहेजा गया",
     "wallpaperSavedMessage": "अपनी गैलरी/फ़ोटो ऐप खोलें और वहां से इसे अपने वॉलपेपर के रूप में सेट करें।",
+    "wallpaperAlreadySavedMessage": "यह पहले से आपकी गैलरी में, Bhav Bhakti एल्बम में है। अपनी गैलरी/फ़ोटो ऐप खोलें और वहां से इसे अपने वॉलपेपर के रूप में सेट करें।",
     "wallpaperErrorMessage": "इसे सहेजने में विफल। कृपया पुनः प्रयास करें।",
     "premiumFeatureTitle": "प्रीमियम सुविधा",
     "premiumFeatureMessage": "यह Bhav Bhakti प्रीमियम के साथ उपलब्ध होगा। बने रहें!"

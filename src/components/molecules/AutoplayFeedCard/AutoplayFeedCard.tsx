@@ -19,7 +19,7 @@ import { authorizeMediaAction } from '@/features/feed/services/mediaAccess';
 import { useFeedStore } from '@/store/feedStore';
 import { useSoundPreferenceStore } from '@/store/soundPreferenceStore';
 import { formatCount } from '@/utils/formatCount';
-import { getMediaFileExtension } from '@/utils/getMediaFileExtension';
+import { saveFeedToGallery } from '@/utils/saveFeedToGallery';
 import { getFeedSubtitle, getFeedThumbnailUrl } from '@/utils/feedFields';
 import { shareContent } from '@/utils/shareContent';
 import { ensureMediaLibraryPermission } from '@/utils/mediaLibraryPermission';
@@ -554,35 +554,19 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
     if (isSettingWallpaper || !feed.url) return;
     if (isMountedRef.current) setIsSettingWallpaper(true);
     try {
-      const hasPermission = await ensureMediaLibraryPermission('common.permissionReasonSetWallpaper');
-      if (!hasPermission) {
-        return;
-      }
-      // Records the download and runs the premium gate - see mediaAccess.ts.
-      if (!(await authorizeMediaAction(feed, 'download', { triggerFeature: 'set_as_wallpaper' }))) {
-        return;
-      }
-      const extension = getMediaFileExtension(feed.url, feed.mediaType);
-      // Timestamp suffix guarantees a unique local path on every attempt -
-      // see useWallpaperActions.ts's handleDownload for the full explanation
-      // (MediaStore's own collision handling otherwise silently reused an
-      // existing gallery entry for a repeated deterministic filename).
-      // cacheDirectory, not documentDirectory - staging copy on its way into
-      // MediaLibrary, deleted right after on success below; cacheDirectory
-      // means a failed/skipped delete doesn't leak into persistent storage
-      // forever. See cacheEviction.ts for the startup age-based sweep.
-      const fileUri = `${FileSystem.cacheDirectory}autoplay_visual_${feed.id}_${Date.now()}.${extension}`;
-      const downloadResult = await FileSystem.downloadAsync(feed.url, fileUri);
-      if (downloadResult.status === 200) {
-        await MediaLibrary.saveToLibraryAsync(downloadResult.uri);
-        // Clean up the local staging copy now that it's safely in the
-        // gallery - best-effort, since the gallery save already succeeded
-        // either way.
-        FileSystem.deleteAsync(downloadResult.uri, { idempotent: true }).catch(() => {});
-        // No OS-level "set wallpaper" API exists anywhere in this app yet
-        // (same honest limitation RingtoneFeedCard's "Set as ringtone" already
-        // has for iOS) - this saves to the gallery and hands off manually,
-        // rather than implying full automation.
+      // Permission, duplicate check, premium gate and the album save - see
+      // saveFeedToGallery.ts.
+      const result = await saveFeedToGallery(feed, {
+        permissionReasonKey: 'common.permissionReasonSetWallpaper',
+        authorizeOptions: { triggerFeature: 'set_as_wallpaper' },
+      });
+      // No OS-level "set wallpaper" API exists anywhere in this app yet
+      // (same honest limitation RingtoneFeedCard's "Set as ringtone" already
+      // has for iOS) - this saves to the gallery and hands off manually,
+      // rather than implying full automation.
+      if (result === 'already_saved') {
+        Alert.alert(t('common.alreadySavedTitle'), t('feedCard.wallpaperAlreadySavedMessage'));
+      } else if (result === 'saved') {
         Alert.alert(t('feedCard.wallpaperSavedTitle'), t('feedCard.wallpaperSavedMessage'));
         incrementDownload(feedIdStr);
       }

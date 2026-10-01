@@ -18,6 +18,8 @@
     "permissionReasonSetRingtone": "Please allow access to set ringtone.",
     "permissionReasonSetWallpaper": "Please allow access to save this to your gallery.",
     "permissionReasonDownloadWallpaper": "Please allow access to save wallpaper to your gallery.",
+    "alreadySavedTitle": "Already Saved",
+    "alreadySavedMessage": "This is already in your gallery, in the Bhav Bhakti album.",
     "language": "Language",
     "english": "English",
     "hindi": "हिंदी",
@@ -374,6 +376,7 @@
     "ringtoneErrorMessage": "Failed to set ringtone. Please try again.",
     "wallpaperSavedTitle": "Saved to Gallery",
     "wallpaperSavedMessage": "Open your Gallery/Photos app and set it as your wallpaper from there.",
+    "wallpaperAlreadySavedMessage": "This is already in your gallery, in the Bhav Bhakti album. Open your Gallery/Photos app and set it as your wallpaper from there.",
     "wallpaperErrorMessage": "Failed to save this. Please try again.",
     "premiumFeatureTitle": "Premium Feature",
     "premiumFeatureMessage": "This will be available with Bhav Bhakti Premium. Stay tuned!"

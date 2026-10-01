@@ -1,14 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { Alert } from 'react-native';
-import * as FileSystem from 'expo-file-system/legacy';
-import * as MediaLibrary from 'expo-media-library';
+import i18n from 'i18next';
 import { Feed } from '@/types/feed';
 import { feedService } from '@/features/feed/services/feedService';
-import { authorizeMediaAction } from '@/features/feed/services/mediaAccess';
 import { useFeedStore } from '@/store/feedStore';
-import { getMediaFileExtension } from '@/utils/getMediaFileExtension';
 import { shareContent } from '@/utils/shareContent';
-import { ensureMediaLibraryPermission } from '@/utils/mediaLibraryPermission';
+import { saveFeedToGallery } from '@/utils/saveFeedToGallery';
 
 interface UseWallpaperActionsArgs {
   // Nullable so ViewingWindowSheet (Phase 2 of the Viewing Window feature)
@@ -103,44 +100,14 @@ export function useWallpaperActions({ feed, onLike, onShare, onDownload }: UseWa
 
     if (isMountedRef.current) setIsDownloading(true);
     try {
-      const hasPermission = await ensureMediaLibraryPermission('common.permissionReasonDownloadWallpaper');
-      if (!hasPermission) {
-        return;
-      }
-
-      if (!feed.url) return;
-
-      // Records the download and runs the premium gate - see mediaAccess.ts.
-      if (!(await authorizeMediaAction(feed, 'download'))) return;
-
-      const extension = getMediaFileExtension(feed.url, feed.mediaType);
-      // Timestamp suffix guarantees a unique local path on every attempt -
-      // without it, downloading the same content twice reused the identical
-      // deterministic path, and MediaStore's own collision handling on at
-      // least some Android versions appears to resolve that back to the
-      // existing gallery entry instead of creating a new one, even though
-      // both attempts still reported success (see CLAUDE.md's Viewing Window
-      // download investigation).
-      // cacheDirectory, not documentDirectory - this is a staging copy on its
-      // way into MediaLibrary (see saveToLibraryAsync below), deleted right
-      // after on success; using cacheDirectory means a failed/skipped
-      // best-effort delete (or a crash before it runs) doesn't leak into
-      // persistent storage forever, and Android's "Clear Cache" can reclaim
-      // it either way. See cacheEviction.ts for the startup age-based sweep.
-      const fileUri = FileSystem?.cacheDirectory + `wallpaper_${feed.id}_${Date.now()}.${extension}`;
-      const downloadResult = await FileSystem.downloadAsync(
-        feed.url,
-        fileUri
-      );
-
-      if (downloadResult.status === 200) {
-        await MediaLibrary.saveToLibraryAsync(downloadResult.uri);
-        // Clean up the local staging copy now that it's safely in the
-        // gallery - redundant once there, and otherwise left to accumulate
-        // in documentDirectory indefinitely. Best-effort: the gallery save
-        // already succeeded either way, so a cleanup failure here shouldn't
-        // surface as a user-facing error.
-        FileSystem.deleteAsync(downloadResult.uri, { idempotent: true }).catch(() => {});
+      // Permission, duplicate check, premium gate and the album save - see
+      // saveFeedToGallery.ts.
+      const result = await saveFeedToGallery(feed, {
+        permissionReasonKey: 'common.permissionReasonDownloadWallpaper',
+      });
+      if (result === 'already_saved') {
+        Alert.alert(i18n.t('common.alreadySavedTitle'), i18n.t('common.alreadySavedMessage'));
+      } else if (result === 'saved') {
         Alert.alert('Success', 'Wallpaper saved to your gallery!');
 
         incrementDownload(feed.id.toString());

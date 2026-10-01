@@ -4,7 +4,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 // "Clear Cache" already reclaims this directory at will (that's the whole
 // point of using cacheDirectory over documentDirectory - see the directory
 // fix applied alongside this file to audio-player.tsx, AutoplayFeedCard.tsx,
-// RingtoneFeedCard.tsx, useWallpaperActions.ts, downloadWallpaper.ts, and
+// RingtoneFeedCard.tsx, useWallpaperActions.ts, saveFeedToGallery.ts and
 // FeedCard.tsx), but nothing forces a user to ever tap that before disk
 // space genuinely runs low. This adds an app-level backstop: on every app
 // startup, anything sitting directly in cacheDirectory older than
