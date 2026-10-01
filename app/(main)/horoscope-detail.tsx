@@ -57,7 +57,7 @@ export default function HoroscopeDetailScreen() {
 
   const handleBack = useCallback(() => {
     if (returnTo) {
-      router.replace(returnTo as any);
+      router.navigate(returnTo as any);
       return;
     }
     router.back();
