@@ -6,7 +6,6 @@ import {
   Image,
   ActivityIndicator,
   Alert,
-  Share,
   Platform,
   Linking,
   Dimensions,
@@ -31,7 +30,8 @@ import { authorizeMediaAction } from '@/features/feed/services/mediaAccess';
 import { useFeedStore } from '@/store/feedStore';
 import { usePlaybackStore } from '@/store/playbackStore';
 import { useI18nStore } from '@/shared/stores/i18nStore';
-import { getFeedSubtitle, getFeedThumbnailUrl } from '@/utils/feedFields';
+import { getFeedThumbnailUrl } from '@/utils/feedFields';
+import { shareContent } from '@/utils/shareContent';
 
 // Module-scope (not component state) so it's shared across every rendered
 // RingtoneFeedCard instance and reachable from every place playback for a
@@ -148,7 +148,7 @@ export default function RingtoneFeedCard({
     setLocalLikesCount(feed.likesCount);
   }, [feed.isLiked, feed.likesCount]);
 
-  const { toggleLike, incrementShare, incrementDownload, incrementView } = useFeedStore();
+  const { toggleLike, incrementDownload, incrementView } = useFeedStore();
 
   // The feed's single media item. A missing url degrades to no playable
   // source instead of throwing during render.
@@ -531,30 +531,10 @@ export default function RingtoneFeedCard({
     }
   };
 
-  const handleShare = async () => {
-    try {
-      // Records the share and runs the premium gate - see mediaAccess.ts.
-      if (!(await authorizeMediaAction(feed, 'share'))) return;
-      incrementShare(feed.id.toString());
-
-      const result = await Share.share({
-        // Real title first, subtitle only as a last resort (CLAUDE.md §56
-        // Phase 0) - matches AutoplayFeedCard/AudioContentCard's already-
-        // correct pattern; subtitle is not a reliable title proxy.
-        message: (feed.title?.[language] || feed.title?.en || getFeedSubtitle(feed, language))
-          ? `Check out this ringtone: ${feed.title?.[language] || feed.title?.en || getFeedSubtitle(feed, language)}\n\nShared from Bhav Bhakti App`
-          : 'Check out this amazing ringtone from Bhav Bhakti App!',
-        url: feed.url,
-      });
-
-      if (result.action === Share.sharedAction) {
-        onShare?.(feed.id.toString());
-      }
-    } catch (error) {
-      console.error('Error sharing ringtone:', error);
-      Alert.alert('Error', 'Failed to share the ringtone. Please try again.');
-    }
-  };
+  // Same shareContent() as Home's cards: the thumbnail plus the ringtone
+  // caption with the Play Store link, never the audio file. It runs the
+  // premium gate, records the share and handles its own errors.
+  const handleShare = () => shareContent(feed, { onShared: onShare });
 
   const handleSetRingtone = async () => {
     if (isSettingRingtone) return;

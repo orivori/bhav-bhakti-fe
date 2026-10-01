@@ -20,6 +20,10 @@
     "permissionReasonDownloadWallpaper": "कृपया वॉलपेपर को अपनी गैलरी में सहेजने के लिए एक्सेस की अनुमति दें।",
     "alreadySavedTitle": "पहले से सहेजा गया",
     "alreadySavedMessage": "यह पहले से आपकी गैलरी में, Bhav Bhakti एल्बम में है।",
+    "shareCaptionMantra": "Bhav Bhakti ऐप में यह मंत्र जपें: {{title}}, {{link}}",
+    "shareCaptionAarti": "Bhav Bhakti ऐप में यह आरती सुनें: {{title}}, {{link}}",
+    "shareCaptionBhajan": "Bhav Bhakti ऐप में यह भजन सुनें: {{title}}, {{link}}",
+    "shareCaptionRingtone": "Bhav Bhakti ऐप में यह रिंगटोन सेट करें: {{title}}, {{link}}",
     "language": "भाषा",
     "english": "English",
     "hindi": "हिंदी",
@@ -249,6 +253,7 @@
   "horoscope": {
     "title": "राशिफल",
     "dailyHoroscope": "दैनिक राशिफल",
+    "shareCaption": "Bhav Bhakti ऐप पर आज का {{sign}} राशिफल पढ़ें, {{link}}",
     "weeklyHoroscope": "साप्ताहिक राशिफल",
     "myZodiac": "मेरी राशि",
     "selectZodiac": "अपनी राशि चुनें",

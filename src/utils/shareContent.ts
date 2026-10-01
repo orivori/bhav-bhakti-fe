@@ -7,14 +7,28 @@ import { useFeedStore } from '@/store/feedStore';
 import { getMediaFileExtension, getMediaMimeType } from './getMediaFileExtension';
 import { logContentShared } from './analytics/engagementEvents';
 import { getFeedThumbnailUrl } from './feedFields';
+import i18n from 'i18next';
+import { PLAY_STORE_URL } from '@/shared/config/appStoreLink';
+import { useI18nStore } from '@/shared/stores/i18nStore';
 
-// Placeholder until a real app-store/download link exists - swap this one
-// constant when it does, nothing else in the share flow below needs to
-// change.
-const APP_DOWNLOAD_LINK_PLACEHOLDER = 'https://bhavbhakti.app/download';
+// Audio types get their own wording (i18n keys under `common`); every other
+// type - wallpaper/thought/video, which share the real file - keeps the
+// original generic caption.
+const AUDIO_CAPTION_KEYS: Partial<Record<Feed['type'], string>> = {
+  mantra: 'common.shareCaptionMantra',
+  aarti: 'common.shareCaptionAarti',
+  bhajan: 'common.shareCaptionBhajan',
+  ringtone: 'common.shareCaptionRingtone',
+};
 
-function buildShareCaption(): string {
-  return `Shared via Bhav Bhakti — ${APP_DOWNLOAD_LINK_PLACEHOLDER}`;
+function buildShareCaption(feed: Feed): string {
+  const captionKey = AUDIO_CAPTION_KEYS[feed.type];
+  const language = useI18nStore.getState().language;
+  const title = feed.title?.[language] || feed.title?.en;
+  if (captionKey && title) {
+    return i18n.t(captionKey, { title, link: PLAY_STORE_URL });
+  }
+  return `Shared via Bhav Bhakti — ${PLAY_STORE_URL}`;
 }
 
 // Share needs a real local file, not a remote URL - react-native-share's
@@ -99,10 +113,14 @@ export interface ShareContentOptions {
   // the download itself), so a caller's loading state never gets stuck -
   // safe to call twice, callers' own revert should be idempotent.
   onSharePresenting?: () => void;
+  // Fires once the share has passed the premium gate and been recorded
+  // (backend + feed store), before the share sheet opens - for a caller
+  // that shows its own share count outside the feed store (audio-player.tsx).
+  onShareRecorded?: (feedId: string) => void;
 }
 
 export async function shareContent(feed: Feed, options?: ShareContentOptions): Promise<void> {
-  const { onShared, onSharePresenting } = options ?? {};
+  const { onShared, onSharePresenting, onShareRecorded } = options ?? {};
   const feedId = feed.id.toString();
   if (!feed.url) return;
   const isAudio = feed.mediaType === 'audio';
@@ -117,6 +135,7 @@ export async function shareContent(feed: Feed, options?: ShareContentOptions): P
       return;
     }
     useFeedStore.getState().incrementShare(feedId);
+    onShareRecorded?.(feedId);
 
     let fileToShare: { localUri: string; mimeType: string } | null = null;
 
@@ -133,7 +152,7 @@ export async function shareContent(feed: Feed, options?: ShareContentOptions): P
 
     const result = await Share.open({
       ...(fileToShare ? { url: fileToShare.localUri, type: fileToShare.mimeType } : {}),
-      message: buildShareCaption(),
+      message: buildShareCaption(feed),
       failOnCancel: false,
     });
 

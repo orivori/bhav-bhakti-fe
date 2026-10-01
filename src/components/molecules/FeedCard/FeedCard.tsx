@@ -5,7 +5,6 @@ import {
   StyleSheet,
   Dimensions,
   Alert,
-  Share,
   Linking,
   ActivityIndicator,
 } from 'react-native';
@@ -18,11 +17,9 @@ import MantraFeedCard from '../MantraFeedCard/MantraFeedCard';
 import { Feed } from '@/types/feed';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { feedService } from '@/features/feed/services/feedService';
-import { authorizeMediaAction } from '@/features/feed/services/mediaAccess';
 import { useFeedStore } from '@/store/feedStore';
-import { useI18nStore } from '@/shared/stores/i18nStore';
-import { getFeedSubtitle } from '@/utils/feedFields';
 import { saveFeedToGallery } from '@/utils/saveFeedToGallery';
+import { shareContent } from '@/utils/shareContent';
 
 interface FeedCardProps {
   feed: Feed;
@@ -45,8 +42,7 @@ export default function FeedCard({
 }: FeedCardProps) {
   const [isLiking, setIsLiking] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
-  const { toggleLike, incrementDownload, incrementShare, incrementView } = useFeedStore();
-  const { language } = useI18nStore();
+  const { toggleLike, incrementDownload, incrementView } = useFeedStore();
 
   const handleLike = () => {
     console.log('❤️ Heart button pressed for feed:', feed.id, 'isLiked:', feed.isLiked);
@@ -79,33 +75,9 @@ export default function FeedCard({
     }
   };
 
-  const handleShare = async () => {
-    try {
-      // Records the share and runs the premium gate - see mediaAccess.ts.
-      if (!(await authorizeMediaAction(feed, 'share'))) return;
-      incrementShare(feed.id.toString());
-
-      const result = await Share.share({
-        message: (() => {
-          // Real title first, subtitle only as a last resort (CLAUDE.md §56
-          // Phase 0) - matches AutoplayFeedCard/AudioContentCard's already-
-          // correct pattern; subtitle is not a reliable title proxy.
-          const shareTitle = feed.title?.[language] || feed.title?.en || getFeedSubtitle(feed, language);
-          return shareTitle
-            ? `Check out this post: ${shareTitle}\n\nShared from Bhav Bhakti App`
-            : 'Check out this amazing post from Bhav Bhakti App!';
-        })(),
-        url: feed.url,
-      });
-
-      if (result.action === Share.sharedAction) {
-        onShare?.(feed.id.toString());
-      }
-    } catch (error) {
-      console.error('Error sharing feed:', error);
-      Alert.alert('Error', 'Failed to share the post. Please try again.');
-    }
-  };
+  // Same shareContent() as every other card - premium gate, share count,
+  // real file or thumbnail, and the caption with the Play Store link.
+  const handleShare = () => shareContent(feed, { onShared: onShare });
 
   const handleDownload = async () => {
     if (isDownloading || !feed.allowDownloads) return;
