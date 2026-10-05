@@ -23,7 +23,7 @@ import { getFeedSubtitle, getFeedThumbnailUrl } from '@/utils/feedFields';
 import { shareContent } from '@/utils/shareContent';
 import { ensureMediaLibraryPermission } from '@/utils/mediaLibraryPermission';
 import { newPlayRequestId } from '@/utils/playRequest';
-import { openSoundSettings } from '@/utils/openSoundSettings';
+import { saveRingtoneToDevice, showRingtoneErrorAlert, showRingtoneSaveAlert } from '@/utils/saveRingtoneToDevice';
 import WhatsAppIcon from '../../../../assets/icons/whatsapp.svg';
 
 interface AutoplayFeedCardProps {
@@ -574,13 +574,10 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
     if (isMountedRef.current) setIsSettingStatus(false);
   };
 
-  // Blocking download-if-missing check, reusing this card's own feedId-keyed
-  // cache path (the same one the streaming/autoplay path above already
-  // populates) rather than RingtoneFeedCard's separate sanitized-title-keyed
-  // file - same user-facing behavior as "the existing Ringtones tab's
-  // set-ringtone flow," but backed by whichever cache entry this card
-  // already has, so a ringtone already played here doesn't get downloaded a
-  // second time under a different filename.
+  // iOS only (Android saves through saveRingtoneToDevice). Blocking
+  // download-if-missing check, reusing this card's own feedId-keyed cache
+  // path (the same one the streaming/autoplay path above already populates),
+  // so a ringtone already played here doesn't get downloaded a second time.
   const ensureLocalAudioFile = async (): Promise<string> => {
     if (!audioSourceUri) {
       throw new Error('No audio file found for this ringtone.');
@@ -596,14 +593,25 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
     return downloadResult.uri;
   };
 
-  // Mirrors RingtoneFeedCard.tsx's handleSetRingtone exactly (same
-  // platform-specific messaging and manual-steps fallback, since neither
-  // platform has a real automated "set ringtone" API available here) - the
-  // only difference is the cache file this pulls from, per the comment above.
+  // Same flow as RingtoneFeedCard.tsx's handleSetRingtone - neither platform
+  // has a real automated "set ringtone" API here. Android goes through the
+  // shared saveRingtoneToDevice (the Ringtones album, so the phone's own
+  // ringtone list shows it); iOS keeps its own manual-steps path.
   const handleSetRingtone = async () => {
     if (isSettingRingtone) return;
     if (isMountedRef.current) setIsSettingRingtone(true);
     try {
+      if (Platform.OS === 'android') {
+        // Permission, duplicate check, premium gate (which records the
+        // download) and the save - see saveRingtoneToDevice.ts.
+        const result = await saveRingtoneToDevice(feed, {
+          authorizeOptions: { triggerFeature: 'set_as_ringtone' },
+        });
+        if (result.status === 'saved') incrementDownload(feedIdStr);
+        showRingtoneSaveAlert(result);
+        return;
+      }
+
       const hasPermission = await ensureMediaLibraryPermission('common.permissionReasonSetRingtone');
       if (!hasPermission) {
         return;
@@ -618,29 +626,7 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
       const localUri = await ensureLocalAudioFile();
       incrementDownload(feedIdStr);
 
-      if (Platform.OS === 'android') {
-        try {
-          await MediaLibrary.saveToLibraryAsync(localUri);
-          Alert.alert(
-            t('feedCard.ringtoneSavedTitle'),
-            t('feedCard.ringtoneSavedMessageAndroid'),
-            [
-              { text: t('feedCard.openSoundSettings'), onPress: openSoundSettings },
-              { text: t('feedCard.ok'), style: 'default' },
-            ]
-          );
-        } catch (mediaError) {
-          console.log('AutoplayFeedCard: could not save to media library, file is still downloaded:', mediaError);
-          Alert.alert(
-            t('feedCard.ringtoneDownloadedTitle'),
-            t('feedCard.ringtoneDownloadedMessageAndroid'),
-            [
-              { text: t('feedCard.openSoundSettings'), onPress: openSoundSettings },
-              { text: t('feedCard.ok'), style: 'default' },
-            ]
-          );
-        }
-      } else if (Platform.OS === 'ios') {
+      if (Platform.OS === 'ios') {
         try {
           await MediaLibrary.saveToLibraryAsync(localUri);
           Alert.alert(
@@ -665,7 +651,7 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
       }
     } catch (error) {
       console.error('AutoplayFeedCard: error setting ringtone:', error);
-      Alert.alert(t('common.error'), t('feedCard.ringtoneErrorMessage'));
+      showRingtoneErrorAlert();
     } finally {
       if (isMountedRef.current) setIsSettingRingtone(false);
     }

@@ -366,10 +366,8 @@
     "settingRingtone": "Setting...",
     "likeErrorMessage": "Failed to like this. Please try again.",
     "ringtoneSavedTitle": "Ringtone Downloaded & Saved",
-    "ringtoneSavedMessageAndroid": "The ringtone has been saved to your device. To set it as your ringtone:\n\n1. Go to Settings > Sounds\n2. Select Phone Ringtone\n3. Choose the downloaded file",
     "ringtoneSavedMessageIos": "The ringtone has been saved to your device. To set it as your ringtone:\n\n1. Go to Settings > Sounds & Haptics\n2. Select Ringtone\n3. Choose the downloaded file from \"Custom\" section",
     "ringtoneDownloadedTitle": "Ringtone Downloaded",
-    "ringtoneDownloadedMessageAndroid": "The ringtone has been downloaded to your device. To set it as your ringtone:\n\n1. Go to Settings > Sounds\n2. Select Phone Ringtone\n3. Look for the ringtone file in your downloads",
     "ringtoneDownloadedMessageIos": "The ringtone has been downloaded successfully!\n\nFor iOS ringtones:\n• Connect to iTunes/Finder\n• Convert to .m4r format\n• Sync to set as ringtone\n\nOr use GarageBand to import and set as ringtone.",
     "openSoundSettings": "Open Sound Settings",
     "gotIt": "Got It",
@@ -378,7 +376,10 @@
     "premiumFeatureTitle": "Premium Feature",
     "premiumFeatureMessage": "This will be available with Bhav Bhakti Premium. Stay tuned!",
     "setAsStatus": "Set as Status",
-    "preparingStatus": "Preparing..."
+    "preparingStatus": "Preparing...",
+    "ringtoneSaveTitle": "Ringtone saved",
+    "ringtoneSaveMessage": "Saved as \"{{name}}\". To set it, open Sound settings → Phone ringtone and choose it from the list. If it isn't listed, tap Add (+) and look in Music → Ringtones.",
+    "ringtoneAlreadySavedMessage": "This ringtone is already on your phone as \"{{name}}\". Open Sound settings → Phone ringtone to set it."
   },
   "maintenance": {
     "title": "We'll be back soon",

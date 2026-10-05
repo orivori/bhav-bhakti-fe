@@ -30,7 +30,7 @@ import { usePlaybackStore } from '@/store/playbackStore';
 import { useI18nStore } from '@/shared/stores/i18nStore';
 import { getFeedThumbnailUrl } from '@/utils/feedFields';
 import { shareContent } from '@/utils/shareContent';
-import { openSoundSettings } from '@/utils/openSoundSettings';
+import { saveRingtoneToDevice, showRingtoneErrorAlert, showRingtoneSaveAlert } from '@/utils/saveRingtoneToDevice';
 import { getEnhancedLineHeight } from '@/utils/textUtils';
 
 // The title's own font size (styles.title). Its line height comes from the
@@ -546,6 +546,18 @@ export default function RingtoneFeedCard({
 
     setIsSettingRingtone(true);
     try {
+      if (Platform.OS === 'android') {
+        // Permission, duplicate check, premium gate (which records the
+        // download) and the save into the Ringtones album - shared with
+        // Home's card, see saveRingtoneToDevice.ts.
+        const result = await saveRingtoneToDevice(feed, {
+          authorizeOptions: { triggerFeature: 'set_as_ringtone' },
+        });
+        if (result.status === 'saved') incrementDownload(feed.id.toString());
+        showRingtoneSaveAlert(result);
+        return;
+      }
+
       const hasPermission = await ensureMediaLibraryPermission('common.permissionReasonSetRingtone');
       if (!hasPermission) {
         return;
@@ -566,47 +578,7 @@ export default function RingtoneFeedCard({
       const fileName = localUri.split('/').pop() || localFileName;
       console.log('✅ Local file ready:', localUri);
 
-      // Known gap, deliberately deferred: saveToLibraryAsync (both branches
-      // below) has no native dedup - repeated taps create separate,
-      // uniquified entries in the OS media library even though localUri
-      // above is the same reused cached file each time. Cosmetic only, not
-      // a functional or cost issue. Deferred until real user feedback
-      // justifies the fix.
-      if (Platform.OS === 'android') {
-        try {
-          // On Android, try to save to media library
-          console.log('💾 Attempting to save audio file to media library...');
-          await MediaLibrary.saveToLibraryAsync(localUri);
-          console.log('✅ Audio saved to media library successfully');
-
-          Alert.alert(
-            'Ringtone Downloaded & Saved',
-            'The ringtone has been saved to your device. To set it as your ringtone:\n\n1. Go to Settings > Sounds\n2. Select Phone Ringtone\n3. Choose the downloaded file',
-            [
-              {
-                text: 'Open Sound Settings',
-                onPress: openSoundSettings,
-              },
-              { text: 'OK', style: 'default' },
-            ]
-          );
-        } catch (mediaError) {
-          const errorMessage = mediaError instanceof Error ? mediaError.message : 'Unknown error';
-          console.log('⚠️ Could not save to media library, but file is downloaded:', errorMessage);
-          // File is still downloaded, just not in media library
-          Alert.alert(
-            'Ringtone Downloaded',
-            'The ringtone has been downloaded to your device. To set it as your ringtone:\n\n1. Go to Settings > Sounds\n2. Select Phone Ringtone\n3. Look for the ringtone file in your downloads',
-            [
-              {
-                text: 'Open Sound Settings',
-                onPress: openSoundSettings,
-              },
-              { text: 'OK', style: 'default' },
-            ]
-          );
-        }
-      } else if (Platform.OS === 'ios') {
+      if (Platform.OS === 'ios') {
         try {
           // On iOS, try to save to media library (may not work for audio files)
           console.log('💾 Attempting to save audio file to media library (iOS)...');
@@ -646,7 +618,7 @@ export default function RingtoneFeedCard({
       console.log('✅ Ringtone set for feed:', feed.id);
     } catch (error) {
       console.error('Error setting ringtone:', error);
-      Alert.alert('Error', 'Failed to set ringtone. Please try again.');
+      showRingtoneErrorAlert();
     } finally {
       setIsSettingRingtone(false);
     }
