@@ -1,4 +1,5 @@
 import { router, Href } from 'expo-router';
+import { useFeatureFlagStore } from '@/store/featureFlagStore';
 
 // The app's first-ever deep-link handler - previously zero <Link>/Linking
 // usage existed anywhere (see CLAUDE.md §10). FCM data payloads are flat,
@@ -39,6 +40,11 @@ const ALLOWED_DEEP_LINK_SCREENS: readonly string[] = [
 ];
 
 export function navigateFromNotificationData(data?: Record<string, string | object>): void {
+  // Maintenance mode swaps the navigator out entirely (app/_layout.tsx), so
+  // there's nothing to navigate - and a tap must not get around the
+  // maintenance screen anyway. The tap is dropped.
+  if (useFeatureFlagStore.getState().status === 'maintenance') return;
+
   if (!data || typeof data.screen !== 'string' || !ALLOWED_DEEP_LINK_SCREENS.includes(data.screen)) {
     router.replace('/(main)');
     return;
