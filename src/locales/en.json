@@ -385,5 +385,11 @@
     "wallpaperErrorMessage": "Failed to save this. Please try again.",
     "premiumFeatureTitle": "Premium Feature",
     "premiumFeatureMessage": "This will be available with Bhav Bhakti Premium. Stay tuned!"
+  },
+  "maintenance": {
+    "title": "We'll be back soon",
+    "body": "Bhav Bhakti is getting some care and will be back shortly. Thank you for your patience.",
+    "retry": "Try again",
+    "checking": "Checking…"
   }
 }

@@ -8,6 +8,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '@/features/authentication/hooks/useAuth';
 import { PremiumPaywall } from '@/components/molecules/PremiumPaywall';
 import { LoginPromptModal } from '@/components/molecules/LoginPromptModal';
+import { MaintenanceScreen } from '@/components/molecules/MaintenanceScreen';
 import { ErrorBoundary } from '@/components/molecules/ErrorBoundary';
 import { useScreenshotProtection } from '@/hooks/useScreenshotProtection';
 import { ToastProvider } from '@/components/atoms/Toast';
@@ -38,6 +39,11 @@ import { recordSessionStartForRetention } from '@/utils/analytics/retentionEvent
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
+
+// How long the splash screen waits for the cold-start feature-flag check
+// before showing the app anyway. A slower check still swaps in
+// MaintenanceScreen the moment it lands on maintenance.
+const FLAG_CHECK_SPLASH_CAP_MS = 1000;
 
 // Create a client for React Query
 const queryClient = new QueryClient({
@@ -124,10 +130,20 @@ export default function RootLayout() {
   React.useEffect(() => {
     // One remote fetch per cold start, merged over the hardcoded defaults
     // already in featureFlagStore's initial state - see that file for the
-    // full rationale. Fire-and-forget, same as cache eviction above: never
-    // gates the splash screen, and a failed/offline fetch silently keeps
-    // the defaults already in effect.
+    // full rationale. Holds the splash screen for at most
+    // FLAG_CHECK_SPLASH_CAP_MS (see below); a failed/offline fetch silently
+    // keeps the defaults already in effect.
     useFeatureFlagStore.getState().fetchRemoteFlags();
+  }, []);
+
+  // Maintenance mode: while the backend's flag is on, the whole navigator is
+  // swapped for MaintenanceScreen (see the render below).
+  const flagStatus = useFeatureFlagStore((state) => state.status);
+  const isInMaintenance = flagStatus === 'maintenance';
+  const [isFlagCheckCapReached, setIsFlagCheckCapReached] = React.useState(false);
+  React.useEffect(() => {
+    const timeout = setTimeout(() => setIsFlagCheckCapReached(true), FLAG_CHECK_SPLASH_CAP_MS);
+    return () => clearTimeout(timeout);
   }, []);
 
   React.useEffect(() => {
@@ -164,10 +180,15 @@ export default function RootLayout() {
 
   // Re-checks the session's expiry date whenever the app comes back to the
   // foreground - the cold-start check (authStore.initializeAuth) never sees a
-  // session that expired while the app sat in the background.
+  // session that expired while the app sat in the background. Also re-fetches
+  // the feature flags (throttled to once per 5 minutes), so maintenance mode
+  // reaches users who only ever resume the app.
   React.useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
-      if (nextState === 'active') checkSessionOnResume();
+      if (nextState === 'active') {
+        checkSessionOnResume();
+        useFeatureFlagStore.getState().refetchOnForeground();
+      }
     });
     return () => subscription.remove();
   }, []);
@@ -183,15 +204,34 @@ export default function RootLayout() {
       navigateFromNotificationData(remoteMessage?.data);
     });
 
-    // App was fully killed, tap cold-started it - checked once, on mount.
-    getInitialNotification(messagingInstance).then((remoteMessage) => {
+    return unsubscribeOpenedApp;
+  }, []);
+
+  // App was fully killed, tap cold-started it - checked once, as soon as the
+  // navigator is actually mounted: the splash screen can now be held for up
+  // to FLAG_CHECK_SPLASH_CAP_MS first, and navigating before the navigator
+  // exists has nothing to navigate. A tap that cold-starts the app into
+  // maintenance mode is dropped, like any other tap during maintenance.
+  const isNavigatorMounted =
+    (fontsLoaded || !!fontError) &&
+    (flagStatus !== 'checking' || isFlagCheckCapReached) &&
+    !isInMaintenance;
+  const hasHandledInitialNotificationRef = React.useRef(false);
+  React.useEffect(() => {
+    if (hasHandledInitialNotificationRef.current) return;
+    if (isInMaintenance) {
+      hasHandledInitialNotificationRef.current = true;
+      return;
+    }
+    if (!isNavigatorMounted) return;
+    hasHandledInitialNotificationRef.current = true;
+
+    getInitialNotification(getMessaging()).then((remoteMessage) => {
       if (remoteMessage) {
         navigateFromNotificationData(remoteMessage.data);
       }
     });
-
-    return unsubscribeOpenedApp;
-  }, []);
+  }, [isNavigatorMounted, isInMaintenance]);
 
   // The app's React Navigation/screen_view integration - Expo Router's own
   // usePathname() is the simplest correct hook point (no manual navigationRef/
@@ -205,16 +245,21 @@ export default function RootLayout() {
     logAnalyticsScreenView(pathname);
   }, [pathname]);
 
+  // Don't reveal the app until the Devanagari font is ready (or has failed
+  // to load) - hiding the splash screen earlier would let Hindi text flash
+  // in the wrong font for a frame on every cold start - and until the
+  // cold-start flag check has settled or hit its cap, so a user in
+  // maintenance mode doesn't see the app flash up first.
+  const isHoldingSplash =
+    (!fontsLoaded && !fontError) || (flagStatus === 'checking' && !isFlagCheckCapReached);
+
   React.useEffect(() => {
-    // Don't reveal the app until the Devanagari font is ready (or has failed
-    // to load) - hiding the splash screen earlier would let Hindi text flash
-    // in the wrong font for a frame on every cold start.
-    if (fontsLoaded || fontError) {
+    if (!isHoldingSplash) {
       SplashScreen.hideAsync();
     }
-  }, [fontsLoaded, fontError]);
+  }, [isHoldingSplash]);
 
-  if (!fontsLoaded && !fontError) {
+  if (isHoldingSplash) {
     return null;
   }
 
@@ -227,16 +272,26 @@ export default function RootLayout() {
               <View style={styles.container}>
                 <NavigationThemeProvider value={MyTheme}>
                   <ErrorBoundary>
-                    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: goldenTempleTheme.colors.background } }}>
-                      <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-                      <Stack.Screen name="(main)" options={{ headerShown: false }} />
-                    </Stack>
+                    {/* Maintenance mode swaps the navigator out entirely
+                        rather than overlaying it - an overlay couldn't cover
+                        the paywall, the login prompt or the bottom sheets.
+                        Unmounting it also stops any playback. */}
+                    {isInMaintenance ? (
+                      <MaintenanceScreen />
+                    ) : (
+                      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: goldenTempleTheme.colors.background } }}>
+                        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+                        <Stack.Screen name="(main)" options={{ headerShown: false }} />
+                      </Stack>
+                    )}
                   </ErrorBoundary>
                 </NavigationThemeProvider>
               </View>
               <StatusBar style="dark" translucent backgroundColor="transparent" />
-              <PremiumPaywall />
-              <LoginPromptModal />
+              {/* Both are full-screen modals that would cover MaintenanceScreen,
+                  and both navigate - so neither is mounted during maintenance. */}
+              {!isInMaintenance && <PremiumPaywall />}
+              {!isInMaintenance && <LoginPromptModal />}
             </AuthProvider>
           </ToastProvider>
         </BottomSheetModalProvider>
