@@ -165,7 +165,7 @@ export default function AudioContentCard({ feed, subTab, queueItems, queueIndex,
         variant="body"
         weight={isCurrentlyPlaying ? 'bold' : 'medium'}
         style={[styles.title, isCurrentlyPlaying && styles.titlePlaying]}
-        numberOfLines={1}
+        numberOfLines={2}
       >
         {title}
       </Text>
