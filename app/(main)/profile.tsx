@@ -228,31 +228,31 @@ export default function ProfileScreen() {
       description: language === 'hi'
         ? `ऐप संस्करण ${Constants.expoConfig?.version || ''}`
         : `App version ${Constants.expoConfig?.version || ''}`,
-      // Appends the currently-running EAS Update's identity (update ID,
-      // channel, publish time) below the app name/version - lets the update
-      // ID here be directly compared against the one `eas update` prints on
-      // publish, so it's possible to confirm a fix is actually live instead
-      // of guessing. isEmbeddedLaunch is checked first: when true, the app
-      // is running the version baked into the installed APK itself, no OTA
-      // update has ever applied, and updateId would just be null - the
-      // fallback message says so explicitly rather than showing a
-      // confusing blank/unavailable update ID.
+      // Shows a short tag for the currently-running EAS Update after the
+      // version - the last 4 characters of the update ID plus one letter for
+      // the channel (P = production, D = preview, the .dev app's channel;
+      // ? = anything else) - so a running update can still be matched
+      // against the ID `eas update` prints, without showing users the full
+      // ID or the raw channel name. Running the build embedded in the APK
+      // (no OTA applied, so no update ID) shows the version only.
       onPress: () => {
-        const updateInfo = Updates.isEmbeddedLaunch
-          ? language === 'hi'
-            ? 'एम्बेडेड बिल्ड चल रहा है - कोई OTA अपडेट लागू नहीं हुआ'
-            : 'Running embedded build - no OTA update applied'
-          : [
-              `${language === 'hi' ? 'अपडेट' : 'Update'}: ${Updates.updateId || (language === 'hi' ? 'अनुपलब्ध' : 'unavailable')}`,
-              `${language === 'hi' ? 'चैनल' : 'Channel'}: ${Updates.channel || (language === 'hi' ? 'अनुपलब्ध' : 'unavailable')}`,
-              `${language === 'hi' ? 'प्रकाशित' : 'Published'}: ${
-                Updates.createdAt ? Updates.createdAt.toLocaleString() : (language === 'hi' ? 'अनुपलब्ध' : 'unavailable')
-              }`,
-            ].join('\n');
+        const appTitle = `${Constants.expoConfig?.name || 'Bhav Bhakti'} v${Constants.expoConfig?.version || ''}`;
+        const updateId = Updates.isEmbeddedLaunch ? null : Updates.updateId;
+
+        if (!updateId) {
+          Alert.alert(t('profile.aboutUs'), appTitle);
+          return;
+        }
+
+        const channelLetter =
+          Updates.channel === 'production' ? 'P' : Updates.channel === 'preview' ? 'D' : '?';
+        const publishedLine = `${language === 'hi' ? 'प्रकाशित' : 'Published'}: ${
+          Updates.createdAt ? Updates.createdAt.toLocaleString() : (language === 'hi' ? 'अनुपलब्ध' : 'unavailable')
+        }`;
 
         Alert.alert(
           t('profile.aboutUs'),
-          `${Constants.expoConfig?.name || 'Bhav Bhakti'} v${Constants.expoConfig?.version || ''}\n\n${updateInfo}`
+          `${appTitle} (${updateId.slice(-4)}${channelLetter})\n\n${publishedLine}`
         );
       },
     },
