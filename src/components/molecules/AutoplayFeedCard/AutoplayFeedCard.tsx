@@ -23,6 +23,7 @@ import { getFeedSubtitle, getFeedThumbnailUrl } from '@/utils/feedFields';
 import { shareContent } from '@/utils/shareContent';
 import { ensureMediaLibraryPermission } from '@/utils/mediaLibraryPermission';
 import { newPlayRequestId } from '@/utils/playRequest';
+import { openSoundSettings } from '@/utils/openSoundSettings';
 import WhatsAppIcon from '../../../../assets/icons/whatsapp.svg';
 
 interface AutoplayFeedCardProps {
@@ -624,7 +625,7 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
             t('feedCard.ringtoneSavedTitle'),
             t('feedCard.ringtoneSavedMessageAndroid'),
             [
-              { text: t('feedCard.openSoundSettings'), onPress: () => Linking.openSettings() },
+              { text: t('feedCard.openSoundSettings'), onPress: openSoundSettings },
               { text: t('feedCard.ok'), style: 'default' },
             ]
           );
@@ -634,7 +635,7 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
             t('feedCard.ringtoneDownloadedTitle'),
             t('feedCard.ringtoneDownloadedMessageAndroid'),
             [
-              { text: t('feedCard.openSoundSettings'), onPress: () => Linking.openSettings() },
+              { text: t('feedCard.openSoundSettings'), onPress: openSoundSettings },
               { text: t('feedCard.ok'), style: 'default' },
             ]
           );

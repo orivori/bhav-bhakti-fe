@@ -19,8 +19,6 @@ const { width } = Dimensions.get('window');
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as MediaLibrary from 'expo-media-library';
-import * as IntentLauncher from 'expo-intent-launcher';
-// Removed expo-intent-launcher dependency for smaller bundle size
 import { ensureMediaLibraryPermission } from '@/utils/mediaLibraryPermission';
 import { Text } from '@/components/atoms';
 import { Feed } from '@/types/feed';
@@ -32,6 +30,7 @@ import { usePlaybackStore } from '@/store/playbackStore';
 import { useI18nStore } from '@/shared/stores/i18nStore';
 import { getFeedThumbnailUrl } from '@/utils/feedFields';
 import { shareContent } from '@/utils/shareContent';
+import { openSoundSettings } from '@/utils/openSoundSettings';
 import { getEnhancedLineHeight } from '@/utils/textUtils';
 
 // The title's own font size (styles.title). Its line height comes from the
@@ -586,17 +585,7 @@ export default function RingtoneFeedCard({
             [
               {
                 text: 'Open Sound Settings',
-                onPress: () => {
-                  // Restores the original, correct mechanism this feature
-                  // had before expo-intent-launcher was accidentally
-                  // removed in a broad unrelated dependency cleanup
-                  // (commit ba65ddc, 2026-04-03) - Linking.openSettings()
-                  // only opens this app's own app-info page, never real
-                  // Sound settings, which was the actual reported bug.
-                  IntentLauncher.startActivityAsync(
-                    IntentLauncher.ActivityAction.SOUND_SETTINGS
-                  ).catch(() => Linking.openSettings());
-                },
+                onPress: openSoundSettings,
               },
               { text: 'OK', style: 'default' },
             ]
@@ -611,11 +600,7 @@ export default function RingtoneFeedCard({
             [
               {
                 text: 'Open Sound Settings',
-                onPress: () => {
-                  IntentLauncher.startActivityAsync(
-                    IntentLauncher.ActivityAction.SOUND_SETTINGS
-                  ).catch(() => Linking.openSettings());
-                },
+                onPress: openSoundSettings,
               },
               { text: 'OK', style: 'default' },
             ]
