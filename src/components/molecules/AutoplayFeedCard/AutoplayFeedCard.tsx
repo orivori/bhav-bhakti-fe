@@ -19,7 +19,6 @@ import { authorizeMediaAction } from '@/features/feed/services/mediaAccess';
 import { useFeedStore } from '@/store/feedStore';
 import { useSoundPreferenceStore } from '@/store/soundPreferenceStore';
 import { formatCount } from '@/utils/formatCount';
-import { saveFeedToGallery } from '@/utils/saveFeedToGallery';
 import { getFeedSubtitle, getFeedThumbnailUrl } from '@/utils/feedFields';
 import { shareContent } from '@/utils/shareContent';
 import { ensureMediaLibraryPermission } from '@/utils/mediaLibraryPermission';
@@ -229,7 +228,10 @@ const SEE_ALL_TARGETS: Partial<Record<Feed['type'], { pathname: string; params?:
   ringtone: { pathname: '/(main)/ringtones', params: { subTab: 'ringtones' } },
   aarti: { pathname: '/(main)/ringtones', params: { subTab: 'aarti' } },
   bhajan: { pathname: '/(main)/ringtones', params: { subTab: 'bhajan' } },
-  wallpaper: { pathname: '/(main)/daily-status', params: { subTab: 'wallpapers' } },
+  // Wallpaper-type cards are labelled "Status" on Home, so they open the
+  // Status sub-tab - every wallpaper is there (Wallpapers leaves out the
+  // occasion-tagged ones).
+  wallpaper: { pathname: '/(main)/daily-status', params: { subTab: 'status' } },
   thought: { pathname: '/(main)/daily-status', params: { subTab: 'thought' } },
 };
 
@@ -342,14 +344,15 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
   // verb-based label ("Listen"/"Set as Ringtone"/"Set as Wallpaper" below),
   // which describes what tapping the pill does, not what this content is.
   // mantra/aarti/bhajan reuse the existing spiritual.* keys (exact wording
-  // match, avoids a redundant duplicate string); ringtone/wallpaper/thought/
-  // general have no existing singular equivalent, so those are new feedCard.*
-  // keys.
+  // match, avoids a redundant duplicate string), and wallpaper (images and
+  // videos alike) reuses the Wallpaper hub's "Status" tab name;
+  // ringtone/thought/general have no existing singular equivalent, so those
+  // are feedCard.* keys.
   const contentTypeLabels: Record<Feed['type'], string> = {
     general: t('feedCard.typeGeneral'),
     mantra: t('spiritual.mantra'),
     ringtone: t('feedCard.typeRingtone'),
-    wallpaper: t('feedCard.typeWallpaper'),
+    wallpaper: t('wallpaperHub.status'),
     aarti: t('spiritual.aarti'),
     bhajan: t('spiritual.bhajan'),
     thought: t('feedCard.typeThought'),
@@ -516,7 +519,7 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
   };
 
   // --- CTA pill ---
-  const [isSettingWallpaper, setIsSettingWallpaper] = useState(false);
+  const [isSettingStatus, setIsSettingStatus] = useState(false);
   const [isSettingRingtone, setIsSettingRingtone] = useState(false);
 
   const handleListenPress = () => {
@@ -550,32 +553,24 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
     });
   };
 
-  const handleSetAsWallpaperPress = async () => {
-    if (isSettingWallpaper || !feed.url) return;
-    if (isMountedRef.current) setIsSettingWallpaper(true);
-    try {
-      // Permission, duplicate check, premium gate and the album save - see
-      // saveFeedToGallery.ts.
-      const result = await saveFeedToGallery(feed, {
-        permissionReasonKey: 'common.permissionReasonSetWallpaper',
-        authorizeOptions: { triggerFeature: 'set_as_wallpaper' },
-      });
-      // No OS-level "set wallpaper" API exists anywhere in this app yet
-      // (same honest limitation RingtoneFeedCard's "Set as ringtone" already
-      // has for iOS) - this saves to the gallery and hands off manually,
-      // rather than implying full automation.
-      if (result === 'already_saved') {
-        Alert.alert(t('common.alreadySavedTitle'), t('feedCard.wallpaperAlreadySavedMessage'));
-      } else if (result === 'saved') {
-        Alert.alert(t('feedCard.wallpaperSavedTitle'), t('feedCard.wallpaperSavedMessage'));
-        incrementDownload(feedIdStr);
-      }
-    } catch (error) {
-      console.error('AutoplayFeedCard: error saving wallpaper:', error);
-      Alert.alert(t('common.error'), t('feedCard.wallpaperErrorMessage'));
-    } finally {
-      if (isMountedRef.current) setIsSettingWallpaper(false);
-    }
+  // "Set as Status" (wallpaper and thought cards): opens the share sheet
+  // with the real image/video, exactly like the footer's Share button
+  // (handleShare above) - shareContent runs the premium gate, records the
+  // share and handles its own errors. Home cards don't download; the
+  // Wallpaper hub still does. Its own in-progress state, so only the tapped
+  // button shows a spinner; shareContent's per-feed guard ignores a second
+  // tap on either button while one share is in flight.
+  const handleSetAsStatusPress = async () => {
+    if (isSettingStatus) return;
+    if (isMountedRef.current) setIsSettingStatus(true);
+
+    await shareContent(feed, {
+      onSharePresenting: () => {
+        if (isMountedRef.current) setIsSettingStatus(false);
+      },
+    });
+
+    if (isMountedRef.current) setIsSettingStatus(false);
   };
 
   // Blocking download-if-missing check, reusing this card's own feedId-keyed
@@ -676,8 +671,9 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
   };
 
   // Single dispatcher behind the CTA pill. Listen is always free; Set as
-  // Wallpaper / Set as Ringtone are premium-gated inside their own handlers,
-  // via the same authorizeMediaAction gate as every other download.
+  // Ringtone (download) and Set as Status (share) are premium-gated inside
+  // their own paths, via the same authorizeMediaAction gate as every other
+  // download/share.
   const handleCtaPress = () => {
     if (hasAudioMedia) {
       if (isRingtoneType) {
@@ -686,7 +682,7 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
         handleListenPress();
       }
     } else {
-      handleSetAsWallpaperPress();
+      handleSetAsStatusPress();
     }
   };
 
@@ -694,15 +690,15 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
     ? isRingtoneType
       ? 'notifications-outline'
       : 'play'
-    : 'download-outline';
+    : 'share-social-outline';
 
   const ctaLabel = hasAudioMedia
     ? isRingtoneType
       ? (isSettingRingtone ? t('feedCard.settingRingtone') : t('feedCard.setAsRingtone'))
       : t('feedCard.listen')
-    : (isSettingWallpaper ? t('feedCard.savingWallpaper') : t('feedCard.setAsWallpaper'));
+    : (isSettingStatus ? t('feedCard.preparingStatus') : t('feedCard.setAsStatus'));
 
-  const ctaDisabled = (isRingtoneType && isSettingRingtone) || (!hasAudioMedia && isSettingWallpaper);
+  const ctaDisabled = (isRingtoneType && isSettingRingtone) || (!hasAudioMedia && isSettingStatus);
 
   return (
     // Audio and visual cards now share the same horizontal gutter (styles.card) -
@@ -838,7 +834,7 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
           </TouchableOpacity>
         )}
 
-        {/* CTA pill - visual content only (Set as Wallpaper). Audio has its
+        {/* CTA pill - visual content only (Set as Status). Audio has its
             own inline CTA pill inside audioControlsRow above, no longer
             this shared centered-overlay version. */}
         {!hasAudioMedia && (
@@ -849,12 +845,12 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
               disabled={ctaDisabled}
               activeOpacity={0.85}
             >
-              {isSettingWallpaper ? (
+              {isSettingStatus ? (
                 <ActivityIndicator size="small" color="#fff" />
               ) : (
                 <Ionicons name={ctaIcon} size={14} color="#fff" />
               )}
-              <Text style={styles.ctaPillText} numberOfLines={1}>{ctaLabel}</Text>
+              <Text style={[styles.ctaPillText, styles.statusPillText]} numberOfLines={1}>{ctaLabel}</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -1236,6 +1232,13 @@ const styles = StyleSheet.create({
     // language," not just regardless of text length.
     lineHeight: 14,
     fontWeight: '700',
+  },
+  // The visual pill ("Set as Status"): 18 instead of 14, the §71 Devanagari
+  // floor at this 11px size (11 x 1.6) - "स्टेटस लगाएं" has marks above and
+  // below the line. Same value in both languages, so the pill keeps one
+  // fixed height; it overlays the media, so no layout depends on it.
+  statusPillText: {
+    lineHeight: 18,
   },
   footer: {
     flexDirection: 'row',
