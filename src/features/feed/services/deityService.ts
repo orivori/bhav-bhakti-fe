@@ -4,11 +4,13 @@ import { Deity } from '@/types/feed';
 
 class DeityService {
   /**
-   * Get all active deities
+   * Get all active deities. hasContent limits the list to deities with at
+   * least one active feed of any type (the backend caches that answer).
    */
-  async getDeities(isActive: boolean = true): Promise<Deity[]> {
+  async getDeities(isActive: boolean = true, hasContent: boolean = false): Promise<Deity[]> {
     const queryParams = new URLSearchParams();
     queryParams.append('isActive', String(isActive));
+    if (hasContent) queryParams.append('hasContent', 'true');
     const url = `${API_ENDPOINTS.DEITIES.LIST}?${queryParams.toString()}`;
     try {
       const response = await apiClient.get<{ data: Deity[] }>(url);

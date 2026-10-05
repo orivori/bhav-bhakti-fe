@@ -32,6 +32,12 @@ import { usePlaybackStore } from '@/store/playbackStore';
 import { useI18nStore } from '@/shared/stores/i18nStore';
 import { getFeedThumbnailUrl } from '@/utils/feedFields';
 import { shareContent } from '@/utils/shareContent';
+import { getEnhancedLineHeight } from '@/utils/textUtils';
+
+// The title's own font size (styles.title). Its line height comes from the
+// shared Hindi-aware rule at this size (CLAUDE.md §71) - the Text atom's
+// automatic value is keyed to the variant's 14px size, too short for 18px.
+const TITLE_FONT_SIZE = 18;
 
 // Module-scope (not component state) so it's shared across every rendered
 // RingtoneFeedCard instance and reachable from every place playback for a
@@ -684,6 +690,7 @@ export default function RingtoneFeedCard({
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
+  const titleText = feed.title ? (feed.title[language] || feed.title.en || 'Untitled Ringtone') : 'Untitled Ringtone';
 
   return (
     <View style={styles.container}>
@@ -711,8 +718,11 @@ export default function RingtoneFeedCard({
         {/* Right Content Area */}
         <View style={styles.rightContent}>
           {/* Title */}
-          <Text style={styles.title} numberOfLines={1}>
-            {feed.title ? (feed.title[language] || feed.title.en || 'Untitled Ringtone') : 'Untitled Ringtone'}
+          <Text
+            style={[styles.title, { lineHeight: getEnhancedLineHeight(TITLE_FONT_SIZE, titleText) }]}
+            numberOfLines={2}
+          >
+            {titleText}
           </Text>
 
           {/* Play Controls Row */}
@@ -873,10 +883,8 @@ const styles = StyleSheet.create({
   },
   title: {
     fontWeight: '700',
-    fontSize: 18,
+    fontSize: TITLE_FONT_SIZE,
     color: '#000000',
-    lineHeight: 22,
-    includeFontPadding: false,
   },
   duration: {
     color: '#8B7355',

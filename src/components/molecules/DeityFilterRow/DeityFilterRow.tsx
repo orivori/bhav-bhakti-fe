@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useTranslation } from 'react-i18next';
 
 import { Text } from '@/components/atoms';
 import { Deity } from '@/types/feed';
@@ -45,10 +46,35 @@ const PRIMARY_DEITY_NAMES = [
   'saraswati',
 ];
 
+// At most this many deity chips sit in the row itself; the rest go in the
+// "More" sheet, which only appears when more than this many deities qualify.
+const MAX_INLINE_DEITIES = 8;
+
 const CHIP_SIZE = 56;
+
+// Chip labels wrap to at most two lines. Every label in the row reserves the
+// height of two lines, so one-line and two-line chips line up evenly. Values
+// match the Text atom's caption line heights (20 English, 24 Devanagari) -
+// set explicitly, with an explicit width, per the CLAUDE.md §71 fix for
+// Android clipping Hindi text it measures itself.
+const getChipLabelLineHeight = (language: string) => (language === 'en' ? 20 : 24);
 
 function resolveDisplayName(deity: Deity, language: string): string {
   return deity.displayName?.[language] || deity.displayName?.en || deity.name;
+}
+
+function ChipLabel({ text, selected, language }: { text: string; selected: boolean; language: string }) {
+  const lineHeight = getChipLabelLineHeight(language);
+  return (
+    <Text
+      variant="caption"
+      weight={selected ? 'semibold' : 'medium'}
+      style={[styles.chipLabel, { lineHeight, minHeight: lineHeight * 2 }, selected && styles.chipLabelSelected]}
+      numberOfLines={2}
+    >
+      {text}
+    </Text>
+  );
 }
 
 function DeityCircle({
@@ -71,22 +97,19 @@ function DeityCircle({
           <Text style={styles.emoji}>{deity.icon || '🙏'}</Text>
         </LinearGradient>
       </View>
-      <Text
-        variant="caption"
-        weight={selected ? 'semibold' : 'medium'}
-        style={[styles.chipLabel, selected && styles.chipLabelSelected]}
-        numberOfLines={1}
-      >
-        {resolveDisplayName(deity, language)}
-      </Text>
+      <ChipLabel text={resolveDisplayName(deity, language)} selected={selected} language={language} />
     </View>
   );
 }
 
 export default function DeityFilterRow({ deities, selected, onSelect }: DeityFilterRowProps) {
+  const { t } = useTranslation();
   const { language } = useI18nStore();
   const [moreVisible, setMoreVisible] = useState(false);
 
+  // `deities` is already limited to deities with content (useDeities). Order:
+  // the fixed primary names first, then everyone else by sortOrder. The
+  // first MAX_INLINE_DEITIES sit in the row; any beyond that go in "More".
   const { primaryDeities, overflowDeities } = useMemo(() => {
     const byName = new Map(deities.map((d) => [d.name.toLowerCase(), d]));
 
@@ -97,11 +120,15 @@ export default function DeityFilterRow({ deities, selected, onSelect }: DeityFil
     const primaryIds = new Set(primary.map((d) => d.id));
     // Sorting by sortOrder here is what naturally puts "Others" (sortOrder
     // 9999) last in this list without needing to special-case it by name.
-    const overflow = deities
+    const rest = deities
       .filter((d) => !primaryIds.has(d.id))
       .sort((a, b) => a.sortOrder - b.sortOrder);
 
-    return { primaryDeities: primary, overflowDeities: overflow };
+    const ordered = [...primary, ...rest];
+    return {
+      primaryDeities: ordered.slice(0, MAX_INLINE_DEITIES),
+      overflowDeities: ordered.slice(MAX_INLINE_DEITIES),
+    };
   }, [deities]);
 
   const isDeitySelected = (deityId: number) =>
@@ -151,13 +178,7 @@ export default function DeityFilterRow({ deities, selected, onSelect }: DeityFil
               <Ionicons name="flame" size={24} color="#fff" />
             </LinearGradient>
           </View>
-          <Text
-            variant="caption"
-            weight={selected.kind === 'trending' ? 'semibold' : 'medium'}
-            style={[styles.chipLabel, selected.kind === 'trending' && styles.chipLabelSelected]}
-          >
-            All
-          </Text>
+          <ChipLabel text={t('deityFilter.all')} selected={selected.kind === 'trending'} language={language} />
         </TouchableOpacity>
 
         {/* Liked - wired to the hub's own useXFeed() hook, which branches to
@@ -176,13 +197,7 @@ export default function DeityFilterRow({ deities, selected, onSelect }: DeityFil
               <Ionicons name="heart" size={22} color="#fff" />
             </LinearGradient>
           </View>
-          <Text
-            variant="caption"
-            weight={selected.kind === 'liked' ? 'semibold' : 'medium'}
-            style={[styles.chipLabel, selected.kind === 'liked' && styles.chipLabelSelected]}
-          >
-            Liked
-          </Text>
+          <ChipLabel text={t('deityFilter.liked')} selected={selected.kind === 'liked'} language={language} />
         </TouchableOpacity>
 
         {primaryDeities.map((deity) => (
@@ -195,25 +210,22 @@ export default function DeityFilterRow({ deities, selected, onSelect }: DeityFil
           </TouchableOpacity>
         ))}
 
-        {/* More - expand trigger for remaining deities + Others */}
-        <TouchableOpacity
-          style={styles.chipColumn}
-          onPress={() => setMoreVisible(true)}
-          activeOpacity={0.75}
-        >
-          <View style={[styles.circleWrapper, isOverflowSelected && styles.circleWrapperSelected]}>
-            <View style={[styles.circle, styles.moreCircle]}>
-              <Ionicons name="ellipsis-horizontal" size={24} color={goldenTempleTheme.colors.text.secondary} />
-            </View>
-          </View>
-          <Text
-            variant="caption"
-            weight={isOverflowSelected ? 'semibold' : 'medium'}
-            style={[styles.chipLabel, isOverflowSelected && styles.chipLabelSelected]}
+        {/* More - expand trigger for the deities beyond the first
+            MAX_INLINE_DEITIES; only shown when there are any. */}
+        {overflowDeities.length > 0 && (
+          <TouchableOpacity
+            style={styles.chipColumn}
+            onPress={() => setMoreVisible(true)}
+            activeOpacity={0.75}
           >
-            More
-          </Text>
-        </TouchableOpacity>
+            <View style={[styles.circleWrapper, isOverflowSelected && styles.circleWrapperSelected]}>
+              <View style={[styles.circle, styles.moreCircle]}>
+                <Ionicons name="ellipsis-horizontal" size={24} color={goldenTempleTheme.colors.text.secondary} />
+              </View>
+            </View>
+            <ChipLabel text={t('deityFilter.more')} selected={isOverflowSelected} language={language} />
+          </TouchableOpacity>
+        )}
       </ScrollView>
 
       <Modal
@@ -230,7 +242,7 @@ export default function DeityFilterRow({ deities, selected, onSelect }: DeityFil
           <TouchableOpacity activeOpacity={1} style={styles.modalSheet}>
             <View style={styles.modalHandle} />
             <Text variant="h4" weight="semibold" style={styles.modalTitle}>
-              More Deities
+              {t('deityFilter.moreDeities')}
             </Text>
             <ScrollView contentContainerStyle={styles.modalGrid}>
               {overflowDeities.map((deity) => (
@@ -295,6 +307,7 @@ const styles = StyleSheet.create({
     fontSize: 26,
   },
   chipLabel: {
+    width: '100%',
     color: goldenTempleTheme.colors.text.secondary,
     textAlign: 'center',
   },
