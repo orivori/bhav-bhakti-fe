@@ -16,7 +16,6 @@
     "openSettings": "Open Settings",
     "permissionReasonDownloadMedia": "Please allow access to save media to your gallery.",
     "permissionReasonSetRingtone": "Please allow access to set ringtone.",
-    "permissionReasonSetWallpaper": "Please allow access to save this to your gallery.",
     "permissionReasonDownloadWallpaper": "Please allow access to save wallpaper to your gallery.",
     "alreadySavedTitle": "Already Saved",
     "alreadySavedMessage": "This is already in your gallery, in the Bhav Bhakti album.",
@@ -361,13 +360,10 @@
   "feedCard": {
     "typeGeneral": "General",
     "typeRingtone": "Ringtone",
-    "typeWallpaper": "Wallpaper",
     "typeThought": "Thought",
     "listen": "Listen",
     "setAsRingtone": "Set as Ringtone",
     "settingRingtone": "Setting...",
-    "setAsWallpaper": "Set as Wallpaper",
-    "savingWallpaper": "Saving...",
     "likeErrorMessage": "Failed to like this. Please try again.",
     "ringtoneSavedTitle": "Ringtone Downloaded & Saved",
     "ringtoneSavedMessageAndroid": "The ringtone has been saved to your device. To set it as your ringtone:\n\n1. Go to Settings > Sounds\n2. Select Phone Ringtone\n3. Choose the downloaded file",
@@ -379,12 +375,10 @@
     "gotIt": "Got It",
     "ok": "OK",
     "ringtoneErrorMessage": "Failed to set ringtone. Please try again.",
-    "wallpaperSavedTitle": "Saved to Gallery",
-    "wallpaperSavedMessage": "Open your Gallery/Photos app and set it as your wallpaper from there.",
-    "wallpaperAlreadySavedMessage": "This is already in your gallery, in the Bhav Bhakti album. Open your Gallery/Photos app and set it as your wallpaper from there.",
-    "wallpaperErrorMessage": "Failed to save this. Please try again.",
     "premiumFeatureTitle": "Premium Feature",
-    "premiumFeatureMessage": "This will be available with Bhav Bhakti Premium. Stay tuned!"
+    "premiumFeatureMessage": "This will be available with Bhav Bhakti Premium. Stay tuned!",
+    "setAsStatus": "Set as Status",
+    "preparingStatus": "Preparing..."
   },
   "maintenance": {
     "title": "We'll be back soon",
