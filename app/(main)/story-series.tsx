@@ -238,10 +238,10 @@ const styles = StyleSheet.create({
     borderRadius: goldenTempleTheme.borderRadius.md,
     backgroundColor: goldenTempleTheme.colors.primary[50],
   },
+  // No lineHeight override: the Text atom already gives Devanagari a taller
+  // line height, and a smaller fixed value clips Hindi (CLAUDE.md §71).
   topBarTitle: {
     color: goldenTempleTheme.colors.text.primary,
-    lineHeight: 28,
-    minHeight: 28,
   },
   list: {
     flexGrow: 1,
@@ -265,30 +265,34 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  // §71 floors on every text line that can be Hindi.
+  // The header centres its content (alignItems: 'center'), which makes
+  // each text measure its own width - and Android under-measures
+  // Devanagari, cutting off the end of a Hindi line (CLAUDE.md §71).
+  // alignSelf: 'stretch' gives the title and subtitle the full width
+  // (still centred by align="center"), with any number of lines. No
+  // lineHeight overrides: the Text atom's own Devanagari line heights are
+  // taller than the fixed values these used to set, which also clipped.
   seriesTitle: {
+    alignSelf: 'stretch',
     marginTop: goldenTempleTheme.spacing.md,
     color: goldenTempleTheme.colors.text.primary,
-    lineHeight: 32,
   },
   seriesSubtitle: {
+    alignSelf: 'stretch',
     marginTop: goldenTempleTheme.spacing.xs,
+    paddingBottom: 2,
     color: goldenTempleTheme.colors.text.secondary,
-    lineHeight: 22,
   },
   episodeCount: {
+    alignSelf: 'stretch',
     marginTop: goldenTempleTheme.spacing.sm,
     color: goldenTempleTheme.colors.primary.DEFAULT,
-    lineHeight: 18,
-    minHeight: 18,
   },
   episodesHeading: {
-    alignSelf: 'flex-start',
+    alignSelf: 'stretch',
     marginTop: goldenTempleTheme.spacing.lg,
     marginBottom: goldenTempleTheme.spacing.sm,
     color: goldenTempleTheme.colors.text.primary,
-    lineHeight: 28,
-    minHeight: 28,
   },
   screenState: {
     flex: 1,
@@ -314,7 +318,5 @@ const styles = StyleSheet.create({
   },
   retryText: {
     color: '#fff',
-    lineHeight: 22,
-    minHeight: 22,
   },
 });
