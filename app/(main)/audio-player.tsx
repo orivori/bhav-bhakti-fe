@@ -813,6 +813,11 @@ export default function AudioPlayerScreen() {
   };
 
   const contentData = getContentData();
+  // The manual repeat toggle never applies to stories: episodes always
+  // auto-advance, and the story layout has no repeat button. isLooping
+  // itself is left as-is (a repeat turned on in an aarti/bhajan is still on
+  // when you go back to one) - this is what the native loop flag uses.
+  const isLoopingActive = isLooping && contentData.type !== 'stories';
   // Real product decision: the visible UI is gated on the full fetch again
   // (see the render gates below) - no piece-by-piece "pop in" of individual
   // elements. Playback itself still starts immediately from route params via
@@ -958,12 +963,12 @@ export default function AudioPlayerScreen() {
           // auto-loop is mantra's chant-counter behavior; without this gate,
           // Aarti/Bhajan (isRepeatable: false, chantCount/targetCount just
           // sitting at their unused defaults) would silently auto-loop too.
-          const shouldAutoLoop = !!contentData.isRepeatable && chantCount < targetCount && !isLooping;
+          const shouldAutoLoop = !!contentData.isRepeatable && chantCount < targetCount && !isLoopingActive;
           setIsAutoLooping(shouldAutoLoop);
           // Auto-loop always restarts manually on natural finish (see the
           // didJustFinish effect below) - it never uses the native loop
           // flag, which is reserved for the manual "repeat" toggle.
-          player.loop = shouldAutoLoop ? false : isLooping;
+          player.loop = shouldAutoLoop ? false : isLoopingActive;
           console.log(shouldAutoLoop ? '🔄 Resuming with auto-loop' : '▶️ Resuming with manual loop setting', '- Count:', chantCount, 'Target:', targetCount);
 
           player.play();
@@ -1044,7 +1049,7 @@ export default function AudioPlayerScreen() {
 
       const sourceUri = cachedUri ?? audioUrl;
 
-      player.loop = isLooping && !shouldAutoLoop; // Only the manual loop uses the native loop flag
+      player.loop = isLoopingActive && !shouldAutoLoop; // Only the manual loop uses the native loop flag (never for stories)
       player.volume = volume;
       player.shouldCorrectPitch = false;
       // playbackRate is a getter-only property at runtime - must go through
@@ -2439,13 +2444,20 @@ export default function AudioPlayerScreen() {
                   <Ionicons name="play-skip-forward" size={28} color={'#5D4E37'} />
                 </TouchableOpacity>
 
-                <TouchableOpacity onPress={toggleLoop} style={styles.bareControlButton}>
-                  <Ionicons
-                    name="repeat"
-                    size={24}
-                    color={isLooping ? '#FF5722' : '#8B7355'}
-                  />
-                </TouchableOpacity>
+                {/* No repeat for stories either (episodes always
+                    auto-advance) - the same-size empty slot mirrors the
+                    shuffle slot, so Previous/Play/Next stay centred. */}
+                {isStory ? (
+                  <View style={styles.shuffleSlotPlaceholder} />
+                ) : (
+                  <TouchableOpacity onPress={toggleLoop} style={styles.bareControlButton}>
+                    <Ionicons
+                      name="repeat"
+                      size={24}
+                      color={isLooping ? '#FF5722' : '#8B7355'}
+                    />
+                  </TouchableOpacity>
+                )}
               </View>
             </View>
 
@@ -2735,8 +2747,9 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     textAlign: 'center',
   },
-  // Same footprint as the shuffle button it replaces for stories
-  // (bareControlButton's 10px padding around a 24px icon).
+  // Same footprint as the shuffle and repeat buttons it replaces for
+  // stories (bareControlButton's 10px padding around a 24px icon), so the
+  // row's space-between keeps Previous/Play/Next centred.
   shuffleSlotPlaceholder: {
     width: 44,
     height: 44,
