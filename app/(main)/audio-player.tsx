@@ -1365,8 +1365,24 @@ export default function AudioPlayerScreen() {
   // values - useAudioPlayerStatus already re-renders this effect with fresh
   // state on every status change, so the ref reads below are a belt-and-
   // braces match for today's exact logic rather than a strict requirement.
+  //
+  // Runs once per finish. didJustFinish stays true for as long as the player
+  // sits in its ended state (expo-audio reports it as playbackState ==
+  // ENDED), and advanceQueue() below changes `queue` - one of this effect's
+  // own dependencies - so without this flag the effect re-ran, advanced the
+  // queue again, and left it ahead of the track actually opened; the
+  // queue-ownership clean-up above then cleared the queue, hiding Up Next
+  // and Next/Previous on the auto-advanced track. The flag resets as soon
+  // as the player leaves the ended state (next track loading, a mantra
+  // auto-loop restart, or a replay), so every later finish is handled.
+  const finishHandledRef = useRef(false);
   useEffect(() => {
-    if (!status.didJustFinish) return;
+    if (!status.didJustFinish) {
+      finishHandledRef.current = false;
+      return;
+    }
+    if (finishHandledRef.current) return;
+    finishHandledRef.current = true;
 
     console.log('🎵 Audio Player: Audio playback finished');
 
