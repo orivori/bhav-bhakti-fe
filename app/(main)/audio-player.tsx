@@ -294,6 +294,17 @@ const PENDING_CACHE_DOWNLOAD_SAFETY_TIMEOUT_MS = 20000;
 // miss behavior, background caching genuinely active again.
 const DIAGNOSTIC_ENABLE_BACKGROUND_CACHING = true;
 
+// Story layout (see storyLayout in the component). Must match the styles:
+// playerBody's top/bottom padding and the 16px (spacing.md) margins around
+// the cover, title block and pills row; playerBody's 20px side padding.
+const STORY_BODY_PADDING = 16;
+const PLAYER_BODY_SIDE_PADDING = 20;
+// Space between the bottom of the controls row and the top of the Up Next
+// handle (whose own 8px top padding adds to it visually).
+const STORY_UP_NEXT_GAP = 16;
+// The cover never shrinks below this, even on a very short screen.
+const STORY_MIN_COVER = 140;
+
 export default function AudioPlayerScreen() {
   const params = useLocalSearchParams();
   const feedId = params.feedId?.toString();
@@ -1277,6 +1288,48 @@ export default function AudioPlayerScreen() {
   // rest of the app session, since this screen never unmounts.
   const hasUpNext = !!queue && queue.playOrder.length > 1;
 
+  // ---- Story layout (stories only; aarti/bhajan/mantra never measure or
+  // use any of this). The cover is full width, as on aarti/bhajan, and a
+  // flexible spacer between the title and the pills keeps the pills + seek
+  // bar + controls block low, STORY_UP_NEXT_GAP above the Up Next handle.
+  // A two-line title (story titles are full sentences) takes its space from
+  // the cover only when the screen is too short for everything at full size.
+  // Every measured value is independent of the cover size, so the layout
+  // settles in one pass.
+  const [storyMeasure, setStoryMeasure] = useState<{
+    bodyHeight?: number;
+    bodyWidth?: number;
+    titleHeight?: number; // the title + subtitle block
+    pillsTop?: number; // top of the Like/Share/Speed row
+    controlsBottom?: number; // bottom of the Previous/Play/Next row
+    handleTop?: number; // top of the Up Next handle
+  }>({});
+  const measureStory = useCallback((key: keyof typeof storyMeasure, value: number) => {
+    setStoryMeasure((prev) => (prev[key] !== undefined && Math.abs(prev[key]! - value) < 0.5 ? prev : { ...prev, [key]: value }));
+  }, []);
+  const storyLayout = useMemo(() => {
+    if (!isStory) return null;
+    const { bodyHeight, bodyWidth, titleHeight, pillsTop, controlsBottom, handleTop } = storyMeasure;
+    if (bodyHeight === undefined || bodyWidth === undefined || titleHeight === undefined) return null;
+    if (pillsTop === undefined || controlsBottom === undefined) return null;
+    // Where the controls row may end: just above the Up Next handle, or -
+    // with no queue (a one-off story) - the same clearance aarti/bhajan use
+    // (playerBody's 16px bottom padding + the controls' own 40px margin).
+    const controlsLimit =
+      hasUpNext && handleTop !== undefined ? handleTop - STORY_UP_NEXT_GAP : bodyHeight - STORY_BODY_PADDING - 40;
+    // The controls row is the last element in flow, so its bottom margin is
+    // what places it at controlsLimit (the spacer above takes the slack).
+    const controlsMarginBottom = Math.max(0, bodyHeight - STORY_BODY_PADDING - controlsLimit);
+    // Everything above controlsLimit except the cover: playerBody's top
+    // padding, the cover's bottom margin, the title block's top margin and
+    // the pills row's top margin (16 each), the title block and the
+    // pills-to-controls span.
+    const coverRoom = controlsLimit - 4 * STORY_BODY_PADDING - titleHeight - (controlsBottom - pillsTop);
+    const fullWidth = bodyWidth - 2 * PLAYER_BODY_SIDE_PADDING;
+    const coverSize = Math.max(STORY_MIN_COVER, Math.min(fullWidth, coverRoom));
+    return { coverSize, controlsMarginBottom };
+  }, [isStory, hasUpNext, storyMeasure]);
+
   // Shared by handlePrevious/handleNext and the didJustFinish auto-advance
   // branch below - reuses the exact same load path any other tap into this
   // screen already uses (fetchFeedData/loadedFeedIdRef/autoPlay effect all
@@ -2206,10 +2259,27 @@ export default function AudioPlayerScreen() {
         // hidden entirely on this screen (see the useFocusEffect above).
         // SafeAreaView already handles the physical bottom safe-area inset
         // on its own; this is just a small breathing-room buffer.
-        <View style={[styles.playerBody, { paddingBottom: goldenTempleTheme.spacing.md }]}>
+        <View
+          style={[styles.playerBody, { paddingBottom: goldenTempleTheme.spacing.md }]}
+          onLayout={
+            isStory
+              ? (e) => {
+                  measureStory('bodyHeight', e.nativeEvent.layout.height);
+                  measureStory('bodyWidth', e.nativeEvent.layout.width);
+                }
+              : undefined
+          }
+        >
           {/* Visual Area - CLAUDE.md §56 Phase 2: thumbnail only now, no
-              dark scrim and no title/seek-bar overlaid on top of it. */}
-          <View style={[styles.lyricsSection, isStory && styles.lyricsSectionStory]}>
+              dark scrim and no title/seek-bar overlaid on top of it.
+              Stories: full width like aarti/bhajan, smaller only when a
+              short screen needs the room (storyLayout). */}
+          <View
+            style={[
+              styles.lyricsSection,
+              storyLayout && { width: storyLayout.coverSize, height: storyLayout.coverSize, alignSelf: 'center' },
+            ]}
+          >
             <LinearGradient
               colors={goldenTempleTheme.gradients.sunrise}
               style={styles.lyricsContainer}
@@ -2232,10 +2302,13 @@ export default function AudioPlayerScreen() {
 
           {/* Title + artist - moved below the thumbnail, same bindings as
               before (CLAUDE.md §56 Phase 2). */}
-          <View style={styles.contentHeaderTextBlock}>
+          <View
+            style={styles.contentHeaderTextBlock}
+            onLayout={isStory ? (e) => measureStory('titleHeight', e.nativeEvent.layout.height) : undefined}
+          >
             {/* Stories: up to 2 lines each, full width (CLAUDE.md §71 - a
                 self-measured Devanagari line can lose its last characters
-                on Android). The smaller story cover above makes the room. */}
+                on Android). */}
             <Text
               variant="h3"
               weight="bold"
@@ -2282,7 +2355,14 @@ export default function AudioPlayerScreen() {
               palette. Views has no onPress - it's a display-only count,
               tracked automatically on load (see togglePlayback), not a
               user action. */}
-          <View style={styles.actionPillsRow}>
+          {/* Stories: takes the slack, so the block below sits low, just
+              above Up Next, instead of leaving a gap at the bottom. */}
+          {isStory && <View style={styles.storySpacer} />}
+
+          <View
+            style={styles.actionPillsRow}
+            onLayout={isStory ? (e) => measureStory('pillsTop', e.nativeEvent.layout.y) : undefined}
+          >
             <TouchableOpacity
               onPress={handleLike}
               disabled={isLiking}
@@ -2394,7 +2474,17 @@ export default function AudioPlayerScreen() {
                unreachable in practice today (no button anywhere triggers
                showVolumeSlider), so not worth carrying into the new
                layout - still present, unchanged, in mantra's branch below. */}
-            <View style={styles.aartiBhajanControls}>
+            <View
+              style={[
+                styles.aartiBhajanControls,
+                storyLayout && { marginBottom: storyLayout.controlsMarginBottom },
+              ]}
+              onLayout={
+                isStory
+                  ? (e) => measureStory('controlsBottom', e.nativeEvent.layout.y + e.nativeEvent.layout.height)
+                  : undefined
+              }
+            >
               <View style={styles.aartiBhajanControlsRow}>
                 {/* No shuffle for stories (episodes play in order) - an empty
                     slot of the same size keeps Play centred. */}
@@ -2490,7 +2580,10 @@ export default function AudioPlayerScreen() {
                 queue (hasUpNext). */}
             {hasUpNext && (
               <GestureDetector gesture={swipeUpToOpenQueue}>
-                <View style={styles.queueSwipeHandleZone}>
+                <View
+                  style={styles.queueSwipeHandleZone}
+                  onLayout={isStory ? (e) => measureStory('handleTop', e.nativeEvent.layout.y) : undefined}
+                >
                   <Text variant="caption" weight="bold" style={styles.queueSwipeHandleLabel}>
                     {t('upNext')}
                   </Text>
@@ -2517,12 +2610,18 @@ export default function AudioPlayerScreen() {
                   same-size placeholder rather than collapsing to two
                   buttons, so Play stays centered either way. */}
               <View style={styles.mantraControlsRow}>
+                {/* Speed: the story speed pill's speedometer icon on top,
+                    the speed below - same 80x80 round button, same tap. */}
                 <TouchableOpacity
                   onPress={togglePlaybackSpeed}
                   style={styles.roundControlButton}
                   activeOpacity={0.7}
+                  accessibilityLabel={`${playbackSpeed}x`}
                 >
-                  <Text weight="semibold" style={styles.speedText}>{playbackSpeed}x</Text>
+                  <Ionicons name="speedometer-outline" size={24} color="#5D4E37" />
+                  <Text weight="semibold" style={styles.speedText} numberOfLines={1}>
+                    {playbackSpeed}x
+                  </Text>
                 </TouchableOpacity>
 
                 {/* Play/Pause - restored to the original 80x80 orange-
@@ -2741,13 +2840,12 @@ const styles = StyleSheet.create({
     textAlign: 'left',
   },
   // ---- Stories only (isStory). A story's title and subtitle are full
-  // sentences, so they get two lines each; the cover is 80% wide (centred)
-  // to pay for that space, so the whole layout is never taller than an
-  // aarti/bhajan screen. alignSelf: 'stretch' gives the text the full width
-  // instead of a self-measured one (CLAUDE.md §71).
-  lyricsSectionStory: {
-    width: '80%',
-    alignSelf: 'center',
+  // sentences, so they get two lines each; the cover stays full width and
+  // only shrinks when a short screen needs the room (storyLayout in the
+  // component). alignSelf: 'stretch' gives the text the full width instead
+  // of a self-measured one (CLAUDE.md §71).
+  storySpacer: {
+    flex: 1,
   },
   storyTextFullWidth: {
     alignSelf: 'stretch',
@@ -2927,10 +3025,15 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: designSystemTheme.colors.primary,
   },
-  // Bumped from 16 to fit proportionately inside the larger 80px button
-  // (sizing correction) rather than looking lost/undersized at its center.
+  // Under the speedometer icon in the 80px round button. minWidth and
+  // lineHeight are floors (CLAUDE.md §71) so the widest labels, "1.25x" and
+  // "0.75x" (~45px at this size), are never self-measured short and cut.
   speedText: {
-    fontSize: 20,
+    fontSize: 15,
+    lineHeight: 20,
+    minWidth: 60,
+    marginTop: 2,
+    textAlign: 'center',
     fontWeight: '600',
     color: '#5D4E37',
   },
