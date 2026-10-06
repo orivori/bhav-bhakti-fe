@@ -42,15 +42,16 @@ export function recordSessionStartForRetention(): void {
 // - this still lets Rashifal's specific role be analyzed later (by filtering
 // this parameter for 'rashifal'), without discarding what everyone else's
 // first action actually was:
-// - a bottom-nav tab press for mantra/audio/wallpapers/rashifal (see
+// - a bottom-nav tab press for mantra/audio/wallpapers/stories (see
 //   app/(main)/_layout.tsx) -> resolves with that tab's own name. Symmetric
 //   across all four - the tab press itself IS "the actual, specific first
 //   thing tapped," with no special-casing for any one destination.
 // - rashifal_viewed (horoscope-detail.tsx's mount effect) -> resolves
-//   'rashifal' too, as a second path covering Home's daily-horoscope card,
-//   the one real Rashifal entry point that bypasses the tab bar entirely. If
-//   the Rashifal tab itself was pressed first, this call arrives after and
-//   is a safe no-op (pendingReopenDays is already null by then).
+//   'rashifal' too. Since 2026-10-06 it's Rashifal's only path: Stories
+//   took Rashifal's tab slot, so Rashifal is opened from Home (quick link,
+//   daily-horoscope card) or a push, never from the tab bar. If something
+//   else resolved first, this call is a safe no-op (pendingReopenDays is
+//   already null by then).
 // - Home is deliberately excluded from resolving anything - it's the
 //   automatic landing screen, not a deliberate choice (same reasoning as
 //   first_navigation_choice's identical Home exclusion).
@@ -60,7 +61,7 @@ export function recordSessionStartForRetention(): void {
 // value - Firebase events can't be updated after being sent. Real trade-off,
 // accepted deliberately: a reopen where the user closes the app again before
 // taking any resolving action never gets logged at all, rather than guessing.
-export function resolvePendingAppReopened(firstAction: 'rashifal' | 'mantra' | 'audio' | 'wallpapers'): void {
+export function resolvePendingAppReopened(firstAction: 'rashifal' | 'mantra' | 'audio' | 'wallpapers' | 'stories'): void {
   const { pendingReopenDays, setPendingReopenDays } = useRetentionTrackingStore.getState();
   if (pendingReopenDays === null) return;
 

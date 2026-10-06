@@ -7,8 +7,7 @@ import HomeIcon from '../../assets/icons/home.svg';
 import MantraIcon from '../../assets/icons/om.svg';
 import AudioIcon from '../../assets/icons/audio.svg';
 import WallpapersIcon from '../../assets/icons/sun_solid.svg';
-// TEMPORARY: Rashifal is borrowing sun.svg until this tab becomes Stories.
-import RashifalIcon from '../../assets/icons/sun.svg';
+import StoriesIcon from '../../assets/icons/stories.svg';
 import { logFirstNavigationChoiceIfNewUser } from '@/utils/analytics/activationEvents';
 import { logHeroMenuClicked } from '@/utils/analytics/engagementEvents';
 import { resolvePendingAppReopened } from '@/utils/analytics/retentionEvents';
@@ -126,13 +125,17 @@ export default function MainLayout() {
           },
         }}
       />
+      {/* Stories took Rashifal's tab slot (Bhav_Bhakti_Stories_Plan.md,
+          section 6). Rashifal's screens stay, hidden below: Home's Rashifal
+          quick link and daily-horoscope card, and the daily push, still
+          open them. */}
       <Tabs.Screen
-        name="horoscope"
+        name="stories"
         options={{
-          title: t('tabs.rashifal'),
+          title: t('tabs.stories'),
           headerShown: false,
           tabBarIcon: ({ size, focused }) => (
-            <RashifalIcon
+            <StoriesIcon
               width={size}
               height={size}
               fill={focused ? '#FF6B00' : '#666666'}
@@ -141,10 +144,24 @@ export default function MainLayout() {
         }}
         listeners={{
           tabPress: () => {
-            logHeroMenuClicked({ tab_name: 'rashifal' });
-            logFirstNavigationChoiceIfNewUser('rashifal');
-            resolvePendingAppReopened('rashifal');
+            logHeroMenuClicked({ tab_name: 'stories' });
+            logFirstNavigationChoiceIfNewUser('stories');
+            resolvePendingAppReopened('stories');
           },
+        }}
+      />
+      <Tabs.Screen
+        name="horoscope"
+        options={{
+          href: null, // No longer a tab (Stories took its slot) - opened from Home
+          headerShown: false,
+        }}
+      />
+      <Tabs.Screen
+        name="story-series"
+        options={{
+          href: null, // Hide from tabs - opened from a series tile on Stories
+          headerShown: false,
         }}
       />
       <Tabs.Screen
