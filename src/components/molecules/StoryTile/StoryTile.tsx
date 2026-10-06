@@ -54,7 +54,8 @@ export default function StoryTile({ feed, width, onPress }: StoryTileProps) {
         </View>
       </View>
       {/* minHeight keeps tiles in a row aligned whether a title takes one
-          line or two; lineHeight floors per CLAUDE.md §71 (Devanagari). */}
+          line or two. lineHeight 24 matches the Text atom's Devanagari
+          value at this size, so Hindi isn't clipped (CLAUDE.md §71). */}
       <Text variant="body" weight="semibold" style={styles.title} numberOfLines={2}>
         {title}
       </Text>
@@ -101,12 +102,12 @@ const styles = StyleSheet.create({
     marginTop: goldenTempleTheme.spacing.sm,
     color: '#1A1A1A',
     fontSize: 15,
-    lineHeight: 22,
-    minHeight: 44,
+    lineHeight: 24,
+    minHeight: 48,
   },
+  // No lineHeight override - see the title comment; "8 एपिसोड" needs the
+  // atom's taller Devanagari line.
   label: {
     color: goldenTempleTheme.colors.text.secondary,
-    lineHeight: 18,
-    minHeight: 18,
   },
 });

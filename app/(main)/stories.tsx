@@ -150,10 +150,10 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(0, 0, 0, 0.1)',
   },
+  // No lineHeight override: the Text atom already gives Devanagari a taller
+  // line height, and a smaller fixed value clips Hindi (CLAUDE.md §71).
   headerTitle: {
     color: goldenTempleTheme.colors.text.primary,
-    lineHeight: 32,
-    minHeight: 32,
   },
   list: {
     flexGrow: 1,
@@ -180,7 +180,6 @@ const styles = StyleSheet.create({
   },
   stateHint: {
     color: goldenTempleTheme.colors.text.secondary,
-    lineHeight: 18,
   },
   retryButton: {
     marginTop: goldenTempleTheme.spacing.sm,
@@ -191,8 +190,6 @@ const styles = StyleSheet.create({
   },
   retryText: {
     color: '#fff',
-    lineHeight: 22,
-    minHeight: 22,
   },
   footer: {
     paddingVertical: goldenTempleTheme.spacing.lg,

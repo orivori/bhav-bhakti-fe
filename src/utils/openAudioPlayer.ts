@@ -20,7 +20,15 @@ export function toQueueItem(feed: Feed, language: string): QueueItem {
   const audioUrl = isAudio ? feed.url || '' : '';
   const thumbnailUrl = isAudio ? getFeedThumbnailUrl(feed) ?? undefined : undefined;
 
-  return { feedId: feed.id.toString(), title, audioUrl, thumbnailUrl, type: feed.type, isRepeatable: feed.isRepeatable };
+  return {
+    feedId: feed.id.toString(),
+    title,
+    audioUrl,
+    thumbnailUrl,
+    type: feed.type,
+    isRepeatable: feed.isRepeatable,
+    ...(feed.episodeNumber ? { episodeNumber: feed.episodeNumber } : {}),
+  };
 }
 
 interface OpenAudioPlayerOptions {

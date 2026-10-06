@@ -1047,7 +1047,12 @@ export default function AudioPlayerScreen() {
       player.loop = isLooping && !shouldAutoLoop; // Only the manual loop uses the native loop flag
       player.volume = volume;
       player.shouldCorrectPitch = false;
-      player.setPlaybackRate(playbackSpeed); // playbackRate is a getter-only property at runtime - must go through setPlaybackRate()
+      // playbackRate is a getter-only property at runtime - must go through
+      // setPlaybackRate(). The chosen speed only applies where a speed
+      // control is on screen (mantra, stories); aarti/bhajan have none, so
+      // they always load at 1x instead of inheriting a story's 1.5x.
+      const hasSpeedControl = contentData.type !== 'aarti' && contentData.type !== 'bhajan';
+      player.setPlaybackRate(hasSpeedControl ? playbackSpeed : 1.0);
 
       // Declared at load time so the native MediaItem - and therefore the
       // system lock screen - starts with correct data instead of empty.
@@ -1248,7 +1253,12 @@ export default function AudioPlayerScreen() {
   // queue (Phase 3 never calls setQueue for it), so gating on type alone -
   // rather than on `queue` being present - is what keeps this hidden for
   // mantra even in a hypothetical future where queue ends up non-null there.
-  const showTrackNav = contentData.type === 'aarti' || contentData.type === 'bhajan';
+  // Stories (series episodes, Stories plan phase 5) share this layout: Next/
+  // Previous, auto-advance and Up Next. Differences are keyed on isStory:
+  // no shuffle, the speed pill in place of views, and a smaller cover with
+  // two-line title/subtitle (story titles are full sentences).
+  const isStory = contentData.type === 'stories';
+  const showTrackNav = contentData.type === 'aarti' || contentData.type === 'bhajan' || isStory;
   const canGoPrevious = !!queue && queue.position > 0;
   const canGoNext = !!queue && queue.position < queue.playOrder.length - 1;
   // "Up Next" only exists when there's a queue with something besides the
@@ -2178,7 +2188,7 @@ export default function AudioPlayerScreen() {
         <View style={[styles.playerBody, { paddingBottom: goldenTempleTheme.spacing.md }]}>
           {/* Visual Area - CLAUDE.md §56 Phase 2: thumbnail only now, no
               dark scrim and no title/seek-bar overlaid on top of it. */}
-          <View style={styles.lyricsSection}>
+          <View style={[styles.lyricsSection, isStory && styles.lyricsSectionStory]}>
             <LinearGradient
               colors={goldenTempleTheme.gradients.sunrise}
               style={styles.lyricsContainer}
@@ -2202,12 +2212,16 @@ export default function AudioPlayerScreen() {
           {/* Title + artist - moved below the thumbnail, same bindings as
               before (CLAUDE.md §56 Phase 2). */}
           <View style={styles.contentHeaderTextBlock}>
+            {/* Stories: up to 2 lines each, full width (CLAUDE.md §71 - a
+                self-measured Devanagari line can lose its last characters
+                on Android). The smaller story cover above makes the room. */}
             <Text
               variant="h3"
               weight="bold"
-              numberOfLines={1}
+              numberOfLines={isStory ? 2 : 1}
               style={[
                 styles.contentTitleCompact,
+                isStory && styles.storyTextFullWidth,
                 // Screen-scoped tightening only - doesn't touch the shared
                 // Text atom's Devanagari heading padding, which stays
                 // generous everywhere else in the app. `style` is the last
@@ -2225,7 +2239,12 @@ export default function AudioPlayerScreen() {
                 "artist" field; the InfoSheet that used to also show it was
                 removed as mantra-only dead weight once its one trigger
                 (the header info icon) was removed. */}
-            <Text numberOfLines={1} style={styles.contentSubtitleCompact}>{contentData.artist}</Text>
+            <Text
+              numberOfLines={isStory ? 2 : 1}
+              style={[styles.contentSubtitleCompact, isStory && styles.storySubtitle]}
+            >
+              {contentData.artist}
+            </Text>
           </View>
 
           {/* Action pills row - structure only, reserved for Phase 3's full
@@ -2274,14 +2293,30 @@ export default function AudioPlayerScreen() {
               )}
             </TouchableOpacity>
 
-            <View style={styles.actionPill}>
-              <Ionicons name="eye-outline" size={24} color="#8B7355" />
-              {!!currentFeedData?.viewsCount && (
-                <Text variant="caption" style={styles.actionPillText}>
-                  {formatCount(currentFeedData.viewsCount)}
+            {/* Stories: the playback-speed control takes the Views pill's
+                place (same speeds as mantra's round Speed button). */}
+            {isStory ? (
+              <TouchableOpacity
+                onPress={togglePlaybackSpeed}
+                style={styles.actionPill}
+                activeOpacity={0.7}
+                accessibilityLabel={`${playbackSpeed}x`}
+              >
+                <Ionicons name="speedometer-outline" size={22} color="#8B7355" />
+                <Text variant="caption" style={[styles.actionPillText, styles.speedPillText]}>
+                  {playbackSpeed}x
                 </Text>
-              )}
-            </View>
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.actionPill}>
+                <Ionicons name="eye-outline" size={24} color="#8B7355" />
+                {!!currentFeedData?.viewsCount && (
+                  <Text variant="caption" style={styles.actionPillText}>
+                    {formatCount(currentFeedData.viewsCount)}
+                  </Text>
+                )}
+              </View>
+            )}
           </View>
 
           {/* Seek bar + time labels - moved below the pills, no longer
@@ -2340,12 +2375,18 @@ export default function AudioPlayerScreen() {
                layout - still present, unchanged, in mantra's branch below. */}
             <View style={styles.aartiBhajanControls}>
               <View style={styles.aartiBhajanControlsRow}>
-                <TouchableOpacity
-                  onPress={() => usePlaybackStore.getState().toggleShuffle()}
-                  style={styles.bareControlButton}
-                >
-                  <Ionicons name="shuffle" size={24} color={queue?.isShuffled ? '#FF5722' : '#5D4E37'} />
-                </TouchableOpacity>
+                {/* No shuffle for stories (episodes play in order) - an empty
+                    slot of the same size keeps Play centred. */}
+                {isStory ? (
+                  <View style={styles.shuffleSlotPlaceholder} />
+                ) : (
+                  <TouchableOpacity
+                    onPress={() => usePlaybackStore.getState().toggleShuffle()}
+                    style={styles.bareControlButton}
+                  >
+                    <Ionicons name="shuffle" size={24} color={queue?.isShuffled ? '#FF5722' : '#5D4E37'} />
+                  </TouchableOpacity>
+                )}
 
                 <TouchableOpacity
                   onPress={handlePrevious}
@@ -2670,6 +2711,35 @@ const styles = StyleSheet.create({
     color: '#8B7355',
     marginTop: 2,
     textAlign: 'left',
+  },
+  // ---- Stories only (isStory). A story's title and subtitle are full
+  // sentences, so they get two lines each; the cover is 80% wide (centred)
+  // to pay for that space, so the whole layout is never taller than an
+  // aarti/bhajan screen. alignSelf: 'stretch' gives the text the full width
+  // instead of a self-measured one (CLAUDE.md §71).
+  lyricsSectionStory: {
+    width: '80%',
+    alignSelf: 'center',
+  },
+  storyTextFullWidth: {
+    alignSelf: 'stretch',
+  },
+  // No lineHeight here: the Text atom's Devanagari value (24) is taller
+  // than anything fixed would be, and smaller clips Hindi (CLAUDE.md §71).
+  storySubtitle: {
+    alignSelf: 'stretch',
+  },
+  // Fixed width so the pill row doesn't shift as the label goes 1x -> 0.75x.
+  speedPillText: {
+    minWidth: 40,
+    lineHeight: 20,
+    textAlign: 'center',
+  },
+  // Same footprint as the shuffle button it replaces for stories
+  // (bareControlButton's 10px padding around a 24px icon).
+  shuffleSlotPlaceholder: {
+    width: 44,
+    height: 44,
   },
   // Evenly distributed across the full row width - matches
   // AutoplayFeedCard's footer technique exactly: space-between with

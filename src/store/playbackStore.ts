@@ -72,6 +72,10 @@ export interface QueueItem {
   // 'mantra' default, same as before this existed.
   type?: Feed['type'];
   isRepeatable?: boolean;
+  // Story episodes only - shown in front of the title in the Up Next list
+  // (every episode of a series shares one cover, so the number is what
+  // tells the rows apart).
+  episodeNumber?: number;
 }
 
 // originalItems + playOrder (a permutation of indices into originalItems),

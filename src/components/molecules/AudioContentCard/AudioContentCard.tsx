@@ -205,9 +205,9 @@ const styles = StyleSheet.create({
     flex: 1,
     color: '#1A1A1A',
   },
-  // Story episodes only (see the episodeNumber/detail props). Explicit
-  // minWidth/lineHeight floors, per CLAUDE.md §71: Android mis-measures
-  // Devanagari text without them.
+  // Story episodes only (see the episodeNumber/detail props). minWidth floor
+  // per CLAUDE.md §71; the Hindi title keeps the Text atom's own (taller)
+  // Devanagari line height - a smaller fixed one clips it.
   episodeNumber: {
     minWidth: 22,
     fontSize: 16,
@@ -219,8 +219,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   titleInBlock: {
+    alignSelf: 'stretch',
     color: '#1A1A1A',
-    lineHeight: 22,
   },
   detail: {
     marginTop: 2,

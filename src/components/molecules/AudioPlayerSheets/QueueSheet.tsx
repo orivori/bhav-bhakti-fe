@@ -59,12 +59,16 @@ export const QueueSheet = forwardRef<BottomSheetModal, QueueSheetProps>(
               </View>
             )}
 
+            {/* Story episodes: number in front, and up to 2 lines (story
+                titles are long; no lineHeight override, so Hindi keeps the
+                Text atom's taller Devanagari line - CLAUDE.md §71). Every
+                other row is unchanged. */}
             <Text
-              numberOfLines={1}
+              numberOfLines={item.episodeNumber ? 2 : 1}
               weight={isActive ? 'bold' : 'normal'}
               style={[styles.title, isActive && styles.titleActive]}
             >
-              {item.title}
+              {item.episodeNumber ? `${item.episodeNumber}. ${item.title}` : item.title}
             </Text>
 
             {isActive && (
