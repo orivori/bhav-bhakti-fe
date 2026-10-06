@@ -1277,7 +1277,7 @@ export default function AudioPlayerScreen() {
         feedId: item.feedId,
         title: item.title,
         // encodeURIComponent: item.audioUrl/thumbnailUrl (from
-        // AudioContentCard's resolveQueueItem) are Firebase Storage URLs
+        // openAudioPlayer.ts's toQueueItem) are Firebase Storage URLs
         // already containing their own legitimate %2F/%20 sequences -
         // useLocalSearchParams() unconditionally decodeURIComponent's every
         // string param once on the way out, with no matching encode ever
@@ -1288,7 +1288,7 @@ export default function AudioPlayerScreen() {
         audioUrl: encodeURIComponent(item.audioUrl),
         thumbnailUrl: encodeURIComponent(item.thumbnailUrl || ''),
         // Forwards QueueItem's own type/isRepeatable (populated by
-        // AudioContentCard's resolveQueueItem) so a Next/Previous hop, like
+        // openAudioPlayer.ts's toQueueItem) so a Next/Previous hop, like
         // every other entry point, renders the correct control layout from
         // the first frame instead of a momentary mantra-layout flash - see
         // CLAUDE.md's playback-switch flash fix. Omitted entirely (not sent

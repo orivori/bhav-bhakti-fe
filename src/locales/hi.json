@@ -37,7 +37,8 @@
     "mantra": "मंत्र",
     "audio": "ऑडियो",
     "wallpapers": "वॉलपेपर",
-    "rashifal": "राशिफल"
+    "rashifal": "राशिफल",
+    "stories": "कहानियाँ"
   },
   "home": {
     "title": "होम",
@@ -349,7 +350,8 @@
     "preparingStatus": "तैयार हो रहा है...",
     "ringtoneSaveTitle": "रिंगटोन सहेजी गई",
     "ringtoneSaveMessage": "\"{{name}}\" नाम से सहेजी गई। सेट करने के लिए साउंड सेटिंग्स → फ़ोन रिंगटोन खोलें और सूची से इसे चुनें। अगर यह सूची में न दिखे, तो जोड़ें (+) पर टैप करें और Music → Ringtones में देखें।",
-    "ringtoneAlreadySavedMessage": "यह रिंगटोन पहले से आपके फ़ोन में \"{{name}}\" नाम से है। इसे सेट करने के लिए साउंड सेटिंग्स → फ़ोन रिंगटोन खोलें।"
+    "ringtoneAlreadySavedMessage": "यह रिंगटोन पहले से आपके फ़ोन में \"{{name}}\" नाम से है। इसे सेट करने के लिए साउंड सेटिंग्स → फ़ोन रिंगटोन खोलें।",
+    "typeStory": "कहानी"
   },
   "maintenance": {
     "title": "हम जल्द ही वापस आएंगे",
@@ -362,5 +364,17 @@
     "liked": "पसंदीदा",
     "more": "और",
     "moreDeities": "और देवी-देवता"
+  },
+  "stories": {
+    "title": "कहानियाँ",
+    "episodeCountOne": "1 एपिसोड",
+    "episodeCountOther": "{{count}} एपिसोड",
+    "empty": "अभी कोई कहानी नहीं है",
+    "emptyHint": "नई कहानियाँ जल्द आ रही हैं।",
+    "loadError": "कहानियाँ लोड नहीं हो सकीं",
+    "seriesLoadError": "यह कथा-श्रृंखला लोड नहीं हो सकी",
+    "seriesUnavailable": "यह कथा-श्रृंखला अभी उपलब्ध नहीं है",
+    "noEpisodes": "अभी कोई एपिसोड नहीं है",
+    "episodesHeading": "एपिसोड"
   }
 }

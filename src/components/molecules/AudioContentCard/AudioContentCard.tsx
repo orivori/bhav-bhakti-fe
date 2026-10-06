@@ -1,29 +1,13 @@
 import React, { useCallback } from 'react';
 import { View, StyleSheet, TouchableOpacity, Image, GestureResponderEvent } from 'react-native';
-import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Text } from '@/components/atoms';
 import { Feed } from '@/types/feed';
 import { useI18nStore } from '@/shared/stores/i18nStore';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { designSystemTheme } from '@/styles/designSystemTheme';
-import { usePlaybackStore, QueueItem } from '@/store/playbackStore';
-import { getFeedSubtitle, getFeedThumbnailUrl } from '@/utils/feedFields';
-import { newPlayRequestId } from '@/utils/playRequest';
-
-// Shared by both this card's own display fields and the queue-item mapping
-// in handlePress below - kept as one function so a list of N cards resolving
-// title/audio/thumbnail for themselves and handlePress resolving the same
-// fields for all N feeds (to seed the queue) can never drift apart into two
-// slightly different definitions of "this feed's title."
-const resolveQueueItem = (feed: Feed, language: string): QueueItem => {
-  const title = feed.title?.[language] || feed.title?.en || getFeedSubtitle(feed, language) || 'Untitled';
-  const isAudio = feed.mediaType === 'audio';
-  const audioUrl = isAudio ? feed.url || '' : '';
-  const thumbnailUrl = isAudio ? getFeedThumbnailUrl(feed) ?? undefined : undefined;
-
-  return { feedId: feed.id.toString(), title, audioUrl, thumbnailUrl, type: feed.type, isRepeatable: feed.isRepeatable };
-};
+import { usePlaybackStore } from '@/store/playbackStore';
+import { openAudioPlayer, toQueueItem } from '@/utils/openAudioPlayer';
 
 interface AudioContentCardProps {
   feed: Feed;
@@ -57,6 +41,12 @@ interface AudioContentCardProps {
   // fully-built handleLike sitting unused in useAudioFeed, just never wired
   // into this card until now.
   onLike?: (feedId: string) => void;
+  // Story episodes (story-series.tsx): a leading episode number, a second
+  // line under the title (e.g. the duration), and no Like button. All three
+  // are off by default, so every other caller looks exactly as before.
+  episodeNumber?: number | null;
+  detail?: string | null;
+  showLike?: boolean;
 }
 
 // Deliberately basic, unlike RingtoneFeedCard - functional first, no design
@@ -65,10 +55,21 @@ interface AudioContentCardProps {
 // survives backgrounding, shows in the MiniPlayer), so tapping this card
 // navigates into the shared audio-player.tsx screen rather than playing
 // in-list, matching how mantra cards already behave.
-export default function AudioContentCard({ feed, subTab, queueItems, queueIndex, returnTo, returnParams, onLike }: AudioContentCardProps) {
+export default function AudioContentCard({
+  feed,
+  subTab,
+  queueItems,
+  queueIndex,
+  returnTo,
+  returnParams,
+  onLike,
+  episodeNumber,
+  detail,
+  showLike = true,
+}: AudioContentCardProps) {
   const { language } = useI18nStore();
 
-  const { title, audioUrl, thumbnailUrl } = resolveQueueItem(feed, language);
+  const { title, thumbnailUrl } = toQueueItem(feed, language);
 
   // Same feedId-based, narrow read-only selectors already proven safe in
   // MantraFeedCard - works identically here since audio-player.tsx
@@ -81,59 +82,20 @@ export default function AudioContentCard({ feed, subTab, queueItems, queueIndex,
   const nowPlayingIsPlaying = usePlaybackStore((s) => s.persistent?.nowPlaying.isPlaying);
   const isCurrentlyPlaying = nowPlayingFeedId === feed.id.toString() && !!nowPlayingIsPlaying;
 
+  // Seeds the queue (only when the caller passed a real one - mantra entry
+  // points and mixed lists like search results deliberately stay
+  // queue-less, see playbackStore.ts's `queue` field comment) and opens the
+  // player - see openAudioPlayer.
   const handlePress = useCallback(() => {
-    // Seed the queue from the full list as it stands right now, before
-    // navigating - only when the caller actually passed a real queue.
-    // Mantra entry points (mantras.tsx, index.tsx, search-results.tsx)
-    // deliberately never call this either, so mantra playback stays
-    // queue-less (see playbackStore.ts's `queue` field comment); this
-    // component now follows the same rule when it's used somewhere the
-    // list isn't a meaningful playback queue.
-    if (queueItems && queueIndex !== undefined) {
-      usePlaybackStore.getState().setQueue(
-        queueItems.map((item) => resolveQueueItem(item, language)),
-        queueIndex
-      );
-    }
-
-    const effectiveReturnTo = returnTo ?? '/(main)/ringtones';
-    const effectiveReturnParams = returnParams ?? (subTab ? { subTab } : undefined);
-
-    router.push({
-      pathname: '/(main)/audio-player',
-      params: {
-        feedId: feed.id.toString(),
-        title,
-        // encodeURIComponent: audioUrl/thumbnailUrl (from resolveQueueItem,
-        // above) are Firebase Storage URLs already containing their own
-        // legitimate %2F/%20 sequences - useLocalSearchParams() on the other
-        // side unconditionally decodeURIComponent's every string param once,
-        // with no matching encode ever applied on the way in, which silently
-        // corrupts the URL (%2F -> literal /) without this - see CLAUDE.md's
-        // route-param URL corruption investigation. resolveQueueItem's own
-        // return value is deliberately left RAW (not encoded) since
-        // QueueSheet.tsx renders item.thumbnailUrl directly as an <Image>
-        // source - only the two places that actually build route params
-        // (here, and audio-player.tsx's navigateToQueueItem) encode.
-        audioUrl: encodeURIComponent(audioUrl),
-        thumbnailUrl: encodeURIComponent(thumbnailUrl || ''),
-        // Lets audio-player.tsx render the correct control layout (aarti/
-        // bhajan track-nav vs. mantra counter) from the first frame, instead
-        // of defaulting to mantra until its own fetch resolves - see
-        // CLAUDE.md's playback-switch flash fix.
-        type: feed.type,
-        isRepeatable: feed.isRepeatable ? 'true' : 'false',
-        autoPlay: 'true',
-        // New on every tap - see newPlayRequestId.
-        playRequestId: newPlayRequestId(),
-        // See audio-player.tsx's back-button handling: without these, back
-        // falls through to router.back(), which is the known bug (always
-        // lands on Home regardless of where the user actually came from).
-        returnTo: effectiveReturnTo,
-        ...(effectiveReturnParams ? { returnParams: JSON.stringify(effectiveReturnParams) } : {}),
-      },
+    openAudioPlayer({
+      feed,
+      language,
+      queueItems,
+      queueIndex,
+      returnTo: returnTo ?? '/(main)/ringtones',
+      returnParams: returnParams ?? (subTab ? { subTab } : undefined),
     });
-  }, [feed.id, title, audioUrl, thumbnailUrl, subTab, queueItems, queueIndex, language, returnTo, returnParams]);
+  }, [feed, subTab, queueItems, queueIndex, language, returnTo, returnParams]);
 
   // Same stopPropagation-then-delegate pattern as MantraFeedCard's own
   // handleLike - the whole card is itself a TouchableOpacity that navigates
@@ -149,6 +111,11 @@ export default function AudioContentCard({ feed, subTab, queueItems, queueIndex,
       onPress={handlePress}
       activeOpacity={0.8}
     >
+      {episodeNumber != null && (
+        <Text weight="bold" style={styles.episodeNumber}>
+          {episodeNumber}
+        </Text>
+      )}
       {thumbnailUrl ? (
         <Image source={{ uri: thumbnailUrl }} style={styles.thumbnail} />
       ) : (
@@ -161,25 +128,43 @@ export default function AudioContentCard({ feed, subTab, queueItems, queueIndex,
           trailing icon - removed from all three feed cards (this one,
           MantraFeedCard, RingtoneFeedCard has no such indicator to begin
           with); QueueSheet's own icon is unaffected. */}
-      <Text
-        variant="body"
-        weight={isCurrentlyPlaying ? 'bold' : 'medium'}
-        style={[styles.title, isCurrentlyPlaying && styles.titlePlaying]}
-        numberOfLines={2}
-      >
-        {title}
-      </Text>
+      {detail ? (
+        <View style={styles.titleBlock}>
+          <Text
+            variant="body"
+            weight={isCurrentlyPlaying ? 'bold' : 'medium'}
+            style={[styles.titleInBlock, isCurrentlyPlaying && styles.titlePlaying]}
+            numberOfLines={2}
+          >
+            {title}
+          </Text>
+          <Text variant="caption" style={styles.detail} numberOfLines={1}>
+            {detail}
+          </Text>
+        </View>
+      ) : (
+        <Text
+          variant="body"
+          weight={isCurrentlyPlaying ? 'bold' : 'medium'}
+          style={[styles.title, isCurrentlyPlaying && styles.titlePlaying]}
+          numberOfLines={2}
+        >
+          {title}
+        </Text>
+      )}
       <Ionicons name="play-circle" size={30} color={goldenTempleTheme.colors.primary.DEFAULT} />
       {/* Same icon/color logic as MantraFeedCard's Like button - sized
           (22px) and unboxed to match this card's own bare-icon Play
           treatment, rather than MantraFeedCard's boxed circular button. */}
-      <TouchableOpacity onPress={handleLike} activeOpacity={0.7} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-        <Ionicons
-          name={feed.isLiked ? 'heart' : 'heart-outline'}
-          size={22}
-          color={feed.isLiked ? '#e91e63' : goldenTempleTheme.colors.text.secondary}
-        />
-      </TouchableOpacity>
+      {showLike && (
+        <TouchableOpacity onPress={handleLike} activeOpacity={0.7} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <Ionicons
+            name={feed.isLiked ? 'heart' : 'heart-outline'}
+            size={22}
+            color={feed.isLiked ? '#e91e63' : goldenTempleTheme.colors.text.secondary}
+          />
+        </TouchableOpacity>
+      )}
     </TouchableOpacity>
   );
 }
@@ -219,6 +204,29 @@ const styles = StyleSheet.create({
   title: {
     flex: 1,
     color: '#1A1A1A',
+  },
+  // Story episodes only (see the episodeNumber/detail props). Explicit
+  // minWidth/lineHeight floors, per CLAUDE.md §71: Android mis-measures
+  // Devanagari text without them.
+  episodeNumber: {
+    minWidth: 22,
+    fontSize: 16,
+    lineHeight: 22,
+    textAlign: 'center',
+    color: designSystemTheme.colors.primary,
+  },
+  titleBlock: {
+    flex: 1,
+  },
+  titleInBlock: {
+    color: '#1A1A1A',
+    lineHeight: 22,
+  },
+  detail: {
+    marginTop: 2,
+    lineHeight: 18,
+    minHeight: 18,
+    color: goldenTempleTheme.colors.text.secondary,
   },
   // Matches QueueSheet's titleActive exactly (bold + terracotta).
   titlePlaying: {

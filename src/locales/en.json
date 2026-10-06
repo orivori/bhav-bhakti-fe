@@ -37,7 +37,8 @@
     "mantra": "Mantra",
     "audio": "Audio",
     "wallpapers": "Wallpapers",
-    "rashifal": "Rashifal"
+    "rashifal": "Rashifal",
+    "stories": "Stories"
   },
   "home": {
     "title": "Home",
@@ -379,7 +380,8 @@
     "preparingStatus": "Preparing...",
     "ringtoneSaveTitle": "Ringtone saved",
     "ringtoneSaveMessage": "Saved as \"{{name}}\". To set it, open Sound settings → Phone ringtone and choose it from the list. If it isn't listed, tap Add (+) and look in Music → Ringtones.",
-    "ringtoneAlreadySavedMessage": "This ringtone is already on your phone as \"{{name}}\". Open Sound settings → Phone ringtone to set it."
+    "ringtoneAlreadySavedMessage": "This ringtone is already on your phone as \"{{name}}\". Open Sound settings → Phone ringtone to set it.",
+    "typeStory": "Story"
   },
   "maintenance": {
     "title": "We'll be back soon",
@@ -392,5 +394,17 @@
     "liked": "Liked",
     "more": "More",
     "moreDeities": "More Deities"
+  },
+  "stories": {
+    "title": "Stories",
+    "episodeCountOne": "1 episode",
+    "episodeCountOther": "{{count}} episodes",
+    "empty": "No stories yet",
+    "emptyHint": "New stories are on their way.",
+    "loadError": "Couldn't load stories",
+    "seriesLoadError": "Couldn't load this series",
+    "seriesUnavailable": "This series isn't available right now",
+    "noEpisodes": "No episodes yet",
+    "episodesHeading": "Episodes"
   }
 }

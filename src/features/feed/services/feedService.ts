@@ -50,6 +50,7 @@ class FeedService {
     if (params.sortOrder) queryParams.append('sortOrder', params.sortOrder);
     if (params.seed) queryParams.append('seed', params.seed);
     if (params.createdBy) queryParams.append('createdBy', params.createdBy);
+    if (params.seriesId) queryParams.append('seriesId', params.seriesId.toString());
 
     // Handle tags array
     if (params.tags && params.tags.length > 0) {

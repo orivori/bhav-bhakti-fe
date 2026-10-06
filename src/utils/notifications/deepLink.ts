@@ -36,6 +36,7 @@ const ALLOWED_DEEP_LINK_SCREENS: readonly string[] = [
   '/(main)/ringtones',
   '/(main)/mantras',
   '/(main)/daily-status',
+  '/(main)/stories',
   '/(main)/profile',
 ];
 

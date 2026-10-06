@@ -19,7 +19,7 @@ export interface Feed {
   title?: Record<string, string> | null;
   subtitle?: Record<string, string> | null;
   location?: string;
-  type: 'general' | 'mantra' | 'ringtone' | 'wallpaper' | 'aarti' | 'bhajan' | 'thought';
+  type: 'general' | 'mantra' | 'ringtone' | 'wallpaper' | 'aarti' | 'bhajan' | 'thought' | 'stories';
   deityId?: number | null;
   deity?: Deity | null;
   description?: Record<string, string> | null;
@@ -32,6 +32,14 @@ export interface Feed {
   thumbnailSquareUrl?: string | null;
   thumbnailPortraitUrl?: string | null;
   duration?: number | null; // seconds
+  // Stories (Bhav_Bhakti_Stories_Plan.md, section 2). A series row has no
+  // media file (url is null), seriesId and episodeNumber are set only on an
+  // episode, and episodeCount (active episodes) only on a series row.
+  // Lists never contain episodes - they come from ?seriesId= only.
+  seriesId?: number | null;
+  episodeNumber?: number | null;
+  coverVideoUrl?: string | null;
+  episodeCount?: number;
   likesCount: number;
   commentsCount: number;
   downloadsCount: number;
@@ -98,7 +106,7 @@ export interface FeedListResponse {
 }
 
 export interface CreateFeedRequest {
-  type?: 'general' | 'mantra' | 'ringtone' | 'wallpaper' | 'aarti' | 'bhajan' | 'thought';
+  type?: 'general' | 'mantra' | 'ringtone' | 'wallpaper' | 'aarti' | 'bhajan' | 'thought' | 'stories';
   subtitle?: Record<string, string>;
   location?: string;
   allowComments?: boolean;
@@ -112,7 +120,7 @@ export interface CreateFeedRequest {
   tags?: string[];
 }
 
-export type FeedType = 'general' | 'mantra' | 'ringtone' | 'wallpaper' | 'aarti' | 'bhajan' | 'thought';
+export type FeedType = 'general' | 'mantra' | 'ringtone' | 'wallpaper' | 'aarti' | 'bhajan' | 'thought' | 'stories';
 
 export interface FeedFilters {
   // Accepts a list (e.g. the Audio hub's own search bar searching across
@@ -136,6 +144,9 @@ export interface FeedFilters {
   sortOrder?: 'ASC' | 'DESC';
   seed?: string;
   createdBy?: string;
+  // A story series' episodes, in episode order (the backend ignores every
+  // other filter with it).
+  seriesId?: number;
 }
 
 export interface FeedQueryParams extends FeedFilters {

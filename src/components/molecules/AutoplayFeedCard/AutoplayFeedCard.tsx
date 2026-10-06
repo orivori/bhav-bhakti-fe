@@ -357,6 +357,9 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
     aarti: t('spiritual.aarti'),
     bhajan: t('spiritual.bhajan'),
     thought: t('feedCard.typeThought'),
+    // Stories aren't on Home yet (Stories plan, phase 6); listed so the map
+    // covers every type.
+    stories: t('feedCard.typeStory'),
   };
   const contentTypeLabel = contentTypeLabels[feed.type];
   const seeAllTarget = SEE_ALL_TARGETS[feed.type];

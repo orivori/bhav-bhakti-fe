@@ -51,7 +51,9 @@ export function logHomeFirstViewedIfNewUser(): void {
 // signup. Deliberately not wired to the Home tab (see _layout.tsx) - Home is
 // where every new user already lands automatically, so tapping it isn't a
 // "choice" the same way explicitly switching to Mantra/Audio/Wallpapers/
-// Rashifal is; matches the plan's own example tag set, which omits Home.
+// Stories is (Stories took Rashifal's tab slot on 2026-10-06, so tab_name
+// 'rashifal' stops appearing from then); matches the plan's own example tag
+// set, which omits Home.
 export function logFirstNavigationChoiceIfNewUser(tabName: string): void {
   const { isNewUserPendingActivation, hasLoggedFirstNavigationChoice, markFirstNavigationChoiceLogged } =
     useActivationEventsStore.getState();
