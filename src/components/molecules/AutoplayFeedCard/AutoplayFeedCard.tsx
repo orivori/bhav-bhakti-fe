@@ -612,7 +612,7 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
         return;
       }
 
-      const hasPermission = await ensureMediaLibraryPermission('common.permissionReasonSetRingtone');
+      const hasPermission = await ensureMediaLibraryPermission('common.permissionReasonSetRingtone', 'ringtone');
       if (!hasPermission) {
         return;
       }

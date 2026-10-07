@@ -137,7 +137,7 @@ export async function saveRingtoneToDevice(
 ): Promise<SaveRingtoneResult> {
   const name = getRingtoneName(feed);
   if (!feed.url) throw new Error('No audio file found for this ringtone.');
-  if (!(await ensureMediaLibraryPermission('common.permissionReasonSetRingtone'))) {
+  if (!(await ensureMediaLibraryPermission('common.permissionReasonSetRingtone', 'ringtone'))) {
     return { status: 'cancelled', name };
   }
 
