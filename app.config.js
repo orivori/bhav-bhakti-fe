@@ -52,27 +52,34 @@ module.exports = {
       package: PACKAGE_NAME,
       googleServicesFile: process.env.GOOGLE_SERVICES_JSON ?? "./google-services.json",
       softwareKeyboardLayoutMode: "pan",
+      // No photo/video read permissions: the app only saves wallpapers and
+      // ringtones, which Android 13+ allows with no permission at all (Play's
+      // Photo and Video Permissions policy rejected versionCode 7 for
+      // declaring them). READ_MEDIA_AUDIO stays for the ringtone
+      // "already saved" check; READ/WRITE_EXTERNAL_STORAGE for Android 10-12.
       permissions: [
         "READ_EXTERNAL_STORAGE",
         "WRITE_EXTERNAL_STORAGE",
-        "READ_MEDIA_IMAGES",
-        "READ_MEDIA_VIDEO",
         "READ_MEDIA_AUDIO",
-        "RECORD_AUDIO",
         "WAKE_LOCK",
         "FOREGROUND_SERVICE",
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.WRITE_EXTERNAL_STORAGE",
-        "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
-        "android.permission.ACCESS_MEDIA_LOCATION",
-        "android.permission.READ_MEDIA_IMAGES",
-        "android.permission.READ_MEDIA_VIDEO",
         "android.permission.READ_MEDIA_AUDIO",
-        "android.permission.RECORD_AUDIO",
         "android.permission.MODIFY_AUDIO_SETTINGS",
         "android.permission.WAKE_LOCK",
         "android.permission.FOREGROUND_SERVICE",
         "android.permission.POST_NOTIFICATIONS",
+      ],
+      // Stripped from the final manifest even when a library's own manifest
+      // declares them (expo-screen-capture adds READ_MEDIA_IMAGES for
+      // Android 13, expo-media-library READ_MEDIA_VISUAL_USER_SELECTED,
+      // expo-audio RECORD_AUDIO). The app never reads the gallery or records.
+      blockedPermissions: [
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO",
+        "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
+        "android.permission.RECORD_AUDIO",
       ],
       // Android 11+ (API 30+) package-visibility restrictions can make
       // Linking.canOpenURL('mailto:...')/openURL() silently fail in a real
@@ -100,13 +107,16 @@ module.exports = {
         {
           photosPermission: "Allow this app to access your photos to save wallpapers.",
           savePhotosPermission: "Allow this app to save wallpapers to your photos.",
-          isAccessMediaLocationEnabled: true,
+          isAccessMediaLocationEnabled: false,
+          // Audio only - no READ_MEDIA_IMAGES/VIDEO (see blockedPermissions).
+          granularPermissions: ["audio"],
         },
       ],
       [
         "expo-av",
         {
-          microphonePermission: "Allow this app to access your microphone for audio playback.",
+          // The app never records - no RECORD_AUDIO.
+          microphonePermission: false,
         },
       ],
       "expo-audio",

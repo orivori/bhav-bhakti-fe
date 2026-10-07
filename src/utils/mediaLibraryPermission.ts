@@ -1,4 +1,4 @@
-import { Alert, Linking } from 'react-native';
+import { Alert, Linking, Platform } from 'react-native';
 import * as MediaLibrary from 'expo-media-library';
 import i18n from 'i18next';
 
@@ -11,9 +11,34 @@ import i18n from 'i18next';
 // feature needs the permission for - each call site keeps its own existing
 // wording via its own key, only the canAskAgain branching logic is shared.
 //
+// `kind` picks what is asked for. The app declares no photo/video read
+// permission (Play's Photo and Video Permissions policy):
+// - 'gallery' (wallpapers/videos): on Android 13+ saving needs no permission,
+//   so the write-only request asks for nothing and comes back granted.
+//   Android 10-12 keep the full request (WRITE_EXTERNAL_STORAGE is needed
+//   there). The "already saved" check may then be refused on 13+; it fails
+//   safe and the save goes ahead (saveFeedToGallery.ts).
+// - 'ringtone': audio only (READ_MEDIA_AUDIO on Android 13+), which also
+//   lets the Ringtones album's "already saved" check list its files.
+//
 // Returns true if permission is granted and the caller should proceed.
-export async function ensureMediaLibraryPermission(reasonKey: string): Promise<boolean> {
-  const { status, canAskAgain } = await MediaLibrary.requestPermissionsAsync();
+export type MediaLibraryPermissionKind = 'gallery' | 'ringtone';
+
+const ANDROID_13 = 33;
+
+function requestMediaLibraryPermission(kind: MediaLibraryPermissionKind) {
+  if (kind === 'ringtone') {
+    return MediaLibrary.requestPermissionsAsync(false, ['audio']);
+  }
+  const isAndroid13Plus = Platform.OS === 'android' && Number(Platform.Version) >= ANDROID_13;
+  return MediaLibrary.requestPermissionsAsync(isAndroid13Plus);
+}
+
+export async function ensureMediaLibraryPermission(
+  reasonKey: string,
+  kind: MediaLibraryPermissionKind
+): Promise<boolean> {
+  const { status, canAskAgain } = await requestMediaLibraryPermission(kind);
 
   if (status === 'granted') {
     return true;

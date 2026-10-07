@@ -100,7 +100,7 @@ export async function saveFeedToGallery(
   { permissionReasonKey, authorizeOptions }: SaveFeedToGalleryOptions
 ): Promise<SaveToGalleryResult> {
   if (!feed.url) return 'cancelled';
-  if (!(await ensureMediaLibraryPermission(permissionReasonKey))) return 'cancelled';
+  if (!(await ensureMediaLibraryPermission(permissionReasonKey, 'gallery'))) return 'cancelled';
 
   const filename = getGalleryFileName(feed);
   const album = await findAlbum();

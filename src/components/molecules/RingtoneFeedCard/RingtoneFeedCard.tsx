@@ -558,7 +558,7 @@ export default function RingtoneFeedCard({
         return;
       }
 
-      const hasPermission = await ensureMediaLibraryPermission('common.permissionReasonSetRingtone');
+      const hasPermission = await ensureMediaLibraryPermission('common.permissionReasonSetRingtone', 'ringtone');
       if (!hasPermission) {
         return;
       }
