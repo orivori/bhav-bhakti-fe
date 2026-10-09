@@ -558,7 +558,7 @@ Every feed response now returns V4 signed Cloud Storage URLs (`storage.googleapi
 
 **Full plan, decisions and build log: `D:\bhav_bhakti_Claude_docs\Bhav_Bhakti_Meta_SDK_Plan.md`** — this is a completion record only. Frontend-only; no backend involvement.
 
-- **`react-native-fbsdk-next`** (Facebook Android SDK 18.x), configured in `app.config.js` for the production package (`com.orivori.bhavbhakti`) **only**. The `.dev` package gets no Meta config, and `src/utils/analytics/metaEvents.ts` no-ops there, so the code is inert in `.dev` builds.
+- **`react-native-fbsdk-next`** (Facebook Android SDK 18.x), configured in `app.config.js` for the production package (`com.orivori.bhavbhakti`) **only**. The `.dev` package gets no Meta config, and `src/utils/analytics/metaEvents.ts` no-ops there. The JS is inert in `.dev` only since `765b45f` (§123); the native module is in every build.
 - **Events, all client-side, no parameters (no PII):** automatic install/app-open (logged by the SDK itself); a custom `login_success` on every login; and Meta's standard `CompleteRegistration` (`fb_mobile_complete_registration`, written out as a literal — never read from the native module) only when the backend's `isNewUser` is true. Both login events fire from `useAuth.tsx`, next to the Firebase `login_completed` event.
 - **Verified** on a real Play Store install of `versionCode` 7 (Closed Testing): app-open and `login_success` confirmed in Meta Events Manager → Test Events. The Play App Signing key hash is registered with Meta; the temporary debug key hash (Meta) and debug SHA-1 (Firebase) have been removed.
 - **Branches:** `feature/meta-sdk` was branched off `production` — a one-time exception to §85, per the plan doc's decision #10. `production` was fast-forwarded to it (`e5dd207`); its two code commits were cherry-picked into `dev` (`4f6e87b`, `1e2878f`; the versionCode bump deliberately not, since `dev` keeps its own); `master` was fast-forwarded to `production`. All pushed.
@@ -717,3 +717,19 @@ Full plan and phase tracker: `D:\bhav_bhakti_Claude_docs\Bhav_Bhakti_Stories_Pla
 - **Bug:** when a track ended and auto-advanced, the next track opened with no queue (no Up Next, Previous/Next greyed). Live in production for Aarti/Bhajan since 2026-10-01 (`2a6ebc9`).
 - **Cause:** `didJustFinish` stays true on Android while the player is ended, and `advanceQueue()` changes `queue`, a dependency of the end-of-track effect, so it ran again and advanced twice; the §113 clean-up then cleared the mismatched queue.
 - **Fix:** `dev` `f2c92f2` (its own commit, cherry-picks cleanly): a "finish already handled" flag at the top of the effect. **To promote to production by itself** (cherry-pick, 10% OTA) once the Play review finishes.
+
+## 122. 2026-10-09 — Play rejection fix, v8 build, Play Console state
+
+- **Rejection:** Google rejected `versionCode` 7 (READ_MEDIA_IMAGES/VIDEO, Photo and Video Permissions policy). Cause: our hand-written permission list, the `expo-media-library` plugin defaults and library manifests.
+- **Fix (`dev` `a9d0678`):** removed READ_MEDIA_IMAGES/VIDEO/VISUAL_USER_SELECTED, RECORD_AUDIO and ACCESS_MEDIA_LOCATION; added `blockedPermissions`; wallpapers on Android 13+ use a write-only request, ringtones request audio only. READ_MEDIA_AUDIO and READ/WRITE_EXTERNAL_STORAGE kept. Known consequence: the wallpaper "Already saved" check can't read the gallery on Android 13+, so repeat saves download again (accepted, no fix planned).
+- **`expo-application`** added (`3c1765f`) so a later update prompt can read the real versionCode — import it inside try/catch.
+- **v8 on `production`:** `ce67a95` (auto-advance fix, §121), `7cbedc2` (permissions), `210865e` (expo-application), `cc2fe58` (versionCode 8; `version` stays 1.0.0). Production EAS build `92041ff4-261a-4228-94ad-c92212a30d16`; the built AAB was inspected directly and has none of the removed permissions.
+- **Play Console:** v8 is on Internal and Closed testing; the Production release is in review with Managed publishing on (go-live planned 2026-10-11). **Don't cherry-pick onto `production` until Google approves v8.**
+- An old CLAUDE.md is tracked on `production`/`master` (from an old "§84" commit); left in place, decide later.
+
+## 123. 2026-10-09 — .dev splash hang (Meta SDK), Premium popup, Edit Profile back, Railway
+
+- **Splash hang:** the fresh `.dev` build hung on the splash because `metaEvents.ts` imported `react-native-fbsdk-next` at load time and `.dev` has no Meta plugin/App ID, so the native module threw before RootLayout. Fix on `dev`: `765b45f` (lazy `require` in try/catch, only when `appVariant === 'production'`). **Rule: any native module added to the shared `package.json` must be tested on a `.dev` build first.**
+- **Waiting for production after the v8 approval (`dev`):** `0ead152` — Premium coming-soon popup via `PREMIUM_PURCHASE_AVAILABLE = false` in `PremiumPaywall.tsx` (the old paywall faked a purchase; keep `PREMIUM_GATING_ENABLED` off until real checkout exists); `5010f3c` — Edit Profile hardware back returns to Profile.
+- **Railway:** backend health check path is `/api/v1/health` (not `/health`, which 404s) on dev and production, 300 s timeout; production MySQL volume resized to 5 GB (limit is per volume, billed on use); usage soft alert $20 / hard limit $50.
+- **Razorpay:** the company is now GST registered; plan is to build and test checkout on `.dev` first with Razorpay test keys, then a production native build.
