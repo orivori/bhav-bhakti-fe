@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   ScrollView,
@@ -7,8 +7,10 @@ import {
   StyleSheet,
   ActivityIndicator,
   Platform,
+  BackHandler,
 } from 'react-native';
 import { router } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
@@ -61,6 +63,27 @@ export default function EditProfileScreen() {
   // audited zodiac calculation when the date actually changed, not on every
   // save regardless of whether this field was touched.
   const originalDateOfBirthRef = useRef<string | null>(null);
+
+  const handleBack = useCallback(() => {
+    router.replace('/(main)/profile');
+  }, []);
+
+  // Same fix as delete-account.tsx's and legal-document.tsx's handleBack/
+  // BackHandler pairing - Android's hardware back button and its edge-swipe
+  // gesture both dispatch through 'hardwareBackPress', which without this
+  // listener falls through to the tab navigator's default (first tab) and
+  // lands on Home instead of Profile. useFocusEffect (not a plain
+  // mount/unmount effect) is required since Tabs screens in this app don't
+  // unmount between navigations.
+  useFocusEffect(
+    useCallback(() => {
+      const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+        handleBack();
+        return true;
+      });
+      return () => subscription.remove();
+    }, [handleBack])
+  );
 
   useEffect(() => {
     let isMounted = true;
@@ -180,7 +203,7 @@ export default function EditProfileScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.replace('/(main)/profile')}>
+        <TouchableOpacity style={styles.backButton} onPress={handleBack}>
           <Ionicons name="arrow-back" size={24} color={goldenTempleTheme.colors.text.primary} />
         </TouchableOpacity>
       </View>
