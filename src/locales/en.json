@@ -218,6 +218,11 @@
     }
   },
   "premium": {
+    "comingSoon": {
+      "title": "Premium is coming soon",
+      "body": "Premium subscriptions are coming soon. Stay tuned!",
+      "ok": "OK"
+    },
     "title": "Upgrade to Premium",
     "subtitle": "Unlock exclusive content and features",
     "features": {
