@@ -9,11 +9,23 @@ import {
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 
-import { Text } from '@/components/atoms';
+import { Button, Text } from '@/components/atoms';
+import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { usePremiumStore } from '@/store/premiumStore';
 
 const { width } = Dimensions.get('window');
+
+// Premium purchases don't exist yet - the plan sheet below has placeholder
+// prices and a "Continue" that only shows a fake success alert, with no real
+// checkout behind it (isPremium is permanently false, CLAUDE.md §87). While
+// this is false, every entry point (Profile's three, the media-access gate
+// in mediaAccess.ts) shows a "coming soon" popup instead, through the same
+// showPaywall flag, so no caller changes and their analytics events
+// (paywall_hit / upgrade_cta_clicked) still fire. Flip to true once the real
+// Premium frontend replaces the plan sheet.
+const PREMIUM_PURCHASE_AVAILABLE = false;
 
 interface PlanOption {
   id: string;
@@ -25,8 +37,45 @@ interface PlanOption {
 }
 
 export function PremiumPaywall() {
+  const { t } = useTranslation();
   const { showPaywall, setShowPaywall } = usePremiumStore();
   const [selectedPlan, setSelectedPlan] = useState('yearly');
+
+  if (!PREMIUM_PURCHASE_AVAILABLE) {
+    // Same centred-card look as LoginPromptModal, but dismissible - OK and
+    // Android's back button both just close it.
+    return (
+      <Modal
+        visible={showPaywall}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowPaywall(false)}
+      >
+        <View style={styles.comingSoonOverlay}>
+          <View style={styles.comingSoonCard}>
+            <View style={styles.comingSoonIconContainer}>
+              <Ionicons name="star" size={32} color={goldenTempleTheme.colors.primary.DEFAULT} />
+            </View>
+
+            <Text variant="h4" weight="bold" align="center" style={styles.comingSoonTitle}>
+              {t('premium.comingSoon.title')}
+            </Text>
+
+            <Text variant="body" color="secondary" align="center" style={styles.comingSoonMessage}>
+              {t('premium.comingSoon.body')}
+            </Text>
+
+            <Button
+              title={t('premium.comingSoon.ok')}
+              onPress={() => setShowPaywall(false)}
+              variant="primary"
+              fullWidth
+            />
+          </View>
+        </View>
+      </Modal>
+    );
+  }
 
   const plans: PlanOption[] = [
     {
@@ -228,6 +277,37 @@ export function PremiumPaywall() {
 }
 
 const styles = StyleSheet.create({
+  comingSoonOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 32,
+  },
+  comingSoonCard: {
+    width: '100%',
+    maxWidth: 360,
+    backgroundColor: goldenTempleTheme.colors.background,
+    borderRadius: 20,
+    padding: 24,
+    alignItems: 'center',
+  },
+  comingSoonIconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(255, 107, 0, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  comingSoonTitle: {
+    marginBottom: 8,
+  },
+  comingSoonMessage: {
+    marginBottom: 24,
+    lineHeight: 20,
+  },
   container: {
     flex: 1,
     backgroundColor: '#fff',
