@@ -13,7 +13,8 @@ import { ErrorBoundary } from '@/components/molecules/ErrorBoundary';
 import { useScreenshotProtection } from '@/hooks/useScreenshotProtection';
 import { ToastProvider } from '@/components/atoms/Toast';
 import { Audio } from 'expo-av';
-import { getCrashlytics, setCrashlyticsCollectionEnabled } from '@react-native-firebase/crashlytics';
+import { getCrashlytics, setAttributes, setCrashlyticsCollectionEnabled } from '@react-native-firebase/crashlytics';
+import * as Updates from 'expo-updates';
 import { getMessaging, onNotificationOpenedApp, getInitialNotification } from '@react-native-firebase/messaging';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
@@ -125,6 +126,17 @@ export default function RootLayout() {
     // EAS profile) don't - force it on regardless of build type so the
     // `.dev`/debug-client testing path also reports crashes.
     setCrashlyticsCollectionEnabled(getCrashlytics(), true).catch(console.error);
+
+    // Lets crashes be split by OTA update. `ota_update` is the same short tag
+    // Profile > About shows (last 4 of the update ID + channel letter);
+    // 'embedded' means no OTA applied (the APK's own bundle).
+    const updateId = Updates.isEmbeddedLaunch ? null : Updates.updateId;
+    const channelLetter =
+      Updates.channel === 'production' ? 'P' : Updates.channel === 'preview' ? 'D' : '?';
+    setAttributes(getCrashlytics(), {
+      ota_update: updateId ? `${updateId.slice(-4)}${channelLetter}` : 'embedded',
+      ota_update_id: updateId ?? 'embedded',
+    }).catch(console.error);
   }, []);
 
   React.useEffect(() => {

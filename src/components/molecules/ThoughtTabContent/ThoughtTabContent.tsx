@@ -18,6 +18,7 @@ import { Feed } from '@/types/feed';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
 import { useViewingWindow } from '@/hooks/useViewingWindow';
+import { useVisibleVideoTiles } from '@/hooks/useVisibleVideoTiles';
 
 // Extracted alongside StatusTabContent/WallpapersTabContent (see CLAUDE.md's
 // Wallpaper Hub notes) so it can be rendered as one sub-tab inside the new
@@ -69,6 +70,8 @@ function ThoughtTabContent(_props: {}, ref: React.Ref<FlatList>) {
     onDownload: downloadFeed,
   });
 
+  const { shouldMountVideo, viewabilityConfigCallbackPairs } = useVisibleVideoTiles();
+
   const handleFeedPress = useCallback((feed: Feed) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     viewFeed(feed.id.toString());
@@ -83,8 +86,9 @@ function ThoughtTabContent(_props: {}, ref: React.Ref<FlatList>) {
       onShare={shareFeed}
       onDownload={downloadFeed}
       onPress={handleFeedPress}
+      shouldMountVideo={shouldMountVideo(item)}
     />
-  ), [likeFeed, shareFeed, downloadFeed, handleFeedPress]);
+  ), [likeFeed, shareFeed, downloadFeed, handleFeedPress, shouldMountVideo]);
 
   const renderFooter = useCallback(() => {
     if (!hasMore) return null;
@@ -152,6 +156,12 @@ function ThoughtTabContent(_props: {}, ref: React.Ref<FlatList>) {
         onEndReachedThreshold={0.7}
         showsVerticalScrollIndicator={false}
         removeClippedSubviews={true}
+        // Video tiles mount a player only while on screen (capped) - see
+        // useVisibleVideoTiles. A small window keeps fewer tiles mounted.
+        viewabilityConfigCallbackPairs={viewabilityConfigCallbackPairs}
+        windowSize={5}
+        initialNumToRender={4}
+        maxToRenderPerBatch={4}
       />
       {ViewingWindow}
     </>

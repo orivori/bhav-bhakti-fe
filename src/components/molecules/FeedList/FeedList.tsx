@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   FlatList,
   View,
@@ -20,6 +20,10 @@ import { Feed, FeedFilters } from '@/types/feed';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { useFeedStore } from '@/store/feedStore';
 import { logHomeFeedScrolled } from '@/utils/analytics/engagementEvents';
+
+// Home: video cards farther than this from the elected card render a still
+// instead of a player (active card + one neighbour each side).
+const VIDEO_MOUNT_RADIUS = 1;
 
 interface FeedListProps {
   feeds: Feed[];
@@ -242,6 +246,16 @@ function FeedList({
     };
   }, []);
 
+  // Home video cards mount their player only within VIDEO_MOUNT_RADIUS of the
+  // elected card (or of the first card before any election), so at most 3
+  // players exist at once instead of one per mounted card - each holds a
+  // large share of its video file in the Java heap (v8 OOM crashes).
+  const electedIndex = useMemo(() => {
+    if (!enableViewportAutoplay || electedFeedId === null) return 0;
+    const i = feeds.findIndex((f) => String(f.id) === electedFeedId);
+    return i === -1 ? 0 : i;
+  }, [enableViewportAutoplay, electedFeedId, feeds]);
+
   const renderFeedItem = useCallback(({ item: feed, index }: ListRenderItemInfo<Feed>) => {
     const isActive = enableViewportAutoplay && String(feed.id) === electedFeedId;
 
@@ -260,7 +274,13 @@ function FeedList({
     if (enableViewportAutoplay) {
       const hasAnyMedia = !!feed.url;
       if (hasAnyMedia) {
-        return <AutoplayFeedCard feed={feed} isActive={isActive} />;
+        return (
+          <AutoplayFeedCard
+            feed={feed}
+            isActive={isActive}
+            shouldMountVideo={Math.abs(index - electedIndex) <= VIDEO_MOUNT_RADIUS}
+          />
+        );
       }
       // Feeds with zero media (defensive fallback only - not a designed case)
       // fall through to the existing path below, unchanged.
@@ -318,7 +338,7 @@ function FeedList({
     }
 
     return <View style={itemWrapperStyle}>{cardElement}</View>;
-  }, [onFeedPress, onLike, onShare, onDownload, autoPlayVideo, enableViewportAutoplay, electedFeedId, audioCardReturnTo, audioCardReturnParams, itemSpacing, itemHorizontalPadding]);
+  }, [onFeedPress, onLike, onShare, onDownload, autoPlayVideo, enableViewportAutoplay, electedFeedId, electedIndex, audioCardReturnTo, audioCardReturnParams, itemSpacing, itemHorizontalPadding]);
 
   const renderFooter = useCallback(() => {
     if (!hasMore) {
@@ -444,8 +464,10 @@ function FeedList({
         contentContainerStyle,
       ]}
       removeClippedSubviews={true}
-      maxToRenderPerBatch={10}
-      windowSize={10}
+      // Home (viewport autoplay) keeps a smaller window - fewer full-screen
+      // cards mounted at once; every other FeedList screen is unchanged.
+      maxToRenderPerBatch={enableViewportAutoplay ? 5 : 10}
+      windowSize={enableViewportAutoplay ? 5 : 10}
       initialNumToRender={5}
       updateCellsBatchingPeriod={16}
       // Phase 3: getItemLayout's estimatedItemSize assumption is wrong for
