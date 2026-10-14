@@ -29,6 +29,10 @@ import WhatsAppIcon from '../../../../assets/icons/whatsapp.svg';
 interface AutoplayFeedCardProps {
   feed: Feed;
   isActive: boolean;
+  // Video only: whether this card may mount its player. FeedList passes
+  // true for the elected card and its immediate neighbours; otherwise the
+  // thumbnail (or a plain placeholder) is shown and no player exists.
+  shouldMountVideo?: boolean;
 }
 
 // --- Sizing (Phase 3, reworked) ---
@@ -240,7 +244,7 @@ const SEE_ALL_TARGETS: Partial<Record<Feed['type'], { pathname: string; params?:
  * Phase 4: real content. Own isolated player (no playbackStore involvement,
  * per CLAUDE.md §29), content-type-aware playback, real action row.
  */
-export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardProps) {
+export default function AutoplayFeedCard({ feed, isActive, shouldMountVideo = true }: AutoplayFeedCardProps) {
   const { language } = useI18nStore();
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
@@ -794,6 +798,12 @@ export default function AutoplayFeedCard({ feed, isActive }: AutoplayFeedCardPro
               </View>
             </View>
           </>
+        ) : feed.mediaType === 'video' && !shouldMountVideo ? (
+          thumbnailUrl ? (
+            <Image source={{ uri: thumbnailUrl }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+          ) : (
+            <View style={[StyleSheet.absoluteFill, styles.audioFallback]} />
+          )
         ) : feed.mediaType === 'video' ? (
           <Video
             ref={videoRef}

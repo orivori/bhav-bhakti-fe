@@ -30,6 +30,10 @@ interface WallpaperFeedCardProps {
   // Thought for the Day sub-tabs). Defaulting to 'default' means every
   // existing call site keeps rendering exactly as before with zero changes.
   variant?: 'default' | 'grid-tile';
+  // grid-tile only: whether a video tile may mount its player. The hub grids
+  // pass this from useVisibleVideoTiles (on screen, capped, hub focused);
+  // false shows the thumbnail or a plain placeholder instead.
+  shouldMountVideo?: boolean;
 }
 
 const { width } = Dimensions.get('window');
@@ -45,6 +49,7 @@ export default function WallpaperFeedCard({
   onDownload,
   onPress,
   variant = 'default',
+  shouldMountVideo = true,
 }: WallpaperFeedCardProps) {
   const { incrementView } = useFeedStore();
   const { isLiking, isDownloading, isSharing, handleLike, handleShare, handleDownload } = useWallpaperActions({
@@ -90,14 +95,25 @@ export default function WallpaperFeedCard({
         activeOpacity={0.9}
       >
         <View style={styles.gridImageBox}>
-          {feed.url && feed.mediaType === 'video' ? (
+          {feed.url && feed.mediaType === 'video' && !shouldMountVideo ? (
+            // Off screen, over the playing cap, or hub not focused: no
+            // player at all (an unmounted player frees its memory). The
+            // box's own cream background is the placeholder when there's
+            // no thumbnail.
+            thumbnailUrl ? (
+              <Image
+                source={{ uri: thumbnailUrl }}
+                style={styles.gridImage}
+                resizeMode="contain"
+              />
+            ) : null
+          ) : feed.url && feed.mediaType === 'video' ? (
             // Instagram-grid-thumbnail behavior: loops continuously,
             // UNCONDITIONALLY silent - deliberately hardcoded `true`, not
             // read from the shared soundPreferenceStore, so the grid can
             // never end up audible regardless of whatever mute preference is
-            // set on Home or anywhere else. No play/pause or isActive/
-            // viewability gating - a grid tile has no exclusivity concern the
-            // way a single full-bleed autoplay card does.
+            // set on Home or anywhere else. Mounted only while
+            // shouldMountVideo (see above).
             <Video
               source={{ uri: feed.url }}
               style={styles.gridImage}
