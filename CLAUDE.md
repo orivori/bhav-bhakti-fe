@@ -552,7 +552,7 @@ Every feed response now returns V4 signed Cloud Storage URLs (`storage.googleapi
 
 **Not done, still open:** the ~208 existing permanent Firebase download tokens were **not rotated** — old tokened links (and, until step 10 locks `storage.rules`, old token-free links) still work, so signing alone isn't access control yet. Steps 7 (App Check) and 10 (lock `storage.rules`) not started — with step 5 live (§107), Group 4 stands at 8 of 10. *(Update 2026-09-30, §112: step 10 done, so bare links now fail; tokens accepted as-is, no rotation; step 7 skipped — founder decisions.)*
 
-**Known side effect:** images (thumbnails/wallpapers, plain RN `Image`, cached by URL) re-download more often, since the signed URL changes on every fetch. Audio/video caching is unaffected (keyed by feed ID/title, not URL). Measured and planned around in §125 (B1, day-stable signed URLs, postponed).
+**Known side effect:** images (thumbnails/wallpapers, plain RN `Image`, cached by URL) re-download more often, since the signed URL changes on every fetch. Audio is unaffected (cached on disk by feed ID, not URL); videos are not cached at all (§125). Measured and planned around in §125 (B1, day-stable signed URLs, postponed).
 
 ## 109. 2026-09-29 session — Meta (Facebook/Instagram) Ads SDK: DONE, live in production
 
@@ -560,7 +560,7 @@ Every feed response now returns V4 signed Cloud Storage URLs (`storage.googleapi
 
 - **`react-native-fbsdk-next`** (Facebook Android SDK 18.x), configured in `app.config.js` for the production package (`com.orivori.bhavbhakti`) **only**. The `.dev` package gets no Meta config, and `src/utils/analytics/metaEvents.ts` no-ops there. The JS is inert in `.dev` only since `765b45f` (§123); the native module is in every build.
 - **Events, all client-side, no parameters (no PII):** automatic install/app-open (logged by the SDK itself); a custom `login_success` on every login; and Meta's standard `CompleteRegistration` (`fb_mobile_complete_registration`, written out as a literal — never read from the native module) only when the backend's `isNewUser` is true. Both login events fire from `useAuth.tsx`, next to the Firebase `login_completed` event.
-- **Verified** on a real Play Store install of `versionCode` 7 (Closed Testing): app-open and `login_success` confirmed in Meta Events Manager → Test Events. The Play App Signing key hash is registered with Meta; the temporary debug key hash (Meta) and debug SHA-1 (Firebase) have been removed. *(2026-10-11, §124: recorded there as still to remove — check both consoles before trusting either note.)*
+- **Verified** on a real Play Store install of `versionCode` 7 (Closed Testing): app-open and `login_success` confirmed in Meta Events Manager → Test Events. The Play App Signing key hash is registered with Meta; the temporary debug key hash (Meta) and the debug SHA-1 (Firebase) were confirmed removed on 2026-10-14; only the Play App Signing entries remain.
 - **Branches:** `feature/meta-sdk` was branched off `production` — a one-time exception to §85, per the plan doc's decision #10. `production` was fast-forwarded to it (`e5dd207`); its two code commits were cherry-picked into `dev` (`4f6e87b`, `1e2878f`; the versionCode bump deliberately not, since `dev` keeps its own); `master` was fast-forwarded to `production`. All pushed.
 - **Done since:** Play Console's Data Safety form and Advertising ID declaration (the SDK adds the `AD_ID` permission) — see the header. Deferred to later phases: deferred deep linking, a Purchase event, Advanced Matching.
 
@@ -737,7 +737,7 @@ Full plan and phase tracker: `D:\bhav_bhakti_Claude_docs\Bhav_Bhakti_Stories_Pla
 ## 124. 2026-10-11 — Launch day: v8 live on the Play Store, Meta app published
 
 - **v8 live** 2026-10-11 at 13:53 IST (Managed publishing). Public listing: `com.orivori.bhavbhakti`. The store description had a stray drafting line; the founder removed it and resubmitted the listing for review.
-- **Meta developer app:** privacy policy, contact email, icon and category filled in, and the app published (the dashboard's Publish button is the old Live switch). Android platform entry = `com.orivori.bhavbhakti`. **Still open:** remove the temporary debug key hash from Meta and the debug SHA-1 from Firebase (§109 says both were removed — check the consoles). Data Safety form confirmed done. The co-founder runs the ads.
+- **Meta developer app:** privacy policy, contact email, icon and category filled in, and the app published (the dashboard's Publish button is the old Live switch). Android platform entry = `com.orivori.bhavbhakti`. The temporary debug key hash (Meta) and the debug SHA-1 (Firebase) were confirmed removed on 2026-10-14; only the Play App Signing entries remain. Data Safety form confirmed done. The co-founder runs the ads.
 - **Where to see numbers:** Play Console → Statistics (true installs; lags about a day); Firebase Analytics `first_open` and New users; Meta Events Manager (app opens and `login_success`); the database (registered users).
 - **Closed testing** track kept for testing v9; testers are removed through the tester email list.
 
