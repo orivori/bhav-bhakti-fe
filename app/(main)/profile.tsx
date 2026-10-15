@@ -18,6 +18,8 @@ import { useTabBarHeight } from '@/hooks/useTabBarHeight';
 import { profileService } from '@/features/profile/services/profileService';
 import { deriveSupportId } from '@/shared/utils/supportId';
 import { logPaywallHit, logUpgradeCtaClicked } from '@/utils/analytics/conversionEvents';
+import { getInstalledBuild } from '@/utils/appUpdate/installedBuild';
+import { isUpdatePromptAllowedOnThisBuild } from '@/utils/appUpdate/useUpdateRequirement';
 
 export default function ProfileScreen() {
   const { user, logout, debugSimulateShortSession, debugForceLiveAuthFailure } = useAuth();
@@ -454,7 +456,7 @@ export default function ProfileScreen() {
                 <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.optionItem, styles.optionItemStatic]}
+                style={styles.optionItem}
                 onPress={handleDebugTestCrash}
                 activeOpacity={0.7}
               >
@@ -471,6 +473,23 @@ export default function ProfileScreen() {
                 </View>
                 <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
               </TouchableOpacity>
+              {/* What the update prompt sees on this phone - "older" means
+                  the build has no expo-application (v7 or lower). */}
+              <View style={[styles.optionItem, styles.optionItemStatic]}>
+                <View style={styles.optionIcon}>
+                  <Ionicons name="arrow-up-circle-outline" size={20} color="#3b82f6" />
+                </View>
+                <View style={styles.optionContent}>
+                  <Text variant="body" weight="medium">
+                    Update prompt
+                  </Text>
+                  <Text variant="caption" color="secondary">
+                    {`Installed build: ${getInstalledBuild() ?? 'unknown'} · prompt ${
+                      isUpdatePromptAllowedOnThisBuild() ? 'allowed' : 'off'
+                    } on this build`}
+                  </Text>
+                </View>
+              </View>
             </View>
           </View>
         )}
