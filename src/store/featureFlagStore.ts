@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { apiClient } from '@/shared/services/apiClient';
 import { API_ENDPOINTS } from '@/shared/config/api';
+import { isValidBuildNumber } from '@/utils/appUpdate/updateDecision';
 
 export interface FeatureFlags {
   enablePremiumSubscriptionUI: boolean;
@@ -9,6 +10,12 @@ export interface FeatureFlags {
   // the whole navigator for MaintenanceScreen.
   maintenanceMode: boolean;
   maintenanceMessage: string | null;
+  // "Update available" prompt - the backend's UPDATE_PROMPT_ENABLED,
+  // ANDROID_LATEST_BUILD and ANDROID_MIN_BUILD Railway variables (Android
+  // versionCodes). Off/null = nothing shown; see src/utils/appUpdate/.
+  updatePromptEnabled: boolean;
+  latestBuild: number | null;
+  minSupportedBuild: number | null;
 }
 
 // Hardcoded defaults, checked into the app bundle. These are what every
@@ -22,6 +29,9 @@ export const FEATURE_FLAG_DEFAULTS: FeatureFlags = {
   enablePremiumSubscriptionUI: false,
   maintenanceMode: false,
   maintenanceMessage: null,
+  updatePromptEnabled: false,
+  latestBuild: null,
+  minSupportedBuild: null,
 };
 
 // 'checking' only until the cold-start fetch settles. A failed fetch ends in
@@ -75,6 +85,19 @@ export const useFeatureFlagStore = create<FeatureFlagState>((set, get) => ({
         flags.maintenanceMessage =
           typeof remote.maintenanceMessage === 'string' && remote.maintenanceMessage.trim()
             ? remote.maintenanceMessage.trim()
+            : null;
+        // Same strictness for the update prompt: a real boolean true, and
+        // whole build numbers in range (anything else is null). The minimum
+        // only counts alongside a valid latest it doesn't exceed - the
+        // backend applies the same rule; this is the second line of defence
+        // against a value that would hard-block everyone.
+        flags.updatePromptEnabled = remote.updatePromptEnabled === true;
+        flags.latestBuild = isValidBuildNumber(remote.latestBuild) ? remote.latestBuild : null;
+        flags.minSupportedBuild =
+          flags.latestBuild !== null &&
+          isValidBuildNumber(remote.minSupportedBuild) &&
+          remote.minSupportedBuild <= flags.latestBuild
+            ? remote.minSupportedBuild
             : null;
 
         set({
