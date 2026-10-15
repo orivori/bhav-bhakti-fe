@@ -9,6 +9,9 @@ import { AuthProvider } from '@/features/authentication/hooks/useAuth';
 import { PremiumPaywall } from '@/components/molecules/PremiumPaywall';
 import { LoginPromptModal } from '@/components/molecules/LoginPromptModal';
 import { MaintenanceScreen } from '@/components/molecules/MaintenanceScreen';
+import { UpdateRequiredScreen } from '@/components/molecules/UpdateRequiredScreen';
+import { UpdatePromptModal } from '@/components/molecules/UpdatePromptModal';
+import { getUpdateRequirement, useUpdateRequirement } from '@/utils/appUpdate/useUpdateRequirement';
 import { ErrorBoundary } from '@/components/molecules/ErrorBoundary';
 import { useScreenshotProtection } from '@/hooks/useScreenshotProtection';
 import { ToastProvider } from '@/components/atoms/Toast';
@@ -152,6 +155,11 @@ export default function RootLayout() {
   // swapped for MaintenanceScreen (see the render below).
   const flagStatus = useFeatureFlagStore((state) => state.status);
   const isInMaintenance = flagStatus === 'maintenance';
+  // Update hard block: same swap as maintenance (which wins if both are on).
+  // The soft prompt is a modal, mounted below.
+  const updateRequirement = useUpdateRequirement();
+  const isUpdateRequired = !isInMaintenance && updateRequirement === 'required';
+  const isAppBlocked = isInMaintenance || isUpdateRequired;
   const [isFlagCheckCapReached, setIsFlagCheckCapReached] = React.useState(false);
   React.useEffect(() => {
     const timeout = setTimeout(() => setIsFlagCheckCapReached(true), FLAG_CHECK_SPLASH_CAP_MS);
@@ -194,12 +202,18 @@ export default function RootLayout() {
   // foreground - the cold-start check (authStore.initializeAuth) never sees a
   // session that expired while the app sat in the background. Also re-fetches
   // the feature flags (throttled to once per 5 minutes), so maintenance mode
-  // reaches users who only ever resume the app.
+  // reaches users who only ever resume the app. While the update hard block
+  // is up the re-fetch isn't throttled, so lowering the minimum (or switching
+  // the prompt off) frees blocked users the next time they return.
   React.useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
       if (nextState === 'active') {
         checkSessionOnResume();
-        useFeatureFlagStore.getState().refetchOnForeground();
+        if (getUpdateRequirement() === 'required') {
+          useFeatureFlagStore.getState().fetchRemoteFlags();
+        } else {
+          useFeatureFlagStore.getState().refetchOnForeground();
+        }
       }
     });
     return () => subscription.remove();
@@ -223,15 +237,16 @@ export default function RootLayout() {
   // navigator is actually mounted: the splash screen can now be held for up
   // to FLAG_CHECK_SPLASH_CAP_MS first, and navigating before the navigator
   // exists has nothing to navigate. A tap that cold-starts the app into
-  // maintenance mode is dropped, like any other tap during maintenance.
+  // maintenance mode or the update hard block is dropped, like any other tap
+  // while either is up.
   const isNavigatorMounted =
     (fontsLoaded || !!fontError) &&
     (flagStatus !== 'checking' || isFlagCheckCapReached) &&
-    !isInMaintenance;
+    !isAppBlocked;
   const hasHandledInitialNotificationRef = React.useRef(false);
   React.useEffect(() => {
     if (hasHandledInitialNotificationRef.current) return;
-    if (isInMaintenance) {
+    if (isAppBlocked) {
       hasHandledInitialNotificationRef.current = true;
       return;
     }
@@ -243,7 +258,7 @@ export default function RootLayout() {
         navigateFromNotificationData(remoteMessage.data);
       }
     });
-  }, [isNavigatorMounted, isInMaintenance]);
+  }, [isNavigatorMounted, isAppBlocked]);
 
   // The app's React Navigation/screen_view integration - Expo Router's own
   // usePathname() is the simplest correct hook point (no manual navigationRef/
@@ -290,6 +305,8 @@ export default function RootLayout() {
                         Unmounting it also stops any playback. */}
                     {isInMaintenance ? (
                       <MaintenanceScreen />
+                    ) : isUpdateRequired ? (
+                      <UpdateRequiredScreen />
                     ) : (
                       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: goldenTempleTheme.colors.background } }}>
                         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
@@ -300,10 +317,12 @@ export default function RootLayout() {
                 </NavigationThemeProvider>
               </View>
               <StatusBar style="dark" translucent backgroundColor="transparent" />
-              {/* Both are full-screen modals that would cover MaintenanceScreen,
-                  and both navigate - so neither is mounted during maintenance. */}
-              {!isInMaintenance && <PremiumPaywall />}
-              {!isInMaintenance && <LoginPromptModal />}
+              {/* Full-screen modals that would cover MaintenanceScreen or
+                  UpdateRequiredScreen (and the first two navigate) - so none
+                  is mounted while either is up. */}
+              {!isAppBlocked && <PremiumPaywall />}
+              {!isAppBlocked && <LoginPromptModal />}
+              {!isAppBlocked && <UpdatePromptModal />}
             </AuthProvider>
           </ToastProvider>
         </BottomSheetModalProvider>

@@ -18,6 +18,7 @@ import { feedService } from '@/features/feed/services/feedService';
 import { authorizeMediaAction } from '@/features/feed/services/mediaAccess';
 import { useFeedStore } from '@/store/feedStore';
 import { useSoundPreferenceStore } from '@/store/soundPreferenceStore';
+import { useUpdatePromptStore } from '@/store/updatePromptStore';
 import { formatCount } from '@/utils/formatCount';
 import { getFeedSubtitle, getFeedThumbnailUrl } from '@/utils/feedFields';
 import { shareContent } from '@/utils/shareContent';
@@ -303,7 +304,10 @@ export default function AutoplayFeedCard({ feed, isActive, shouldMountVideo = tr
     };
   }, [isActive]);
 
-  const isEffectivelyActive = isActive && isScreenFocused && isAppActive;
+  // Paused while the soft "update available" prompt is open over Home.
+  const isUpdatePromptOpen = useUpdatePromptStore((state) => state.isVisible);
+
+  const isEffectivelyActive = isActive && isScreenFocused && isAppActive && !isUpdatePromptOpen;
 
   // Video: drive the native player imperatively, not only via the
   // declarative `shouldPlay` prop below. Root cause of an unmuted Home video
@@ -436,7 +440,8 @@ export default function AutoplayFeedCard({ feed, isActive, shouldMountVideo = tr
   // requested, non-elected card's player would mount but its own
   // isEffectivelyActive prop would read false and immediately deactivate
   // itself right back to paused, defeating the tap.
-  const shouldPlayAudio = (isActive || userRequestedPlayback) && isScreenFocused && isAppActive;
+  const shouldPlayAudio =
+    (isActive || userRequestedPlayback) && isScreenFocused && isAppActive && !isUpdatePromptOpen;
 
   // Track a view/play once when audio genuinely becomes relevant for the
   // first time (elected OR manually tapped) - deliberately parent-owned and
