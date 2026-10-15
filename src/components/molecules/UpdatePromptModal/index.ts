@@ -1,0 +1,1 @@
+export { UpdatePromptModal } from './UpdatePromptModal';
