@@ -362,6 +362,14 @@
     "retry": "फिर से कोशिश करें",
     "checking": "जाँच हो रही है…"
   },
+  "appUpdate": {
+    "softTitle": "नया वर्ज़न उपलब्ध है",
+    "softBody": "नए सुधारों और बेहतर अनुभव के लिए Bhav Bhakti अपडेट करें।",
+    "later": "बाद में",
+    "update": "अपडेट करें",
+    "requiredTitle": "कृपया Bhav Bhakti अपडेट करें",
+    "requiredBody": "यह वर्ज़न अब सपोर्ट नहीं होता। ऐप इस्तेमाल करते रहने के लिए Play Store से अपडेट करें।"
+  },
   "deityFilter": {
     "all": "सभी",
     "liked": "पसंदीदा",

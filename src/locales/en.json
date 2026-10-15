@@ -392,6 +392,14 @@
     "retry": "Try again",
     "checking": "Checking…"
   },
+  "appUpdate": {
+    "softTitle": "A new version is available",
+    "softBody": "Update Bhav Bhakti for the latest improvements and fixes.",
+    "later": "Later",
+    "update": "Update",
+    "requiredTitle": "Please update Bhav Bhakti",
+    "requiredBody": "This version is no longer supported. Update from the Play Store to keep using the app."
+  },
   "deityFilter": {
     "all": "All",
     "liked": "Liked",
