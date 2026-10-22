@@ -124,6 +124,17 @@ export default function SearchResultsScreen() {
     }, [handleBackPress])
   );
 
+  // What the player sends back when it returns here. It includes this
+  // screen's own returnTo/returnParams: the player's router.navigate
+  // replaces this screen's params, so without them the next back (to the
+  // hub the search started from) found no returnTo and landed on Home.
+  const playerReturnParams: Record<string, string> = {
+    query: query || '',
+    ...(type ? { type } : {}),
+    ...(returnTo ? { returnTo } : {}),
+    ...(returnParams ? { returnParams } : {}),
+  };
+
   const handleFeedPress = (feed: Feed) => {
     // Add haptic feedback for feed press
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -195,7 +206,7 @@ export default function SearchResultsScreen() {
           // `type` is included the same way - otherwise backing out of a
           // type-scoped search (e.g. from Mantra Explorer) would drop the
           // restriction and land on an unscoped results list instead.
-          returnParams: JSON.stringify({ query: query || '', ...(type ? { type } : {}) }),
+          returnParams: JSON.stringify(playerReturnParams),
         }
       });
       return;
@@ -265,7 +276,7 @@ export default function SearchResultsScreen() {
         // query, matching the returnTo/returnParams fix already applied to
         // handleFeedPress above for mantra/general audio taps.
         audioCardReturnTo="/(main)/search-results"
-        audioCardReturnParams={{ query: query || '', ...(type ? { type } : {}) }}
+        audioCardReturnParams={playerReturnParams}
         // 24px (spacing.lg) horizontal margin around each result card,
         // matching the header's own paddingHorizontal above; applied only to
         // items (not the header itself, which already has its own matching
