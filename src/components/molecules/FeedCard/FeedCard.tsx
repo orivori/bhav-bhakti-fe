@@ -28,6 +28,9 @@ interface FeedCardProps {
   onDownload?: (feedId: string) => void;
   onPress?: (feed: Feed) => void;
   autoPlayVideo?: boolean;
+  // Wallpaper/thought only - forwarded to WallpaperFeedCard (see its own
+  // prop). Undefined keeps WallpaperFeedCard's default (always mount).
+  shouldMountVideo?: boolean;
 }
 
 const { width } = Dimensions.get('window');
@@ -39,6 +42,7 @@ export default function FeedCard({
   onDownload,
   onPress,
   autoPlayVideo = false,
+  shouldMountVideo,
 }: FeedCardProps) {
   const [isLiking, setIsLiking] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -302,6 +306,7 @@ export default function FeedCard({
         onShare={onShare}
         onDownload={onDownload}
         onPress={onPress}
+        shouldMountVideo={shouldMountVideo}
       />
     );
   } else {

@@ -30,9 +30,10 @@ interface WallpaperFeedCardProps {
   // Thought for the Day sub-tabs). Defaulting to 'default' means every
   // existing call site keeps rendering exactly as before with zero changes.
   variant?: 'default' | 'grid-tile';
-  // grid-tile only: whether a video tile may mount its player. The hub grids
-  // pass this from useVisibleVideoTiles (on screen, capped, hub focused);
-  // false shows the thumbnail or a plain placeholder instead.
+  // Whether a video card may mount its player (both variants). The hub grids
+  // and Search Results pass this from useVisibleVideoTiles (on screen,
+  // capped, screen focused); false shows the thumbnail or a plain
+  // placeholder instead. Defaults to true (always mount).
   shouldMountVideo?: boolean;
 }
 
@@ -195,16 +196,27 @@ export default function WallpaperFeedCard({
             // fixed 4:5 COVER box for its other consumers (FeedCard's
             // general-purpose fallback, etc.), and changing that shared
             // behavior would affect them too.
+            // shouldMountVideo false (Search Results' limitVideoTiles): no
+            // player at all, same as the grid-tile branch - the box's cream
+            // background is the placeholder when there's no thumbnail.
             <View style={styles.wallpaperVideoBox}>
-              <Video
-                source={{ uri: feed.url }}
-                style={styles.wallpaperVideo}
-                resizeMode={ResizeMode.CONTAIN}
-                isLooping
-                shouldPlay
-                isMuted={true}
-                posterSource={thumbnailUrl ? { uri: thumbnailUrl } : undefined}
-              />
+              {shouldMountVideo ? (
+                <Video
+                  source={{ uri: feed.url }}
+                  style={styles.wallpaperVideo}
+                  resizeMode={ResizeMode.CONTAIN}
+                  isLooping
+                  shouldPlay
+                  isMuted={true}
+                  posterSource={thumbnailUrl ? { uri: thumbnailUrl } : undefined}
+                />
+              ) : thumbnailUrl ? (
+                <Image
+                  source={{ uri: thumbnailUrl }}
+                  style={styles.wallpaperVideo}
+                  resizeMode="contain"
+                />
+              ) : null}
             </View>
           ) : (
             <FeedMedia
