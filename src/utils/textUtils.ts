@@ -160,6 +160,18 @@ export const getEnhancedLineHeight = (fontSize: number, text: any, isHeading: bo
 };
 
 /**
+ * CLAUDE.md §71 floor for Hindi only: a { lineHeight } style for Devanagari
+ * text, nothing for anything else - so English keeps whatever line height
+ * it already had instead of getEnhancedLineHeight's plain fontSize * 1.2.
+ */
+export const getHindiLineHeightFloor = (
+  fontSize: number,
+  text: any,
+  isHeading: boolean = false
+): TextStyle | undefined =>
+  containsDevanagari(text) ? { lineHeight: getEnhancedLineHeight(fontSize, text, isHeading) } : undefined;
+
+/**
  * Gets extra padding for heading text to prevent clipping
  */
 export const getHeadingPadding = (text: any, fontSize: number): number => {

@@ -13,6 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import WhatsAppIcon from '../../../../assets/icons/whatsapp.svg';
 
 const { width } = Dimensions.get('window');
@@ -130,6 +131,7 @@ export default function RingtoneFeedCard({
   onLike,
   onShare,
 }: RingtoneFeedCardProps) {
+  const { t } = useTranslation();
   const { language } = useI18nStore();
   const [isLoading, setIsLoading] = useState(false);
   const [isSettingRingtone, setIsSettingRingtone] = useState(false);
@@ -480,11 +482,11 @@ export default function RingtoneFeedCard({
         }
       } else {
         console.error('❌ No audio URI found');
-        Alert.alert('Error', 'No audio file found for this ringtone.');
+        Alert.alert(t('common.error'), t('feedCard.ringtoneNoAudio'));
       }
     } catch (error) {
       console.error('❌ Error playing audio:', error);
-      Alert.alert('Error', 'Failed to play ringtone. Please try again.');
+      Alert.alert(t('common.error'), t('feedCard.ringtonePlayError'));
     } finally {
       setIsLoading(false);
     }
@@ -531,7 +533,7 @@ export default function RingtoneFeedCard({
         setLocalIsLiked(feed.isLiked);
         setLocalLikesCount(feed.likesCount);
 
-        Alert.alert('Error', 'Failed to like the ringtone. Please try again.');
+        Alert.alert(t('common.error'), t('feedCard.ringtoneLikeError'));
       }
     }
   };
@@ -647,7 +649,7 @@ export default function RingtoneFeedCard({
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
-  const titleText = feed.title ? (feed.title[language] || feed.title.en || 'Untitled Ringtone') : 'Untitled Ringtone';
+  const titleText = (feed.title && (feed.title[language] || feed.title.en)) || t('feedCard.untitledRingtone');
 
   return (
     <View style={styles.container}>
@@ -763,7 +765,7 @@ export default function RingtoneFeedCard({
                   />
                 )}
                 <Text style={styles.ringtoneButtonText}>
-                  {isSettingRingtone ? 'Setting...' : 'Set as ringtone'}
+                  {isSettingRingtone ? t('feedCard.settingRingtone') : t('feedCard.setAsRingtoneButton')}
                 </Text>
               </LinearGradient>
             </TouchableOpacity>
