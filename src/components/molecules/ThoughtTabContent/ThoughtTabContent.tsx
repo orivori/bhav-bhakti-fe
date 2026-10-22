@@ -63,14 +63,16 @@ function ThoughtTabContent(_props: {}, ref: React.Ref<FlatList>) {
     },
   });
 
-  const { open: openViewingWindow, ViewingWindow } = useViewingWindow({
+  const { open: openViewingWindow, isOpen: isViewingWindowOpen, ViewingWindow } = useViewingWindow({
     feeds,
     onLike: likeFeed,
     onShare: shareFeed,
     onDownload: downloadFeed,
   });
 
-  const { shouldMountVideo, viewabilityConfigCallbackPairs } = useVisibleVideoTiles();
+  const { shouldMountVideo, viewabilityConfigCallbackPairs } = useVisibleVideoTiles({
+    suspended: isViewingWindowOpen,
+  });
 
   const handleFeedPress = useCallback((feed: Feed) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);

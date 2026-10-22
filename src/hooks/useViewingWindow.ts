@@ -81,5 +81,9 @@ export function useViewingWindow({ feeds, onLike, onShare, onDownload }: UseView
     onDownload,
   });
 
-  return { open, ViewingWindow };
+  // The hub grids unmount their video players while this is true, so the
+  // window's own player isn't competing with them for memory.
+  const isOpen = feedId !== null;
+
+  return { open, isOpen, ViewingWindow };
 }

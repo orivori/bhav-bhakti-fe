@@ -14,8 +14,10 @@ export const MAX_PLAYING_VIDEO_TILES = 4;
 // MAX_PLAYING_VIDEO_TILES of them in list order, and none at all while the
 // hub isn't the focused screen (Tabs keep it mounted behind other tabs).
 // Every other video tile renders a still/placeholder instead (see
-// WallpaperFeedCard's `shouldMountVideo`).
-export function useVisibleVideoTiles() {
+// WallpaperFeedCard's `shouldMountVideo`). `suspended` unmounts every tile's
+// player while true (the Viewing Window open over the grid) - the visible
+// set is kept, so the same tiles come back once it turns false.
+export function useVisibleVideoTiles({ suspended = false }: { suspended?: boolean } = {}) {
   const isFocused = useIsFocused();
   const [visibleVideoIds, setVisibleVideoIds] = useState<ReadonlySet<string>>(() => new Set());
 
@@ -41,8 +43,8 @@ export function useVisibleVideoTiles() {
   // doesn't re-report viewability on refocus, so the last visible set must
   // survive for the same tiles to come back without a scroll.
   const shouldMountVideo = useCallback(
-    (feed: Feed) => isFocused && visibleVideoIds.has(String(feed.id)),
-    [isFocused, visibleVideoIds]
+    (feed: Feed) => isFocused && !suspended && visibleVideoIds.has(String(feed.id)),
+    [isFocused, suspended, visibleVideoIds]
   );
 
   return {
