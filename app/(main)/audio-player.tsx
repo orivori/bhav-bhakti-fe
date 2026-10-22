@@ -595,14 +595,24 @@ export default function AudioPlayerScreen() {
   // to re-attach its native handler on queueSwipeHandleZone repeatedly. Fixed
   // as the likely cause of the "आगे बजेगा" Up Next label rendering truncated
   // to just "आगे" on-device - queueSheetRef is a stable ref, safe to omit.
+  // A tap on the handle opens the same sheet (Race: a swipe moves the finger,
+  // which fails the tap). Both only ever present() - never dismiss() a sheet
+  // that may not have been presented (CLAUDE.md §113).
   const swipeUpToOpenQueue = useMemo(
     () =>
-      Gesture.Fling()
-        .direction(Directions.UP)
-        .runOnJS(true)
-        .onEnd(() => {
-          queueSheetRef.current?.present();
-        }),
+      Gesture.Race(
+        Gesture.Fling()
+          .direction(Directions.UP)
+          .runOnJS(true)
+          .onEnd(() => {
+            queueSheetRef.current?.present();
+          }),
+        Gesture.Tap()
+          .runOnJS(true)
+          .onEnd((_event, success) => {
+            if (success) queueSheetRef.current?.present();
+          })
+      ),
     []
   );
 
