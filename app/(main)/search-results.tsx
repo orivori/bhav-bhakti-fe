@@ -3,10 +3,12 @@ import {
   View,
   TouchableOpacity,
   StyleSheet,
+  BackHandler,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 
 import { Text } from '@/components/atoms';
@@ -86,7 +88,7 @@ export default function SearchResultsScreen() {
     logSearchQueryZeroResults({ query: query.trim() });
   }, [isLoading, feeds.length, query]);
 
-  const handleBackPress = () => {
+  const handleBackPress = React.useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
     if (returnTo) {
@@ -103,7 +105,24 @@ export default function SearchResultsScreen() {
     }
 
     router.back();
-  };
+  }, [returnTo, returnParams]);
+
+  // Android's hardware back button and edge-swipe back gesture take the same
+  // route as the on-screen arrow. Without this they fell through to the
+  // Tabs navigator, whose default back behaviour always lands on Home -
+  // ignoring returnTo (e.g. a search started from Mantra Explorer). Same
+  // pattern as horoscope-detail.tsx. useFocusEffect (not mount/unmount) is
+  // required: this screen stays mounted inside the Tabs, so a mount-only
+  // listener would keep hijacking back presses on other tabs.
+  useFocusEffect(
+    React.useCallback(() => {
+      const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+        handleBackPress();
+        return true;
+      });
+      return () => subscription.remove();
+    }, [handleBackPress])
+  );
 
   const handleFeedPress = (feed: Feed) => {
     // Add haptic feedback for feed press
