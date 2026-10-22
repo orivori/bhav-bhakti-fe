@@ -17,6 +17,7 @@ import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { useRingtones } from '@/features/feed/hooks/useRingtones';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
 import { DeityFilterSelection } from '@/components/molecules/DeityFilterRow';
+import { getHindiLineHeightFloor } from '@/utils/textUtils';
 
 interface RingtonesTabContentProps {
   filter: DeityFilterSelection;
@@ -75,23 +76,29 @@ function RingtonesTabContent({ filter }: RingtonesTabContentProps, ref: React.Re
       return (
         <View style={styles.footerLoader}>
           <ActivityIndicator size="small" color={goldenTempleTheme.colors.primary.DEFAULT} />
-          <Text variant="caption" style={styles.loadingText}>
-            Loading more ringtones...
+          <Text
+            variant="caption"
+            style={[styles.loadingText, getHindiLineHeightFloor(14, t('audio.loadingMoreRingtones'))]}
+          >
+            {t('audio.loadingMoreRingtones')}
           </Text>
         </View>
       );
     }
 
     return <View style={styles.footerSpacing} />;
-  }, [hasMore, isLoadingMore]);
+  }, [hasMore, isLoadingMore, t]);
 
   const renderEmptyComponent = useCallback(() => {
     if (isLoading) {
       return (
         <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color={goldenTempleTheme.colors.primary.DEFAULT} />
-          <Text variant="body" style={styles.loadingText}>
-            Loading sacred ringtones...
+          <Text
+            variant="body"
+            style={[styles.loadingText, getHindiLineHeightFloor(14, t('audio.loadingRingtones'))]}
+          >
+            {t('audio.loadingRingtones')}
           </Text>
         </View>
       );
@@ -103,14 +110,21 @@ function RingtonesTabContent({ filter }: RingtonesTabContentProps, ref: React.Re
           <View style={styles.errorIcon}>
             <Ionicons name="musical-notes-outline" size={48} color="#FF6B35" />
           </View>
-          <Text variant="h4" style={styles.errorTitle}>
-            Oops! Something went wrong
+          <Text variant="h4" style={[styles.errorTitle, getHindiLineHeightFloor(20, t('audio.errorTitle'), true)]}>
+            {t('audio.errorTitle')}
           </Text>
-          <Text variant="body" style={styles.errorMessage}>
-            {error}
+          {/* One fixed, translated message - the raw server/network text
+              stays in the console (useRingtones). */}
+          <Text
+            variant="body"
+            style={[styles.errorMessage, getHindiLineHeightFloor(14, t('audio.ringtonesLoadError'))]}
+          >
+            {t('audio.ringtonesLoadError')}
           </Text>
           <TouchableOpacity style={styles.retryButton} onPress={() => loadRingtones()}>
-            <Text style={styles.retryText}>Try Again</Text>
+            <Text style={[styles.retryText, getHindiLineHeightFloor(16, t('common.tryAgain'))]}>
+              {t('common.tryAgain')}
+            </Text>
           </TouchableOpacity>
         </View>
       );
@@ -134,11 +148,14 @@ function RingtonesTabContent({ filter }: RingtonesTabContentProps, ref: React.Re
         <View style={styles.emptyIcon}>
           <Ionicons name="musical-notes" size={48} color="#FF8C42" />
         </View>
-        <Text variant="h4" style={styles.emptyTitle}>
-          No Ringtones Yet
+        <Text variant="h4" style={[styles.emptyTitle, getHindiLineHeightFloor(20, t('audio.noRingtonesTitle'), true)]}>
+          {t('audio.noRingtonesTitle')}
         </Text>
-        <Text variant="body" style={styles.emptySubtitle}>
-          Sacred ringtones are coming soon!
+        <Text
+          variant="body"
+          style={[styles.emptySubtitle, getHindiLineHeightFloor(14, t('audio.noRingtonesSubtitle'))]}
+        >
+          {t('audio.noRingtonesSubtitle')}
         </Text>
       </View>
     );

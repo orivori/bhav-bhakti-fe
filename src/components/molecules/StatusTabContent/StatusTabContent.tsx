@@ -21,6 +21,7 @@ import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
 import { useViewingWindow } from '@/hooks/useViewingWindow';
 import { useVisibleVideoTiles } from '@/hooks/useVisibleVideoTiles';
+import { getHindiLineHeightFloor } from '@/utils/textUtils';
 
 interface StatusTabContentProps {
   filter: DeityFilterSelection;
@@ -119,7 +120,9 @@ function StatusTabContent({ filter }: StatusTabContentProps, ref: React.Ref<Flat
           <Ionicons name="alert-circle-outline" size={48} color="#FF6B35" />
           <Text variant="body" style={styles.errorMessage}>{error}</Text>
           <TouchableOpacity style={styles.retryButton} onPress={() => retry()}>
-            <Text style={styles.retryText}>Try Again</Text>
+            <Text style={[styles.retryText, getHindiLineHeightFloor(14, t('common.tryAgain'))]}>
+              {t('common.tryAgain')}
+            </Text>
           </TouchableOpacity>
         </View>
       );
@@ -137,7 +140,12 @@ function StatusTabContent({ filter }: StatusTabContentProps, ref: React.Ref<Flat
     return (
       <View style={styles.centerContainer}>
         <Ionicons name="images-outline" size={48} color="#8E8E93" />
-        <Text variant="body" style={styles.emptyText}>No status updates yet</Text>
+        <Text
+          variant="body"
+          style={[styles.emptyText, getHindiLineHeightFloor(14, t('wallpaperHub.noStatusUpdates'))]}
+        >
+          {t('wallpaperHub.noStatusUpdates')}
+        </Text>
       </View>
     );
   }, [isLoading, error, retry, filter.kind, t]);
