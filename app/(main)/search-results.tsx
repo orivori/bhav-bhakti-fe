@@ -233,6 +233,11 @@ export default function SearchResultsScreen() {
         emptySubtitle={t('searchResults.emptySubtitle')}
         onRetry={retry}
         autoPlayVideo={true}
+        // Video wallpaper cards play only while on screen (at most 4) and
+        // only while this screen is focused - it stays mounted in the Tabs
+        // after leaving, so its videos used to keep playing behind other
+        // screens. See FeedList's limitVideoTiles.
+        limitVideoTiles
         ListHeaderComponent={renderHeader}
         // Renders aarti/bhajan results via the real AudioContentCard,
         // matching the Audio hub's own design, instead of the generic

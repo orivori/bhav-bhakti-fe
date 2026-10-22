@@ -20,6 +20,7 @@ import { Feed, FeedFilters } from '@/types/feed';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { useFeedStore } from '@/store/feedStore';
 import { logHomeFeedScrolled } from '@/utils/analytics/engagementEvents';
+import { useVisibleVideoTiles } from '@/hooks/useVisibleVideoTiles';
 
 // Home: video cards farther than this from the elected card render a still
 // instead of a player (active card + one neighbour each side).
@@ -91,6 +92,22 @@ interface FeedListProps {
    * future FeedList consumer are unaffected.
    */
   enableScrollDepthTracking?: boolean;
+  /**
+   * Opt-in: video wallpaper/thought cards mount a player only while at least
+   * half on screen (at most MAX_PLAYING_VIDEO_TILES) and only while this
+   * screen is focused - the same rule as the Wallpaper hub grids, via
+   * useVisibleVideoTiles. Read once at mount; changing it later has no
+   * effect. Search Results is its only consumer - when omitted, the list
+   * renders exactly as before.
+   */
+  limitVideoTiles?: boolean;
+}
+
+// What VideoLimitedFeedList hands the list when limitVideoTiles is set.
+type VideoTiles = ReturnType<typeof useVisibleVideoTiles>;
+
+interface FeedListInnerProps extends FeedListProps {
+  videoTiles?: VideoTiles;
 }
 
 // Roughly "scrolled past the first card" at this app's typical card heights
@@ -152,7 +169,8 @@ function FeedList({
   itemSpacing,
   itemHorizontalPadding,
   enableScrollDepthTracking = false,
-}: FeedListProps, ref: React.Ref<FlatList>) {
+  videoTiles,
+}: FeedListInnerProps, ref: React.Ref<FlatList>) {
   const hasLoggedScrollDepthRef = useRef(false);
   const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
     if (!enableScrollDepthTracking || hasLoggedScrollDepthRef.current) return;
@@ -317,6 +335,7 @@ function FeedList({
           onShare={onShare}
           onDownload={onDownload}
           autoPlayVideo={autoPlayVideo && index === 0} // Auto-play only first video
+          shouldMountVideo={videoTiles ? videoTiles.shouldMountVideo(feed) : undefined}
         />
       );
     }
@@ -338,7 +357,7 @@ function FeedList({
     }
 
     return <View style={itemWrapperStyle}>{cardElement}</View>;
-  }, [onFeedPress, onLike, onShare, onDownload, autoPlayVideo, enableViewportAutoplay, electedFeedId, electedIndex, audioCardReturnTo, audioCardReturnParams, itemSpacing, itemHorizontalPadding]);
+  }, [onFeedPress, onLike, onShare, onDownload, autoPlayVideo, enableViewportAutoplay, electedFeedId, electedIndex, audioCardReturnTo, audioCardReturnParams, itemSpacing, itemHorizontalPadding, videoTiles]);
 
   const renderFooter = useCallback(() => {
     if (!hasMore) {
@@ -456,7 +475,9 @@ function FeedList({
       scrollEventThrottle={200}
       {...(enableViewportAutoplay
         ? { viewabilityConfigCallbackPairs: viewabilityConfigCallbackPairsRef.current }
-        : {})}
+        : videoTiles
+          ? { viewabilityConfigCallbackPairs: videoTiles.viewabilityConfigCallbackPairs }
+          : {})}
       showsVerticalScrollIndicator={false}
       contentContainerStyle={[
         !ListHeaderComponent && styles.container,
@@ -466,8 +487,9 @@ function FeedList({
       removeClippedSubviews={true}
       // Home (viewport autoplay) keeps a smaller window - fewer full-screen
       // cards mounted at once; every other FeedList screen is unchanged.
+      // Search (limitVideoTiles) uses the same smaller window.
       maxToRenderPerBatch={enableViewportAutoplay ? 5 : 10}
-      windowSize={enableViewportAutoplay ? 5 : 10}
+      windowSize={enableViewportAutoplay || videoTiles ? 5 : 10}
       initialNumToRender={5}
       updateCellsBatchingPeriod={16}
       // Phase 3: getItemLayout's estimatedItemSize assumption is wrong for
@@ -476,8 +498,10 @@ function FeedList({
       // pagination-blank-scroll bug found in Phase 2 testing (FlatList trusted a
       // fixed 600px/item virtual content size that no longer matched real
       // rendered heights). Dropped only for this path; every other consumer
-      // keeps the existing fixed-size optimization unchanged.
-      getItemLayout={enableViewportAutoplay ? undefined : getItemLayout}
+      // keeps the existing fixed-size optimization unchanged. Also dropped for
+      // limitVideoTiles: visibility is computed from these frames, and the
+      // fixed estimate would mark the wrong video cards as on screen.
+      getItemLayout={enableViewportAutoplay || videoTiles ? undefined : getItemLayout}
       maintainVisibleContentPosition={{
         minIndexForVisible: 0,
         autoscrollToTopThreshold: 10,
@@ -486,7 +510,30 @@ function FeedList({
   );
 }
 
-export default React.forwardRef(FeedList);
+const FeedListInner = React.forwardRef(FeedList);
+
+// Owns the useVisibleVideoTiles hook for limitVideoTiles lists, so lists
+// without it (Home) never call it - no focus subscription, no extra renders.
+const VideoLimitedFeedList = React.forwardRef<FlatList, FeedListProps>((props, ref) => {
+  const { shouldMountVideo, viewabilityConfigCallbackPairs } = useVisibleVideoTiles();
+  // Stable unless visibility/focus changes, so renderFeedItem isn't rebuilt
+  // on every parent render.
+  const videoTiles = useMemo(
+    () => ({ shouldMountVideo, viewabilityConfigCallbackPairs }),
+    [shouldMountVideo, viewabilityConfigCallbackPairs]
+  );
+  return <FeedListInner {...props} ref={ref} videoTiles={videoTiles} />;
+});
+
+function FeedListRoot(props: FeedListProps, ref: React.Ref<FlatList>) {
+  // Fixed from the first render: switching paths later would remount the list.
+  const limitVideoTiles = useRef(props.limitVideoTiles === true).current;
+  return limitVideoTiles
+    ? <VideoLimitedFeedList {...props} ref={ref} />
+    : <FeedListInner {...props} ref={ref} />;
+}
+
+export default React.forwardRef(FeedListRoot);
 
 const styles = StyleSheet.create({
   flatListStyle: {
