@@ -1,10 +1,10 @@
 # Bhav Bhakti — Project Context
 
-*Last verified against actual code/config: 2026-10-22 (§126–§127 checked against the commits and branches; §125 checked against the commits, branches and Crashlytics; §117 against the commits, branches and the production endpoint; §113–§116 against the commits, branches and Railway deploys; §110–§112 against the production and dev databases, the Storage bucket and the commits; the rest of the file last had a full staleness pass on 2026-09-29). Condensed again on 2026-10-05 (eighth pass — see the archive's note of that date). Newest, on dev/develop only (NOT production): §120 Stories phases 1–5. Newest live in production: §127 Search and video fixes (2026-10-22); §126 update-available prompt (2026-10-15 OTA, off until its Railway variables are set); §125 video-memory fix (2026-10-14 OTA); §124 v8 live on the Play Store (2026-10-11) and the 2026-10-11 OTA (§123's Premium popup and Edit Profile back); §122 v8 itself (permissions fix, plus §121's auto-advance fix as `ce67a95`); §119 Home first-10 guarantee (one of each content type); §118 co-founder feedback pass (deity names, content-only chips, Status share pill, ringtone save flow); §117 maintenance-mode kill switch + a short About-screen update tag; §116 share captions with the real Play Store link; §115 wallpaper downloads to a "Bhav Bhakti" album + the back-button-minimizes-the-app fix; §114 security audit Group 7 (dependency fixes; Expo SDK upgrade parked); §113 player fixes; §112 `storage.rules` locked (Group 4 step 10); §111 weighted feed ranking + the founder-runs-every-OTA rule; §110 content import (173 live feeds).*
+*Last verified against actual code/config: 2026-10-22 (§110–§127 each checked against the commits and branches, and where relevant the databases, the Storage bucket, Railway deploys and Crashlytics; the rest last had a full staleness pass on 2026-09-29). §128 (2026-10-23) recorded from the founder's rotation work and today's commits. Last condensed 2026-10-23 (ninth pass — see the archive's note of that date). Newest, on dev/develop only (NOT production): §120 Stories phases 1–5. Newest live in production: §128 Railway incident — every secret rotated (2026-10-23); §127 Search and video fixes (2026-10-22); §126 update-available prompt (off until its Railway variables are set); §125 video-memory fix; §124 v8 live on the Play Store (2026-10-11). Earlier production work: §110–§123.*
 
-*Still-open items carried forward:* **§125:** check done, master fast-forwarded (§127); **media Stage 2 paused** (WebP variants and thumbnails, §125); **v9 scope** (at least expo-image and native crash symbols, §125). **Revenue:** the Revenue Model and the roadmap live in `D:hav_bhakti_Claude_docs` (`Bhav_Bhakti_Revenue_Model.md`, `Bhav_Bhakti_Roadmap_2026-10-15.md`); AdMob (Model 2), chosen 2026-10-15, is **the next build** (Revenue Model §5c, Roadmap). **Update prompt: done** (§126). **§87 — `isPremium` is permanently `false` for every user** (the Premium pipeline's frontend, wiring up the already-built `GET /subscription/status`, was never built) — HIGH PRIORITY for the next Premium session. **Security audit:** every group is complete. Group 4 is 9 of 10 — step 7 (App Check) deliberately skipped and permanent Firebase download tokens accepted as-is, no rotation (founder decisions, §112); Group 7 done apart from the Expo SDK 54→57 upgrade, parked as its own future project (§114). `Bhav_Bhakti_Security_Audit_Plan.md` is authoritative. **Play Console:** the Data Safety form, the Advertising ID declaration and the foreground-service declaration are done; v8 live (§124). **Content (§110/§111):** the import sheet must be brought in line with production before any re-import, or it undoes the dedupe; the Feed TEMPLATE CSV's example row points at deleted files (§112). **Product decision pending:** audio "views" vs "plays" (§113). **Claude never runs an OTA update, dev or production — the founder runs every one (§111); no device testing unless explicitly asked (§113).** **§85 is the standing branch workflow:** everyday commits on `dev`; `production` receives only cherry-picks from `dev` once tested; real production pushes only from `production` (`npm run update:production`); `master` fast-forwarded from `production` once confirmed live.
+*Still-open items carried forward:* **Media Stage 2 paused** (WebP variants and thumbnails, §125); **v9 scope** (at least expo-image and native crash symbols, §125). **Revenue:** the Revenue Model and the roadmap live in `D:\bhav_bhakti_Claude_docs` (`Bhav_Bhakti_Revenue_Model.md`, `Bhav_Bhakti_Roadmap_2026-10-15.md`); AdMob (Model 2), chosen 2026-10-15, is **the next build** (Revenue Model §5c, Roadmap). **§87 — `isPremium` is permanently `false` for every user** (the Premium pipeline's frontend, wiring up the already-built `GET /subscription/status`, was never built) — HIGH PRIORITY for the next Premium session. **Security audit:** every group is complete. Group 4 is 9 of 10 — step 7 (App Check) deliberately skipped and permanent Firebase download tokens accepted as-is, no rotation (founder decisions, §112); Group 7 done apart from the Expo SDK 54→57 upgrade, parked as its own future project (§114). `Bhav_Bhakti_Security_Audit_Plan.md` is authoritative. **Docker images (§128):** `.dockerignore` excludes `package-lock.json`; the API `Dockerfile`'s `HEALTHCHECK` calls `/health`, which 404s — noted only. **Play Console:** the Data Safety form, the Advertising ID declaration and the foreground-service declaration are done; v8 live (§124). **Content (§110/§111):** the import sheet must be brought in line with production before any re-import, or it undoes the dedupe; the Feed TEMPLATE CSV's example row points at deleted files (§112). **Product decision pending:** audio "views" vs "plays" (§113). **Claude never runs an OTA update, dev or production — the founder runs every one (§111); no device testing unless explicitly asked (§113).** **§85 is the standing branch workflow:** everyday commits on `dev`; `production` receives only cherry-picks from `dev` once tested; real production pushes only from `production` (`npm run update:production`); `master` fast-forwarded from `production` once confirmed live.
 
-*Condensing history:* this file was condensed on 2026-07-29, 08-13, 08-20 (twice), 09-10, 09-14, 09-29 and 10-05. The full original text of every condensed or rewritten section is preserved in `CLAUDE_ARCHIVE_2026-07-29_full-history.md`.
+*Condensing history:* this file was condensed on 2026-07-29, 08-13, 08-20 (twice), 09-10, 09-14, 09-29, 10-05 and 10-23. The full original text of every condensed or rewritten section is preserved in `CLAUDE_ARCHIVE_2026-07-29_full-history.md`.
 
 ## 1. Project overview
 
@@ -48,18 +48,18 @@ The API route (`POST /upload/media`, then `POST /feed`) still exists but is admi
 
 ## 5. Horoscope engine
 
-Daily Rashifal content is AI-generated: `scripts/generate-daily-horoscopes-gemini.js` generates English with Gemini (`temperature: 1.4`, §90), then translates that exact content into Hindi (§55). A Railway cron runs it nightly with `TZ=Asia/Kolkata` (§66) — in production that's the service named `alert-transformation` (Railway's auto-generated name), which redeploys alongside `bhav-bhakti-be` on every push to `main`. The old third-party APIs (Aztro, horoscope-app-api) and their static fallback were removed (§40). `astrology.service.js` does real western zodiac-sign calculation from date of birth; Vedic details (moon sign, ascendant) are still stubbed (`// TODO: Future enhancement - call Vedic astrology API`, line 57).
+Daily Rashifal content is AI-generated: `scripts/generate-daily-horoscopes-gemini.js` generates English with Gemini (`temperature: 1.4`, §90), then translates that exact content into Hindi (§55). A Railway cron runs it nightly with `TZ=Asia/Kolkata` (§66) — in production that's the service renamed "daily horoscope" on 2026-10-23 (formerly Railway's auto-generated `alert-transformation`, §128), which redeploys alongside `bhav-bhakti-be` on every push to `main`. The old third-party APIs (Aztro, horoscope-app-api) and their static fallback were removed (§40). `astrology.service.js` does real western zodiac-sign calculation from date of birth; Vedic details (moon sign, ascendant) are still stubbed (`// TODO: Future enhancement - call Vedic astrology API`, line 57).
 
 ## 6. Known resolved issues (history only — don't redo these)
 
-- **Seeder JSON bug** — fixed, committed (`bhav-bhakti-be` `15c2b0a`): a seeder crashed inserting plain strings into JSON-typed multilingual columns; fixed by wrapping values in `JSON.stringify({ en: ... })`.
-- **AWS S3 → Firebase Storage migration** — committed (`bhav-bhakti-be` `67c303b`), confirmed working end-to-end 2026-07-18 (real upload → Feed → app playback). AWS package/script cleanup was *not* part of this — see §2.
-- **Feed title/caption field-mismatch bug** — fixed 2026-07-18 (`bhav-bhakti-fe` `4e65b55`): several components (`RingtoneFeedCard`, `FeedCard`'s mantra render, `mantras.tsx`) read `feed.caption` (always null) instead of resolving the multilingual `feed.title` object, showing generic placeholders instead of real content. Fixed to resolve `feed.title[language] || feed.title.en`. `MantraCard.tsx` had the identical bug but is confirmed dead code (never imported anywhere). Open question, still undecided: should `caption` become a real short-blurb feature, or be removed from the schema? See §4.
-- An original infrastructure audit and two 2026-07-19 reference documents (a Product Status Report `.xlsx` and a Navigation Map `.html`) exist only as founder-held files outside both repos — not in git, don't assume Claude Code can see them.
+- **Seeder JSON bug** — fixed (`bhav-bhakti-be` `15c2b0a`): multilingual JSON columns need values like `JSON.stringify({ en: ... })`.
+- **AWS S3 → Firebase Storage migration** — `67c303b`, confirmed end-to-end 2026-07-18 (AWS package cleanup was separate, §2).
+- **Feed title/caption mismatch** — fixed (`bhav-bhakti-fe` `4e65b55`): resolve `feed.title[language] || feed.title.en`, never `feed.caption`. `caption` was later replaced by the bilingual `subtitle` (§4). `MantraCard.tsx` is dead code.
+- An original infrastructure audit and two 2026-07-19 reference documents (a Product Status Report `.xlsx` and a Navigation Map `.html`) exist only as founder-held files outside both repos — not in git.
 
 ## 7. Session state — uncommitted local changes (resolved)
 
-Resolved 2026-07-22: `package-lock.json`'s unexplained drift (byte-identical to `HEAD`) and `api.ts`'s hardcoded `10.0.2.2` override (properly fixed in §12). The founder uses HeidiSQL for direct database browsing — see §8 for when to use it vs. Claude Code.
+Resolved 2026-07-22 (the `package-lock.json` drift and `api.ts`'s `10.0.2.2` override). HeidiSQL vs. Claude Code for data questions: §8.
 
 ## 8. Working style / preferences
 
@@ -89,15 +89,15 @@ Link-up vs. delete is undecided for all three — confirm with the founder. (Sin
 
 ## 11. 2026-07-20 session — Ringtones playback/caching, play count tracking, Trending Now planning
 
-Ringtones caching v1, playback exclusivity, and Trending Now planning — since fully superseded: playback exclusivity/backgrounding rebuilt into the global coordinator (§17), caching mechanism completely rebuilt in §24/25, Trending Now built in §22. Standing reusable practice from this session, still worth applying: an "Audio Content Pre-Work Scoping Checklist" (playback exclusivity/caching/platform/product questions) before building any new audio content type. Full original detail archived in `CLAUDE_ARCHIVE_2026-07-29_full-history.md`.
+Superseded (coordinator §17, caching §24/§25, Trending §22). Still worth applying: the "Audio Content Pre-Work Scoping Checklist" (playback exclusivity, caching, platform and product questions) before building any new audio content type. Detail archived.
 
 ## 12. 2026-07-21 session — Network fix, visual/design audit, Aarti/Bhajan foundation, Audio hub decided
 
-Network fix (superseded, further fixed §19/20). Visual/design audit's 3 open product decisions are all now resolved elsewhere: Status/Wallpaper merge → Wallpaper Hub (§23); Rashifal date arrows → removed (§42); zodiac emoji icons → removed (§62). Audio hub architecture decided here, built §21. Aarti/Bhajan schema foundation (`'aarti'`/`'bhajan'` type ENUMs, `is_repeatable` column) laid down here, still baseline. Still-open technical debt from this session: no shared `FEED_TYPES` constant exists — adding a new Feed type still means manually updating multiple hardcoded whitelist call sites across the backend, not yet fixed. Full original detail archived in `CLAUDE_ARCHIVE_2026-07-29_full-history.md`.
+Resolved or superseded elsewhere (Audio hub §21, Wallpaper Hub §23, date arrows §42, emoji icons §62). Still baseline: the `'aarti'`/`'bhajan'` type ENUMs and `is_repeatable`. The missing shared `FEED_TYPES` constant flagged here now exists on `develop` (`src/constant/index.js`, with `HOME_FEED_TYPES`, §120) but not yet on `main`. Detail archived.
 
 ## 13. 2026-07-21 session (continued) — Audio player redesign, seek bar diagnosed, category duplicate confirmed, Home tap/startup jitter root-caused
 
-Audio player v1 layout — superseded by the YT-Music-style redesign (§57/58). "Ganesh Mantras" duplicate category diagnosed here is moot since the categoryId-based UI was removed entirely in §56. Home tap and startup jitter issues from this session were both resolved later (§25, §47 respectively). **Still-open, not resolved anywhere since:** the seek bar's thumb has no real drag gesture (tap-only `onPress`, no `Gesture.Pan()`) — diagnosed here, never rebuilt; smoothness was later improved (§26) but real click-and-drag seeking still doesn't exist. Full original detail archived in `CLAUDE_ARCHIVE_2026-07-29_full-history.md`.
+Superseded (player §57/§58; category duplicate moot, §56; tap and startup jitter fixed, §25/§47). **Still open:** the seek bar has no drag gesture (tap-only `onPress`, no `Gesture.Pan()`); smoothness improved in §26, but real drag-seeking was never built. Detail archived.
 
 ## 14. 2026-07-22 session — react-native-track-player evaluated and removed
 
@@ -105,105 +105,95 @@ Audio player v1 layout — superseded by the YT-Music-style redesign (§57/58). 
 
 ## 15. 2026-07-23 session — Animation fix, autoPlay-on-tap fix, Ringtones migrated to expo-audio, USB dev-build crash fix
 
-Animation freeze fix, autoPlay-on-tap fix, and Ringtones' migration to `expo-audio` — all superseded by later rebuilds (per-feedId autoplay refs in §25, coordinator in §17). Standing operational fact, still relevant: after any USB reconnect, run `adb reverse tcp:3000 tcp:3000` and `adb reverse tcp:8081 tcp:8081` (verify via `adb reverse --list`). Full original detail archived in `CLAUDE_ARCHIVE_2026-07-29_full-history.md`.
+Superseded (§17, §25). Still relevant: after any USB reconnect, run `adb reverse tcp:3000 tcp:3000` and `adb reverse tcp:8081 tcp:8081` (check with `adb reverse --list`). Detail archived.
 
 ## 16. 2026-07-23 session (continued) — FeedMedia cleanup, content-rendering map, audio-player migrated to expo-audio, coordinator confirmed as next milestone
 
-`FeedMedia.tsx`'s dead audio code removed; `audio-player.tsx`'s migration to `expo-audio` — historical, now baseline. Mantra card fragmentation flagged here was fully resolved by the shared `MantraFeedCard` in §59. The `player.loop`/`volume`/`shouldCorrectPitch` unsafe-direct-assignment bugs flagged here were resolved indirectly (§28's auto-loop fix, §58's CounterSheet/MoreTargetsSheet rebuild) — standing lesson: always use `expo-audio`'s setter methods (e.g. `setPlaybackRate()`), never direct property assignment, which silently no-ops at runtime despite TS types allowing it. Full original detail archived in `CLAUDE_ARCHIVE_2026-07-29_full-history.md`.
+Historical. **Lesson:** use `expo-audio`'s setter methods (e.g. `setPlaybackRate()`), never direct property assignment — it silently no-ops at runtime despite the TS types. Detail archived.
 
 ## 17. 2026-07-23 session (continued) — global playback coordinator built and shipped
 
-**Global playback coordinator — done, committed (`3de37e5`), thoroughly tested on-device.** `src/store/playbackStore.ts` (Zustand, deliberately not `persist`ed — it holds live imperative closures bound to a mounted player instance). Two independent slots, not one shared "now playing": `ephemeral` (ringtones) and `persistent` (mantra today, aarti/bhajan/stories later). Hand-off rules: same-mode hand-off (ringtone→different ringtone, or persistent→different persistent feedId) fully stops the outgoing item; cross-mode hand-off is asymmetric — a ringtone preempting persistent content **pauses** it (stays resumable in the mini-player), persistent content preempting a ringtone **fully stops** it (no paused UI to preserve). This two-slot split was a genuine mid-build correction after real device testing showed the original single-slot design made the mini-player vanish on any ringtone tap, instead of showing paused-and-resumable — the intended Spotify/YouTube-Music-like behavior.
-
-**New component `MiniPlayer`** (`src/components/molecules/MiniPlayer/`): rendered as a sibling of `<Tabs>`, reads only the `persistent` slot (a ringtone can never appear here, enforced at the selector level), hidden while already on `/audio-player`. Pause/resume plus an explicit stop/dismiss (✕); tapping the body navigates to the full player.
-
-**Root cause fix:** `RingtoneFeedCard.tsx` now self-registers with the store directly (`registerPlaybackStart`/`clearNowPlaying`) instead of relying on parent-supplied props — this is what gives Home/Search Results real cross-screen exclusivity and stop-on-blur for free, with zero changes to `FeedList.tsx`.
-
-**Important corrected understanding (retroactively fixes §16's structural finding):** `audio-player.tsx`'s persistence-across-navigation was never actually broken — `(main)` is a `Tabs` group and React Navigation doesn't unmount inactive tab screens by default. What the coordinator actually added was *deliberate management* on top of that pre-existing accidental persistence: cross-screen exclusivity, mini-player visibility, and a real explicit stop.
-
-All 7 designed test scenarios (rapid hand-offs, mini-player stop, pause-not-clear on preemption, resume-from-correct-position, mini-player hidden/reappearing correctly around the full player, Home's ringtones stopping on any tab switch) confirmed working on a real device.
-
-**Known, accepted, minor risk, not yet hit:** a `RingtoneFeedCard` could theoretically unmount while still registered in the `ephemeral` slot, leaving a stale `activeControls` reference — a defensive try/catch was recommended, not yet verified needed in practice.
+Done (`3de37e5`), tested on-device. `src/store/playbackStore.ts` (Zustand, deliberately not persisted — it holds live closures bound to a mounted player) has two slots: `ephemeral` (ringtones) and `persistent` (mantra, aarti/bhajan, stories). A same-mode hand-off stops the outgoing item; a ringtone preempting persistent content **pauses** it (resumable in the mini-player); persistent content preempting a ringtone stops it. `MiniPlayer` (`src/components/molecules/MiniPlayer/`, a sibling of `<Tabs>`) reads only the `persistent` slot and hides on `/audio-player`; ✕ stops. `RingtoneFeedCard` self-registers with the store, which gives cross-screen exclusivity. The player persists across navigation because inactive tab screens aren't unmounted. **Known minor risk, not hit:** a `RingtoneFeedCard` unmounting while registered could leave a stale `activeControls` reference (a defensive try/catch was recommended). Detail archived.
 
 ## 18. 2026-07-23 session (continued) — lock-screen/notification controls built, a crash fixed, zero error boundaries found
 
-Lock-screen/notification controls built and a related crash fixed — baseline since. The "zero error boundaries" finding from this session was resolved by §94's root-level error boundary. Deliberate, still-current scope decisions: `interruptionMode` stays `duckOthers` (audio ducks rather than pauses for calls); no deep-link-to-specific-screen from the notification; iOS entirely out of scope (no native `ios/` project). Full original detail archived in `CLAUDE_ARCHIVE_2026-07-29_full-history.md`.
+Lock-screen/notification controls — baseline. Error boundaries since added (§94). Standing scope decisions: `interruptionMode` stays `duckOthers`; no deep link to a specific screen from the notification; iOS out of scope (no `ios/` project). Detail archived.
 
 ## 19. 2026-07-23 session (continued) — lock-screen confirmed on a real phone, WiFi issue narrowed, emulator regression root-caused (fixed next session, see §20)
 
-WiFi dev-client connectivity issue narrowed (USB remained the workaround) and an emulator regression found — both fully resolved next session, see §20. Full original detail archived in `CLAUDE_ARCHIVE_2026-07-29_full-history.md`.
+Resolved in §20. Detail archived.
 
 ## 20. 2026-07-24 session — isDevice fix confirmed, recurring WiFi IP-reassignment documented, an unidentified network error logged
 
-`isDevice` fix confirmed working. The WiFi/IP-reassignment operational note was moved to §8 (still there). The "unidentified repeating Network request failed error" logged this session was most likely the same connection-pool contention bug later diagnosed and fixed in §25/§26, though never explicitly confirmed as the same issue. Full original detail archived in `CLAUDE_ARCHIVE_2026-07-29_full-history.md`.
+`isDevice` fix confirmed; the WiFi IP note now lives in §8. Detail archived.
 
 ## 21. 2026-07-24 session (continued) — Audio hub restructure shipped, a real crash found and fixed
 
-Audio hub restructure (Ringtones/Aartis/Bhajans sub-tabs) shipped, since superseded visually by the Audio hub UI overhaul (§60). Standing lesson from the crash fixed here, still applicable: any code that touches an `expo-audio` player instance during cleanup needs a defensive try/catch, since no synchronous "is released" check exists — this crash class recurred at least twice more (§24, §25) in different files. Full original detail archived in `CLAUDE_ARCHIVE_2026-07-29_full-history.md`.
+Audio hub sub-tabs (visuals since §60). **Lesson:** any cleanup that touches an `expo-audio` player needs a defensive try/catch — there is no synchronous "is released" check, and this crash recurred (§24, §25). Detail archived.
 
 ## 22. 2026-07-24 session (continued) — shared deity/trending filter shipped for Ringtones, three trending bugs found and fixed
 
-Shared Deity/Trending filter pattern (`DeityFilterRow`, hub-level filter state, "Others" as a real Deity row) originated here for Ringtones, then reused unchanged for Wallpaper Hub (§23), Aarti/Bhajan (§27), and Mantra Explorer (§56) — this is the standing pattern for any future filterable content type. Three real `GET /feed/trending` bugs found and fixed this session (ignored `type` param, missing pagination, wrong-scope sort) — now baseline, superseded further by §41's window removal. Full original detail archived in `CLAUDE_ARCHIVE_2026-07-29_full-history.md`.
+Origin of the shared `DeityFilterRow` pattern (hub-level filter state, "Others" as a real Deity row) — the standard for any filterable content type (§23, §27, §56). Three `GET /feed/trending` bugs fixed (baseline; see §41). Detail archived.
 
 ## 23. 2026-07-24 session (continued) — Wallpaper Hub built end-to-end, mirroring the Audio hub pattern
 
-Wallpaper Hub (Status/Thought/Wallpapers sub-tabs) built end-to-end — since had video support and the Viewing Window feature added (§33), then a full UI overhaul (§61). **Still not actioned:** `WallpaperFeedCard`'s `variant` prop (`default` vs `grid-tile`) was built as deliberately temporary scaffolding — founder's stated intent is to eventually unify to one card style everywhere; don't assume this has happened without checking. Real share-destination deep-linking (WhatsApp Status/Instagram Story) remains parked, not started. (Firebase Analytics, also parked here, has since shipped — §95.) Full original detail archived in `CLAUDE_ARCHIVE_2026-07-29_full-history.md`.
+Wallpaper Hub (Status/Thought/Wallpapers) — since extended in §33 and restyled in §61. **Not actioned:** `WallpaperFeedCard`'s `variant` prop (`default`/`grid-tile`) is temporary scaffolding; the founder wants one card style eventually — check before assuming. Share deep-linking to WhatsApp Status/Instagram Story is parked. Detail archived.
 
 ## 24. 2026-07-27 session — Cache-Control metadata pass for CSV-imported media, persistent player local caching ported from Ringtones, CDN deferred
 
-Cache-Control metadata pass for CSV-imported media (done, still in place) and persistent-player local caching ported from Ringtones (superseded by the same-day caching-sequencing fix in §25). Real CDN (Cloud CDN + load balancer in front of Firebase Storage) was investigated and explicitly deferred — still the right call, revisit once real volume/billing data justifies it (Railway hosting is now live, see §64). Full original detail archived in `CLAUDE_ARCHIVE_2026-07-29_full-history.md`.
+Cache-Control metadata on CSV-imported media (still in place). A real CDN in front of Storage was deferred — revisit when volume and billing justify it. Detail archived.
 
 ## 25. 2026-07-27 session (continued) — First real bulk CSV import validated, a significant cross-content playback bug fixed, caching sequencing fixed, a native connection-pool bug found (fixed next day, §26)
 
-First real bulk CSV import validated; a significant cross-content playback bug (all mantra/aarti/bhajan cards played the same audio) found and fixed; caching-sequencing and a native OkHttp connection-pool bug found — the connection-pool fix itself was built and confirmed the next day, see §26. Full original detail archived in `CLAUDE_ARCHIVE_2026-07-29_full-history.md`.
+First bulk CSV import validated; a bug where every mantra/aarti/bhajan card played the same audio was fixed; the connection-pool bug found here was fixed in §26. Detail archived.
 
 ## 26. 2026-07-28 session — Connection-pool fix built and confirmed, real root cause of icon/seek-bar lag found (a dead decorative animation, not expo-audio), .env IP update
 
-Connection-pool fix — DONE, confirmed on-device, and still load-bearing infrastructure: `expo-audio`'s native `AudioModule.kt` is patched (`maxRequestsPerHost` 5→20) via `patch-package`, captured as `patches/expo-audio+1.1.1.patch` — this patch must survive every `npm install` (reapplies automatically via `postinstall`; confirmed still reapplying cleanly as of §44). Separately, the reported icon/seek-bar lag was root-caused to a fully decorative, fake wave-bar visualizer competing for the JS thread — removed entirely, not optimized. Standing lesson: seemingly-related symptoms can have entirely unrelated root causes — investigate fresh rather than assuming a shared cause. Full original detail archived in `CLAUDE_ARCHIVE_2026-07-29_full-history.md`.
+**Load-bearing:** `expo-audio`'s native `AudioModule.kt` is patched (`maxRequestsPerHost` 5→20) via `patch-package` (`patches/expo-audio+1.1.1.patch`), reapplied by `postinstall` on every `npm install` and compiled from source (§36). The icon/seek-bar lag was a decorative fake wave visualizer, removed. **Lesson:** related-looking symptoms can have unrelated causes — investigate fresh. Detail archived.
 
 ## 27. 2026-07-28 session (continued) — Aarti/Bhajan Audio hub tabs built and shipped, generalized back-navigation fix, Search Results isRepeatable bug fixed
 
-Aarti/Bhajan Audio hub tabs shipped (superseded visually by §60's overhaul) and a generalized back-navigation fix (`returnTo`/`returnParams` passed by every real entry point) — this pattern is still the standing convention used by later screens (§56, §59, §62 reference it directly). The search-only-matches-caption bug found here was fully fixed by the search rebuild in §59. Full original detail archived in `CLAUDE_ARCHIVE_2026-07-29_full-history.md`.
+Aarti/Bhajan Audio hub tabs (visuals since §60). The `returnTo`/`returnParams` back-navigation convention that every entry point passes started here (§56, §59, §62). Detail archived.
 
 ## 28. 2026-07-29 session — Aarti/Bhajan auto-loop fix, full 8-phase queue feature built, two lock-screen items deferred
 
-Auto-loop/restart bug fixed and the full 8-phase Aarti/Bhajan queue feature (Previous/Next, shuffle-ready store, Like/Share, "Up Next" queue sheet) shipped — this queue architecture is what §57's player redesign builds on top of. Of the two lock-screen items deferred here: the skip-button behavior was fixed in §36; the lock-screen title/artwork metadata mismatch was partially addressed in §37/38 and remains open (see §38, kept in full for its still-pending "next real test"). Full original detail archived in `CLAUDE_ARCHIVE_2026-07-29_full-history.md`.
+Auto-loop fix and the Aarti/Bhajan queue (Previous/Next, shuffle-ready store, Like/Share, "Up Next" sheet) — the base of §57. Of the two deferred lock-screen items, skip was fixed in §36; the metadata mismatch is still partly open (§38). Detail archived.
 
 ## 29. 2026-07-31 session — Home feed viewport-autoplay: scoped, not built
 
-**Scoped only, not built this session.** Home feed viewport-autoplay (whichever card is 60%+ visible plays, one at a time, universal `AutoplayFeedCard` for all types) was fully planned as a 6-phase build. Built the very next session — see §30. Full original scoping detail archived in `CLAUDE_ARCHIVE_2026-07-29_full-history.md`.
+Scoped only; built in §30. Detail archived.
 
 ## 30. 2026-08-01 session — Home feed viewport-autoplay Phases 1-4 built and shipped
 
-DONE, COMMITTED (`fb8b518`, `39e5fc9`), tested on-device, frontend-only. Home only (opt-in `enableViewportAutoplay`, `false` everywhere else): the card at least 60% visible autoplays, one at a time (200ms debounce, plus a 500ms floor between player starts because of connection-pool sensitivity, §25/§26). Routing covers any feed with media, so video needed no routing change. Cards measure themselves (the fixed `getItemLayout` was dropped for this path, which also fixed a blank-scroll pagination bug). `AutoplayFeedCard`: an isolated per-card player (no `playbackStore` — overlapping the persistent player is an accepted trade-off), a 30s-or-natural-length audio cap, looping video, a play/pause overlay, CTA pills (Listen / Set as Ringtone / Set as Wallpaper), a Like/Share/Views footer and a shared `formatCount`. Phase 5 (muted-by-default video) was built in the same commits (§31); Phase 6 (hardening) was never formally run. The temporary `isPremiumUser` paywall stub added here was consolidated in §42 and retired for Home's action button in §106 (Listen is always free). Full original detail archived.
+Done (`fb8b518`, `39e5fc9`), frontend-only. Home only (opt-in `enableViewportAutoplay`): the card at least 60% visible autoplays, one at a time (200 ms debounce, plus a 500 ms floor between player starts because of connection-pool sensitivity). Cards measure themselves (no fixed `getItemLayout`). `AutoplayFeedCard` has its own per-card player (no `playbackStore` — overlapping the persistent player is accepted), a 30 s audio cap, looping video, a play/pause overlay, CTA pills and a Like/Share/Views footer (`formatCount`). Phase 6 (hardening) was never formally run. Detail archived.
 
 ## 31. 2026-08-01 session (continued) — Phase 5 confirmed already built, app-backgrounding autoplay bug fixed
 
-Frontend-only. Phase 5 (muted-by-default video with a persisted unmute, `soundPreferenceStore`) turned out to be already built with Phase 4. Real bug fixed (`a21460b`): backgrounding the app didn't stop Home autoplay — fixed by folding an `AppState` listener into the existing `isEffectivelyActive` flag, so audio and video stop through the same code. A Reels-style snap-to-card Status feed was scoped here, then abandoned in §32/§33 in favor of the looping video grid. Full original detail archived.
+Muted-by-default video with a persisted unmute (`soundPreferenceStore`); backgrounding now stops Home autoplay through an `AppState` listener folded into `isEffectivelyActive` (`a21460b`). Detail archived.
 
 ## 32. 2026-08-02 session — Status sub-tab Reels-style feed: first attempt reverted, rebuild scoped
 
-**Frontend-only, nothing committed.** A FlatList snap-scroll attempt was built then reverted (FlatList can't guarantee zero adjacent-item bleed, a real architectural limitation) and a `react-native-pager-view` rebuild was scoped as the next attempt — but abandoned, not pursued: §33's auto-looping video grid was the founder's actual chosen direction. Full original detail archived in `CLAUDE_ARCHIVE_2026-07-29_full-history.md`.
+Abandoned (§33): a FlatList snap-scroll can't guarantee zero adjacent-item bleed. Nothing committed. Detail archived.
 
 ## 33. 2026-08-03 session — Wallpaper Hub video support + Viewing Window feature shipped; pager-view rebuild abandoned
 
-DONE, COMMITTED (`c691eda`, `65be4d7`), tested on-device, frontend-only. `WallpaperFeedCard`'s grid tiles play looping video, always muted (deliberately independent of `soundPreferenceStore`). New **Viewing Window**: tapping a tile opens a centered 80%×80% React Native `Modal` (not a bottom sheet) with sound, plus Like/Share/Download through a shared `useWallpaperActions` hook. Its premium gate is now the single `PREMIUM_GATING_ENABLED` mechanism (§106), not the stub it started with. Three real bugs fixed: a stale Like state (now derived live from the `feedId`), backgrounding not pausing video (an unconditional `AppState` subscription plus an explicit `pauseAsync()`), and download filename collisions with false success and leaked temp files — fixed in all three download call sites via a timestamped name and a shared `getMediaFileExtension` (a hardcoded `.jpg` had been corrupting downloaded videos). **The `react-native-pager-view` Reels-style Status feed was abandoned, not deferred** — the founder chose this looping grid instead. Full original detail archived.
+Done (`c691eda`, `65be4d7`), frontend-only. Grid tiles loop muted video (independent of `soundPreferenceStore`); tapping opens the **Viewing Window** (a centered 80%×80% `Modal`, with sound, Like/Share/Download via `useWallpaperActions`, gated by `PREMIUM_GATING_ENABLED`, §106). Fixed: a stale Like state, video not pausing in the background (explicit `pauseAsync()`), and download name collisions plus a hardcoded `.jpg` that corrupted videos (shared `getMediaFileExtension`). The pager-view Reels feed was abandoned, not deferred. Detail archived.
 
 ## 34. 2026-08-04 session — Real content sharing built (react-native-share)
 
-DONE, COMMITTED, tested on-device (wallpaper/video confirmed; audio branch built but untested, blocked on no thumbnail content, not a code gap) — frontend-only. Replaced React Native's built-in text-only `Share` with `react-native-share`, since it reliably combines a real file + caption in one action on Android. New shared `shareContent(feed)` utility handles downloading the real file with correct MIME type, thumbnail-only sharing for audio, timestamped filenames, an in-flight double-tap guard, and share-count incrementing. Also discarded the leftover pager-view scaffolding props (`fixedTotalHeight`/`showTypeLabel`/`showCtaPill`) from `AutoplayFeedCard.tsx` (the abandoned pager-view plan itself stays documented in §33). Deferred at the time: content-type-specific caption wording (since built, §116) and paywalling Share (since built as part of the Group 4 step-2 gate, §106 — currently switched off). Full original detail archived in `CLAUDE_ARCHIVE_2026-07-29_full-history.md`.
+`react-native-share` replaced RN's text-only `Share` (it sends a real file plus caption on Android). The shared `shareContent(feed)` handles MIME types, thumbnail-only sharing for audio, a double-tap guard and share counts. Captions since §116; share gating since §106 (off). Detail archived.
 
 ## 35. 2026-08-04 session (continued) — Lock-screen skip-button root cause found, fix unverified this session
 
-Root cause found (stale prebuilt AAR, not the patched source) and a config fix applied but not yet rebuilt/verified this session. **Fully superseded by §36** (confirmed working next session). Full detail archived in `CLAUDE_ARCHIVE_2026-07-29_full-history.md`.
+Superseded by §36. Detail archived.
 
 ## 36. 2026-08-05 session — Skip-button fix DONE, confirmed on a real device; buildFromSource root cause confirmed via dex decompilation
 
-**Skip-button fix — DONE, COMMITTED, CONFIRMED ON A REAL DEVICE** (both notification shade and lock screen). Root cause: `expo-audio` links a prebuilt AAR binary by default instead of compiling from patched source — meaning prior native patches, including §26's connection-pool fix, may never have been in a real tested build. Fixed via `expo.autolinking.android.buildFromSource: ["expo-audio"]`, confirmed via direct dex-file decompilation of the installed APK (not just a successful build) — this also let the connection-pool fix be re-confirmed genuinely working for the first time with real evidence. Final fix: existing seek commands rewired to trigger real skip-next/previous with correct icons (seek-by-10-seconds removed entirely, founder's choice) — an earlier attempt (new skip commands alongside the old seek commands, plus a deep player mount/remount investigation) caused a real regression and was fully reverted first. Full original narrative archived in `CLAUDE_ARCHIVE_2026-07-29_full-history.md`.
+Done, confirmed on device and by decompiling the installed APK. `expo-audio` linked a prebuilt AAR, ignoring every native patch, until `expo.autolinking.android.buildFromSource: ["expo-audio"]` — **keep it, or every native patch (incl. §26) silently stops applying**. The lock-screen seek commands now trigger skip next/previous (seek-by-10 s removed, founder's choice). Detail archived.
 
 ## 37. 2026-08-05 session (continued) — Lock-screen/notification skip-vanish bug: two real root causes fixed and confirmed on-device; a new, separate metadata-race finding logged, not yet investigated
 
-**Lock-screen/notification skip-vanish bug — TWO real, distinct root causes found and fixed, tested on-device.** (1) The playback coordinator's same-mode hand-off logic couldn't distinguish "same player instance, new content" from "genuinely different player" — fixed via a stable `instanceId` (React `useId()`). (2) `activateLockScreenControls()` always did a full native session teardown+rebuild on every skip — switched to an already-existing, already-native-exposed lightweight in-place update path (`updateLockScreenMetadata`) that was simply never called. Notification shade confirmed seamless on skip; lock screen improved but left with some rough edges, deliberately not polished further pending more real-world testing. Also added a 30-minute auto-dismiss for a paused lock-screen entry. **New finding logged here, not chased this session:** a genuine timing race where the app's correct metadata displays first on skip, then gets overwritten ~1s later by the audio file's own embedded metadata — investigated next session, see §38. Full original narrative archived in `CLAUDE_ARCHIVE_2026-07-29_full-history.md`.
+Two fixes, tested on-device: a stable `instanceId` (`useId()`) lets the coordinator tell new content on the same player from a different player; skips use the in-place `updateLockScreenMetadata` instead of a full session rebuild. A paused lock-screen entry auto-dismisses after 30 minutes. The metadata race found here is §38. Detail archived.
 
 ## 38. 2026-08-06 session — Lock-screen metadata fix: PARTIAL, title confirmed working, artwork gap documented, not fixed
 
@@ -213,133 +203,131 @@ Root cause found (stale prebuilt AAR, not the patched source) and a config fix a
 
 ## 39. 2026-08-11 session — App branding: icon, splash screen, display name, package identifier
 
-App branding — DONE, COMMITTED. New app icon/splash screen; display name corrected to "Bhav Bhakti"; package identifier changed to `com.orivori.bhavbhakti` (confirmed safe, nothing tied to the old identifier). Standing gotcha: adaptive-icon artwork needs real margin within the 1024x1024 canvas or Android's shape-masking crops the logo — the safe zone established here is referenced by later icon work (§44). Full original detail archived in `CLAUDE_ARCHIVE_2026-07-29_full-history.md`.
+Done. Display name "Bhav Bhakti"; package `com.orivori.bhavbhakti`. **Gotcha:** adaptive-icon artwork needs margin inside the 1024×1024 canvas or Android's shape mask crops it (the safe zone is reused in §44). Detail archived.
 
 ## 40. 2026-08-12 session — Rashifal MVP core built: real AI content, birthdate-collection flow, three real bugs found and fixed
 
-**Rashifal MVP core — DONE, COMMITTED, TESTED ON-DEVICE.** Real Gemini-generated daily horoscope content replaced the dead third-party-API fallback chain (Aztro/horoscope-app-api removed — missing content now fails visibly instead of silently locking in placeholder text). Home's "Today's Horoscope" card collects a birthdate once via a native picker, calculates+saves zodiac sign, then always routes straight to it, never paywalled (the separate 12-sign browsing grid stayed unpaywalled until §42). **Three real bugs found in previously-untested code, all fixed:** a profile API call using a URL that never existed; 8 horoscope routes with `validate` passed uninvoked, hanging forever with no response; and a significant `new Date().toISOString()` UTC/local timezone bug silently serving IST users yesterday's horoscope every night between midnight-5:30am across 6 live call sites, fixed via one shared local-date utility mirrored in both repos. Full original narrative archived in `CLAUDE_ARCHIVE_2026-07-29_full-history.md`.
+Done, tested on-device. Gemini-generated Rashifal replaced the dead third-party chain (missing content now fails visibly). Home's horoscope card asks for a birthdate once, then routes straight to the sign. Fixed: a profile call to a non-existent URL; 8 horoscope routes with `validate` passed uninvoked (they hung forever); a UTC/IST date bug — **use the shared local-date utility (`getLocalDateString`), never `new Date().toISOString().split('T')[0]`.** Detail archived.
 
 ## 41. 2026-08-12 session (continued) — Trending 7-day window removed, previously undocumented
 
-**DONE, COMMITTED (`a4d16e5`), tested.** `getTrendingFeeds` previously excluded any content older than 7 days for all types except mantras, which already had an explicit carve-out — silently returning empty/sparse trending results for other content types with low, spread-out volume. The `days`/`createdAt` filter is now dropped entirely, so trending ranks across all active content regardless of age, matching mantra's existing behavior. Pre-existing fix from before this session's Rashifal work, unrelated to it — only now being logged here since it was never documented at the time.
+Done (`a4d16e5`): `getTrendingFeeds` no longer drops content older than 7 days for any type.
 
 ## 42. 2026-08-12 session (continued) — Rashifal Phase 4 shipped, premium status stub consolidated
 
-Frontend-only. DONE, COMMITTED (`d791560`, `6b4681d`), TESTED ON-DEVICE. The date-navigation pill was removed from `horoscope-detail.tsx` (today-only MVP). The 12-sign grid paywall added here was later removed entirely — Rashifal is free for everyone (§69). Three separate, disagreeing `isPremiumUser` stubs were consolidated onto the existing `usePremiumStore`. What remains of that stub is §87's open item: real per-user premium status still needs the unbuilt Premium frontend (Firebase Auth, §45, and the backend subscription pipeline, §77–§79, are both done). Full original detail archived.
+Done (`d791560`, `6b4681d`). Rashifal is today-only (date pill removed); the grid paywall was later removed (§69). Three `isPremiumUser` stubs were consolidated onto `usePremiumStore` — real per-user premium status is still unbuilt (§87). Detail archived.
 
 ## 43. 2026-08-12 session (continued), resolved 2026-08-13 — Firebase Phone Auth Phases 1-4
 
-Phases 1-4 DONE, COMMITTED: backend token verification with find-or-create plus session issuance; frontend `signInWithPhoneNumber`/`confirm`. Real phone numbers on sideloaded builds needed two findings: the Android API key's "Android apps" restriction broke Firebase's reCAPTCHA fallback (relaxed to "None", API restrictions kept), and Play Integrity is unavailable to sideloaded builds by Google's design. That reCAPTCHA-fallback era ended with real Play Store distribution — see §81. `google-services.json` was briefly committed; it's untracked now and deliberately left in git history (the same key ships in every APK). Full original diagnosis archived.
+Phases 1–4 done: the backend verifies the Firebase ID token, then issues its own session. Sideload-era quirks (the Android API key's app restriction relaxed to "None" for the reCAPTCHA fallback; no Play Integrity) ended with Play Store distribution (§81). `google-services.json` is untracked and deliberately left in git history (the same key ships in every APK). Detail archived.
 
 ## 45. 2026-08-13 session — Firebase Phone Auth Phase 5 shipped: fake OTPless bypass fully removed, all 5 phases complete
 
-Firebase Phone Auth — FULLY COMPLETE, ALL 5 PHASES DONE, COMMITTED, TESTED. The fake OTPless bypass (master OTP `123456`, `TEST_NUMBERS` allowlist, `SEND_OTP_ENABLED`) is fully REMOVED — the app's original auth security hole is closed. Old `/send-otp`/`/verify-otp`/`/resend-otp` routes and `otpless.service.js` deleted outright. Confirmed via real testing: existing pre-Firebase users log into the same account, no duplicates. Real-number sign-in initially routed through Firebase's reCAPTCHA fallback (expected for sideloaded dev builds, resolved automatically once Play Store distribution began — see §81). SMS auto-fill deliberately not pursued (SMS Retriever API deferred; `READ_SMS` ruled out as a real Play Store rejection risk). Full original detail archived in `CLAUDE_ARCHIVE_2026-07-29_full-history.md`.
+Done. The OTPless bypass (master OTP `123456`, `TEST_NUMBERS`, `SEND_OTP_ENABLED`) and its routes and service were deleted; existing users kept their accounts. SMS auto-fill not pursued (`READ_SMS` is a Play rejection risk). Detail archived.
 
 ## 44. 2026-08-12 session (continued) — Dependency drift cleanup, app icon resized
 
-DONE, COMMITTED, TESTED. Ran `npx expo install --check`/`--fix`, updating 6 packages to Expo-recommended versions (patch-level only, no breaking changes; confirmed `expo-audio`'s native connection-pool patch, §26, reapplied cleanly). App icon also resized (still within §39's adaptive-icon safe zone) — both changes verified together on-device.
+Done. `npx expo install --fix` brought 6 packages to Expo's recommended versions (the §26 patch reapplied); the icon was resized within §39's safe zone.
 
 ## 46. 2026-08-13 session (continued) — UI design-system foundation shipped
 
-DONE, COMMITTED, TESTED (frontend-only). Universal background color centralized into `goldenTempleTheme.ts`; Noto Sans Devanagari font properly loaded and made weight-aware (app was previously silently falling back to system fonts for Hindi text); all raw `react-native` `Text` usages converted to the shared `Text` atom, so future design-system changes reach everywhere automatically. Foundational plumbing only — actual visual/design decisions continued as separate per-component work through §60-§62's later UI overhauls. Full original detail archived in `CLAUDE_ARCHIVE_2026-07-29_full-history.md`.
+Done. Background colour centralised in `goldenTempleTheme.ts`; Noto Sans Devanagari loaded and weight-aware; every `Text` goes through the shared atom. Detail archived.
 
 ## 47. 2026-08-13 session (continued) — Phone-login → verify-otp navigation flicker resolved, both auth screens redesigned
 
-RESOLVED, COMMITTED, TESTED. A long-standing phone-login→verify-otp navigation flicker fixed via 3 compounding causes (a duplicate toast, missing background color on the auth nav stack, uncoordinated keyboard dismiss timing). Both auth screens also redesigned (real logo, India-only country code, emoji placeholders removed). Full original detail archived in `CLAUDE_ARCHIVE_2026-07-29_full-history.md`.
+Done. The login → OTP flicker was fixed (a duplicate toast, the auth stack's background colour, keyboard-dismiss timing); both auth screens redesigned. Detail archived.
 
 ## 48. 2026-08-14 session — Nav bar + Home quick-links icons: dead CloudFront links replaced with local SVGs
 
-DONE, COMMITTED, TESTED (frontend-only). Dead CloudFront `SvgUri` icon links replaced with local SVGs via `react-native-svg-transformer`; nav bar focused color unified to `#FF6B00`; Home quick-links consolidated into one shared `QuickLinkCard` + `categories.ts`. Full original detail archived in `CLAUDE_ARCHIVE_2026-07-29_full-history.md`.
+Done. Dead CloudFront `SvgUri` icons replaced with local SVGs (`react-native-svg-transformer`); tab focus colour `#FF6B00`; a shared `QuickLinkCard` + `categories.ts`. Detail archived.
 
 ## 49. 2026-08-14 session (continued) — AutoplayFeedCard restructuring + Home decluttering shipped; peek-spacing regression fixed same session
 
-DONE, COMMITTED, TESTED (frontend-only). `AutoplayFeedCard`'s type label moved to a header row above the media with a "See all" link; card margin bumped 16px→24px; Home decluttered (redundant See-all link and "Today's Horoscope" section title removed). A peek-spacing regression introduced by the new header row was found and fixed the same session (a new `HEADER_ROW_HEIGHT` subtracted from `contentAreaHeight` for both card types, restoring next-card-peek). Full original detail archived in `CLAUDE_ARCHIVE_2026-07-29_full-history.md`.
+Done. The card type label sits in a header row with "See all"; `HEADER_ROW_HEIGHT` is subtracted from `contentAreaHeight` to keep the next-card peek. Detail archived.
 
 ## 50. 2026-08-14 session (continued) — Feed import duplicate-insert bug found and fixed
 
-FOUND AND FIXED, COMMITTED, TESTED (backend-only). Real, long-standing bug: `import-feeds-from-csv.js` had always unconditionally inserted every CSV row as a new Feed on every run, silently duplicating existing content on every prior import. Fixed via a new `csv_id` column (unique-indexed) — the importer now does find-or-update instead of blind insert. `feeds`/`feed_media` were wiped (test data, safe) and reimported fresh. Also fixed a related thumbnail bug: `transformMediaData()` only ever read the CSV's 4x5 thumbnail column, ignoring a populated 1x1 column. Full original detail archived in `CLAUDE_ARCHIVE_2026-07-29_full-history.md`.
+Done. The importer inserted duplicates on every run; it now does find-or-update on a unique `csv_id`. Detail archived.
 
 ## 51. 2026-08-14 session (continued) — AutoplayFeedCard audio redesign shipped
 
-DONE, COMMITTED, TESTED (frontend-only). New audio layout: blurred background thumbnail, sharp square thumbnail centered, controls row below. `AUDIO_CONTENT_HEIGHT_RATIO` reduced 0.88→0.75 (confirmed the real safe floor against two-card-viewability overlap). Real bug fixed: tapping play after the 30s cap fired silently did nothing — fixed via a shared `getPlaybackCapSeconds()` plus `seekTo(0)` on resume-from-capped. Footer icons restyled (Share swapped to local `whatsapp.svg`). Full original detail archived in `CLAUDE_ARCHIVE_2026-07-29_full-history.md`.
+Done. Audio card layout (since redone, §112); `AUDIO_CONTENT_HEIGHT_RATIO` 0.75 is the safe floor. Play after the 30 s cap uses `getPlaybackCapSeconds()` + `seekTo(0)`. Detail archived.
 
 ## 52. 2026-08-15 session — Tap-active-tab-to-scroll-to-top shipped across all 5 bottom tabs
 
-**This entire session's work is frontend-only (`bhav-bhakti-fe`) — no backend changes.**
-
-**Tap-active-tab-to-scroll-to-top — DONE, COMMITTED, TESTED on all 5 tabs.** Standard React Navigation pattern (`tabPress` event + `isFocused()` guard), via new shared `useScrollToTopOnTabPress` hook. Home (`FeedList`) and the two hubs' 6 sub-tab-content components converted to `forwardRef` to expose their internal `FlatList`; Mantra/Rashifal use simple local `ScrollView` refs. Hubs share one ref across their 3 sub-tabs safely, since only one is ever mounted at a time. Purely visual scroll-to-top — no data refresh/reorder (that's a separate, deliberately deferred future feature, matching Instagram/Facebook-style feed refresh).
+Frontend-only, done on all 5 tabs: tapping the active tab scrolls to the top (`useScrollToTopOnTabPress`, `tabPress` + `isFocused()`); list components expose their `FlatList` via `forwardRef`. Visual only — refresh-on-tap is a separate, deferred feature. Detail archived.
 
 ## 53. 2026-08-16 session — TypeScript cleanup pass
 
-DONE, COMMITTED, TESTED. Fixed a real Android inset bug (`search-results.tsx`'s `SafeAreaView` import was from the wrong package); removed the non-functional clipboard-polling OTP auto-detect leftover from the pre-Firebase-Auth era; deleted confirmed-dead screens/exports; fixed a real landmine in `horoscopeService.ts` (10 unused methods were double-unwrapping the API response and would have crashed immediately if ever called — closes the risk for whenever Weekly Horoscope/Compatibility/History/Feedback are eventually built). Full original detail archived in `CLAUDE_ARCHIVE_2026-07-29_full-history.md`.
+Done. Fixed `search-results.tsx`'s wrong `SafeAreaView` import; removed the clipboard OTP leftover; deleted dead screens; fixed `horoscopeService.ts`'s unused methods that double-unwrapped responses. Detail archived.
 
 ## 54. 2026-08-17 session — Language/i18n system migrated to react-i18next: ALL 5 PHASES DONE, COMMITTED, TESTED
 
-Six overlapping hand-rolled translation mechanisms (plus hardcoded `language === 'hi' ? … : …` ternaries in 5 files) were replaced by react-i18next, with two namespaces — `translation` and `player`, kept apart because both old systems had a top-level `mantras` key of different shapes. `useI18nStore` stays the single source of truth for language selection; react-i18next only resolves strings, kept in sync via `i18n.changeLanguage()`. All 25 consumers migrated; dead mechanisms deleted; the locale JSON files were kept as resource data, unchanged. Gujarati/Bengali hidden from the picker (§9); a language toggle added to Home's header. Full audit and phased plan archived.
+Done. react-i18next replaced six hand-rolled mechanisms, with two namespaces, `translation` and `player` (both once had a top-level `mantras` key). `useI18nStore` stays the source of truth, synced via `i18n.changeLanguage()`. Gujarati/Bengali hidden (§9). Detail archived.
 
 ## 55. 2026-08-19 session — Horoscope English/Hindi content mismatch found and fixed
 
-FOUND AND FIXED, COMMITTED, TESTED with real data. The daily horoscope generator made 24 fully independent Gemini calls (12 signs × 2 languages), so English/Hindi versions of the same sign were genuinely different content, not translations. Fixed via a two-step process: generate once in English, then a separate Gemini call translates that exact content into Hindi (`luckyNumber` copied directly, never re-generated, and retry-safe via always reading the English row back from the DB). Verified on real data. Old, already-mismatched rows were not retroactively cleaned up (acceptable — Rashifal is today-only, no history shown). Full original detail archived in `CLAUDE_ARCHIVE_2026-07-29_full-history.md`.
+Done. English is generated once, then that exact content is translated into Hindi (`luckyNumber` copied; retry-safe by reading the English row back from the database). Old mismatched rows left as-is. Detail archived.
 
 ## 56. 2026-08-19 session (continued) — Mantra Explorer redesign: ALL 4 PHASES BUILT, COMMITTED, TESTED ON-DEVICE
 
-(1) The back button navigates explicitly to Home; the quiz promo was hidden (the quiz was later removed, §101). (2) The broken `categoryId` pill grid was removed — `category_id` was NULL on every feed, since the CSV only ever filled `deity_id` — and replaced by the shared `DeityFilterRow` pattern with a new `useMantraFeed` hook; "Trending" was renamed "All" app-wide. (3) The wallpaper-only `statusOccasion` field was widened into an 8-value `label` (later replaced by the many-to-many `tags` system, §104). (4) "मुझे चाहिए / I am looking for" mood tiles — tapping one plays a random matching mantra via `sortBy: random` on the feed endpoint (the tiles now filter with `tags=`, §103); mantra cards simplified with mood pills and a now-playing border; margins standardized to `spacing.lg`. Also concluded here: don't revive `categories` for mood tags (moot — the table was dropped, §104). Mantra list ordering (`Feed.order` is never populated) was scoped out as a separate task. Full 5-round investigation archived.
+Done, on device. Mantra Explorer: `DeityFilterRow` + `useMantraFeed` replaced the broken `categoryId` grid; "Trending" renamed "All" app-wide; mood tiles play a random match (`sortBy: random`, filtered by `tags=`, §103). Mantra list ordering (`Feed.order` is never populated) was scoped out as a separate task. Detail archived.
 
 ## 57. 2026-08-20 session — Aarti/Bhajan Player Redesign: ALL 6 PHASES DONE, COMMITTED, TESTED ON-DEVICE
 
-ALL 6 PHASES DONE, COMMITTED, TESTED ON-DEVICE. `audio-player.tsx` restructured to a YT Music-style layout (thumbnail → title/artist → Like/Share/Views pills → seek bar → Shuffle/Previous/Play/Next/Repeat → swipe-up-to-open-Queue) with the bottom nav bar hidden immersively. Mantra's control branch deliberately left untouched (own redesign, §58). Two real bugs fixed along the way: title/artist was being silently overwritten by the CSV importer with a copy of the English title (fixed in the player, 3 nav call sites, 2 share-message builders, and the importer); `getLocalizedText()` claimed to check language but was hardcoded to English (fixed to genuinely read `useI18nStore`). Known limitation at the time: caption/artist was a single plain-text column — since resolved by the feeds redesign's bilingual `subtitle` (§102/§103). The "Up Next" Hindi-label truncation noticed here was a real bug, later root-caused and fixed by §71. Full original detail archived in `CLAUDE_ARCHIVE_2026-07-29_full-history.md`.
+Done, on device. YT-Music-style Aarti/Bhajan player with the bottom nav hidden. Fixed: the importer overwrote the artist with the English title; `getLocalizedText()` was hardcoded to English. Detail archived.
 
 ## 58. 2026-08-20 session (continued) — Mantra Player Redesign: DONE, COMMITTED, TESTED ON-DEVICE
 
-DONE, COMMITTED, TESTED ON-DEVICE. Controls rebuilt as three equal round buttons (Speed/Play-Pause/Chant-counter), orange Play button kept as the visual anchor; loop-toggle and the Info icon/InfoSheet removed for mantra only (confirmed zero other consumers). `CounterSheet.tsx` fully rebuilt from scratch — the old progress indicator was mathematically broken (could only ever show 50%); replaced with a correct SVG stroke-based arc. New `MoreTargetsSheet.tsx` replaces the old inline "More" picker, fixing a real z-index/portal-layering bug (the old picker rendered behind `BottomSheetModal` content since it wasn't itself portaled). Full original detail archived in `CLAUDE_ARCHIVE_2026-07-29_full-history.md`.
+Done, on device. Mantra controls: Speed / Play-Pause / Chant counter. `CounterSheet.tsx` rebuilt (an SVG arc — the old indicator maxed at 50%); `MoreTargetsSheet.tsx` is portaled, fixing a layering bug. Detail archived.
 
 ## 59. 2026-08-20 session (continued) — Search: FOUND BROKEN, FULLY FIXED, COMMITTED, TESTED
 
-FOUND BROKEN, FULLY FIXED, COMMITTED, TESTED. Search had regressed to matching only caption/location/feed_tags — empty/unused for every real feed, a side effect of an earlier session's caption repurposing. Fixed: search now matches title (bilingual)/deity name/content-type label, word-split OR logic, ranked by match count; SOUNDEX/typo-tolerance deliberately dropped (broken for Hindi, unnecessary complexity for MVP). Fixed a real navigation bug (search-results.tsx wasn't passing `returnParams`, so backing out of the player landed on a blank search screen). Card fragmentation closed: extracted one shared `MantraFeedCard` used identically by Home/Search/Mantra Explorer; `WallpaperFeedCard`'s default variant given real video support (benefits every consumer, not just search). Home's decorative mic icon replaced with a working search-submit button. Full original detail archived in `CLAUDE_ARCHIVE_2026-07-29_full-history.md`.
+Done. Search matches the bilingual title, deity name and content-type label (word-split OR, ranked by match count; no SOUNDEX). A shared `MantraFeedCard` on Home/Search/Mantra Explorer; `WallpaperFeedCard`'s default variant plays video; Search passes `returnParams`. Detail archived.
 
 ## 60. 2026-08-21 session — Audio hub UI overhaul shipped
 
-Audio hub UI overhaul (search bars added to Mantra Explorer/Audio hub; Ringtone/Aarti/Bhajan/Mantra cards restyled for visual consistency across all three feed card types; a broken Set-as-Ringtone "Sound Settings" button fixed) — DONE, COMMITTED, TESTED, still the current look. Full original detail archived in `CLAUDE_ARCHIVE_2026-07-29_full-history.md`.
+Done, still the current look: search bars on Mantra Explorer and the Audio hub, consistent card styles, and the Set-as-Ringtone "Sound Settings" button fixed. Detail archived.
 
 ## 61. 2026-08-23 session — Wallpaper hub UI overhaul, MiniPlayer/audio-player small fixes
 
-DONE, COMMITTED, TESTED. Wallpaper hub UI overhaul (search bar header, restyled sub-tab pills, new `wallpaperHub` i18n namespace); real bug fixed where thought-type content rendered through a generic fallback card instead of `WallpaperFeedCard`. Also: removed a buggy pulsating play/pause animation (a real race condition), MiniPlayer restyled, and a real tab-bar-height mismatch fixed (affected 15 files' bottom padding). The "आगे बजेगा" Up Next label truncation noticed here (unresolved at the time) was later root-caused and fixed by §71. Full original detail archived in `CLAUDE_ARCHIVE_2026-07-29_full-history.md`.
+Done. Wallpaper hub restyle (`wallpaperHub` namespace); thought content now uses `WallpaperFeedCard`; a buggy pulsating play animation removed; MiniPlayer restyled; a tab-bar height mismatch fixed across 15 files. Detail archived.
 
 ## 62. 2026-08-23 session (continued) — Rashifal UI overhaul
 
-Rashifal UI overhaul (grid + detail restyled to match the app's established design language, zodiac grid simplified, Share swapped to WhatsApp) and a real back-navigation bug fix (back button now respects entry point, via the standing `returnTo` pattern used elsewhere in the app) — DONE, COMMITTED, TESTED. Full original detail archived in `CLAUDE_ARCHIVE_2026-07-29_full-history.md`.
+Done. Rashifal restyle; the back button respects the entry point (`returnTo`). Detail archived.
 
 ## 63. 2026-08-24 session — Profile section rebuild
 
-DONE, COMMITTED, TESTED. Real Edit Profile screen built (name/gender/DOB, correctly wired to the audited zodiac-calculation path); main Profile screen now shows real user data; non-functional stubs removed (camera upload, phone/email management, social links); Manage Subscription/Terms/Refund Policy stubs added; About Us now reads real app name/version. Notification settings deep-link added but left unconfirmed (deprioritized — push notifications aren't built yet). The two-word Hindi text truncation bug noticed here (QueueSheet, Logout button) was later root-caused and fixed, see §71. Full original detail archived in `CLAUDE_ARCHIVE_2026-07-29_full-history.md`.
+Done. A real Edit Profile screen (name, gender, DOB) and Profile screen; non-working stubs removed; Manage Subscription/Terms/Refund Policy stubs added. The notification-settings deep link was never confirmed. Detail archived.
 
 ## 64. 2026-08-25 session — App hosting
 
-App hosting — DONE, real infrastructure live: backend + MySQL hosted on Railway, full local database migrated over successfully. 3 real deployment bugs fixed (Node version mismatch, Firebase credentials base64 env-var fallback, confirmed local/hosted API env separation). EAS Build connected. Full original detail archived in `CLAUDE_ARCHIVE_2026-07-29_full-history.md`.
+Done. Backend and MySQL on Railway; Firebase credentials via a base64 env var; EAS Build connected. Detail archived.
 
 ## 65. 2026-08-26 session — EAS Update pipeline + real bug fixes
 
-DONE, COMMITTED (20 files). Fixed a critical, months-old Devanagari data corruption bug from the original database migration (mysqldump/PowerShell round-trip mangled UTF-8 into literal '?' characters) — re-migrated cleanly via `--result-file`/`SOURCE`. Fixed a real Android emoji-fallback rendering bug (the shared `Text` atom was forcing `fontFamily: 'System'`). Wired up the previously-stubbed 'Liked' filter across all hubs. Set up EAS Update properly; first real shareable preview APK built and distributed for testing. Full original detail archived in `CLAUDE_ARCHIVE_2026-07-29_full-history.md`.
+Done. Fixed Devanagari corruption from the first database migration — **use `--result-file`/`SOURCE` for dumps, never a PowerShell pipe**. The `Text` atom no longer forces `fontFamily: 'System'`; the Liked filter was wired up; EAS Update set up. Detail archived.
 
 ## 66. 2026-08-26 session (continued) — EAS Update proven, permission audit, Liked-filter crash fixed, horoscope cron automated
 
-DONE. EAS Update pipeline proven working end-to-end (old APK predated `expo-updates`, needed a fresh build; future updates: publish, then close+reopen app TWICE). Full MediaLibrary permission-handling audit + fix across all 5 requests. Real crash fixed: Liked filter crashed on Ringtones/Wallpapers (missing `FeedMedia` include). Horoscope generation fully automated via Railway cron (`TZ=Asia/Kolkata` required — without it, generation silently mislabels every horoscope by a day).
+Done. After an OTA, close and reopen the app twice. MediaLibrary permission handling audited. Horoscope generation automated as a Railway cron — **the cron service needs `TZ=Asia/Kolkata`**, or every reading is labelled a day off.
 
 ## 67. 2026-08-27 session — Three small fixes: language toggle, mantra counter rework, back navigation
 
-DONE, COMMITTED, TESTED. Language toggle now shows current language, not the switch-to target. Mantra chant counter reworked: removed cross-session AsyncStorage persistence — counter now resets only on a genuine feedId change, correctly preserved across pause/resume via mini-player (fixed a subtle race where a previous track's trailing finish-event incremented the newly-reset counter). Back navigation (hardware button + gesture) now correctly respects `returnTo` logic via `BackHandler`, previously always fell through to Home. (Known-deferred per-user premium status note here superseded by §87's fuller finding.)
+Done. The language toggle shows the current language; the chant counter resets only on a real feedId change; hardware back respects `returnTo` via `BackHandler`.
 
 ## 68. 2026-08-27 session (continued) — route-param URL corruption bug fixed
 
-Real root cause found and fixed for the recurring "check your internet connection"/stuck-spinner audio-loading bug — DONE, COMMITTED (`fd4c43b`), CONFIRMED via live logcat: `useLocalSearchParams()`'s automatic `decodeURIComponent()` was silently corrupting Firebase Storage URLs' own valid percent-encoding when passed through route params; fixed via `encodeURIComponent()` at all 6 navigation entry points into `audio-player.tsx`. Full original detail archived in `CLAUDE_ARCHIVE_2026-07-29_full-history.md`.
+Done (`fd4c43b`). `useLocalSearchParams()` decodes params, which corrupted Firebase URLs' percent-encoding — every entry into `audio-player.tsx` passes `encodeURIComponent()`. Detail archived.
 
 ## 69. 2026-08-30 session — Audio-player investigation, second half
 
-5 real fixes shipped (Home-launch player leak — `AutoplayFeedCard` was creating 5 real ExoPlayer instances unconditionally on every launch; a stuck-retry gap; wrong caching directory across 6 files + a 14-day eviction sweep; Rashifal's premium paywall removed entirely as a product decision; Hindi nav/card translations) — DONE, COMMITTED, TESTED. The original overnight ExoPlayer-stalling investigation remains genuinely unresolved (needs a native `onPlayerError` listener, deferred). Payment-strategy business/legal scoping (Razorpay UPI Autopay, RBI notification rules) started, no code yet. Full original detail archived in `CLAUDE_ARCHIVE_2026-07-29_full-history.md`.
+Done: Home created 5 ExoPlayers on every launch (fixed); a stuck retry; the cache directory + a 14-day sweep; Rashifal made free for everyone; Hindi translations. **Still unresolved:** the overnight ExoPlayer stall (needs a native `onPlayerError` listener). Payment scoping started here. Detail archived.
 
 ## 70. 2026-08-31 session — Premium pipeline scoped, Firebase Auth SHA-fingerprint bug fixed, eas.json production profile fixed
 
-Premium/subscription pipeline SCOPED (full plan documented in a separate reference doc, building started §77). Also fixed a real Firebase Auth bug (debug-keystore SHA fingerprints registered instead of the EAS release keystore's, breaking real-number login on the preview APK) and a gap in `eas.json`'s production profile (missing EAS Update channel, unverified image pin) before the first real Play Store submission. Full original detail archived in `CLAUDE_ARCHIVE_2026-07-29_full-history.md`.
+Premium pipeline scoped (built §77–§79). Fixed: the release-keystore SHA fingerprints are now the ones registered in Firebase; `eas.json`'s production profile has its update channel. Detail archived.
 
 ## 71. 2026-09-01 session — Recurring Hindi text truncation bug fixed (Up Next, Logout, See-all, header title)
 
@@ -351,55 +339,51 @@ Added the mantra chant counter attention bubble (shown to all users, 3x/day cap,
 
 ## 73. 2026-09-04 session — Play Console setup: account cleanup, versionCode bumped
 
-Play Console account-ownership cleanup done; a pre-existing stale zero-install release confirmed safe. `versionCode` bumped to 2 in preparation for the first production build (superseded by later versionCode bumps — 5 in §94, 6 in progress as of §95). Full original detail archived in `CLAUDE_ARCHIVE_2026-07-29_full-history.md`.
+Play Console ownership cleaned up. (`versionCode` is now 8, §122.) Detail archived.
 
 ## 74. 2026-09-05 session — Real dev/production package identity split, production-push safety script, Play Console upload key reset
 
-Real dev/production package identity split shipped (`com.orivori.bhavbhakti` vs. `.dev`, a genuinely separate Android app with its own Firebase registration/keystore) plus a typed-confirmation, staged-rollout safety script (`npm run update:production`) in front of production EAS Update pushes. Both variants originally shared the production backend and database (see §75). Since `402ce89` (frontend `dev`, 2026-09-24) the `.dev` app's `development` variant uses the Railway dev backend (`api-dev.orivori.com`); the `preview` variant can still point at production (§96). A Play Console upload rejection (an old release locked to an unknown signing key) was diagnosed and a key reset requested — activated live in §80. Full original detail archived in `CLAUDE_ARCHIVE_2026-07-29_full-history.md`.
+Done. Two separate apps, `com.orivori.bhavbhakti` and `.dev` (each with its own Firebase registration and keystore); production OTAs only via `npm run update:production` (typed confirmation, staged rollout). Since `402ce89` the `.dev` app's `development` variant uses `api-dev.orivori.com`; the `preview` variant can still point at production (§96). The upload key reset is §80. Detail archived.
 
 ## 75. 2026-09-05 session (continued) — Test-account data isolation
 
-Test-account data isolation shipped — DONE, COMMITTED: a new `users.is_test_account` boolean column makes the same phone number resolve to genuinely separate `User` rows for `.dev` vs. production logins on the shared backend/database; a composite `(firebase_uid, is_test_account)` unique index replaces a standalone unique constraint, since Firebase issues the same `firebase_uid` regardless of which app signs in. Denormalized `Feed` counters remain a known, accepted shared/cosmetic trade-off (not data corruption). Full original detail archived in `CLAUDE_ARCHIVE_2026-07-29_full-history.md`.
+Done. `users.is_test_account` plus a unique `(firebase_uid, is_test_account)` index make `.dev` and production logins separate users. Shared `Feed` counters are an accepted cosmetic trade-off. Detail archived.
 
 ## 76. 2026-09-05 session (continued) — Railway database migration reconciliation, eas update environment-variable gap closed
 
-Railway's `SequelizeMeta` migration-tracking table (never populated — the DB was originally set up via a raw SQL dump, not `sequelize-cli`) safely backfilled and reconciled, then the two new `is_test_account` migrations run against Railway's live database — DONE, confirmed end-to-end on-device. Also closed a real gap where `eas update` doesn't read `eas.json`'s build-profile env blocks, by pinning `--environment production` (non-overridable) into the safety script. Full original detail archived in `CLAUDE_ARCHIVE_2026-07-29_full-history.md`.
+Done. Railway's `SequelizeMeta` was backfilled (the database came from a dump). `eas update` ignores `eas.json`'s env blocks, so the safety script pins `--environment production`. Detail archived.
 
 ## 77. 2026-09-06 session — Premium Subscription Pipeline Chunk 1: credential-free slice built and shipped
 
-DONE: 3 new tables (`subscriptions`/`subscription_events`/`payments`) migrated to Railway and independently confirmed to exist there; `isPremiumNow`'s date-first entitlement formula extracted into a standalone util with 32 passing unit tests; Razorpay SDK installed, `.env.example` scaffolded with 4 placeholder vars. Deliberately not built this session (needed real credentials): the SDK service calls, webhook handler, subscription endpoints, reconciliation job — all built in §78/79 once credentials were in hand. Full original detail archived in `CLAUDE_ARCHIVE_2026-07-29_full-history.md`.
+Done. Tables `subscriptions`/`subscription_events`/`payments`; the `isPremiumNow` util (unit-tested); the Razorpay SDK. Detail archived.
 
 ## 78. 2026-09-06 session (continued) — Chunk 2: the full Razorpay webhook handler, built and tested against self-crafted fixtures
 
-DONE, 67 tests passing, zero real Razorpay credentials needed. `POST /api/v1/webhooks/razorpay` built with HMAC-SHA256 signature verification (`app.js`'s `req.rawBody` gap fixed via an `express.json()` `verify` callback), idempotency via `X-Razorpay-Event-Id`, and transactional event-logging + state-sync sharing one `sequelize.transaction()`. `subscription.service.js`'s `syncFromRazorpayEntity` implements the full event-mapping table every webhook event funnels through. Verified for real against Razorpay's test-mode API in §79. Full original detail archived in `CLAUDE_ARCHIVE_2026-07-29_full-history.md`.
+Done. `POST /api/v1/webhooks/razorpay`: HMAC-SHA256 check (`req.rawBody` via `express.json()`'s `verify`), idempotency on `X-Razorpay-Event-Id`, and one transaction for event logging + state sync (`syncFromRazorpayEntity`). Replay caveat: §100. Detail archived.
 
 ## 79. 2026-09-06 session (continued) — Chunk 3: service layer, endpoints, reconciliation job — DONE, verified against Razorpay's real test-mode API
 
-DONE, verified against Razorpay's REAL test-mode API (not fixtures): `razorpay.service.js`, all 3 `/subscription` endpoints (`create`/`status`/`cancel`), the reconciliation job (`scripts/reconcile-subscriptions.js`). Found and fixed a real pre-existing bug where an unset optional env var (`RAZORPAY_PLAN_ID`) would have crashed the entire app at startup, not just one route. A real matching Razorpay Plan was found and reused rather than duplicated. 83 tests passing. Full original detail archived in `CLAUDE_ARCHIVE_2026-07-29_full-history.md`.
+Done, verified against Razorpay test mode: `razorpay.service.js`, `/subscription` create/status/cancel, and `scripts/reconcile-subscriptions.js`. An unset `RAZORPAY_PLAN_ID` no longer crashes startup. Detail archived.
 
 ## 80. 2026-09-07 session — Play Console upload key now live in EAS production credentials
 
-DONE. `new-upload-key.jks` (from §74's Play Console upload-key-reset process) successfully uploaded as EAS's `production` Android signing credentials, fingerprints confirmed matching exactly what Play Console expects — resolving §74's original upload rejection. A fresh signed build was still needed before the next upload attempt (signing happens at build time, not upload time). Full original detail archived in `CLAUDE_ARCHIVE_2026-07-29_full-history.md`.
+Done. `new-upload-key.jks` is EAS's `production` signing credential, matching Play Console. Detail archived.
 
 ## 81. 2026-09-08 session — Real, first-of-its-kind Play Store phone-auth bug: DIAGNOSED, FIXED, AND CONFIRMED WORKING
 
-DIAGNOSED, FIXED, AND CONFIRMED WORKING END-TO-END, COMMITTED (`fe: 60bac85`), shipped in `versionCode` 3. Real, non-test-number OTP login on the app's first genuine Play Store Closed Testing build consistently failed with `auth/session-expired` — root-caused via real device logcat to Android's native SMS Retriever auto-verification (only reachable via genuine Play Store distribution) racing and beating the app's own `confirmationResult.confirm(otp)` call. Fixed by watching both signals via `onIdTokenChanged` and deferring to the visible 6-digit OTP input, plus a related `OTPInput.tsx` paste/focus bug fix. Lesson, still relevant: test-number-based evidence bypasses this entire native path and cannot validate real-number auth behavior. Full original detail archived in `CLAUDE_ARCHIVE_2026-07-29_full-history.md`.
+Done (`fe: 60bac85`, v3). Real-number login failed with `auth/session-expired` because Play's SMS auto-verification beat `confirm(otp)`; fixed by also watching `onIdTokenChanged`. **Lesson:** test numbers bypass this native path and can't validate real-number auth. Detail archived.
 
 ## 82. 2026-09-09 session — Legal documents + account deletion: SCOPED (superseded by §84)
 
-**SCOPED here, then built and confirmed working the same day — see §84 for the shipped result.** Original plan: a shared `LegalDocumentViewer` (WebView-based, full-screen + bottom-sheet modes) for Terms/Privacy/Refund Policy in Profile's menu and for the login/`PremiumPaywall` disclaimer links; a Support ID display derived from `firebaseUid` (needed a small backend addition first, since `firebaseUid` wasn't exposed to the frontend at all); an account-deletion flow via a pre-filled `mailto:`. Full original scoping detail (exact file/line targets, the `react-native-webview` new-dependency gap, wording fixes) archived — see `CLAUDE_ARCHIVE_2026-07-29_full-history.md` if the original reasoning is ever needed again.
+Scoped here; built in §84. Detail archived.
 
 ## 83. 2026-09-09 session (continued) — Session/auth improvements: SCOPED here, resolved elsewhere
 
-**SCOPED, NOT YET BUILT** here (four items found while investigating login session behavior): (1) the 24h-frontend vs. 10-day-backend expiry mismatch and (2) dead 401-cleanup code in `apiClient.ts` — both picked up and shipped, see §87. (3) No re-auth check on backgrounding — partly addressed: the token's expiry date is now re-checked when the app returns from the background (§106/§107); resetting navigation to Home after a long background is still unbuilt. (4) `isNewUser` is now read (Firebase Analytics §95, Meta §109), but the "Welcome Back" text on `phone-login.tsx` is still hardcoded for everyone. Full original detail archived in `CLAUDE_ARCHIVE_2026-07-29_full-history.md`.
+Four items found: (1) the frontend/backend expiry mismatch and (2) dead 401 code — shipped (§87). (3) Expiry is now re-checked on resume (§106/§107); **still unbuilt:** resetting navigation to Home after a long background. (4) `isNewUser` is now used for analytics (§95, §109), but **the "Welcome Back" text on `phone-login.tsx` is still hardcoded for everyone.** Detail archived.
 
 ## 84. 2026-09-09 session (continued) — Legal documents + account deletion: BUILT AND CONFIRMED WORKING
 
-**BUILT AND CONFIRMED WORKING on `.dev`, tested end-to-end** — supersedes §82's "SCOPED, NOT YET BUILT" status. Shared `LegalDocumentViewer` (full-screen + bottom-sheet modes via `WebView`), wired into Profile's menu, the login screen's disclaimer links, a Support ID display (derived from `firebaseUid`), and the full account-deletion flow — all five originally-scoped pieces now live and tested on-device.
-
-**Six real bugs found and fixed along the way** (Android WebView blank-render inside the animated bottom sheet; an overly loose domain guard; a header text-clipping `lineHeight` bug; a `BottomSheetView` fixed-height layout issue with no prior working precedent in this app; a WebView-vs-sheet gesture conflict; hardware-back-button navigation on both new screens) — each independently diagnosed with real evidence. Full bug-by-bug root-cause detail archived, see `CLAUDE_ARCHIVE_2026-07-29_full-history.md`.
-
-**Shipped to production in `versionCode` 4 (§86).** Committed and pushed to `bhav-bhakti-fe`'s `master` (`5b504d3`); backend's `firebaseUid` exposure committed and pushed separately (`bhav-bhakti-be` `8c8a7c0`).
+Done, shipped in v4 (§86). `LegalDocumentViewer` (WebView; full-screen and bottom-sheet modes) for Terms/Privacy/Refund Policy in Profile and the login screen; a Support ID derived from `firebaseUid` (backend `8c8a7c0`); the account-deletion flow (`5b504d3`). Six bugs fixed along the way. Detail archived.
 
 ## 85. 2026-09-10 session — NEW, PERMANENT BRANCHING WORKFLOW ADOPTED: dev / production / master
 
@@ -417,7 +401,7 @@ All three branches were established from a single, correct shared baseline (comm
 
 ## 86. 2026-09-10 session (continued) — versionCode 4 submitted to Play Console Closed Testing
 
-`versionCode` 4 submitted to Play Console Closed Testing, containing the legal documents/account-deletion feature (§84) — superseded by later versionCode bumps (5 in §94, 6 in progress as of §95). Full original detail archived in `CLAUDE_ARCHIVE_2026-07-29_full-history.md`.
+v4 submitted to Closed Testing (now v8, §122). Detail archived.
 
 ## 87. 2026-09-13 session — Session-expiry sync + contextual login prompt: DONE, live in production and merged to master (since generalized, §106/§107)
 
@@ -427,11 +411,11 @@ All three branches were established from a single, correct shared baseline (comm
 
 ## 88. 2026-09-11 session — Rashifal back-navigation fix: DONE, CONFIRMED WORKING, live in production and merged to master
 
-Android's hardware back button and edge-swipe gesture on `horoscope-detail.tsx` now correctly respect entry point (Home's daily-horoscope card vs. the 12-sign grid vs. bottom-nav tab switch) instead of always falling through to Home — DONE, CONFIRMED WORKING, live in production and merged to master, using the same proven `BackHandler` + `useFocusEffect` pattern already established on `audio-player.tsx`. Full original detail archived in `CLAUDE_ARCHIVE_2026-07-29_full-history.md`.
+Done, live. Hardware back on `horoscope-detail.tsx` respects the entry point (`BackHandler` + `useFocusEffect`). Detail archived.
 
 ## 89. 2026-09-11 session (continued) — Auto-verification visible feedback: DONE, CONFIRMED WORKING, live in production and merged to master
 
-A "✓ Verified automatically" banner + input lock now fires the moment Android's background SMS auto-verification (§81) completes, instead of silently waiting for manual typing to reach 6 digits — DONE, CONFIRMED WORKING, live in production and merged to master. A real false-positive bug (the banner firing on every normal manual login too, 100% on `.dev`) was found and fixed same session via an `isVerifyingRef` guard, confined entirely to `verify-otp.tsx`. Deliberately not built: validating typed digits against the real auto-retrieved code (would require migrating off `signInWithPhoneNumber`, too risky a change to an already twice-hardened auth path). Full original detail archived in `CLAUDE_ARCHIVE_2026-07-29_full-history.md`.
+Done, live. A "✓ Verified automatically" banner and input lock on SMS auto-verification (an `isVerifyingRef` guard stops false positives). Checking typed digits against the auto-retrieved code was deliberately not built. Detail archived.
 
 ## 90. 2026-09-11 session (continued), updated 2026-09-14 — Rashifal variety: second fix applied
 
@@ -439,29 +423,25 @@ The first fix (real date interpolation) helped day-to-day repetition, but differ
 
 ## 91. 2026-09-11 session (continued) — NEXT SESSION reminder: pick up the deferred §87 session/auth work — RESOLVED, see updated §87
 
-**RESOLVED 2026-09-13 session — picked up and completed, see §87's updated entry (now "Session-expiry sync + contextual login prompt") for the full shipped result.** The "require login for everything" question originally flagged here as blocking was resolved narrowly rather than needing the all-or-nothing decision this reminder anticipated: browsing stays login-free, only the app's 6 real action endpoints (like/unlike, download, Liked filter, profile load/save) gate on a valid session.
+Resolved — see §87 (and §107, which later required login on every feed endpoint). Detail archived.
 
 ## 92. 2026-09-12 session — Jio network blocking Railway backend: DIAGNOSED AND FIXED
 
-Jio network blocking Railway backend — DIAGNOSED AND FIXED, confirmed on real devices, live in production/master. Real users on Jio couldn't load any app content (a known pattern of Indian ISPs blocking shared PaaS domains like `.up.railway.app`). Fixed via a custom domain (`api.orivori.com`) with an automatic Railway fallback built in. Lesson: use a custom domain for production backends, since shared PaaS domains can be silently ISP-blocked in ways invisible to normal testing. Full original detail archived in `CLAUDE_ARCHIVE_2026-07-29_full-history.md`.
+Done, live. Jio blocked `*.up.railway.app`; production uses `api.orivori.com` with an automatic Railway fallback. **Lesson:** production backends need a custom domain. Detail archived.
 
 ## 93. 2026-09-13 session (continued) — Observability gaps: SCOPED here, all three tasks shipped in §94
 
-**SCOPED here** (prompted by a real question about incident debugging/telemetry): confirmed `NODE_ENV` was leaking raw internal errors on Railway (fixed same session); found a genuine mismatch between the Privacy Policy's crash-reporting promise and zero actual crash reporting anywhere in the app. Three tasks scoped, in priority order — Firebase Crashlytics with Support ID linking, a backend uncaught-exception/unhandled-rejection handler, a root-level frontend error boundary — **all three built and confirmed working, see §94.** SLO dashboards/Grafana/APM explicitly declined as premature for current scale. Full original detail archived in `CLAUDE_ARCHIVE_2026-07-29_full-history.md`.
+Scoped here; all three tasks built in §94. SLO dashboards/Grafana/APM declined as premature. Detail archived.
 
 ## 94. 2026-09-15 session — Observability trio: DONE, CONFIRMED WORKING
 
-**DONE, CONFIRMED WORKING.** Crashlytics (with Support ID linking via `setUserIdentifier()`), the backend uncaught-exception handler, and the frontend error boundary — all three tasks scoped in §93 — are now built and tested on `.dev`: a real triggered crash was confirmed appearing in Firebase Console with the correct user identifier attached. Cherry-picked to `production` (`versionCode` 5, submitted to Play Console). Firebase Analytics native module also installed alongside (no `logEvent()` calls yet — deliberately deferred). Since §125, Crashlytics also gets the custom keys `ota_update` (the Profile > About short tag) and `ota_update_id`, set at app start in `app/_layout.tsx`.
-
-Two reference documents created for future sessions: `Bhav_Bhakti_Push_Notifications_Plan.md` (fully scoped, not yet built — needs a native rebuild) and `Bhav_Bhakti_Analytics_Event_Plan.md` (the five-bucket event strategy — Acquisition/Activation/Engagement/Conversion/Retention — not yet implemented).
-
-Both follow-ups named here (push notifications, the analytics `logEvent()` calls) shipped in §95.
+Done, shipped in v5. Crashlytics with the Support ID (`setUserIdentifier()`), a backend uncaught-exception/unhandled-rejection handler and a root error boundary — a triggered test crash was confirmed in the Console. Since §125 Crashlytics also gets the custom keys `ota_update` (the Profile > About short tag) and `ota_update_id`, set at app start in `app/_layout.tsx`. Plans written here (`Bhav_Bhakti_Push_Notifications_Plan.md`, `Bhav_Bhakti_Analytics_Event_Plan.md`) shipped in §95. Detail archived.
 
 ## 95. 2026-09-18 session — Push notifications shipped to production; Analytics 4-of-5 buckets shipped to production
 
-**Push notifications — DONE, CONFIRMED WORKING, live in production and merged to master.** Native install, permission requested right after login (covers both new and existing users via `isAuthenticated`), single all-users topic subscription, custom notification icon (own hand-written config plugin, not `expo-notifications` — avoided a real manifest-merger conflict with `react-native-firebase/messaging` via a `firebase.json` fix), and a first-ever deep-link handler with a validated route allowlist (fixing a real bug where an invalid route opened Expo Router's generic error screen instead of falling back to Home). Foreground notification display deliberately deferred (needs Notifee or similar, real future work post-MVP). Zero custom backend — Firebase Console's own composer/recurring campaigns handle all sending.
+**Push notifications — live, merged to master.** Permission asked right after login; one all-users topic; the notification icon comes from a hand-written config plugin, not `expo-notifications` (a `firebase.json` fix avoids a manifest-merger clash with `react-native-firebase/messaging`); deep links go through a validated route allowlist (an invalid route falls back to Home). Foreground display deferred (needs Notifee or similar). No custom backend — sending is done from Firebase Console.
 
-**Firebase Analytics — PARTIALLY DONE.** Built and confirmed working (live DebugView testing) across all five funnel buckets: Activation, Engagement, Conversion, Retention, and Acquisition (deliberately deferred, covered by Play Console already). Still remaining: refining event precision once real usage data comes in (e.g., `login_failed`'s raw error codes, `card_rank` position-tracking — deferred, needs real plumbing work), and the still-unbuilt Premium pipeline frontend blocks several Conversion events (`trial_started`, `trial_converted_to_paid`, `subscription_cancelled`) from being real yet — only `paywall_hit` and `upgrade_cta_clicked` are genuinely live today.
+**Firebase Analytics — partly done.** Built and checked in DebugView across the funnel buckets (Acquisition deliberately left to Play Console). Still open: refining `login_failed`'s raw error codes and `card_rank` position tracking; the Premium conversion events (`trial_started`, `trial_converted_to_paid`, `subscription_cancelled`) wait for the Premium frontend — only `paywall_hit` and `upgrade_cta_clicked` are live. Detail archived.
 
 ## 96. 2026-09-24 session — Railway dev environment provisioned; first security-audit fixes shipped to production
 
@@ -499,29 +479,23 @@ Retention (`src/utils/backupRetention.util.js`, unit-tested): the newest backup 
 
 ## 101. 2026-09-25 session — Mantra quiz feature fully removed: DONE, live in production
 
-The quiz never produced recommendations and its only entry point had been hidden since §56, so it was removed outright. **Backend:** routes, controller, service, the 4 models, seeder and the original create-table migrations deleted; migration `20260925000001-drop-mantra-quiz-tables.js` dropped `quizzes`, `quiz_questions`, `quiz_options` and `quiz_responses` in **both** the dev and production databases (run manually — Railway deploys never run migrations; `quiz_responses` had 0 rows in both). **Frontend:** `mantra-quiz.tsx`, `src/features/quiz/`, its route registration, the `QUIZ` API endpoints and the hidden promo card deleted. The original content (1 quiz, 5 questions, 29 options incl. `tags`) is backed up at `bhav-bhakti-be/archive/mantra-quiz-content-backup-2026-09-25.json`. Shipped: backend `main` (merge `1cf22a4`); frontend `dev`/`production`/`master` (all at `c9ec390`), published via `npm run update:production` and confirmed working live.
+Done, live. The quiz never produced recommendations, so it was removed end to end; its 4 tables were dropped in both databases (migration `20260925000001`, run by hand). Content backed up at `bhav-bhakti-be/archive/mantra-quiz-content-backup-2026-09-25.json`. Backend `main` merge `1cf22a4`; frontend `c9ec390`. Detail archived.
 
 ## 102. 2026-09-26 session — Feeds schema redesign Phases 1–3 built on dev (superseded by §104)
 
-Built on `develop`/`dev` and migrated on the dev database (backend `aa94797`, `8b259dc`, `536b9cc`; frontend `5a13359`); promoted to production in §104. Standing reference: **`D:\bhav_bhakti_Claude_docs\Bhav_Bhakti_Feeds_Schema_Redesign_Plan.md` is the source of truth for anything touching feeds, tags or the CSV importer.** Dev migrations are run with the dev-scoped Railway token (`railway run --service MySQL`), never via `.env`. Full original text archived.
+Built on dev, promoted in §104. **`D:\bhav_bhakti_Claude_docs\Bhav_Bhakti_Feeds_Schema_Redesign_Plan.md` is the source of truth for anything touching feeds, tags or the CSV importer.** Dev migrations run with the dev-scoped Railway token (`railway run --service MySQL`), never via `.env`. Detail archived.
 
 ## 103. 2026-09-26 session (continued) — Feeds schema redesign Phases 2–3 finished on dev, `label` retired (superseded by §104)
 
-The app switched to reading the new fields directly (`tags`, bilingual `subtitle`, `url`, `mediaType`, thumbnails, `duration`; helpers in `src/utils/feedFields.ts`, `052761c`). New `excludeTagGroup` filter on `GET /feed`, `/feed/trending` and `/feed/user/liked` (`6634b8c`); the Wallpapers tab uses `excludeTagGroup=occasion` (`9573ce8`). `label` was dropped (`f158805`, migration `20260926000006-drop-feeds-label`); a request still sending `label` gets a **400** by design, since silently ignoring `label=none` would widen an old build's Wallpapers tab. All of this reached production in §104. Still open from this session (Handoff items 10–11): a downloaded wallpaper appears in the gallery but won't open; the hardware back button minimizes the app after opening the player (fixed in §115). Full original text archived.
+Promoted in §104. The app reads the new fields via `src/utils/feedFields.ts`; new `excludeTagGroup` filter (the Wallpapers tab uses `excludeTagGroup=occasion`); a request still sending `label` gets a **400** by design (ignoring `label=none` would widen an old build's Wallpapers tab). Still open: a downloaded wallpaper appears in the gallery but won't open (Handoff item 10, not re-tested since §115). Detail archived.
 
 ## 104. 2026-09-26 session (continued) — Feeds schema redesign: FULLY COMPLETE, live in production
 
-**DONE, live in production as of 2026-09-26 — dev build-out through production promotion.** Supersedes the "NOT in production" status in §102/§103. Backend `main` at merge `24091f6`; frontend `production`/`master` at `0e0c9a7`. **Full record: `D:\bhav_bhakti_Claude_docs\Bhav_Bhakti_Feeds_Schema_Redesign_Plan.md` (Part 9)** — this is a pointer/summary.
-
-Production now runs: `categories` retired; single-value `label` replaced by a many-to-many `tags`/`feed_tags` system (filter with `tags=` / `excludeTagGroup=`; a `label` param now returns 400); `feed_media` merged into `feeds` (storage paths, bilingual `subtitle`); and the `media[]`/`caption`/`label` compatibility shims retired — feed responses carry only the new fields.
-
-The promotion went out in five staged releases: (A) prep — the feed log-flooding fix and `bhav-bhakti-be/scripts/migrate-production.js` (production-only, typed `PRODUCTION` confirmation, mandatory `--to`); (B) backend release 1 plus migrations 000001–000005 (categories, tags, media merge); (C) the app OTA update; (D) the adoption wait — waived by founder decision; (E) backend release 2 plus migration 000006 (label drop) and shim retirement. One ~10-minute outage in total (Stage B, between deploy and migrations). Full database backups were taken before each migration stage; production-specific JSON backups are in `bhav-bhakti-be/archive/production-*-2026-09-26.json`.
-
-The one follow-up noted here — a `versionCode` 7 Play Store build, so a brand-new install no longer briefly runs pre-redesign code — shipped with the Meta SDK (§109).
+**Live in production since 2026-09-26** (backend `main` merge `24091f6`; frontend `production`/`master` `0e0c9a7`). Full record: the plan doc's Part 9. `categories` retired; `label` replaced by a many-to-many `tags`/`feed_tags` system (filter with `tags=`/`excludeTagGroup=`); `feed_media` merged into `feeds` (Storage paths, bilingual `subtitle`); the `media[]`/`caption`/`label` shims retired. Five staged releases, one ~10-minute outage. Production migrations go through `bhav-bhakti-be/scripts/migrate-production.js` (production-only, typed `PRODUCTION`, mandatory `--to`); JSON backups in `bhav-bhakti-be/archive/production-*-2026-09-26.json`. The v7 follow-up shipped with §109. Detail archived.
 
 ## 105. 2026-09-26 session (continued) — Feeds schema redesign production promotion: verified complete against git
 
-Re-verified 2026-09-27 against git, not just the plan document: stage A (log-flooding fix `abd36bf`, production migration runner `3a0d403`), B (backend `main` merge `eaf47e1` + migrations 000001–000005), C (frontend `production` cherry-picks `435e2d4`/`2d9f1bd`/`0e0c9a7`, `master` fast-forwarded), D (the adoption wait, waived by the founder), E (backend `main` merge `24091f6` + migration 000006). The branch-state and `versionCode` 7 notes that were here are superseded by §107–§109.
+Re-verified against git on 2026-09-27; stage-by-stage commits archived.
 
 ## 106. 2026-09-27 session — Security audit Group 4: steps 1–4, 6 and 9 closed; step 5 and the step-2 refinement built (both since live, §107)
 
@@ -538,7 +512,7 @@ Full original text (including the on-device test log) archived.
 
 Promoted in the agreed order. **Frontend first:** `c2cbbda` and `7a4af6e` cherry-picked onto `production` as **`43f2ba7`** and **`7c353e5`**. One conflict, in `useAuth.tsx`, resolved by keeping production's side, so the `.dev`-only debug tools stay off production — the only difference between `43f2ba7` and `c2cbbda` is comment wording inside those debug functions; `7c353e5` matches `7a4af6e` exactly. Published via `npm run update:production` (EAS update group `36201b40-3e60-4544-88d6-af44d79c85d0`), staged at 10%, verified on-device, then 100%; `master` fast-forwarded. **Then backend:** `develop` merged into `main` as **`6f687c8`**, bringing in only `cea19d5`'s `feed.routes.js`/`feed.controller.js`; no migration.
 
-Live-verified against `api.orivori.com` with no login: `GET /feed`, `/feed/trending`, `/feed/trending/mantras`, `/feed/tags/popular` and `/feed/:id` return **401**; `/deities` and `/health` still 200. Rechecked in code 2026-09-29: every feed-returning route in `src/routes/feed.routes.js` has `authenticate`; only the `view`/`play` counters are open, and they return only `{ success: true }`; `admin-feed.routes.js` isn't mounted; no categories routes exist.
+Live-verified against `api.orivori.com` with no login: `GET /feed`, `/feed/trending`, `/feed/trending/mantras`, `/feed/tags/popular` and `/feed/:id` return **401**; `/deities` and `/api/v1/health` still 200 (a bare `/health` returns 404, §123). Rechecked in code 2026-09-29: every feed-returning route in `src/routes/feed.routes.js` has `authenticate`; only the `view`/`play` counters are open, and they return only `{ success: true }`; `admin-feed.routes.js` isn't mounted; no categories routes exist.
 
 **Still open:** `PREMIUM_GATING_ENABLED` on production needs a manual re-confirmation (Railway dashboard → backend service → Variables) — this session's CLI only had development access. **Group 4 now stands at 8 of 10** (with step 8, §108): only step 7 (App Check) and step 10 (lock `storage.rules`, gated on 7 and on rotating the existing permanent download tokens) remain. *(Update: step 10 done, step 7 skipped and token rotation dropped by founder decision, 9 of 10 — §112.)*
 
@@ -556,13 +530,11 @@ Every feed response now returns V4 signed Cloud Storage URLs (`storage.googleapi
 
 ## 109. 2026-09-29 session — Meta (Facebook/Instagram) Ads SDK: DONE, live in production
 
-**Full plan, decisions and build log: `D:\bhav_bhakti_Claude_docs\Bhav_Bhakti_Meta_SDK_Plan.md`** — this is a completion record only. Frontend-only; no backend involvement.
-
-- **`react-native-fbsdk-next`** (Facebook Android SDK 18.x), configured in `app.config.js` for the production package (`com.orivori.bhavbhakti`) **only**. The `.dev` package gets no Meta config, and `src/utils/analytics/metaEvents.ts` no-ops there. The JS is inert in `.dev` only since `765b45f` (§123); the native module is in every build.
-- **Events, all client-side, no parameters (no PII):** automatic install/app-open (logged by the SDK itself); a custom `login_success` on every login; and Meta's standard `CompleteRegistration` (`fb_mobile_complete_registration`, written out as a literal — never read from the native module) only when the backend's `isNewUser` is true. Both login events fire from `useAuth.tsx`, next to the Firebase `login_completed` event.
-- **Verified** on a real Play Store install of `versionCode` 7 (Closed Testing): app-open and `login_success` confirmed in Meta Events Manager → Test Events. The Play App Signing key hash is registered with Meta; the temporary debug key hash (Meta) and the debug SHA-1 (Firebase) were confirmed removed on 2026-10-14; only the Play App Signing entries remain.
-- **Branches:** `feature/meta-sdk` was branched off `production` — a one-time exception to §85, per the plan doc's decision #10. `production` was fast-forwarded to it (`e5dd207`); its two code commits were cherry-picked into `dev` (`4f6e87b`, `1e2878f`; the versionCode bump deliberately not, since `dev` keeps its own); `master` was fast-forwarded to `production`. All pushed.
-- **Done since:** Play Console's Data Safety form and Advertising ID declaration (the SDK adds the `AD_ID` permission) — see the header. Deferred to later phases: deferred deep linking, a Purchase event, Advanced Matching.
+**Live in production.** Plan and build log: `D:\bhav_bhakti_Claude_docs\Bhav_Bhakti_Meta_SDK_Plan.md`. Frontend-only.
+- **`react-native-fbsdk-next`**, configured in `app.config.js` for the production package only; `src/utils/analytics/metaEvents.ts` is inert in `.dev` (a lazy `require` since `765b45f`, §123); the native module is in every build.
+- **Events, all client-side, no parameters (no PII):** automatic install/app-open; a custom `login_success` on every login; Meta's `fb_mobile_complete_registration` (written as a literal, never read from the native module) only when `isNewUser` is true — both from `useAuth.tsx`.
+- Verified on a Play Store install of v7. Only the Play App Signing key hash (Meta) and SHA-1 (Firebase) remain registered (debug entries removed 2026-10-14).
+- `feature/meta-sdk` branched off `production` was a one-time exception to §85. Data Safety form and Advertising ID declaration done. Deferred: deferred deep linking, a Purchase event, Advanced Matching. Detail archived.
 
 ## 110. 2026-09-29/30 session — Storage reorganized, content sheet imported to production (173 live feeds), Khatu Shyam deity added
 
@@ -623,14 +595,12 @@ Full detail archived.
 ## 114. 2026-10-01 session — Security audit Group 7 (dependency fixes): DONE, live in production; Expo SDK upgrade parked
 
 Full record in `Bhav_Bhakti_Security_Audit_Plan.md` (Group 7 build log).
-- **Backend:** `npm audit fix` (`main` merge `7c80569`; `firebase-admin` 14.5 moves `@google-cloud/storage` to 8.2, which needs **Node ≥ 22**), `sharp` 0.35.5 (`ef3096c`), unused `aws-sdk`/`@aws-sdk/client-s3`/`multer-s3` removed (`613c4a3`). 2 moderate findings remain (`sequelize`'s bundled `uuid`, not reachable as used).
-- **Frontend:** JS-only packages updated by name, incl. `axios` 1.20.0 and `shell-quote` (`dev` `f1e992a` → `production` `11f2056`, shipped by OTA). 24 findings remain (the Expo chain, never-imported Firestore's `grpc-js`, build-time `image-size`).
+- **Backend:** `npm audit fix` (`main` merge `7c80569`; `firebase-admin` 14.5 moves `@google-cloud/storage` to 8.2, which needs **Node ≥ 22**), `sharp` 0.35.5, unused AWS packages removed. 2 moderate findings remain (`sequelize`'s bundled `uuid`, not reachable as used).
+- **Frontend:** JS-only packages updated by name, incl. `axios` 1.20.0 (`production` `11f2056`). 24 findings remain (the Expo chain, never-imported Firestore's `grpc-js`, build-time `image-size`).
 - **Expo SDK 54→57 deliberately parked** as its own project: `expo-av` is gone in SDK 55 (6 video files → `expo-video`), the 266-line `expo-audio` native patch needs re-porting, every native module needs compatible versions, and it needs a Play Store build.
-- **`bhav-bhakti-fe/.npmrc`'s `force=true` removed** (`legacy-peer-deps=true` stays; `dev` `baa64cf` → `production` `0d9270e`). It made every npm command act like `--force`, so a plain `npm audit fix` would have jumped to SDK 57. The lockfile came out byte-identical — nothing shipped changed. **Before any frontend OTA, diff the lockfile for native packages.**
+- **`bhav-bhakti-fe/.npmrc`'s `force=true` removed** (`legacy-peer-deps=true` stays): it made every npm command act like `--force`. **Before any frontend OTA, diff the lockfile for native packages.**
 - **Testing admin-only upload routes on dev:** temporarily set dev user 30 (founder's test account) to `role = 'admin'` via a script that refuses unless `.env` points at dev; mint a 10-minute JWT inside `railway run -s bhav-bhakti-be -e development` so `JWT_SECRET` is never printed; call `/upload/media` and `/upload/optimized-image` on `api-dev`; delete the uploads; restore `role = 'user'`. Check deploys with `railway deployment list -s bhav-bhakti-be -e development|production` (production via `RAILWAY_TOKEN_PROD`).
-- Noted, not changed: `GET /upload/config` is public (limits and types only). The nightly backup service (auto-deploy off) keeps its pre-Group-7 image until redeployed by hand — nothing requires that.
-
-Full detail archived.
+- Noted, not changed: `GET /upload/config` is public (limits and types only). The nightly backup service kept its pre-Group-7 image until it was redeployed on 2026-10-23, which exposed a file missing from `Dockerfile.backup` (§128).
 
 ## 115. 2026-10-01 session — Wallpaper downloads go to a "Bhav Bhakti" album with an already-saved check; hardware back no longer minimizes the app: live in production
 
@@ -714,9 +684,7 @@ Full plan and phase tracker: `D:\bhav_bhakti_Claude_docs\Bhav_Bhakti_Stories_Pla
 
 ## 121. 2026-10-06 session — Player auto-advance lost the queue: fixed, live in production (v8)
 
-- **Bug:** when a track ended and auto-advanced, the next track opened with no queue (no Up Next, Previous/Next greyed). Live in production for Aarti/Bhajan since 2026-10-01 (`2a6ebc9`).
-- **Cause:** `didJustFinish` stays true on Android while the player is ended, and `advanceQueue()` changes `queue`, a dependency of the end-of-track effect, so it ran again and advanced twice; the §113 clean-up then cleared the mismatched queue.
-- **Fix:** `dev` `f2c92f2` (its own commit, cherry-picks cleanly): a "finish already handled" flag at the top of the effect. Shipped to production in v8 as `ce67a95` (§122).
+Fixed (`dev` `f2c92f2` → v8 `ce67a95`, §122). When a track ended, the next one opened with no queue: `didJustFinish` stays true on Android while ended, and `advanceQueue()` changes a dependency of the end-of-track effect, so it advanced twice and §113's clean-up dropped the mismatched queue. A "finish already handled" flag at the top of the effect fixes it.
 
 ## 122. 2026-10-09 — Play rejection fix, v8 build, Play Console state
 
@@ -767,3 +735,12 @@ Full rules, the production turn-on order and the test table: "UPDATE PROMPT" sec
 ## 127. 2026-10-22 — §125 check, Search/video fixes: live in production
 
 JS-only OTA: `dev` d5df45a..d323da6 (6) → `production` 40dea53..48f86e2; `master` = `production` = `48f86e2`. Crashlytics: OOM 6 → 1, ANRs 3 → 0; `libc.so` SIGABRT at the Wallpapers hub unchanged (symbols in v9). Grid videos pause under the Viewing Window; Search Results plays only visible ones (`limitVideoTiles`); Search back and the player round trip keep `returnTo`; "Up Next" opens on tap; Ringtones/Status texts translated. **Rule:** a hidden-tab screen reading `returnTo` needs a `useFocusEffect` BackHandler.
+
+## 128. 2026-10-23 — Railway security incident: all secrets rotated
+
+Railway reported a breach of stored environment variables (status.railway.com/incident/QH8L8B3E), so every real secret in use was rotated on 2026-10-23 and the old values revoked; the Razorpay test keys were not rotated, and the unused leftover AWS/OTPless/Google keys were removed from Railway but not revoked at their issuers. Full map: `Railway_Credential_Rotation_Map_2026-10-22.md` in the docs folder.
+- One new Firebase service-account key (key ID starts `6b6312ba`) is used by the production API, the dev API, the backup service and the laptop's `src/config` file; the July and September keys are deleted.
+- **Database:** new passwords in both environments (old ones discarded via MySQL's `RETAIN`/`DISCARD OLD PASSWORD`). The MySQL service's `MYSQL_ROOT_PASSWORD` is the source; the backup service follows it by reference, but the API and the horoscope service hold hand-copied `DB_PASSWORD` values, so rotate all of them together. New `JWT_SECRET` (everyone logged out once), Gemini key, Railway tokens (the old ones were invalidated by Railway). Leftover `AWS_*`/`GOOGLE_*`/`FACEBOOK_*`/`OTPLESS_*` variables were deleted from Railway.
+- The horoscope cron service was renamed from "alert-transformation" to "daily horoscope".
+- **Found and fixed** (`64e85d1` on `main`): `Dockerfile.backup` copies a hand-picked list of files, and it was missing `src/config/storage.config.js`. Any new `require` inside `firebase.config.js` must also be added to `Dockerfile.backup`.
+- **Open, noted only:** `.dockerignore` excludes `package-lock.json` (the API installs by version range); the API `Dockerfile`'s `HEALTHCHECK` calls `/health`, which 404s.
