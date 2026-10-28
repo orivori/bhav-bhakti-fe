@@ -15,6 +15,7 @@ import DeityFilterRow, { DeityFilterSelection } from '@/components/molecules/Dei
 import { useDeities } from '@/features/feed/hooks/useDeities';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { useScrollToTopOnTabPress } from '@/hooks/useScrollToTopOnTabPress';
+import { useScreenshotContentType } from '@/utils/analytics/screenshotEvents';
 
 // Route kept as 'ringtones' deliberately (see CLAUDE.md's Audio hub restructure
 // notes) - this used to be a standalone Ringtones screen; it's now the "Audio"
@@ -47,6 +48,7 @@ export default function AudioHubScreen() {
   const { t } = useTranslation();
   const params = useLocalSearchParams<{ subTab?: string }>();
   const [activeSubTab, setActiveSubTab] = useState<SubTab>('ringtones');
+  useScreenshotContentType(activeSubTab === 'ringtones' ? 'ringtone' : activeSubTab);
   const activeTabConfig = SUB_TABS.find((tab) => tab.key === activeSubTab)!;
 
   // Same pattern as Mantra Explorer's own back button (CLAUDE.md §56 Phase 1):

@@ -14,6 +14,7 @@ import { UpdatePromptModal } from '@/components/molecules/UpdatePromptModal';
 import { getUpdateRequirement, useUpdateRequirement } from '@/utils/appUpdate/useUpdateRequirement';
 import { ErrorBoundary } from '@/components/molecules/ErrorBoundary';
 import { useScreenshotProtection } from '@/hooks/useScreenshotProtection';
+import { useScreenshotTracking } from '@/hooks/useScreenshotTracking';
 import { ToastProvider } from '@/components/atoms/Toast';
 import { Audio } from 'expo-av';
 import { getCrashlytics, setAttributes, setCrashlyticsCollectionEnabled } from '@react-native-firebase/crashlytics';
@@ -73,6 +74,8 @@ const MyTheme = {
 export default function RootLayout() {
   // Enable screenshot protection globally (non-blocking)
   useScreenshotProtection();
+  // screenshot_taken analytics - detection only, never blocks.
+  useScreenshotTracking();
 
   // Bridges useI18nStore (the real language-selection source of truth) into
   // react-i18next's resolver. Re-fires on the zustand-persist rehydration
