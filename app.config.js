@@ -217,6 +217,8 @@ module.exports = {
           androidAppId: ADMOB_ANDROID_APP_ID,
         },
       ],
+      // Its Google ads SDK has Kotlin 2.3 metadata; we compile with 2.1.
+      "./plugins/withAdsKotlinMetadataSkip",
       withAdMobAppIdGuard,
     ],
     extra: {
