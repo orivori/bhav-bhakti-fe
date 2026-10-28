@@ -10,8 +10,7 @@ import {
 import { designSystemTheme } from '@/styles/designSystemTheme';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { useTranslation } from 'react-i18next';
-
-const TARGET_COUNT_OPTIONS = [27, 54, 108, 216, 324, 540, 1008];
+import { CHANT_TARGET_OPTIONS } from './chantTargets';
 
 interface MoreTargetsSheetProps {
   targetCount: number;
@@ -75,7 +74,7 @@ export const MoreTargetsSheet = forwardRef<BottomSheetModal, MoreTargetsSheetPro
           <Text weight="semibold" style={styles.title}>{t('target')}</Text>
 
           <View style={styles.optionsGrid}>
-            {TARGET_COUNT_OPTIONS.map((count) => (
+            {CHANT_TARGET_OPTIONS.map((count) => (
               <TouchableOpacity
                 key={count}
                 onPress={() => handleSelect(count)}
