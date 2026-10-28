@@ -36,6 +36,7 @@ import ChantHintBubble from '@/components/molecules/ChantHintBubble/ChantHintBub
 import { logFirstContentCompletedIfNewUser } from '@/utils/analytics/activationEvents';
 import { logContentProgress, logChantCounterUsed } from '@/utils/analytics/engagementEvents';
 import { useChantCounterAnalytics } from '@/hooks/useChantCounterAnalytics';
+import { useSheetBackStack } from '@/hooks/useSheetBackStack';
 import { toScreenshotContentType, useScreenshotContentType } from '@/utils/analytics/screenshotEvents';
 
 import { useFeedStore } from '@/store/feedStore';
@@ -400,9 +401,13 @@ export default function AudioPlayerScreen() {
   // Tabs screens in this app don't unmount between navigations - a
   // mount-only effect would still be listening (and would still hijack back
   // presses) even while a totally different tab is focused.
+  // An open sheet (counter, More targets, Up Next) closes first - see
+  // useSheetBackStack.
+  const sheetBack = useSheetBackStack();
   useFocusEffect(
     useCallback(() => {
       const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+        if (sheetBack.closeTopSheet()) return true;
         handleBack();
         return true;
       });
@@ -2766,6 +2771,7 @@ export default function AudioPlayerScreen() {
       {/* Chant counter, moved off-screen into an overlay sheet */}
       <CounterSheet
         ref={counterSheetRef}
+        {...sheetBack.sheetProps('counter', counterSheetRef)}
         chantCount={chantCount}
         targetCount={targetCount}
         isAutoLooping={isAutoLooping}
@@ -2778,6 +2784,7 @@ export default function AudioPlayerScreen() {
       {/* Active queue (aarti/bhajan only), moved off-screen into an overlay sheet */}
       <QueueSheet
         ref={queueSheetRef}
+        {...sheetBack.sheetProps('queue', queueSheetRef)}
         items={queueDisplayItems}
         currentIndex={queueDisplayIndex}
         onSelectIndex={handleJumpToQueueIndex}
@@ -2790,6 +2797,7 @@ export default function AudioPlayerScreen() {
           within it, instead of rendering behind it. */}
       <MoreTargetsSheet
         ref={moreTargetsSheetRef}
+        {...sheetBack.sheetProps('moreTargets', moreTargetsSheetRef)}
         targetCount={targetCount}
         onSelectTarget={handleTargetCountChange}
       />

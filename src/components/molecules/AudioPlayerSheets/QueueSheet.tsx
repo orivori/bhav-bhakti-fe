@@ -22,10 +22,13 @@ interface QueueSheetProps {
   items: QueueItem[];
   currentIndex: number;
   onSelectIndex: (index: number) => void;
+  // Open/closed reporting for Android back (useSheetBackStack).
+  onChange?: (index: number) => void;
+  onDismiss?: () => void;
 }
 
 export const QueueSheet = forwardRef<BottomSheetModal, QueueSheetProps>(
-  ({ items, currentIndex, onSelectIndex }, ref) => {
+  ({ items, currentIndex, onSelectIndex, onChange, onDismiss }, ref) => {
     const { t } = useTranslation('player');
 
     const renderBackdrop = useCallback(
@@ -85,6 +88,8 @@ export const QueueSheet = forwardRef<BottomSheetModal, QueueSheetProps>(
     return (
       <BottomSheetModal
         ref={ref}
+        onChange={onChange}
+        onDismiss={onDismiss}
         enableDynamicSizing={false}
         snapPoints={['60%']}
         backdropComponent={renderBackdrop}
