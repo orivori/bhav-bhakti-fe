@@ -224,6 +224,12 @@
       "errorMessage": "Your session has expired. Please login again."
     }
   },
+  "adUnlock": {
+    "body": "Watch a short ad to unlock",
+    "watch": "Watch ad",
+    "notNow": "Not now",
+    "loading": "Loading ad..."
+  },
   "premium": {
     "comingSoon": {
       "title": "Premium is coming soon",
