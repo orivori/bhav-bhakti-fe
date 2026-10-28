@@ -19,6 +19,7 @@ import { authorizeMediaAction } from '@/features/feed/services/mediaAccess';
 import { useFeedStore } from '@/store/feedStore';
 import { useSoundPreferenceStore } from '@/store/soundPreferenceStore';
 import { useUpdatePromptStore } from '@/store/updatePromptStore';
+import { selectIsAdFlowActive, useAdFlowStore } from '@/store/adFlowStore';
 import { formatCount } from '@/utils/formatCount';
 import { getFeedSubtitle, getFeedThumbnailUrl } from '@/utils/feedFields';
 import { shareContent } from '@/utils/shareContent';
@@ -306,8 +307,10 @@ export default function AutoplayFeedCard({ feed, isActive, shouldMountVideo = tr
 
   // Paused while the soft "update available" prompt is open over Home.
   const isUpdatePromptOpen = useUpdatePromptStore((state) => state.isVisible);
+  // ...and while a rewarded ad is loading or showing.
+  const isAdFlowActive = useAdFlowStore(selectIsAdFlowActive);
 
-  const isEffectivelyActive = isActive && isScreenFocused && isAppActive && !isUpdatePromptOpen;
+  const isEffectivelyActive = isActive && isScreenFocused && isAppActive && !isUpdatePromptOpen && !isAdFlowActive;
 
   // Video: drive the native player imperatively, not only via the
   // declarative `shouldPlay` prop below. Root cause of an unmuted Home video

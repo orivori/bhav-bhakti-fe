@@ -11,6 +11,7 @@ import { useUpdatePromptStore } from '@/store/updatePromptStore';
 import { usePlaybackStore } from '@/store/playbackStore';
 import { usePremiumStore } from '@/store/premiumStore';
 import { useAuthPromptStore } from '@/store/authPromptStore';
+import { selectIsAdFlowOpen, useAdFlowStore } from '@/store/adFlowStore';
 import { useAuthStore } from '@/shared/stores/authStore';
 import { openStoreForUpdate } from '@/utils/appUpdate/openStoreForUpdate';
 import { shouldShowSoftPrompt } from '@/utils/appUpdate/updateDecision';
@@ -45,7 +46,9 @@ export function UpdatePromptModal() {
   );
   const isPaywallOpen = usePremiumStore((state) => state.showPaywall);
   const isLoginPromptOpen = useAuthPromptStore((state) => state.showLoginPrompt);
-  const isOtherModalOpen = isPaywallOpen || isLoginPromptOpen;
+  // The rewarded-ad flow, from its opt-in card to the end of the ad.
+  const isAdFlowOpen = useAdFlowStore(selectIsAdFlowOpen);
+  const isOtherModalOpen = isPaywallOpen || isLoginPromptOpen || isAdFlowOpen;
   const { hasHydrated, isFirstSession, hasShownThisSession, isVisible, dismissedForLatest, dismissedAt, show, dismiss } =
     useUpdatePromptStore();
 
@@ -54,7 +57,10 @@ export function UpdatePromptModal() {
   useEffect(() => {
     let previousState = AppState.currentState;
     const subscription = AppState.addEventListener('change', (nextState) => {
-      if (nextState === 'active' && previousState !== 'active') {
+      // Coming back from Google's full-screen ad also looks like a return to
+      // the foreground - not a calm moment, so no prompt right after an ad.
+      const isReturnFromAd = selectIsAdFlowOpen(useAdFlowStore.getState());
+      if (nextState === 'active' && previousState !== 'active' && !isReturnFromAd) {
         armedAtRef.current = Date.now();
       }
       previousState = nextState;
