@@ -68,6 +68,13 @@ export const MoreTargetsSheet = forwardRef<BottomSheetModal, MoreTargetsSheetPro
     return (
       <BottomSheetModal
         ref={sheetRef}
+        // 'push' keeps CounterSheet open underneath. The default 'switch' is
+        // meant to minimize it and restore it later, but in 5.2.14 the
+        // minimize ends in a full dismiss (onChange(-1) marks it MINIMIZED,
+        // then onClose treats that as a normal close and unmounts it), so
+        // the counter sheet was gone once this one closed - and Android
+        // back, closing this sheet, looked like it closed both.
+        stackBehavior="push"
         onChange={onChange}
         onDismiss={onDismiss}
         enableDynamicSizing
