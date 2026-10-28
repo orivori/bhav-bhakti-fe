@@ -14,6 +14,7 @@ import DeityFilterRow, { DeityFilterSelection } from '@/components/molecules/Dei
 import { useDeities } from '@/features/feed/hooks/useDeities';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { useScrollToTopOnTabPress } from '@/hooks/useScrollToTopOnTabPress';
+import { useScreenshotContentType } from '@/utils/analytics/screenshotEvents';
 
 // Route kept as 'daily-status' deliberately (see CLAUDE.md's Wallpaper Hub
 // notes, mirroring the Audio hub restructure) - this used to be a standalone
@@ -49,6 +50,7 @@ export default function WallpaperHubScreen() {
   const { t } = useTranslation();
   const params = useLocalSearchParams<{ subTab?: string }>();
   const [activeSubTab, setActiveSubTab] = useState<SubTab>('status');
+  useScreenshotContentType(activeSubTab === 'thought' ? 'thought' : 'wallpaper');
   const activeTabConfig = SUB_TABS.find((tab) => tab.key === activeSubTab)!;
 
   // Same pattern as Mantra Explorer/Audio hub's own back button: this hub is

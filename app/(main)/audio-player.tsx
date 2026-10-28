@@ -36,6 +36,7 @@ import ChantHintBubble from '@/components/molecules/ChantHintBubble/ChantHintBub
 import { logFirstContentCompletedIfNewUser } from '@/utils/analytics/activationEvents';
 import { logContentProgress, logChantCounterUsed } from '@/utils/analytics/engagementEvents';
 import { useChantCounterAnalytics } from '@/hooks/useChantCounterAnalytics';
+import { toScreenshotContentType, useScreenshotContentType } from '@/utils/analytics/screenshotEvents';
 
 import { useFeedStore } from '@/store/feedStore';
 import { formatCount } from '@/utils/formatCount';
@@ -1946,6 +1947,7 @@ export default function AudioPlayerScreen() {
     chantCount,
     targetCount,
   });
+  useScreenshotContentType(toScreenshotContentType(contentData.type));
 
   const handleIncrementCount = () => {
     if (chantCount < targetCount) {

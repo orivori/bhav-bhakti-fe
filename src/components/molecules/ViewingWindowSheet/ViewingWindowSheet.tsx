@@ -8,6 +8,7 @@ import { Feed } from '@/types/feed';
 import { useEffectivelyActive } from '@/hooks/useEffectivelyActive';
 import { useWallpaperActions } from '../WallpaperFeedCard/useWallpaperActions';
 import { getFeedThumbnailUrl } from '@/utils/feedFields';
+import { toScreenshotContentType, useScreenshotContentType } from '@/utils/analytics/screenshotEvents';
 
 interface ViewingWindowSheetProps {
   visible: boolean;
@@ -50,6 +51,7 @@ export default function ViewingWindowSheet({
   onDownload,
 }: ViewingWindowSheetProps) {
   const isEffectivelyActive = useEffectivelyActive(visible);
+  useScreenshotContentType(toScreenshotContentType(feed?.type), visible);
   const { isDownloading, isSharing, handleLike, handleShare, handleDownload } = useWallpaperActions({
     feed,
     onLike,

@@ -32,6 +32,7 @@ import { feedService } from '@/features/feed/services/feedService';
 import type { Feed } from '@/types/feed';
 import { getFeedSubtitle, getFeedThumbnailUrl } from '@/utils/feedFields';
 import { newPlayRequestId } from '@/utils/playRequest';
+import { useScreenshotContentType } from '@/utils/analytics/screenshotEvents';
 
 // Mirrors horoscope.tsx's zodiac grid width calculation approach - 2 columns
 // with even spacing, computed from screen width. The 64 = section's own
@@ -93,6 +94,7 @@ function buildAudioPlayerParams(mantra: Feed, language: string) {
 
 export default function MantrasScreen() {
   const { t } = useTranslation();
+  useScreenshotContentType('mantra');
   const { language } = useI18nStore();
   const { contentPadding } = useTabBarHeight();
   const [selectedFilter, setSelectedFilter] = useState<DeityFilterSelection>({ kind: 'trending' });
