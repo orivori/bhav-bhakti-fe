@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { AppState } from 'react-native';
 import { useFocusEffect } from 'expo-router';
+import { selectIsAdFlowActive, useAdFlowStore } from '@/store/adFlowStore';
 
 // Extracted from AutoplayFeedCard.tsx's isEffectivelyActive computation (Home
 // feed autoplay cards) so ViewingWindowSheet (Phase 2 of the Viewing Window
@@ -79,7 +80,11 @@ export function useEffectivelyActive(isActive: boolean): boolean {
     };
   }, []);
 
-  const isEffectivelyActive = isActive && isScreenFocused && isAppActive;
+  // Paused while a rewarded ad is loading or showing (the enlarged view's
+  // video sits under the ad otherwise).
+  const isAdFlowActive = useAdFlowStore(selectIsAdFlowActive);
+
+  const isEffectivelyActive = isActive && isScreenFocused && isAppActive && !isAdFlowActive;
 
   useEffect(() => {
     console.log(

@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from 'react';
 import { ViewToken } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
 import { Feed } from '@/types/feed';
+import { selectIsAdFlowActive, useAdFlowStore } from '@/store/adFlowStore';
 
 // Most video tiles allowed to have a mounted, playing player at once. Each
 // expo-av player holds a large share of its 4-11 MB file in the Java heap,
@@ -42,9 +43,12 @@ export function useVisibleVideoTiles({ suspended = false }: { suspended?: boolea
   // Gated on focus here rather than by clearing the set on blur: FlatList
   // doesn't re-report viewability on refocus, so the last visible set must
   // survive for the same tiles to come back without a scroll.
+  // Also no players while a rewarded ad is loading or showing (memory, and
+  // the ad's own video) - every grid using this hook, Search included.
+  const isAdFlowActive = useAdFlowStore(selectIsAdFlowActive);
   const shouldMountVideo = useCallback(
-    (feed: Feed) => isFocused && !suspended && visibleVideoIds.has(String(feed.id)),
-    [isFocused, suspended, visibleVideoIds]
+    (feed: Feed) => isFocused && !suspended && !isAdFlowActive && visibleVideoIds.has(String(feed.id)),
+    [isFocused, suspended, isAdFlowActive, visibleVideoIds]
   );
 
   return {
