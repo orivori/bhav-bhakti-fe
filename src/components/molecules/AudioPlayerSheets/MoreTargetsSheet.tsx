@@ -15,6 +15,9 @@ import { CHANT_TARGET_OPTIONS } from './chantTargets';
 interface MoreTargetsSheetProps {
   targetCount: number;
   onSelectTarget: (target: number) => void;
+  // Open/closed reporting for Android back (useSheetBackStack).
+  onChange?: (index: number) => void;
+  onDismiss?: () => void;
 }
 
 // Replaces the old plain-View "Select Target Count" overlay, which lived
@@ -26,7 +29,7 @@ interface MoreTargetsSheetProps {
 // A real, second BottomSheetModal under the same provider is the fix -
 // gorhom stacks nested/sequentially-presented sheets correctly by design.
 export const MoreTargetsSheet = forwardRef<BottomSheetModal, MoreTargetsSheetProps>(
-  ({ targetCount, onSelectTarget }, ref) => {
+  ({ targetCount, onSelectTarget, onChange, onDismiss }, ref) => {
     const { t } = useTranslation('player');
     // A local ref drives the actual BottomSheetModal so this component can
     // call .dismiss() on itself after a selection; useImperativeHandle
@@ -65,6 +68,8 @@ export const MoreTargetsSheet = forwardRef<BottomSheetModal, MoreTargetsSheetPro
     return (
       <BottomSheetModal
         ref={sheetRef}
+        onChange={onChange}
+        onDismiss={onDismiss}
         enableDynamicSizing
         backdropComponent={renderBackdrop}
         handleIndicatorStyle={styles.handleIndicator}

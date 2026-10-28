@@ -31,6 +31,9 @@ interface CounterSheetProps {
   onDecrement: () => void;
   onSelectTarget: (target: number) => void;
   onOpenMoreTargets: () => void;
+  // Open/closed reporting for Android back (useSheetBackStack).
+  onChange?: (index: number) => void;
+  onDismiss?: () => void;
 }
 
 export const CounterSheet = forwardRef<BottomSheetModal, CounterSheetProps>(
@@ -43,6 +46,8 @@ export const CounterSheet = forwardRef<BottomSheetModal, CounterSheetProps>(
       onDecrement,
       onSelectTarget,
       onOpenMoreTargets,
+      onChange,
+      onDismiss,
     },
     ref
   ) => {
@@ -71,6 +76,8 @@ export const CounterSheet = forwardRef<BottomSheetModal, CounterSheetProps>(
     return (
       <BottomSheetModal
         ref={ref}
+        onChange={onChange}
+        onDismiss={onDismiss}
         enableDynamicSizing
         backdropComponent={renderBackdrop}
         handleIndicatorStyle={styles.handleIndicator}
