@@ -2,6 +2,8 @@ import { feedService } from './feedService';
 import { usePremiumStore } from '@/store/premiumStore';
 import { logPaywallHit } from '@/utils/analytics/conversionEvents';
 import type { ApiError } from '@/features/authentication/types';
+import { canShowAds } from '@/features/ads/adsModule';
+import { runAdUnlockFlow } from '@/features/ads/adUnlockFlow';
 
 export type MediaAction = 'download' | 'share' | 'view';
 
@@ -28,7 +30,9 @@ export interface AuthorizeMediaActionOptions {
  * (PREMIUM_GATING_ENABLED), is decided entirely by the backend.
  *
  * Two definitive answers block:
- * - 403 PREMIUM_REQUIRED: the paywall is shown here.
+ * - 403 PREMIUM_REQUIRED: the paywall is shown here - or, when the backend
+ *   adds unlock: 'ad', the rewarded-ad opt-in card (adUnlockFlow.ts), which
+ *   goes ahead after the ad (or when no ad loads) and stops otherwise.
  * - 401: the server says there is no valid login. apiClient has already
  *   cleared the session and shown the session-expired prompt
  *   (sessionExpiry.ts). Going ahead would let a dead or missing token skip
@@ -39,12 +43,12 @@ export interface AuthorizeMediaActionOptions {
  * user on a check that couldn't be made.
  */
 export async function authorizeMediaAction(
-  feed: { id: number | string },
+  feed: { id: number | string; type?: string },
   action: MediaAction,
   options: AuthorizeMediaActionOptions = {}
 ): Promise<boolean> {
   const feedId = feed.id.toString();
-  try {
+  const callBackend = async (): Promise<void> => {
     if (action === 'download') {
       await feedService.downloadFeed(feedId);
     } else if (action === 'share') {
@@ -52,10 +56,26 @@ export async function authorizeMediaAction(
     } else {
       await feedService.checkViewAccess(feedId);
     }
+  };
+  try {
+    await callBackend();
     return true;
   } catch (error) {
     const apiError = error as ApiError | undefined;
     if (apiError?.code === 'PREMIUM_REQUIRED') {
+      // Rewarded-ad unlock (backend AD_UNLOCK_ENABLED): the backend only
+      // sends this hint to apps that said they can show ads (X-Ads-Capable).
+      // Watching the ad records the unlock and repeats this same call once -
+      // see features/ads/adUnlockFlow.ts.
+      if (apiError.unlock === 'ad' && canShowAds()) {
+        return runAdUnlockFlow({
+          feedId,
+          feedType: feed.type,
+          action,
+          trigger: options.triggerFeature ?? action,
+          retry: callBackend,
+        });
+      }
       logPaywallHit({ trigger_feature: options.triggerFeature ?? action });
       usePremiumStore.getState().setShowPaywall(true);
       return false;

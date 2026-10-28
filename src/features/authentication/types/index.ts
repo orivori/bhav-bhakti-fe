@@ -72,4 +72,7 @@ export interface ApiError {
   message: string;
   code: string;
   statusCode: number;
+  // On a 403 PREMIUM_REQUIRED: 'ad' when watching a rewarded ad would unlock
+  // the action (backend AD_UNLOCK_ENABLED - see features/ads/adUnlockFlow.ts).
+  unlock?: 'ad';
 }
