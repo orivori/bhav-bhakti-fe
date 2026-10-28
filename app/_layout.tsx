@@ -7,6 +7,7 @@ import { StatusBar } from 'expo-status-bar';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '@/features/authentication/hooks/useAuth';
 import { PremiumPaywall } from '@/components/molecules/PremiumPaywall';
+import { AdUnlockSheet } from '@/components/molecules/AdUnlockSheet';
 import { LoginPromptModal } from '@/components/molecules/LoginPromptModal';
 import { MaintenanceScreen } from '@/components/molecules/MaintenanceScreen';
 import { UpdateRequiredScreen } from '@/components/molecules/UpdateRequiredScreen';
@@ -324,6 +325,9 @@ export default function RootLayout() {
                   UpdateRequiredScreen (and the first two navigate) - so none
                   is mounted while either is up. */}
               {!isAppBlocked && <PremiumPaywall />}
+              {/* Rewarded-ad opt-in card (adFlowStore). Not mounted while
+                  blocked, so an ad offer then answers "decline" at once. */}
+              {!isAppBlocked && <AdUnlockSheet />}
               {!isAppBlocked && <LoginPromptModal />}
               {!isAppBlocked && <UpdatePromptModal />}
             </AuthProvider>
