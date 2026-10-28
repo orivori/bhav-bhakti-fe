@@ -49,9 +49,21 @@ export const AdUnlockSheet: React.FC = () => {
             <Text variant="body" align="center" style={styles.body}>
               {t('adUnlock.body')}
             </Text>
-            <Button title={t('adUnlock.watch')} onPress={() => answerOptIn('watch')} variant="primary" fullWidth />
+            <Button
+              title={t('adUnlock.watch')}
+              onPress={() => answerOptIn('watch')}
+              variant="primary"
+              fullWidth
+              textStyle={styles.buttonText}
+            />
             <View style={styles.buttonGap} />
-            <Button title={t('adUnlock.notNow')} onPress={() => answerOptIn('decline')} variant="outline" fullWidth />
+            <Button
+              title={t('adUnlock.notNow')}
+              onPress={() => answerOptIn('decline')}
+              variant="outline"
+              fullWidth
+              textStyle={styles.buttonText}
+            />
           </View>
         )}
       </View>
@@ -61,7 +73,10 @@ export const AdUnlockSheet: React.FC = () => {
 
 // Explicit lineHeight/minHeight floors (CLAUDE.md §71): Android's own text
 // measurement clips Devanagari, so the Hindi strings get guaranteed room.
-const BODY_LINE_HEIGHT = 26;
+// 1.6x the font size, the Text atom's Devanagari ratio.
+const BODY_FONT_SIZE = 18;
+const BODY_LINE_HEIGHT = 30;
+const BUTTON_LINE_HEIGHT = 26;
 const LOADING_LINE_HEIGHT = 24;
 
 const styles = StyleSheet.create({
@@ -81,9 +96,22 @@ const styles = StyleSheet.create({
     alignItems: 'stretch',
   },
   body: {
+    fontSize: BODY_FONT_SIZE,
     lineHeight: BODY_LINE_HEIGHT,
     minHeight: BODY_LINE_HEIGHT * 2,
     marginBottom: 20,
+  },
+  // Button's title Text sizes itself, and Android measured the Hindi labels
+  // too narrow - "विज्ञापन देखें" kept only its first word, the same bug as
+  // Profile's Logout button (§71). flex: 1 gives the label the button's full
+  // width instead (the explicit-width fix), centred; a label too long for
+  // one line (large system font) wraps and the button grows - Button only
+  // sets a minHeight.
+  buttonText: {
+    flex: 1,
+    textAlign: 'center',
+    lineHeight: BUTTON_LINE_HEIGHT,
+    minHeight: BUTTON_LINE_HEIGHT,
   },
   buttonGap: {
     height: 12,
