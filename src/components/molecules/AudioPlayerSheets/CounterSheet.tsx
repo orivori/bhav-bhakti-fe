@@ -12,8 +12,7 @@ import Svg, { Circle } from 'react-native-svg';
 import { designSystemTheme } from '@/styles/designSystemTheme';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { useTranslation } from 'react-i18next';
-
-const TARGET_PRESETS = [27, 54, 108];
+import { CHANT_TARGET_PRESETS } from './chantTargets';
 
 // Progress ring geometry - rebuild (CounterSheet full rebuild). Radius +
 // half the stroke width (66) stays comfortably inside the 140px SVG
@@ -157,7 +156,7 @@ export const CounterSheet = forwardRef<BottomSheetModal, CounterSheetProps>(
           )}
 
           <View style={styles.targetOptions}>
-            {TARGET_PRESETS.map((count) => (
+            {CHANT_TARGET_PRESETS.map((count) => (
               <TouchableOpacity
                 key={count}
                 onPress={() => onSelectTarget(count)}

@@ -29,7 +29,7 @@ import { feedService } from '@/features/feed/services/feedService';
 import { Feed } from '@/types/feed';
 import { useTranslation } from 'react-i18next';
 import { useI18nStore } from '@/shared/stores/i18nStore';
-import { CounterSheet, MoreTargetsSheet, QueueSheet } from '@/components/molecules/AudioPlayerSheets';
+import { CounterSheet, MoreTargetsSheet, QueueSheet, DEFAULT_CHANT_TARGET } from '@/components/molecules/AudioPlayerSheets';
 import { usePlaybackStore, QueueItem } from '@/store/playbackStore';
 import { useChantHintStore } from '@/store/chantHintStore';
 import ChantHintBubble from '@/components/molecules/ChantHintBubble/ChantHintBubble';
@@ -404,7 +404,7 @@ export default function AudioPlayerScreen() {
 
   // Counter state
   const [chantCount, setChantCount] = useState(0);
-  const [targetCount, setTargetCount] = useState(108);
+  const [targetCount, setTargetCount] = useState(DEFAULT_CHANT_TARGET);
 
   // Chant-counter attention bubble (CLAUDE.md): shown ~1s after a genuinely
   // new mantra loads, capped via chantHintStore (3/calendar-day + once per
@@ -668,10 +668,10 @@ export default function AudioPlayerScreen() {
       setFeedData(feed);
 
       // Fresh load of (possibly new, possibly repeat) content - always
-      // starts the counter at 0/108. See this function's own comment above
+      // starts the counter at 0/DEFAULT_CHANT_TARGET. See this function's own comment above
       // for why an unconditional reset here is correct rather than a bug.
       setChantCount(0);
-      setTargetCount(108);
+      setTargetCount(DEFAULT_CHANT_TARGET);
 
       // Chant hint bubble: clear immediately (a bubble left over from the
       // previous track shouldn't carry into this one) and cancel any timer
@@ -1033,7 +1033,7 @@ export default function AudioPlayerScreen() {
       // Determine if we should auto-loop (when count < target). Gated on
       // isRepeatable, same reasoning as the resume branch above - without
       // it, a fresh Aarti/Bhajan play (chantCount/targetCount at their
-      // never-saved defaults of 0/108) would auto-loop by default with no
+      // never-saved defaults of 0/DEFAULT_CHANT_TARGET) would auto-loop by default with no
       // way to turn it off, since this content type has no counter UI to
       // even reveal that a "target" is silently driving playback.
       const shouldAutoLoop = !!contentData.isRepeatable && chantCount < targetCount;
@@ -1203,7 +1203,7 @@ export default function AudioPlayerScreen() {
   // decides it at play start, before that fetch returns, from route params
   // (an entry point that omits isRepeatable reads as "not repeatable") and
   // from chantCount/targetCount that still belong to the PREVIOUS track
-  // (fetchFeedData resets them to 0/108 only when it lands). Either could
+  // (fetchFeedData resets them to 0/DEFAULT_CHANT_TARGET only when it lands). Either could
   // leave a mantra not repeating on its first play-through. Only touches a
   // track that is actually playing or still loading for this feedId - a
   // paused track is re-decided by togglePlayback's resume branch anyway -
@@ -1806,7 +1806,7 @@ export default function AudioPlayerScreen() {
   // old playback fed straight into the didJustFinish effect below, which
   // increments chantCount using feedIdRef/chantCountRef - both of which
   // had ALREADY moved on to the newly-switched-to feed by then, since refs
-  // always read current, not stale, values. The result: a fresh 0/108
+  // always read current, not stale, values. The result: a fresh 0/DEFAULT_CHANT_TARGET
   // reset (see fetchFeedData's own comment on why every feedId change
   // resets the counter) got silently bumped back up moments later,
   // attributed to whichever content was now on screen rather than the one
