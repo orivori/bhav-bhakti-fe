@@ -23,7 +23,9 @@ interface SheetBackProps {
 // §113).
 export function useSheetBackStack() {
   // Most recently opened last, so a sheet opened from another sheet ("More"
-  // over the counter) closes first.
+  // over the counter) closes first. A sheet opened over another must use
+  // stackBehavior="push": with the default 'switch', 5.2.14 dismisses the
+  // sheet underneath instead of restoring it (see MoreTargetsSheet).
   const openStackRef = useRef<{ key: string; ref: SheetRef }[]>([]);
   const propsCacheRef = useRef<Record<string, SheetBackProps>>({});
 
