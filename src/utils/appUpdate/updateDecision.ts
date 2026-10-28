@@ -95,8 +95,12 @@ export const SOFT_PROMPT_SNOOZE_MS = 3 * 24 * 60 * 60 * 1000;
 
 // The main tabs (expo-router pathnames of app/(main)'s tab screens). The soft
 // prompt only appears on one of these - never on the login screens, the
-// player or any other pushed screen.
-export const MAIN_TAB_PATHNAMES: readonly string[] = ['/', '/mantras', '/ringtones', '/daily-status', '/stories'];
+// player or any other pushed screen. Lists both fifth-tab screens on purpose:
+// production's bar has Rashifal ('/horoscope'), dev's has Stories ('/stories').
+// '/stories' never matches on production (no such screen); on dev,
+// '/horoscope' is Rashifal opened from Home - a calm reading screen, fine for
+// the prompt. So the same list stays right once Stories reaches production.
+export const MAIN_TAB_PATHNAMES: readonly string[] = ['/', '/mantras', '/ringtones', '/daily-status', '/horoscope', '/stories'];
 
 export interface SoftPromptInput {
   requirement: UpdateRequirement;
