@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Image, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { router, usePathname } from 'expo-router';
+import { router, useGlobalSearchParams, usePathname } from 'expo-router';
 import { Text } from '@/components/atoms';
 import { usePlaybackStore } from '@/store/playbackStore';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
@@ -10,6 +10,9 @@ import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 export default function MiniPlayer() {
   const { tabBarHeight } = useTabBarHeight();
   const pathname = usePathname();
+  // Params of the screen the MiniPlayer is showing over - sent back as
+  // returnParams so the player's back returns to it as it was.
+  const currentParams = useGlobalSearchParams();
 
   // Ringtones register in the store's separate `ephemeral` slot, not
   // `persistent` - reading only `persistent` here means a ringtone can
@@ -30,10 +33,24 @@ export default function MiniPlayer() {
     ? nowPlaying.positionSeconds / nowPlaying.durationSeconds
     : 0;
 
+  // returnTo/returnParams: tab navigation replaces the player's params with
+  // exactly these (it doesn't merge), so without them the player lost the
+  // returnTo from its first open, fell back to router.back(), and landed on
+  // Home. Paths are written the way every other caller writes them
+  // ('/(main)', '/(main)/mantras'...); the player returns with
+  // router.navigate (§115).
   const handleBodyPress = () => {
+    const returnParams: Record<string, string> = {};
+    for (const [key, value] of Object.entries(currentParams)) {
+      if (typeof value === 'string') returnParams[key] = value;
+    }
     router.push({
       pathname: '/(main)/audio-player',
-      params: { feedId: nowPlaying.feedId },
+      params: {
+        feedId: nowPlaying.feedId,
+        returnTo: pathname === '/' ? '/(main)' : `/(main)${pathname}`,
+        ...(Object.keys(returnParams).length > 0 ? { returnParams: JSON.stringify(returnParams) } : {}),
+      },
     });
   };
 

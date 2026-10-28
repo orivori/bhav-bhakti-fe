@@ -10,8 +10,8 @@ import {
 interface ChantCounterAnalyticsInput {
   feedId: string | undefined;
   // The route's playRequestId. Every real "play this" tap sends a fresh one
-  // (src/utils/playRequest.ts), while returning through the MiniPlayer keeps
-  // the old one - so feedId + playRequestId identifies one mantra open.
+  // (src/utils/playRequest.ts); returning through the MiniPlayer sends none -
+  // so feedId + playRequestId identifies one mantra open.
   playRequestId: string | undefined;
   isCounterVisible: boolean;
   chantCount: number;
@@ -26,7 +26,13 @@ export function useChantCounterAnalytics({
   chantCount,
   targetCount,
 }: ChantCounterAnalyticsInput) {
-  const openKey = feedId ? `${feedId}:${playRequestId ?? ''}` : null;
+  // The MiniPlayer re-opens the player with no playRequestId (tab navigation
+  // replaces params), so a missing id for the same feed is still the same open.
+  const lastOpenRef = useRef<{ feedId?: string; playRequestId?: string }>({});
+  const effectiveRequestId =
+    playRequestId ?? (lastOpenRef.current.feedId === feedId ? lastOpenRef.current.playRequestId : undefined);
+  lastOpenRef.current = { feedId, playRequestId: effectiveRequestId };
+  const openKey = feedId ? `${feedId}:${effectiveRequestId ?? ''}` : null;
 
   const viewedKeyRef = useRef<string | null>(null);
   const milestonesRef = useRef<{ key: string | null; reached: Set<CounterMilestone> }>({
