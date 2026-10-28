@@ -1,3 +1,4 @@
+const { withAndroidManifest } = require("expo/config-plugins");
 const {
   ANDROID_NOTIFICATION_CHANNEL_ID,
   ANDROID_NOTIFICATION_CHANNEL_NAME,
@@ -12,6 +13,37 @@ const PACKAGE_NAME = IS_DEV_VARIANT ? "com.orivori.bhavbhakti.dev" : "com.orivor
 
 const META_APP_ID = "957510006786328";
 const META_CLIENT_TOKEN = "c84d393bf7fb6e3c92d591cdd2aacd5c";
+
+// AdMob app IDs (rewarded ads, Revenue Model §5d/§5e). Not secrets: Google
+// embeds the app ID in every built APK. .dev always uses Google's published
+// sample app ID (test ads only, never registered in our AdMob account);
+// production must use our real one - fill it in before the A6 production
+// build. withAdMobAppIdGuard below refuses to generate a production native
+// project without it.
+const ADMOB_SAMPLE_ANDROID_APP_ID = "ca-app-pub-3940256099942544~3347511713";
+const ADMOB_PRODUCTION_ANDROID_APP_ID = "";
+const ADMOB_ANDROID_APP_ID = IS_DEV_VARIANT ? ADMOB_SAMPLE_ANDROID_APP_ID : ADMOB_PRODUCTION_ANDROID_APP_ID;
+
+// Google's own sample publisher - any ID under it serves test ads only.
+const ADMOB_SAMPLE_PUBLISHER = "ca-app-pub-3940256099942544";
+const isRealAdMobAppId = (id) =>
+  /^ca-app-pub-\d{16}~\d{10}$/.test(id) && !id.startsWith(`${ADMOB_SAMPLE_PUBLISHER}~`);
+
+// Fails a production build that would ship without a real AdMob app ID (the
+// native ads SDK crashes at startup without one) or with Google's sample ID.
+// It runs inside a manifest mod, and mods only run when the native project is
+// generated (EAS Build / expo prebuild) - never for `eas update`, which also
+// reads this file, so OTAs keep working while the real ID is still missing.
+const withAdMobAppIdGuard = (config) =>
+  withAndroidManifest(config, (modConfig) => {
+    if (!IS_DEV_VARIANT && !isRealAdMobAppId(ADMOB_ANDROID_APP_ID)) {
+      throw new Error(
+        "app.config.js: production builds need a real AdMob app ID in ADMOB_PRODUCTION_ANDROID_APP_ID " +
+          "(empty or Google's sample ID found). Refusing to build."
+      );
+    }
+    return modConfig;
+  });
 
 module.exports = {
   expo: {
@@ -174,6 +206,18 @@ module.exports = {
               },
             ],
           ]),
+      // Google Mobile Ads (rewarded ads). Writes the
+      // com.google.android.gms.ads.APPLICATION_ID manifest line. The library
+      // only loads lazily in JS (src/features/ads/adsModule.ts). No iOS app
+      // is built (CLAUDE.md §18), so no iosAppId - the plugin prints a
+      // harmless "No 'iosAppId'" warning.
+      [
+        "react-native-google-mobile-ads",
+        {
+          androidAppId: ADMOB_ANDROID_APP_ID,
+        },
+      ],
+      withAdMobAppIdGuard,
     ],
     extra: {
       router: {},
