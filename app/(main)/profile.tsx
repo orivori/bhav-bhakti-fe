@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { View, ScrollView, TouchableOpacity, Alert, StyleSheet, Modal, Platform, Linking } from 'react-native';
+import { View, ScrollView, TouchableOpacity, Alert, StyleSheet, Modal, Platform, Linking, Switch } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -19,6 +19,8 @@ import { profileService } from '@/features/profile/services/profileService';
 import { deriveSupportId } from '@/shared/utils/supportId';
 import { logPaywallHit, logUpgradeCtaClicked } from '@/utils/analytics/conversionEvents';
 import { getInstalledBuild } from '@/utils/appUpdate/installedBuild';
+import { showTestRewardedAd } from '@/features/ads/rewardedAd';
+import { useAdFlowStore } from '@/store/adFlowStore';
 import { isUpdatePromptAllowedOnThisBuild } from '@/utils/appUpdate/useUpdateRequirement';
 
 export default function ProfileScreen() {
@@ -118,6 +120,33 @@ export default function ProfileScreen() {
       ]
     );
   };
+
+  // .dev-only: loads and shows one Google test ad - no feed, no backend
+  // call - and reports what happened (A4 test build, Revenue Model §5e).
+  const [isTestAdRunning, setIsTestAdRunning] = useState(false);
+  const handleDebugShowTestAd = async () => {
+    if (isTestAdRunning) return;
+    setIsTestAdRunning(true);
+    try {
+      const outcome = await showTestRewardedAd();
+      const message =
+        outcome === 'rewarded'
+          ? 'Reward earned'
+          : outcome === 'closed_no_reward'
+            ? 'Closed, no reward'
+            : outcome === 'failed'
+              ? 'Ad could not be shown'
+              : `No ad loaded (${outcome.ok ? 'unknown' : outcome.reason})`;
+      Alert.alert('Test ad', message);
+    } finally {
+      setIsTestAdRunning(false);
+    }
+  };
+
+  // .dev-only: the next ad load fails, to test the no_fill path. Turns
+  // itself off once used.
+  const simulateNoAd = useAdFlowStore((state) => state.simulateNoAd);
+  const setSimulateNoAd = useAdFlowStore((state) => state.setSimulateNoAd);
 
   const handleEditProfile = () => {
     router.push('/(main)/edit-profile');
@@ -473,6 +502,39 @@ export default function ProfileScreen() {
                 </View>
                 <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
               </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.optionItem}
+                onPress={handleDebugShowTestAd}
+                disabled={isTestAdRunning}
+                activeOpacity={0.7}
+              >
+                <View style={styles.optionIcon}>
+                  <Ionicons name="play-circle-outline" size={20} color="#3b82f6" />
+                </View>
+                <View style={styles.optionContent}>
+                  <Text variant="body" weight="medium">
+                    {isTestAdRunning ? 'Loading test ad...' : 'Show test ad'}
+                  </Text>
+                  <Text variant="caption" color="secondary">
+                    Loads and shows one Google test ad (no unlock, no backend call)
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
+              </TouchableOpacity>
+              <View style={[styles.optionItem, styles.optionItemStatic]}>
+                <View style={styles.optionIcon}>
+                  <Ionicons name="cloud-offline-outline" size={20} color="#3b82f6" />
+                </View>
+                <View style={styles.optionContent}>
+                  <Text variant="body" weight="medium">
+                    Simulate no ad
+                  </Text>
+                  <Text variant="caption" color="secondary">
+                    The next ad load fails (tests the no_fill path); turns itself off after
+                  </Text>
+                </View>
+                <Switch value={simulateNoAd} onValueChange={setSimulateNoAd} />
+              </View>
               {/* What the update prompt sees on this phone - "older" means
                   the build has no expo-application (v7 or lower). */}
               <View style={[styles.optionItem, styles.optionItemStatic]}>
