@@ -4,6 +4,8 @@ import { secureStorage } from '@/shared/utils/secureStorage';
 import { AuthTokens, ApiError } from '@/features/authentication/types';
 import i18n from '@/shared/i18n';
 import { handleSessionExpired } from './sessionExpiry';
+import { getInstalledBuild } from '@/utils/appUpdate/installedBuild';
+import { canShowAds } from '@/features/ads/adsModule';
 
 // Login/logout requests - a 401 from these is a failed login, not an expired
 // session, so it must not trigger the session-expired prompt.
@@ -31,6 +33,18 @@ class ApiClient {
         const tokens = await secureStorage.getTokens();
         if ( tokens?.accessToken) {
           config.headers.Authorization = `Bearer ${tokens.accessToken}`;
+        }
+        // The installed build's versionCode (stored with each ad unlock), and
+        // whether this build can show a rewarded ad. Without X-Ads-Capable
+        // the backend never ad-gates this app (old builds, a missing ads
+        // module, or production without a real ad unit), so users are never
+        // stuck behind an ad they can't see.
+        const installedBuild = getInstalledBuild();
+        if (typeof installedBuild === 'number') {
+          config.headers['X-App-Build'] = String(installedBuild);
+        }
+        if (canShowAds()) {
+          config.headers['X-Ads-Capable'] = '1';
         }
         if (__DEV__) {
           console.log('🚀 API Request:', {
@@ -130,6 +144,8 @@ class ApiClient {
         message: (error.response.data as any)?.message || 'An error occurred',
         code: (error.response.data as any)?.code || 'UNKNOWN_ERROR',
         statusCode: error.response.status,
+        // The backend's "watch an ad to unlock" hint on a gated 403.
+        ...((error.response.data as any)?.unlock === 'ad' ? { unlock: 'ad' as const } : {}),
       };
     } else if (error.request) {
       return {
