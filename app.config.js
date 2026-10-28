@@ -48,7 +48,9 @@ module.exports = {
   expo: {
     name: APP_NAME,
     slug: "bhav-bhakti",
-    version: "1.0.0",
+    // 1.1.0 = a new OTA runtime (runtimeVersion follows this): from here on,
+    // updates reach only builds made from 1.1.0 (v9 / .dev 5), never v8.
+    version: "1.1.0",
     orientation: "portrait",
     icon: "./assets/images/icon.png",
     userInterfaceStyle: "light",
@@ -73,7 +75,8 @@ module.exports = {
       },
     },
     android: {
-      versionCode: 8,
+      // Per variant, so this line is the same on dev and production.
+      versionCode: IS_DEV_VARIANT ? 5 : 9,
       adaptiveIcon: {
         foregroundImage: "./assets/images/icon.png",
         backgroundColor: "#ffffff",
