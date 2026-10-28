@@ -35,6 +35,7 @@ import { useChantHintStore } from '@/store/chantHintStore';
 import ChantHintBubble from '@/components/molecules/ChantHintBubble/ChantHintBubble';
 import { logFirstContentCompletedIfNewUser } from '@/utils/analytics/activationEvents';
 import { logContentProgress, logChantCounterUsed } from '@/utils/analytics/engagementEvents';
+import { useChantCounterAnalytics } from '@/hooks/useChantCounterAnalytics';
 
 import { useFeedStore } from '@/store/feedStore';
 import { formatCount } from '@/utils/formatCount';
@@ -1938,6 +1939,14 @@ export default function AudioPlayerScreen() {
 
   const progress = targetCount > 0 ? (chantCount / targetCount) * 100 : 0;
 
+  const counterAnalytics = useChantCounterAnalytics({
+    feedId,
+    playRequestId,
+    isCounterVisible: !!contentData.isRepeatable,
+    chantCount,
+    targetCount,
+  });
+
   const handleIncrementCount = () => {
     if (chantCount < targetCount) {
       const newCount = chantCount + 1;
@@ -1984,6 +1993,7 @@ export default function AudioPlayerScreen() {
 
   const handleTargetCountChange = (newTarget: number) => {
     console.log('🎯 Target changed from', targetCount, 'to', newTarget, '- Current count:', chantCount);
+    counterAnalytics.onTargetChanged(newTarget);
     setTargetCount(newTarget);
 
     // Check if auto-looping status should change
@@ -2691,6 +2701,7 @@ export default function AudioPlayerScreen() {
                         // whether its own 3.5s auto-dismiss has fired yet.
                         setShowChantHint(false);
                         counterSheetRef.current?.present();
+                        counterAnalytics.onCounterOpened();
                       }}
                       style={styles.roundControlButton}
                       activeOpacity={0.7}
