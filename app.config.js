@@ -17,11 +17,10 @@ const META_CLIENT_TOKEN = "c84d393bf7fb6e3c92d591cdd2aacd5c";
 // AdMob app IDs (rewarded ads, Revenue Model §5d/§5e). Not secrets: Google
 // embeds the app ID in every built APK. .dev always uses Google's published
 // sample app ID (test ads only, never registered in our AdMob account);
-// production must use our real one - fill it in before the A6 production
-// build. withAdMobAppIdGuard below refuses to generate a production native
-// project without it.
+// production uses our real one. withAdMobAppIdGuard below refuses to
+// generate a production native project without it.
 const ADMOB_SAMPLE_ANDROID_APP_ID = "ca-app-pub-3940256099942544~3347511713";
-const ADMOB_PRODUCTION_ANDROID_APP_ID = "";
+const ADMOB_PRODUCTION_ANDROID_APP_ID = "ca-app-pub-2045583960519339~3273880575";
 const ADMOB_ANDROID_APP_ID = IS_DEV_VARIANT ? ADMOB_SAMPLE_ANDROID_APP_ID : ADMOB_PRODUCTION_ANDROID_APP_ID;
 
 // Google's own sample publisher - any ID under it serves test ads only.

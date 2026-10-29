@@ -14,10 +14,10 @@ type AdsLib = typeof import('react-native-google-mobile-ads');
 
 const IS_PRODUCTION = Constants.expoConfig?.extra?.appVariant === 'production';
 
-// Our real production rewarded ad unit (AdMob dashboard). Placeholder until
-// the A6 production build: while it's empty, production builds behave as if
-// the ads module were missing. Not a secret - it ships inside the APK.
-const PRODUCTION_REWARDED_AD_UNIT_ID = '';
+// Our real production rewarded ad unit (AdMob dashboard). If it is ever
+// emptied, production builds behave as if the ads module were missing. Not a
+// secret - it ships inside the APK.
+const PRODUCTION_REWARDED_AD_UNIT_ID = 'ca-app-pub-2045583960519339/8937270797';
 
 // Phones registered as AdMob test devices for Closed testing on the real
 // production build (the ID is printed in logcat on the first ad request).
