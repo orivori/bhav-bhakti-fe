@@ -4,6 +4,7 @@ import { getAnalytics, setUserId as setAnalyticsUserId } from '@react-native-fir
 import { AuthState, User, AuthTokens } from '@/features/authentication/types';
 import { secureStorage } from '@/shared/utils/secureStorage';
 import { deriveSupportId } from '@/shared/utils/supportId';
+import { clearPendingContentLink } from '@/store/pendingContentLinkStore';
 
 interface AuthActions {
   login: (user: User, tokens: AuthTokens) => Promise<void>;
@@ -61,6 +62,9 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   logout: async () => {
     setUserId(getCrashlytics(), '').catch(console.error);
     setAnalyticsUserId(getAnalytics(), null).catch(console.error);
+    // A link saved for this user mustn't be shown to the next one. Never
+    // throws (see pendingContentLinkStore.ts), so it can't block the logout.
+    void clearPendingContentLink();
 
     try {
       await secureStorage.clearAll();
