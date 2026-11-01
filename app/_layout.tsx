@@ -40,6 +40,7 @@ import { checkSessionOnResume } from '@/shared/services/sessionExpiry';
 import { useNotificationPermissionStore } from '@/store/notificationPermissionStore';
 import { requestNotificationPermissionAndSubscribe } from '@/utils/notifications/permission';
 import { navigateFromNotificationData } from '@/utils/notifications/deepLink';
+import { runDeferredLinkProbe } from '@/utils/deepLinks/deferredAppLink';
 import { logAnalyticsScreenView } from '@/utils/analytics/logEvent';
 import { recordSessionStartForRetention } from '@/utils/analytics/retentionEvents';
 
@@ -263,6 +264,15 @@ export default function RootLayout() {
       }
     });
   }, [isNavigatorMounted, isAppBlocked]);
+
+  // Deferred-link probe (production app only): reports whether Meta's
+  // deferred link arrives, never navigates. Once per launch, never throws -
+  // see deferredAppLink.ts.
+  React.useEffect(() => {
+    if (isNavigatorMounted) {
+      runDeferredLinkProbe();
+    }
+  }, [isNavigatorMounted]);
 
   // The app's React Navigation/screen_view integration - Expo Router's own
   // usePathname() is the simplest correct hook point (no manual navigationRef/
