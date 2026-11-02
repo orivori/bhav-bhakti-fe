@@ -19,9 +19,37 @@ const FEED_TYPE_FOR_LINK: Record<string, string> = {
 // only ever delivered to a fresh install).
 export const FRESH_INSTALL_WINDOW_MS = 24 * 60 * 60 * 1000;
 
-// Waits are capped so Home is never held up for long.
+// Waits are capped so Home's spinner never stays up longer than about
+// PIN_DECISION_MAX_MS, even on a slow network: each step gets its own cap,
+// but never more than what is left of the whole decision (stepBudgetMs).
 export const PROBE_WAIT_MAX_MS = 2000;
-export const PIN_FETCH_TIMEOUT_MS = 5000;
+export const PIN_FETCH_TIMEOUT_MS = 2500;
+export const PIN_DECISION_MAX_MS = 3000;
+
+export type TimedResult<T> = { timedOut: false; value: T } | { timedOut: true };
+
+// The promise's value, or timedOut once ms have passed. A rejection before
+// then is passed on.
+export function raceWithTimeout<T>(promise: Promise<T>, ms: number): Promise<TimedResult<T>> {
+  return new Promise<TimedResult<T>>((resolve, reject) => {
+    const timer = setTimeout(() => resolve({ timedOut: true }), Math.max(0, ms));
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve({ timedOut: false, value });
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      }
+    );
+  });
+}
+
+// Time a step may take: its own cap, but never past the decision's deadline.
+export function stepBudgetMs(stepMaxMs: number, deadline: number, now: number): number {
+  return Math.max(0, Math.min(stepMaxMs, deadline - now));
+}
 
 export type PinSkipReason = 'expired' | 'not_found' | 'type_mismatch' | 'error';
 
