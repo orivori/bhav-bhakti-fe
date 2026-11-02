@@ -2,7 +2,7 @@ import { logAnalyticsEvent } from './logEvent';
 
 // Rewarded-ad unlock funnel (Revenue Model §5e section 6). Every event
 // carries what was locked: content_type (the feed's type), action (view /
-// download / share) and trigger (the gate's analytics label, e.g.
+// download / share / set_ringtone) and trigger (the gate's analytics label, e.g.
 // set_as_ringtone). ad_load_ms is a parameter, never its own event.
 //
 // ad_reward_earned is the ONLY success signal - it fires on Google's
@@ -11,9 +11,19 @@ import { logAnalyticsEvent } from './logEvent';
 
 export type AdUnlockAction = 'view' | 'download' | 'share';
 
+// The action word in analytics only - a ringtone's 'download' is reported
+// as 'set_ringtone', the same words as gate_action_tap
+// (download | share | view | set_ringtone). The backend still gets
+// AdUnlockAction ('download') - see toAdEventAction.
+export type AdEventAction = AdUnlockAction | 'set_ringtone';
+
+export function toAdEventAction(feedType: string | undefined, action: AdUnlockAction): AdEventAction {
+  return feedType === 'ringtone' && action === 'download' ? 'set_ringtone' : action;
+}
+
 export interface AdEventContext {
   content_type: string;
-  action: AdUnlockAction;
+  action: AdEventAction;
   trigger: string;
 }
 

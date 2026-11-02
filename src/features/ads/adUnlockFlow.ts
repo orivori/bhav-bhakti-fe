@@ -9,6 +9,7 @@ import {
   logAdUnlockDeclined,
   logAdUnlockOffered,
   logAdWatchTapped,
+  toAdEventAction,
   type AdEventContext,
   type AdUnlockAction,
 } from '@/utils/analytics/adEvents';
@@ -86,9 +87,11 @@ async function recordAndRetry(input: AdUnlockFlowInput, source: AdUnlockSource):
 }
 
 export async function runAdUnlockFlow(input: AdUnlockFlowInput): Promise<boolean> {
+  // Analytics only: a ringtone's 'download' is reported as 'set_ringtone'.
+  // recordAndRetry still sends input.action ('download') to the backend.
   const context: AdEventContext = {
     content_type: input.feedType ?? 'unknown',
-    action: input.action,
+    action: toAdEventAction(input.feedType, input.action),
     trigger: input.trigger,
   };
   const store = useAdFlowStore.getState();
