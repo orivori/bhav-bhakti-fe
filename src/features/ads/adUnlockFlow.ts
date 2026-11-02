@@ -8,10 +8,11 @@ import {
   logAdUnavailable,
   logAdUnlockDeclined,
   logAdUnlockOffered,
+  logAdWatchTapped,
   type AdEventContext,
   type AdUnlockAction,
 } from '@/utils/analytics/adEvents';
-import { logMetaAdWatched } from '@/utils/analytics/metaAdEvents';
+import { logMetaAdWatched, logMetaAdWatchTapped } from '@/utils/analytics/metaAdEvents';
 import { recordAdUnlock, type AdUnlockSource } from './adUnlockApi';
 import { pauseMediaForAd, resumeMediaAfterAd } from './pauseMediaForAd';
 import {
@@ -107,6 +108,10 @@ export async function runAdUnlockFlow(input: AdUnlockFlowInput): Promise<boolean
     logAdUnlockDeclined(context);
     return false;
   }
+  // "Watch ad" was tapped. answerOptIn() hands out the card's answer once (it
+  // clears the pending answer first), so a double press reaches here once.
+  logAdWatchTapped(context);
+  logMetaAdWatchTapped(context);
 
   // phase is now 'loading' (set by answerOptIn) - media holds still.
   const paused = pauseMediaForAd();
@@ -134,7 +139,7 @@ export async function runAdUnlockFlow(input: AdUnlockFlowInput): Promise<boolean
 
     if (outcome === 'rewarded') {
       logAdRewardEarned(context, loaded.loadMs);
-      logMetaAdWatched();
+      logMetaAdWatched(context);
       return await recordAndRetry(input, 'reward');
     }
     if (outcome === 'closed_no_reward') {

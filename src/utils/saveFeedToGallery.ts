@@ -7,6 +7,7 @@ import {
 } from '@/features/feed/services/mediaAccess';
 import { getMediaFileExtension } from './getMediaFileExtension';
 import { ensureMediaLibraryPermission } from './mediaLibraryPermission';
+import { logGateActionTap } from './analytics/gateTapEvents';
 
 // The one place every "save this wallpaper/video to the phone" button goes
 // through (Wallpaper Hub download, Home's Set as Wallpaper, FeedCard's
@@ -100,6 +101,9 @@ export async function saveFeedToGallery(
   { permissionReasonKey, authorizeOptions }: SaveFeedToGalleryOptions
 ): Promise<SaveToGalleryResult> {
   if (!feed.url) return 'cancelled';
+  // Before the permission prompt, the "already saved" check and the gate;
+  // wallpaper/thought only (gateTapEvents.ts).
+  logGateActionTap(feed, 'download');
   if (!(await ensureMediaLibraryPermission(permissionReasonKey, 'gallery'))) return 'cancelled';
 
   const filename = getGalleryFileName(feed);

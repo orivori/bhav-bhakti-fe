@@ -6,6 +6,8 @@ import { authorizeMediaAction } from '@/features/feed/services/mediaAccess';
 import { useFeedStore } from '@/store/feedStore';
 import { getMediaFileExtension, getMediaMimeType } from './getMediaFileExtension';
 import { logContentShared } from './analytics/engagementEvents';
+import { logGateActionTap } from './analytics/gateTapEvents';
+import { logMetaContentShared } from './analytics/metaAppEvents';
 import { getFeedThumbnailUrl } from './feedFields';
 import i18n from 'i18next';
 import { PLAY_STORE_URL } from '@/shared/config/appStoreLink';
@@ -127,6 +129,8 @@ export async function shareContent(feed: Feed, options?: ShareContentOptions): P
 
   if (inFlightShares.has(feedId)) return;
   inFlightShares.add(feedId);
+  // Before the gate; wallpaper/thought only (gateTapEvents.ts).
+  logGateActionTap(feed, 'share');
 
   try {
     // Records the share and runs the premium gate - see mediaAccess.ts.
@@ -158,6 +162,7 @@ export async function shareContent(feed: Feed, options?: ShareContentOptions): P
 
     if (result.success) {
       logContentShared({ content_type: feed.type });
+      logMetaContentShared();
       onShared?.(feedId);
     }
   } catch (error) {

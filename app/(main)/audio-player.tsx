@@ -35,6 +35,7 @@ import { useChantHintStore } from '@/store/chantHintStore';
 import ChantHintBubble from '@/components/molecules/ChantHintBubble/ChantHintBubble';
 import { logFirstContentCompletedIfNewUser } from '@/utils/analytics/activationEvents';
 import { logContentProgress, logChantCounterUsed } from '@/utils/analytics/engagementEvents';
+import { logMetaChantCounterUsed } from '@/utils/analytics/metaAppEvents';
 import { useChantCounterAnalytics } from '@/hooks/useChantCounterAnalytics';
 import { useSheetBackStack } from '@/hooks/useSheetBackStack';
 import { toScreenshotContentType, useScreenshotContentType } from '@/utils/analytics/screenshotEvents';
@@ -1961,6 +1962,7 @@ export default function AudioPlayerScreen() {
 
       if (feedId) {
         logChantCounterUsed({ feed_id: feedId });
+        logMetaChantCounterUsed();
       }
 
       // Celebrate completion

@@ -35,6 +35,12 @@ export function logAdUnavailable(context: AdEventContext, reason: AdUnavailableR
   logAnalyticsEvent('ad_unavailable', { ...context, reason });
 }
 
+// "Watch ad" tapped on the opt-in card, before the ad loads or shows - so it
+// fires even if the ad then fails, has no fill or is closed early.
+export function logAdWatchTapped(context: AdEventContext): void {
+  logAnalyticsEvent('ad_watch_tapped', { ...context });
+}
+
 // The ad couldn't be shown, or the flow was abandoned while loading.
 export function logAdFailed(context: AdEventContext, reason: AdFailedReason, adLoadMs?: number): void {
   logAnalyticsEvent('ad_failed', { ...context, reason, ...(adLoadMs !== undefined ? { ad_load_ms: adLoadMs } : {}) });

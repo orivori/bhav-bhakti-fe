@@ -1,5 +1,6 @@
 import { logAnalyticsEvent } from './logEvent';
 import { useActivationEventsStore } from '@/store/activationEventsStore';
+import { logMetaFirstContentCompleted } from './metaAppEvents';
 
 // Activation bucket only - see Bhav_Bhakti_Analytics_Event_Plan.md §2. Every
 // function here is a thin, purpose-named wrapper so call sites never build
@@ -90,5 +91,6 @@ export function logFirstContentCompletedIfNewUser(contentType: string): void {
   }
 
   logAnalyticsEvent('first_content_completed', { content_type: contentType });
+  logMetaFirstContentCompleted();
   markFirstContentCompletedLogged();
 }
