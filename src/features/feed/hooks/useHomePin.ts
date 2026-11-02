@@ -10,12 +10,15 @@ import {
   waitForDeferredLinkProbe,
 } from '@/utils/deepLinks/deferredAppLink';
 import {
+  PIN_DECISION_MAX_MS,
   PIN_FETCH_TIMEOUT_MS,
   PROBE_WAIT_MAX_MS,
   classifyPinFetchError,
   classifyPinnedFeed,
   isFreshInstall,
   isFromOtherInstall,
+  raceWithTimeout,
+  stepBudgetMs,
   type PinOutcome,
 } from '@/utils/deepLinks/homePin';
 import { logDeferredLinkPinned, logDeferredLinkPinSkipped } from '@/utils/analytics/deepLinkEvents';
@@ -33,10 +36,12 @@ import { logDeferredLinkPinned, logDeferredLinkPinSkipped } from '@/utils/analyt
 //
 // When on: wait for this launch's deferred-link probe only on an install
 // less than a day old (at most PROBE_WAIT_MAX_MS), read the pending link,
-// load it with GET /feed/:id (login, active items only), and pin it if its
-// type matches the link. Removed after a definitive answer (shown, 404, type
-// mismatch, expired); kept on a network error, timeout, 5xx or 401. Any
-// failure = normal Home. Only reads the pending link; never navigates.
+// load it with GET /feed/:id (login, active items only; at most
+// PIN_FETCH_TIMEOUT_MS), and pin it if its type matches the link. The whole
+// decision is capped at PIN_DECISION_MAX_MS. Removed after a definitive
+// answer (shown, 404, type mismatch, expired); kept on a network error,
+// timeout, 5xx or 401. Any failure = normal Home. Only reads the pending
+// link; never navigates.
 
 function isPinSwitchedOn(): boolean {
   if (!DEFERRED_LINK_PIN_ENABLED) return false;
@@ -44,32 +49,29 @@ function isPinSwitchedOn(): boolean {
   return status === 'ok' && flags.deferredLinkPinEnabled === true;
 }
 
-function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error('Pin fetch timed out')), ms);
-    promise.then(
-      (value) => {
-        clearTimeout(timer);
-        resolve(value);
-      },
-      (error) => {
-        clearTimeout(timer);
-        reject(error);
-      }
-    );
-  });
+// One decision's progress, shared with the overall cap in runPinDecision.
+interface PinRun {
+  // Set by the cap: the decision gave up; nothing may be cleared or logged.
+  cancelled: boolean;
+  // A pending link was found (so a timeout reports skipped {error}).
+  sawLink: boolean;
+  // The outcome has been acted on (set with no await in between).
+  finished: boolean;
 }
 
-async function decidePin(): Promise<Feed | null> {
+async function decidePin(run: PinRun, deadline: number): Promise<Feed | null> {
   const installTime = await getAppInstallTime();
   if (isFreshInstall(installTime, Date.now())) {
-    await waitForDeferredLinkProbe(PROBE_WAIT_MAX_MS);
+    const wait = stepBudgetMs(PROBE_WAIT_MAX_MS, deadline, Date.now());
+    if (wait > 0) await waitForDeferredLinkProbe(wait);
   }
 
   const pending = await peekPendingContentLink();
-  if (pending.status === 'none') return null;
+  if (pending.status === 'none' || run.cancelled) return null;
+  run.sawLink = true;
   if (pending.status === 'expired' || isFromOtherInstall(pending.link.installTime, installTime)) {
-    await clearPendingContentLink();
+    run.finished = true;
+    void clearPendingContentLink();
     logDeferredLinkPinSkipped({ reason: 'expired' });
     return null;
   }
@@ -77,19 +79,39 @@ async function decidePin(): Promise<Feed | null> {
   const { link } = pending;
   let outcome: PinOutcome<Feed>;
   try {
-    const feed = await withTimeout(feedService.getFeedById(feedIdForApi(link)), PIN_FETCH_TIMEOUT_MS);
-    outcome = classifyPinnedFeed(link.type, feed);
+    const budget = stepBudgetMs(PIN_FETCH_TIMEOUT_MS, deadline, Date.now());
+    const fetched = await raceWithTimeout(feedService.getFeedById(feedIdForApi(link)), budget);
+    // A timeout counts as a network error: the link is kept.
+    outcome = fetched.timedOut ? classifyPinFetchError(null) : classifyPinnedFeed(link.type, fetched.value);
   } catch (error) {
     outcome = classifyPinFetchError(error);
   }
 
+  // From here to the return there is no await, so the cap can't fire midway.
+  if (run.cancelled) return null;
+  run.finished = true;
   if (outcome.kind === 'pin') {
-    await clearPendingContentLink();
+    void clearPendingContentLink();
     logDeferredLinkPinned({ content_type: link.type });
     return outcome.feed;
   }
-  if (outcome.consume) await clearPendingContentLink();
+  if (outcome.consume) void clearPendingContentLink();
   logDeferredLinkPinSkipped({ reason: outcome.reason });
+  return null;
+}
+
+// The whole decision is capped at PIN_DECISION_MAX_MS. Past it: normal Home,
+// the link is kept, and skipped {error} is sent if a link was found. The
+// unfinished decision is cancelled, so it can't consume the link or log later.
+async function runPinDecision(): Promise<Feed | null> {
+  const run: PinRun = { cancelled: false, sawLink: false, finished: false };
+  const decision = decidePin(run, Date.now() + PIN_DECISION_MAX_MS);
+  const result = await raceWithTimeout(decision, PIN_DECISION_MAX_MS);
+  if (!result.timedOut) return result.value;
+  // Acted on just as the cap fired: its result is already settled.
+  if (run.finished) return decision;
+  run.cancelled = true;
+  if (run.sawLink) logDeferredLinkPinSkipped({ reason: 'error' });
   return null;
 }
 
@@ -102,7 +124,7 @@ export function useHomePin(): { pinnedFeed: Feed | null; isDecidingPin: boolean;
   React.useEffect(() => {
     if (!isSwitchedOn) return;
     let isActive = true;
-    decidePin()
+    runPinDecision()
       .catch((error) => {
         if (__DEV__) console.warn('useHomePin: failed, showing the normal Home', error);
         return null;
