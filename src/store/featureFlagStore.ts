@@ -16,6 +16,9 @@ export interface FeatureFlags {
   updatePromptEnabled: boolean;
   latestBuild: number | null;
   minSupportedBuild: number | null;
+  // Home pin for a pending content link - the backend's
+  // DEFERRED_LINK_PIN_ENABLED Railway variable. Off = no pin (useHomePin.ts).
+  deferredLinkPinEnabled: boolean;
 }
 
 // Hardcoded defaults, checked into the app bundle. These are what every
@@ -32,6 +35,7 @@ export const FEATURE_FLAG_DEFAULTS: FeatureFlags = {
   updatePromptEnabled: false,
   latestBuild: null,
   minSupportedBuild: null,
+  deferredLinkPinEnabled: false,
 };
 
 // 'checking' only until the cold-start fetch settles. A failed fetch ends in
@@ -99,6 +103,8 @@ export const useFeatureFlagStore = create<FeatureFlagState>((set, get) => ({
           remote.minSupportedBuild <= flags.latestBuild
             ? remote.minSupportedBuild
             : null;
+        // Only a real boolean true; an older backend without the key = off.
+        flags.deferredLinkPinEnabled = remote.deferredLinkPinEnabled === true;
 
         set({
           flags,

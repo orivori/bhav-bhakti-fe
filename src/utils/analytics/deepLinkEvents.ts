@@ -21,3 +21,16 @@ export function logDeferredLinkChecked(params: {
 export function logDeferredLinkReceived(params: { content_type: string; route: 'open' | 'other' }): void {
   logAnalyticsEvent('deferred_link_received', params);
 }
+
+// Home pin (useHomePin.ts). content_type is the link's type (e.g. status).
+export function logDeferredLinkPinned(params: { content_type: string }): void {
+  logAnalyticsEvent('deferred_link_pinned', params);
+}
+
+// A pending link existed but no pin was shown. Never sent while the pin is
+// switched off (nothing is read then).
+export function logDeferredLinkPinSkipped(params: {
+  reason: 'expired' | 'not_found' | 'type_mismatch' | 'error';
+}): void {
+  logAnalyticsEvent('deferred_link_pin_skipped', params);
+}

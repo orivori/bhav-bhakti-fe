@@ -11,9 +11,9 @@ import {
 
 // Switch for the probe below - set to false and ship an OTA to stop it.
 export const DEFERRED_LINK_PROBE_ENABLED = true;
-// Switch for the future Home/hub pin that will show the pending link.
-// Nothing reads it yet: the pin isn't built.
-export const DEFERRED_LINK_PIN_ENABLED = false;
+// Code switch for the Home pin (useHomePin.ts). The pin also needs the
+// backend flag deferredLinkPinEnabled; either one off = no pin.
+export const DEFERRED_LINK_PIN_ENABLED = true;
 
 // Deferred-link probe: asks Meta's SDK for a deferred app link (the link of
 // an install ad the person tapped before installing) and only reports what
@@ -50,7 +50,8 @@ interface ProbeRecord {
 
 type AppLinkApi = { fetchDeferredAppLink: () => Promise<string | null> };
 
-let hasRunThisLaunch = false;
+// This launch's probe run, shared by app/_layout.tsx and the Home pin's wait.
+let probeRun: Promise<void> | null = null;
 let cachedAppLink: AppLinkApi | null | undefined; // undefined = not tried yet
 
 function getAppLink(): AppLinkApi | null {
@@ -65,7 +66,10 @@ function getAppLink(): AppLinkApi | null {
   return cachedAppLink ?? null;
 }
 
-// Install time in ms, or null when it can't be read.
+// Install time in ms, or null when it can't be read. Also used by the Home
+// pin (fresh-install check, and to drop a link saved by another install).
+export const getAppInstallTime = (): Promise<number | null> => readInstallTime();
+
 async function readInstallTime(): Promise<number | null> {
   try {
     const installedAt: unknown = await require('expo-application').getInstallationTimeAsync();
@@ -129,10 +133,29 @@ function isEmbeddedLaunch(): boolean {
   }
 }
 
-// Called once the navigator is mounted (app/_layout.tsx). Never throws.
-export async function runDeferredLinkProbe(): Promise<void> {
-  if (!DEFERRED_LINK_PROBE_ENABLED || !IS_PRODUCTION_VARIANT || hasRunThisLaunch) return;
-  hasRunThisLaunch = true;
+// Called once the navigator is mounted (app/_layout.tsx). At most one run
+// per launch: later calls return the same run. Never throws.
+export function runDeferredLinkProbe(): Promise<void> {
+  if (!DEFERRED_LINK_PROBE_ENABLED || !IS_PRODUCTION_VARIANT) return Promise.resolve();
+  if (!probeRun) probeRun = probeOnce();
+  return probeRun;
+}
+
+// For the Home pin on a fresh install: resolves when this launch's probe has
+// finished (starting it if app/_layout.tsx hasn't yet), or after maxMs,
+// whichever is first. Resolves at once where no probe runs (.dev, switch off).
+export function waitForDeferredLinkProbe(maxMs: number): Promise<void> {
+  const run = runDeferredLinkProbe();
+  return new Promise((resolve) => {
+    const timer = setTimeout(resolve, maxMs);
+    run.then(() => {
+      clearTimeout(timer);
+      resolve();
+    });
+  });
+}
+
+async function probeOnce(): Promise<void> {
   try {
     const installTime = await readInstallTime();
     const stored = await readProbeRecord();

@@ -18,7 +18,8 @@ import BirthdateModal from '@/components/molecules/BirthdateModal/BirthdateModal
 import QuickLinkCard, { QUICK_LINK_CATEGORIES, QuickLinkCategory } from '@/components/molecules/QuickLinkCard';
 import { LanguageToggle } from '@/components/molecules/LanguageToggle';
 import SearchBar from '@/components/molecules/SearchBar';
-import { useFeed } from '@/features/feed/hooks';
+import { useFeed, useHomePin } from '@/features/feed/hooks';
+import { placePinnedFeed } from '@/utils/deepLinks/homePin';
 import { Feed } from '@/types/feed';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { containsDevanagari, getEnhancedLineHeight } from '@/utils/textUtils';
@@ -58,6 +59,14 @@ export default function HomeScreen() {
     limit: 10,
     filters: { sortBy: 'weighted' },
   });
+
+  // Deferred/content link pin (off unless both switches are on): the linked
+  // feed as the first card - see useHomePin.ts. Off = exactly as before.
+  const { pinnedFeed, isDecidingPin, dropPin } = useHomePin();
+  const handleRefresh = React.useCallback(() => {
+    dropPin();
+    refresh();
+  }, [dropPin, refresh]);
 
 
   const [showBirthdateModal, setShowBirthdateModal] = React.useState(false);
@@ -399,15 +408,15 @@ export default function HomeScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <FeedList
         ref={feedListRef}
-        feeds={feeds}
+        feeds={isDecidingPin ? [] : placePinnedFeed(feeds, pinnedFeed)}
         onLoadMore={loadMore}
-        onRefresh={refresh}
+        onRefresh={handleRefresh}
         onFeedPress={handleFeedPress}
         onLike={likeFeed}
         onShare={shareFeed}
         onDownload={downloadFeed}
         hasMore={hasMore}
-        isLoading={isLoading}
+        isLoading={isLoading || isDecidingPin}
         isLoadingMore={isLoadingMore}
         isRefreshing={isRefreshing}
         error={error}

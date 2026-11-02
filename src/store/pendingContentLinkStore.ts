@@ -8,8 +8,9 @@ import {
 
 // The one content link waiting to be shown (bhavbhakti://open/<type>/<id>,
 // see contentLink.ts) - saved by app/+native-intent.tsx when a link opens the
-// app, and later by the deferred-link probe. Nothing reads it yet: the
-// future Home/hub pin will, through takePendingContentLink().
+// app, and by the deferred-link probe. Read by the Home pin (useHomePin.ts)
+// through peekPendingContentLink(), which removes it only after a definitive
+// result.
 //
 // Plain AsyncStorage functions rather than a Zustand store: nothing renders
 // it, and it must survive the app being closed before login. Only the type
@@ -60,6 +61,26 @@ export async function takePendingContentLink(): Promise<PendingContentLink | nul
   } catch (error) {
     if (__DEV__) console.warn('pendingContentLinkStore: read failed', error);
     return null;
+  }
+}
+
+export type PendingContentLinkPeek =
+  | { status: 'none' }
+  // Older than 7 days, or stored data that isn't a valid link.
+  | { status: 'expired' }
+  | { status: 'valid'; link: PendingContentLink };
+
+// Reads the pending link WITHOUT removing it - the caller clears it once it
+// has a definitive answer (clearPendingContentLink).
+export async function peekPendingContentLink(): Promise<PendingContentLinkPeek> {
+  try {
+    const stored = await AsyncStorage.getItem(STORAGE_KEY);
+    if (stored === null) return { status: 'none' };
+    const link = toValidPendingLink(JSON.parse(stored), Date.now());
+    return link ? { status: 'valid', link } : { status: 'expired' };
+  } catch (error) {
+    if (__DEV__) console.warn('pendingContentLinkStore: peek failed', error);
+    return { status: 'none' };
   }
 }
 
