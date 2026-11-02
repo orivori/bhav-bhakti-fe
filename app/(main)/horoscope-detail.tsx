@@ -26,6 +26,7 @@ import { getLocalDateString } from '@/shared/utils/dateUtil';
 import { PLAY_STORE_URL } from '@/shared/config/appStoreLink';
 import type { ZodiacSign } from '@/types/horoscope';
 import { logRashifalViewed } from '@/utils/analytics/engagementEvents';
+import { logMetaRashifalViewed } from '@/utils/analytics/metaAppEvents';
 import { resolvePendingAppReopened } from '@/utils/analytics/retentionEvents';
 
 export default function HoroscopeDetailScreen() {
@@ -51,6 +52,7 @@ export default function HoroscopeDetailScreen() {
   useEffect(() => {
     if (zodiacSign) {
       logRashifalViewed({ zodiac_sign: zodiacSign });
+      logMetaRashifalViewed();
     }
     resolvePendingAppReopened('rashifal');
     // eslint-disable-next-line react-hooks/exhaustive-deps

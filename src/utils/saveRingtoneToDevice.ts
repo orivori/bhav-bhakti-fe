@@ -9,6 +9,7 @@ import {
 } from '@/features/feed/services/mediaAccess';
 import { ensureMediaLibraryPermission } from './mediaLibraryPermission';
 import { openSoundSettings } from './openSoundSettings';
+import { logGateActionTap } from './analytics/gateTapEvents';
 
 // The one place "Set as Ringtone" saves a ringtone to the phone (Android) -
 // Home's AutoplayFeedCard and the Ringtones tab's RingtoneFeedCard. Modelled
@@ -137,6 +138,9 @@ export async function saveRingtoneToDevice(
 ): Promise<SaveRingtoneResult> {
   const name = getRingtoneName(feed);
   if (!feed.url) throw new Error('No audio file found for this ringtone.');
+  // Before the permission prompt, the "already saved" check and the gate
+  // (gateTapEvents.ts).
+  logGateActionTap(feed, 'set_ringtone');
   if (!(await ensureMediaLibraryPermission('common.permissionReasonSetRingtone', 'ringtone'))) {
     return { status: 'cancelled', name };
   }

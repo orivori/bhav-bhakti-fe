@@ -1,8 +1,10 @@
 import Constants from 'expo-constants';
 
-// Meta (Facebook) App Event for a watched rewarded ad: `ad_watched`, no
-// parameters, production only - the Meta App is registered for the
-// production package alone (see metaEvents.ts).
+// Meta (Facebook) App Events for rewarded ads - `ad_watched` and
+// `ad_watch_tapped`, each with content_type and action (the same values the
+// Firebase ad events in adEvents.ts carry; never ids or personal data).
+// Production only - the Meta App is registered for the production package
+// alone (see metaEvents.ts).
 //
 // Its own small file with its own lazy load of the Facebook SDK, so it is
 // identical on dev and production and safe on any build: the SDK is required
@@ -11,7 +13,8 @@ import Constants from 'expo-constants';
 
 const IS_META_ENABLED = Constants.expoConfig?.extra?.appVariant === 'production';
 
-type MetaLogger = { logEvent: (name: string) => void };
+type MetaParams = { [key: string]: string | number };
+type MetaLogger = { logEvent: (name: string, params?: MetaParams) => void };
 let cachedLogger: MetaLogger | null | undefined; // undefined = not tried yet
 
 function getMetaLogger(): MetaLogger | null {
@@ -26,13 +29,28 @@ function getMetaLogger(): MetaLogger | null {
   return cachedLogger ?? null;
 }
 
-// Only on Google's earned-reward event.
-export function logMetaAdWatched(): void {
+export interface MetaAdEventParams {
+  content_type: string;
+  action: string;
+}
+
+function logMetaAdEvent(name: string, params: MetaAdEventParams): void {
   const logger = getMetaLogger();
   if (!logger) return;
   try {
-    logger.logEvent('ad_watched');
+    logger.logEvent(name, { content_type: params.content_type, action: params.action });
   } catch (error) {
-    console.error('Meta event "ad_watched" failed:', error);
+    console.error(`Meta event "${name}" failed:`, error);
   }
+}
+
+// Only on Google's earned-reward event.
+export function logMetaAdWatched(params: MetaAdEventParams): void {
+  logMetaAdEvent('ad_watched', params);
+}
+
+// "Watch ad" tapped on the opt-in card, before the ad loads or shows - so it
+// counts even if the ad then fails, has no fill or is closed early.
+export function logMetaAdWatchTapped(params: MetaAdEventParams): void {
+  logMetaAdEvent('ad_watch_tapped', params);
 }

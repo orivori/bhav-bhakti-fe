@@ -43,6 +43,7 @@ import { navigateFromNotificationData } from '@/utils/notifications/deepLink';
 import { runDeferredLinkProbe } from '@/utils/deepLinks/deferredAppLink';
 import { logAnalyticsScreenView } from '@/utils/analytics/logEvent';
 import { recordSessionStartForRetention } from '@/utils/analytics/retentionEvents';
+import { startReturnedDay2Tracking } from '@/utils/analytics/returnedDay2';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -179,6 +180,9 @@ export default function RootLayout() {
     // providers don't unmount on simple backgrounding - see CLAUDE.md §17/§83
     // - so this never re-fires on a background/foreground toggle).
     recordSessionStartForRetention();
+    // Meta returned_day_2 (production only): once ever, on the first open on
+    // a later calendar day than the first open - see returnedDay2.ts.
+    startReturnedDay2Tracking();
   }, []);
 
   // Requests push-notification permission + subscribes to the broadcast
