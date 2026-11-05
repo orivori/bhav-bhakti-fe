@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { View, ScrollView, TouchableOpacity, Alert, StyleSheet, Modal, Platform, Linking, Switch } from 'react-native';
+import { View, ScrollView, TouchableOpacity, Alert, StyleSheet, Modal, Platform, Linking, Switch, PermissionsAndroid } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -12,6 +12,7 @@ import { getCrashlytics, crash as triggerCrash } from '@react-native-firebase/cr
 import { Button, Text } from '@/components/atoms';
 import { useAuth, IS_TEST_ACCOUNT } from '@/features/authentication/hooks/useAuth';
 import { usePremiumStore } from '@/store/premiumStore';
+import { useNotificationPermissionStore } from '@/store/notificationPermissionStore';
 import { useTranslation } from 'react-i18next';
 import { useI18nStore, SELECTABLE_LANGUAGES } from '@/shared/stores/i18nStore';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
@@ -22,6 +23,40 @@ import { getInstalledBuild } from '@/utils/appUpdate/installedBuild';
 import { showTestRewardedAd } from '@/features/ads/rewardedAd';
 import { useAdFlowStore } from '@/store/adFlowStore';
 import { isUpdatePromptAllowedOnThisBuild } from '@/utils/appUpdate/useUpdateRequirement';
+
+// .dev-only: the stored flag can't be read with adb on this build, and it and
+// Android's own permission explain why the notification question did or didn't
+// appear. Rechecked each time Profile is opened.
+function NotificationDebugRow() {
+  const hasAsked = useNotificationPermissionStore((state) => state.hasRequestedPermission);
+  const [isAllowed, setIsAllowed] = useState<boolean | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS)
+        .then(setIsAllowed)
+        .catch(() => setIsAllowed(null));
+    }, [])
+  );
+
+  const allowedLabel = isAllowed === null ? 'unknown' : isAllowed ? 'allowed' : 'not allowed';
+
+  return (
+    <View style={[styles.optionItem, styles.optionItemStatic]}>
+      <View style={styles.optionIcon}>
+        <Ionicons name="notifications-outline" size={20} color="#3b82f6" />
+      </View>
+      <View style={styles.optionContent}>
+        <Text variant="body" weight="medium">
+          Notification question
+        </Text>
+        <Text variant="caption" color="secondary">
+          {`Already asked: ${hasAsked ? 'yes' : 'no'} · Android: ${allowedLabel}`}
+        </Text>
+      </View>
+    </View>
+  );
+}
 
 export default function ProfileScreen() {
   const { user, debugSimulateShortSession, debugForceLiveAuthFailure } = useAuth();
@@ -540,6 +575,7 @@ export default function ProfileScreen() {
                 </View>
                 <Switch value={simulateNoAd} onValueChange={setSimulateNoAd} />
               </View>
+              <NotificationDebugRow />
               {/* What the update prompt sees on this phone - "older" means
                   the build has no expo-application (v7 or lower). */}
               <View style={[styles.optionItem, styles.optionItemStatic]}>
