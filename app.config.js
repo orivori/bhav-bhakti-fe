@@ -76,7 +76,7 @@ module.exports = {
     },
     android: {
       // Per variant, so this line is the same on dev and production.
-      versionCode: IS_DEV_VARIANT ? 6 : 9,
+      versionCode: IS_DEV_VARIANT ? 6 : 11,
       adaptiveIcon: {
         foregroundImage: "./assets/images/icon.png",
         backgroundColor: "#ffffff",
