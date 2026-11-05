@@ -154,7 +154,7 @@ export default function DeleteAccountScreen() {
           variant="outline"
           fullWidth
           style={styles.deleteButton}
-          textStyle={{ color: goldenTempleTheme.colors.destructive.DEFAULT }}
+          textStyle={styles.deleteButtonText}
         />
 
         <Text variant="caption" color="secondary" align="center" style={styles.fallbackText}>
@@ -225,6 +225,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  // flex + centred + floors: the CLAUDE.md §132 fix for a Button label cut down
+  // to its first word in Hindi.
+  deleteButtonText: {
+    color: goldenTempleTheme.colors.destructive.DEFAULT,
+    flex: 1,
+    textAlign: 'center',
+    lineHeight: 26,
+    minHeight: 26,
   },
   deleteButton: {
     borderColor: goldenTempleTheme.colors.destructive.DEFAULT,

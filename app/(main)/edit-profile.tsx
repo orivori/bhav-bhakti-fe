@@ -403,14 +403,20 @@ const styles = StyleSheet.create({
     borderRadius: goldenTempleTheme.borderRadius.full,
     paddingHorizontal: goldenTempleTheme.spacing.xl,
     paddingVertical: goldenTempleTheme.spacing.md,
-    minWidth: 200,
+    minWidth: 240,
     alignItems: 'center',
     justifyContent: 'center',
   },
   saveButtonDisabled: {
     opacity: 0.7,
   },
+  // Stretch and line-height floors: Android under-measures Devanagari, which
+  // cut "प्रोफ़ाइल सहेजें" down to its first word (CLAUDE.md §71).
   saveButtonText: {
     color: '#FFFFFF',
+    alignSelf: 'stretch',
+    textAlign: 'center',
+    lineHeight: 26,
+    minHeight: 26,
   },
 });
