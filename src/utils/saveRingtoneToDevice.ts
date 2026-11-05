@@ -10,6 +10,7 @@ import {
 import { ensureMediaLibraryPermission } from './mediaLibraryPermission';
 import { openSoundSettings } from './openSoundSettings';
 import { logGateActionTap } from './analytics/gateTapEvents';
+import { requestNotificationPermissionOnce } from '@/utils/notifications/permission';
 
 // The one place "Set as Ringtone" saves a ringtone to the phone (Android) -
 // Home's AutoplayFeedCard and the Ringtones tab's RingtoneFeedCard. Modelled
@@ -174,6 +175,7 @@ export async function saveRingtoneToDevice(
     }
     try {
       await saveIntoAlbum(downloadResult.uri, album);
+      requestNotificationPermissionOnce();
       return { status: 'saved', name };
     } catch (error) {
       // Not expected (see above), but never lose the save over the name:
@@ -182,6 +184,7 @@ export async function saveRingtoneToDevice(
       savedUri = `${FileSystem.cacheDirectory}${safeFilename}`;
       await FileSystem.moveAsync({ from: downloadResult.uri, to: savedUri });
       await saveIntoAlbum(savedUri, album);
+      requestNotificationPermissionOnce();
       return { status: 'saved', name: safeName };
     }
   } finally {

@@ -183,10 +183,10 @@ export default function RootLayout() {
     startReturnedDay2Tracking();
   }, []);
 
-  // The push-notification permission dialog waits for the user's first
-  // completed content (audio-player.tsx, requestNotificationPermissionOnce).
-  // Android 12 and older have no dialog, so those phones join the topic as
-  // soon as there is a session.
+  // The push-notification permission dialog waits for the user's first real
+  // use of the app (see requestNotificationPermissionOnce). Android 12 and
+  // older have no dialog, so those phones join the topic as soon as there is
+  // a session.
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   React.useEffect(() => {
     if (isAuthenticated && Platform.OS === 'android' && Number(Platform.Version) < 33) {

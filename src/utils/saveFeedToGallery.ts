@@ -8,6 +8,7 @@ import {
 import { getMediaFileExtension } from './getMediaFileExtension';
 import { ensureMediaLibraryPermission } from './mediaLibraryPermission';
 import { logGateActionTap } from './analytics/gateTapEvents';
+import { requestNotificationPermissionOnce } from '@/utils/notifications/permission';
 
 // The one place every "save this wallpaper/video to the phone" button goes
 // through (Wallpaper Hub download, Home's Set as Wallpaper, FeedCard's
@@ -127,6 +128,9 @@ export async function saveFeedToGallery(
   } finally {
     // Best-effort: the gallery copy is what matters.
     FileSystem.deleteAsync(stagingUri, { idempotent: true }).catch(() => {});
+  }
+  if (feed.type === 'wallpaper') {
+    requestNotificationPermissionOnce();
   }
   return 'saved';
 }

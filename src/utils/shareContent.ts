@@ -8,6 +8,7 @@ import { getMediaFileExtension, getMediaMimeType } from './getMediaFileExtension
 import { logContentShared } from './analytics/engagementEvents';
 import { logGateActionTap } from './analytics/gateTapEvents';
 import { logMetaContentShared } from './analytics/metaAppEvents';
+import { requestNotificationPermissionOnce } from '@/utils/notifications/permission';
 import { getFeedThumbnailUrl } from './feedFields';
 import i18n from 'i18next';
 import { PLAY_STORE_URL } from '@/shared/config/appStoreLink';
@@ -164,6 +165,9 @@ export async function shareContent(feed: Feed, options?: ShareContentOptions): P
       logContentShared({ content_type: feed.type });
       logMetaContentShared();
       onShared?.(feedId);
+      if (feed.type === 'wallpaper') {
+        requestNotificationPermissionOnce();
+      }
     }
   } catch (error) {
     console.error('Error sharing content:', error);
