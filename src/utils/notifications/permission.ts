@@ -34,8 +34,10 @@ export async function requestNotificationPermissionAndSubscribe(): Promise<void>
   }
 }
 
-// At most once, ever, per install. Marked before the dialog opens, so a second
-// finished track behind the dialog can never open another.
+// Called after the user's first finished audio (audio-player.tsx), wallpaper
+// download (saveFeedToGallery.ts), wallpaper share (shareContent.ts) or saved
+// ringtone (saveRingtoneToDevice.ts). At most once, ever, per install. Marked
+// before the dialog opens, so nothing behind the dialog can open another.
 export function requestNotificationPermissionOnce(): void {
   const { hasRequestedPermission, markRequested } = useNotificationPermissionStore.getState();
   if (hasRequestedPermission) {
