@@ -94,8 +94,12 @@ const styles = StyleSheet.create({
   updateButton: {
     maxWidth: 320,
   },
+  // flex + centred + floors: the CLAUDE.md §132 fix for a Button label cut down
+  // to its first word in Hindi ("अपडेट करें").
   buttonText: {
-    lineHeight: 24,
-    minHeight: 24,
+    flex: 1,
+    textAlign: 'center',
+    lineHeight: 26,
+    minHeight: 26,
   },
 });
