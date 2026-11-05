@@ -204,7 +204,9 @@
       "other": "अन्य",
       "saveProfile": "प्रोफ़ाइल सहेजें",
       "saveFailed": "प्रोफ़ाइल सहेजने में विफल। कृपया पुनः प्रयास करें।"
-    }
+    },
+    "guestLabel": "अतिथि",
+    "guestSavedOnDevice": "आपकी पसंद और सेटिंग्स इसी डिवाइस पर सहेजी गई हैं।"
   },
   "auth": {
     "phoneAuth": "फ़ोन प्रमाणीकरण",
@@ -408,5 +410,12 @@
     "seriesUnavailable": "यह कथा-श्रृंखला अभी उपलब्ध नहीं है",
     "noEpisodes": "अभी कोई एपिसोड नहीं है",
     "episodesHeading": "एपिसोड"
+  },
+  "guestStart": {
+    "failedTitle": "शुरू नहीं हो सका",
+    "failedBody": "कृपया फिर से कोशिश करें।",
+    "offlineTitle": "कृपया इंटरनेट से जुड़ें",
+    "offlineBody": "Bhav Bhakti शुरू करने के लिए इंटरनेट ज़रूरी है।",
+    "retry": "फिर से कोशिश करें"
   }
 }

@@ -1,31 +1,46 @@
-import { useAuthStore } from '@/shared/stores/authStore';
-import { useAuthPromptStore } from '@/store/authPromptStore';
+import { router } from 'expo-router';
+import { useAuthStore, whenAuthInitialized } from '@/shared/stores/authStore';
+import { startGuestSession } from '@/features/authentication/services/guestSession';
+import { wasAlreadyRenewed } from '@/features/authentication/utils/guestStartRules';
 
 /**
  * The one place a dead session is handled - called by apiClient for ANY 401
- * (expired token, a token the server no longer accepts, a deleted user) and
- * by the app-resume check in app/_layout.tsx when the token's own expiry
- * date has passed.
+ * (expired token, a token the server no longer accepts, a deleted user) and by
+ * the app-resume check below, for guests and older phone accounts alike. There
+ * is no login prompt: the app silently gets a guest session and carries on.
+ * This install's guest gets the same row back; an older phone account whose
+ * login has died becomes a new guest, and its row stays untouched.
  *
- * Clears the local session and shows LoginPromptModal, whose Login button
- * takes the user to phone login and back to the screen they were on.
- *
- * Only acts while the app believes it's logged in, so it fires once per dead
- * session: the first call flips isAuthenticated to false, and every other
- * request failing around the same time (or still in flight) does nothing
- * more - the modal is never stacked. It also never fires during the login
- * flow itself, where there's no session to expire.
+ * @returns true when the failed request is worth repeating with the new token.
  */
-export function handleSessionExpired(): void {
-  if (!useAuthStore.getState().isAuthenticated) return;
+export async function handleSessionExpired(failedToken?: string | null): Promise<boolean> {
+  await whenAuthInitialized();
 
-  const prompt = useAuthPromptStore.getState();
-  if (!prompt.showLoginPrompt) prompt.setShowLoginPrompt(true);
+  if (wasAlreadyRenewed(failedToken, useAuthStore.getState().tokens?.accessToken)) {
+    return true;
+  }
 
-  // Local-only clear (no server call, so it can't 401 again).
-  useAuthStore.getState().logout().catch((error) => {
-    console.error('handleSessionExpired: failed to clear session', error);
-  });
+  const result = await startGuestSession();
+  if (result.ok) {
+    return true;
+  }
+
+  // No signal: keep what's on screen. The next request or resume tries again.
+  if (result.reason === 'offline') {
+    return false;
+  }
+
+  // The server refused and this token is dead, so nothing can load: go to the
+  // Retry screen. app/index.tsx returns to Home once a start succeeds.
+  await useAuthStore.getState().clearSession();
+  try {
+    router.replace('/');
+  } catch (error) {
+    // No navigator is mounted during maintenance or the update block. It
+    // remounts through app/index.tsx when those end.
+    console.error('handleSessionExpired: could not open the start screen', error);
+  }
+  return false;
 }
 
 /**
@@ -37,6 +52,8 @@ export function handleSessionExpired(): void {
 export function checkSessionOnResume(): void {
   const { isAuthenticated, tokens } = useAuthStore.getState();
   if (isAuthenticated && tokens && tokens.expiresAt <= Date.now()) {
-    handleSessionExpired();
+    handleSessionExpired(tokens.accessToken).catch((error) => {
+      console.error('checkSessionOnResume: failed to renew session', error);
+    });
   }
 }

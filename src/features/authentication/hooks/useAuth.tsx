@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useEffect } from 'react';
 import { router } from 'expo-router';
-import Constants from 'expo-constants';
 import { getAuth, signInWithPhoneNumber } from '@react-native-firebase/auth';
 import { useAuthStore } from '@/shared/stores/authStore';
 import { authService } from '../services/authService';
@@ -13,18 +12,11 @@ import {
   clearFirebaseConfirmation,
 } from '../utils/firebaseConfirmation';
 import { getJwtExpiryMs, buildFabricatedTokenForTesting } from '../utils/jwt';
+import { IS_TEST_ACCOUNT } from '../utils/testAccount';
 import { logOtpSent, logLoginCompleted, logLoginFailed } from '@/utils/analytics/activationEvents';
 import { logMetaLoginSuccess } from '@/utils/analytics/metaEvents';
 
-// True only for the .dev app variant (development/preview builds) - never
-// true in production, since app.config.js's APP_VARIANT defaults to
-// "production" and only the .dev variant sets it otherwise. Read from
-// Constants.expoConfig.extra rather than an EXPO_PUBLIC_ env var, since it's
-// tied directly to the same APP_VARIANT that already decides the app's
-// package name/identity, not a separately-maintained duplicate. Exported so
-// the same check gates the .dev-only debug UI in profile.tsx, rather than
-// that screen re-deriving its own copy of the same condition.
-export const IS_TEST_ACCOUNT = Constants.expoConfig?.extra?.appVariant !== 'production';
+export { IS_TEST_ACCOUNT };
 
 // A handful of the Firebase phone-auth error codes actually likely to be hit
 // in practice (invalid number, wrong/expired code, rate limiting) mapped to
@@ -326,8 +318,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // handling (sessionExpiry.ts). This is exactly the "server rejects a token
   // whose expiry date hasn't passed" case (e.g. after a JWT_SECRET rotation).
   // Unlike debugSimulateShortSession above (which only proves the separate
-  // cold-start expiry check), this proves LoginPromptModal appears
-  // immediately, live, with no restart needed.
+  // cold-start expiry check), this proves the silent guest renewal works live,
+  // with no restart needed.
   const debugForceLiveAuthFailure = async () => {
     if (!IS_TEST_ACCOUNT) {
       return;
@@ -356,12 +348,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await login(debugUser, tokens);
 
     // Any authenticated request would do - apiClient handles every 401 the
-    // same way. The 401 is expected; the interceptor triggers the modal as a
-    // side effect of this rejection, which is the entire point of this tool.
+    // same way. The 401 is expected; the interceptor renews the session and
+    // repeats this request, which is the entire point of this tool.
     try {
       await profileService.getProfile();
     } catch (error) {
-      console.log('✅ Expected live 401 from fabricated token:', error);
+      console.log('Live 401 from fabricated token was not recovered:', error);
     }
   };
 

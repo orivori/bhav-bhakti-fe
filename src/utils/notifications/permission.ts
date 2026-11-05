@@ -1,6 +1,7 @@
 import { PermissionsAndroid, Platform } from 'react-native';
 import { getMessaging, subscribeToTopic } from '@react-native-firebase/messaging';
 import { FCM_ALL_USERS_TOPIC } from '@/shared/config/notificationChannel';
+import { useNotificationPermissionStore } from '@/store/notificationPermissionStore';
 
 // iOS is entirely out of scope for this app (no native ios/ project exists -
 // see CLAUDE.md §18), so this is Android-only by construction, matching every
@@ -31,4 +32,15 @@ export async function requestNotificationPermissionAndSubscribe(): Promise<void>
     // isn't subscribed yet and can be reconsidered in a future session.
     console.error('Notification permission/topic subscription failed:', error);
   }
+}
+
+// At most once, ever, per install. Marked before the dialog opens, so a second
+// finished track behind the dialog can never open another.
+export function requestNotificationPermissionOnce(): void {
+  const { hasRequestedPermission, markRequested } = useNotificationPermissionStore.getState();
+  if (hasRequestedPermission) {
+    return;
+  }
+  markRequested();
+  requestNotificationPermissionAndSubscribe();
 }

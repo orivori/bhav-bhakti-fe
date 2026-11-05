@@ -9,7 +9,7 @@ import { Button, Text } from '@/components/atoms';
 import { useToast } from '@/components/atoms/Toast';
 import { useAuth } from '@/features/authentication/hooks/useAuth';
 import { profileService } from '@/features/profile/services/profileService';
-import { deriveSupportId } from '@/shared/utils/supportId';
+import { getSupportId } from '@/shared/utils/supportId';
 import { SUPPORT_EMAIL } from '@/shared/config/support';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { useI18nStore } from '@/shared/stores/i18nStore';
@@ -22,7 +22,7 @@ export default function DeleteAccountScreen() {
   const { user } = useAuth();
   const { language } = useI18nStore();
   const { showToast } = useToast();
-  const [supportId, setSupportId] = useState<string | null>(deriveSupportId(user?.firebaseUid));
+  const [supportId, setSupportId] = useState<string | null>(getSupportId(user));
 
   // Falls back to a fresh profile fetch when the locally-stored session
   // predates firebaseUid being included in the login response (see §82) -
@@ -34,7 +34,7 @@ export default function DeleteAccountScreen() {
     profileService
       .getProfile()
       .then((profile) => {
-        if (isMounted) setSupportId(deriveSupportId(profile.firebaseUid));
+        if (isMounted) setSupportId(getSupportId(profile));
       })
       .catch((error) => {
         console.error('Failed to load profile for support ID:', error);
@@ -73,7 +73,8 @@ export default function DeleteAccountScreen() {
     const bodyLines = [
       language === 'hi' ? 'मैं अपना Bhav Bhakti खाता हटाना चाहता/चाहती हूं।' : 'I would like to delete my Bhav Bhakti account.',
       '',
-      `${language === 'hi' ? 'फ़ोन नंबर' : 'Phone number'}: ${phoneDisplay}`,
+      // A guest has no phone number; the Support ID identifies them.
+      ...(phoneDisplay ? [`${language === 'hi' ? 'फ़ोन नंबर' : 'Phone number'}: ${phoneDisplay}`] : []),
       `${language === 'hi' ? 'सहायता आईडी' : 'Support ID'}: ${supportId || (language === 'hi' ? 'अनुपलब्ध' : 'unavailable')}`,
     ];
     const mailtoUrl = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyLines.join('\n'))}`;
@@ -127,14 +128,16 @@ export default function DeleteAccountScreen() {
         </View>
 
         <View style={styles.detailsBox}>
-          <View style={styles.detailRow}>
-            <Text variant="caption" color="secondary">
-              {language === 'hi' ? 'फ़ोन नंबर' : 'Phone number'}
-            </Text>
-            <Text variant="body" weight="medium">
-              {phoneDisplay || '-'}
-            </Text>
-          </View>
+          {phoneDisplay ? (
+            <View style={styles.detailRow}>
+              <Text variant="caption" color="secondary">
+                {language === 'hi' ? 'फ़ोन नंबर' : 'Phone number'}
+              </Text>
+              <Text variant="body" weight="medium">
+                {phoneDisplay}
+              </Text>
+            </View>
+          ) : null}
           <View style={styles.detailRow}>
             <Text variant="caption" color="secondary">
               {language === 'hi' ? 'सहायता आईडी' : 'Support ID'}

@@ -103,6 +103,7 @@ export const API_ENDPOINTS = {
     SEND_OTP: '/v1/auth/send-otp',
     VERIFY_OTP: '/v1/auth/verify-otp',
     FIREBASE_VERIFY: '/v1/auth/firebase/verify',
+    GUEST: '/v1/auth/guest',
     LOGOUT: '/v1/auth/logout',
   },
   USER: {

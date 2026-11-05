@@ -19,9 +19,9 @@ import {
 // - Read-once: takePendingContentLink() removes it before returning it.
 // - Expires after PENDING_CONTENT_LINK_MAX_AGE_MS.
 // - A newer link replaces an older one.
-// - Cleared on logout (authStore.logout). Account deletion is an emailed
-//   request deleted on the server; the app's next request then gets a 401,
-//   and sessionExpiry.ts calls that same logout.
+// - Cleared on a real logout (authStore.logout). A dead session isn't one:
+//   sessionExpiry.ts silently starts a guest on the same phone and keeps the
+//   link, which holds only a content id and expires by itself.
 // - Every function swallows its own errors: a storage failure means "no
 //   pending link", never a crash.
 

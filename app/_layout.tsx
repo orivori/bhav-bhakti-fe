@@ -1,14 +1,13 @@
 import React from 'react';
 import { Stack, usePathname } from 'expo-router';
 import { DefaultTheme, ThemeProvider as NavigationThemeProvider } from '@react-navigation/native';
-import { AppState, StyleSheet, View } from 'react-native';
+import { AppState, Platform, StyleSheet, View } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '@/features/authentication/hooks/useAuth';
 import { PremiumPaywall } from '@/components/molecules/PremiumPaywall';
 import { AdUnlockSheet } from '@/components/molecules/AdUnlockSheet';
-import { LoginPromptModal } from '@/components/molecules/LoginPromptModal';
 import { MaintenanceScreen } from '@/components/molecules/MaintenanceScreen';
 import { UpdateRequiredScreen } from '@/components/molecules/UpdateRequiredScreen';
 import { UpdatePromptModal } from '@/components/molecules/UpdatePromptModal';
@@ -37,8 +36,7 @@ import { runCacheEviction } from '@/utils/cacheEviction';
 import { useFeatureFlagStore } from '@/store/featureFlagStore';
 import { useAuthStore } from '@/shared/stores/authStore';
 import { checkSessionOnResume } from '@/shared/services/sessionExpiry';
-import { useNotificationPermissionStore } from '@/store/notificationPermissionStore';
-import { requestNotificationPermissionAndSubscribe } from '@/utils/notifications/permission';
+import { requestNotificationPermissionOnce } from '@/utils/notifications/permission';
 import { navigateFromNotificationData } from '@/utils/notifications/deepLink';
 import { runDeferredLinkProbe } from '@/utils/deepLinks/deferredAppLink';
 import { logAnalyticsScreenView } from '@/utils/analytics/logEvent';
@@ -58,8 +56,8 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 5 * 60 * 1000,
-      // A 401 means the session is dead (apiClient has already shown the
-      // session-expired prompt) - retrying can only fail the same way.
+      // A 401 reaching here is one apiClient already tried to recover from
+      // (a silent guest session, then one repeat) - retrying can't help.
       retry: (failureCount, error) =>
         (error as { statusCode?: number } | null)?.statusCode !== 401 && failureCount < 2,
     },
@@ -185,26 +183,15 @@ export default function RootLayout() {
     startReturnedDay2Tracking();
   }, []);
 
-  // Requests push-notification permission + subscribes to the broadcast
-  // topic at most once, ever, per install - fires the moment the user is
-  // authenticated, whether via a fresh login (authStore.login()) or, for an
-  // existing already-logged-in user opening the app for the first time after
-  // this feature ships, authStore.initializeAuth() restoring a still-valid
-  // session on cold start. Both set isAuthenticated the same way, so this one
-  // check covers both cases with no special-casing - see
-  // notificationPermissionStore.ts and CLAUDE.md's push-notification plan.
+  // The push-notification permission dialog waits for the user's first
+  // completed content (audio-player.tsx, requestNotificationPermissionOnce).
+  // Android 12 and older have no dialog, so those phones join the topic as
+  // soon as there is a session.
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   React.useEffect(() => {
-    if (!isAuthenticated) {
-      return;
+    if (isAuthenticated && Platform.OS === 'android' && Number(Platform.Version) < 33) {
+      requestNotificationPermissionOnce();
     }
-
-    const { hasRequestedPermission, markRequested } = useNotificationPermissionStore.getState();
-    if (hasRequestedPermission) {
-      return;
-    }
-
-    requestNotificationPermissionAndSubscribe().finally(markRequested);
   }, [isAuthenticated]);
 
   // Re-checks the session's expiry date whenever the app comes back to the
@@ -319,7 +306,7 @@ export default function RootLayout() {
                   <ErrorBoundary>
                     {/* Maintenance mode swaps the navigator out entirely
                         rather than overlaying it - an overlay couldn't cover
-                        the paywall, the login prompt or the bottom sheets.
+                        the paywall or the bottom sheets.
                         Unmounting it also stops any playback. */}
                     {isInMaintenance ? (
                       <MaintenanceScreen />
@@ -342,7 +329,6 @@ export default function RootLayout() {
               {/* Rewarded-ad opt-in card (adFlowStore). Not mounted while
                   blocked, so an ad offer then answers "decline" at once. */}
               {!isAppBlocked && <AdUnlockSheet />}
-              {!isAppBlocked && <LoginPromptModal />}
               {!isAppBlocked && <UpdatePromptModal />}
             </AuthProvider>
           </ToastProvider>
