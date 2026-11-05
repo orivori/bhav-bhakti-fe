@@ -797,6 +797,13 @@ Plan and IDs: Revenue Model §5e/§5f. **A3** (`dev` `5bad964`..`00bd107`, 8 com
 - **The reader writes, the pin only reads:** the probe saves a received link into the pending-link store (with installTime); the pin peeks and removes it only after a definitive result (shown, 404, type mismatch, expired or from another install). A network error, timeout, 5xx or 401 keeps it. Every link or pin failure falls back to the normal Home.
 - **Deferred-link tests:** after a reinstall, always run `adb shell pm clear com.orivori.bhavbhakti` before the first open — Android auto-backup restores old app data, including the Facebook SDK's own record, and a `none` then proves nothing. On `.dev` the probe never runs; test the pin with the adb VIEW link instead.
 
+## 135. 2026-11-02 — Feed 106 archived on production; importer never reactivates retired feeds
+
+- **Feed 106** (csv 106, "Kali Wallpaper 7", `Wallpapers/Static wallpapers/Kali/Kali 5.png`) was set to `status = 'archived'` on production on 2026-11-02 for an AI defect (3 hands). It was a founder-run one-off script with a typed confirmation and a JSON backup in the session's scratch folder. Only `status` changed; the row and its counters are kept. **The Storage file was left in place.** Production now has 172 active feeds and 1 archived.
+- **Undo:** `UPDATE feeds SET status = 'active' WHERE id = 106 AND csv_id = 106 AND status = 'archived';`
+- **Importer safeguard:** develop `6117c26`, main `9470507`. A re-import used to find a feed by `csv_id` whatever its status and write `status: 'active'` over it. **Rule: the importer skips any feed whose status is `archived` or `deleted` and writes nothing for that row (fields, status or tags).** It logs the skip and counts it as neither imported nor an error; the summary prints `Retired feeds skipped: N (ids ...)`. It still never deletes or deactivates rows missing from the sheet. Re-activating a feed is a deliberate manual step (the undo above).
+- **Caching:** the backend serves only `active` feeds and caches no feed lists. The app keeps an already-loaded list in memory until pull-to-refresh, a chip change or a restart.
+
 ## 136. 2026-11-05 — Silent guest login, Phase 1 (backend): backend `develop` and dev database only, NOT on `main` or production
 
 Locked decisions: `D:\bhav_bhakti_Claude_docs\Bhav_Bhakti_Guest_Login_Build_Spec_2026-11-05.md` (overrides the investigation doc). Backend `develop` `7a788bd`; migration `20261105000001-add-guest-accounts` run on dev by the founder with the new `scripts/migrate-development.js` (dev counterpart of `migrate-production.js`).
