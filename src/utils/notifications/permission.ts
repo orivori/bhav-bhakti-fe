@@ -11,9 +11,12 @@ import { useNotificationPermissionStore } from '@/store/notificationPermissionSt
 // Android 13 (API 33) onward - below that, notification display is granted
 // implicitly by the OS, so PermissionsAndroid.request has nothing to ask and
 // this branch just subscribes directly.
-export async function requestNotificationPermissionAndSubscribe(): Promise<void> {
+//
+// Returns true once there's nothing left to ask: Android answered, or the phone
+// is subscribed. False means the request itself failed, so it can be tried again.
+export async function requestNotificationPermissionAndSubscribe(): Promise<boolean> {
   if (Platform.OS !== 'android') {
-    return;
+    return true;
   }
 
   try {
@@ -22,27 +25,40 @@ export async function requestNotificationPermissionAndSubscribe(): Promise<void>
         PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS
       );
       if (result !== PermissionsAndroid.RESULTS.GRANTED) {
-        return;
+        return true;
       }
     }
 
     await subscribeToTopic(getMessaging(), FCM_ALL_USERS_TOPIC);
+    return true;
   } catch (error) {
     // Never block app startup/login over this - worst case, this user simply
     // isn't subscribed yet and can be reconsidered in a future session.
     console.error('Notification permission/topic subscription failed:', error);
+    return false;
   }
 }
 
 // Called after the user's first finished audio (audio-player.tsx), wallpaper
 // download (saveFeedToGallery.ts), wallpaper share (shareContent.ts) or saved
-// ringtone (saveRingtoneToDevice.ts). At most once, ever, per install. Marked
-// before the dialog opens, so nothing behind the dialog can open another.
+// ringtone (saveRingtoneToDevice.ts). At most once, ever, per install. The flag
+// is set only after Android answers, so a failed request doesn't use up the one
+// chance; isRequestInFlight stops a second dialog opening in the meantime.
+let isRequestInFlight = false;
+
 export function requestNotificationPermissionOnce(): void {
   const { hasRequestedPermission, markRequested } = useNotificationPermissionStore.getState();
-  if (hasRequestedPermission) {
+  if (hasRequestedPermission || isRequestInFlight) {
     return;
   }
-  markRequested();
-  requestNotificationPermissionAndSubscribe();
+  isRequestInFlight = true;
+  requestNotificationPermissionAndSubscribe()
+    .then((isDone) => {
+      if (isDone) {
+        markRequested();
+      }
+    })
+    .finally(() => {
+      isRequestInFlight = false;
+    });
 }
