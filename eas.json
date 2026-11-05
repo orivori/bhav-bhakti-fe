@@ -27,7 +27,7 @@
       "node": "20.18.0",
       "channel": "preview",
       "env": {
-        "APP_VARIANT": "preview",
+        "APP_VARIANT": "development",
         "NPM_CONFIG_LEGACY_PEER_DEPS": "true"
       },
       "ios": {
