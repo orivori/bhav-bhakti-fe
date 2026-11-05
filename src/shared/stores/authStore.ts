@@ -1,19 +1,55 @@
 import { create } from 'zustand';
 import { getCrashlytics, setUserId } from '@react-native-firebase/crashlytics';
-import { getAnalytics, setUserId as setAnalyticsUserId } from '@react-native-firebase/analytics';
+import { getAnalytics, setUserId as setAnalyticsUserId, setUserProperty } from '@react-native-firebase/analytics';
 import { AuthState, User, AuthTokens } from '@/features/authentication/types';
 import { secureStorage } from '@/shared/utils/secureStorage';
-import { deriveSupportId } from '@/shared/utils/supportId';
+import { getSupportId } from '@/shared/utils/supportId';
 import { clearPendingContentLink } from '@/store/pendingContentLinkStore';
 
 interface AuthActions {
   login: (user: User, tokens: AuthTokens) => Promise<void>;
   logout: () => Promise<void>;
+  clearSession: () => Promise<void>;
   setLoading: (loading: boolean) => void;
   initializeAuth: () => Promise<void>;
 }
 
 type AuthStore = AuthState & AuthActions;
+
+// A failed read is retried before it counts as "nothing stored", which would
+// turn an existing user into a new guest.
+const STORAGE_READ_ATTEMPTS = 3;
+const STORAGE_READ_RETRY_MS = 500;
+
+async function readStoredSession() {
+  for (let attempt = 1; attempt < STORAGE_READ_ATTEMPTS; attempt += 1) {
+    try {
+      return await secureStorage.readSession();
+    } catch (error) {
+      console.error('Stored login read failed, retrying:', error);
+      await new Promise((resolve) => setTimeout(resolve, STORAGE_READ_RETRY_MS));
+    }
+  }
+  return secureStorage.readSession();
+}
+
+// Settles once the first stored-login read has finished, so nothing can start
+// a guest over a login that just hasn't been read yet.
+let markAuthInitialized: () => void;
+const authInitialized = new Promise<void>((resolve) => {
+  markAuthInitialized = resolve;
+});
+export const whenAuthInitialized = (): Promise<void> => authInitialized;
+
+// The same Support ID for Crashlytics and Analytics, so a user's funnel can be
+// connected to their crashes. Null is Analytics' documented way to clear its
+// user id; Crashlytics takes ''.
+function setAnalyticsIdentity(user: User): void {
+  const supportId = getSupportId(user);
+  setUserId(getCrashlytics(), supportId ?? '').catch(console.error);
+  setAnalyticsUserId(getAnalytics(), supportId).catch(console.error);
+  setUserProperty(getAnalytics(), 'account_type', user.authProvider === 'guest' ? 'guest' : 'phone').catch(console.error);
+}
 
 export const useAuthStore = create<AuthStore>((set, get) => ({
   // Initial state
@@ -44,12 +80,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         isLoading: false,
       });
 
-      setUserId(getCrashlytics(), deriveSupportId(user.firebaseUid) ?? '').catch(console.error);
-      // Same Support ID as Crashlytics, so a user's Activation funnel can be
-      // connected to their later Engagement/Conversion behavior in Firebase
-      // Console - null (not '', unlike Crashlytics above) is Analytics' own
-      // documented way to clear a user ID, used symmetrically in logout().
-      setAnalyticsUserId(getAnalytics(), deriveSupportId(user.firebaseUid) ?? null).catch(console.error);
+      setAnalyticsIdentity(user);
 
       console.log('✅ Auth state updated - user is now authenticated!');
       console.log('🎯 isAuthenticated:', true);
@@ -87,80 +118,47 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     }
   },
 
+  // Drops a dead session without clearing the pending content link: the same
+  // person is still on this phone, unlike a real logout.
+  clearSession: async () => {
+    try {
+      await secureStorage.clearAll();
+    } catch (error) {
+      console.error('clearSession error:', error);
+    }
+    set({ user: null, tokens: null, isAuthenticated: false, isLoading: false });
+  },
+
   setLoading: (loading: boolean) => {
     set({ isLoading: loading });
   },
 
   initializeAuth: async () => {
+    set({ isLoading: true });
+
+    // No timeout here on purpose: a slow read used to count as "logged out",
+    // which would now turn an existing user into a new guest. app/index.tsx
+    // keeps showing a spinner, then a Retry, until the read really finishes.
+    let savedUser = null;
+    let savedTokens = null;
     try {
-      set({ isLoading: true });
-
-      // Use a timeout to prevent blocking the UI for too long
-      const timeoutPromise = new Promise<null>((resolve) => {
-        setTimeout(() => resolve(null), 1500); // 1.5 second timeout
-      });
-
-      const storagePromise = Promise.all([
-        secureStorage.getUser(),
-        secureStorage.getTokens(),
-      ]);
-
-      // Race between storage read and timeout
-      const result = await Promise.race([storagePromise, timeoutPromise]);
-
-      if (!result) {
-        // Timeout occurred, assume no auth and continue loading storage in background
-        set({
-          user: null,
-          tokens: null,
-          isAuthenticated: false,
-          isLoading: false,
-        });
-        return;
-      }
-
-      const [savedUser, savedTokens] = result;
-
-      if (savedUser && savedTokens) {
-        // Check if tokens are still valid
-        const isTokenValid = savedTokens.expiresAt > Date.now();
-
-        if (isTokenValid) {
-          set({
-            user: savedUser,
-            tokens: savedTokens,
-            isAuthenticated: true,
-            isLoading: false,
-          });
-
-          setUserId(getCrashlytics(), deriveSupportId(savedUser.firebaseUid) ?? '').catch(console.error);
-          setAnalyticsUserId(getAnalytics(), deriveSupportId(savedUser.firebaseUid) ?? null).catch(console.error);
-        } else {
-          // Tokens expired, clear storage (non-blocking)
-          secureStorage.clearAll().catch(console.error);
-          set({
-            user: null,
-            tokens: null,
-            isAuthenticated: false,
-            isLoading: false,
-          });
-        }
-      } else {
-        set({
-          user: null,
-          tokens: null,
-          isAuthenticated: false,
-          isLoading: false,
-        });
-      }
+      ({ user: savedUser, tokens: savedTokens } = await readStoredSession());
     } catch (error) {
-      console.error('Auth initialization error:', error);
-      set({
-        user: null,
-        tokens: null,
-        isAuthenticated: false,
-        isLoading: false,
-      });
+      console.error('Stored login could not be read:', error);
     }
+
+    if (savedUser && savedTokens && savedTokens.expiresAt > Date.now()) {
+      set({ user: savedUser, tokens: savedTokens, isAuthenticated: true, isLoading: false });
+      setAnalyticsIdentity(savedUser);
+    } else {
+      // Finished before anything else runs: a late clear could wipe the new
+      // session that a guest start is about to save.
+      if (savedUser || savedTokens) {
+        await secureStorage.clearAll().catch(console.error);
+      }
+      set({ user: null, tokens: null, isAuthenticated: false, isLoading: false });
+    }
+
+    markAuthInitialized();
   },
 }));

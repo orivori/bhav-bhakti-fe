@@ -16,8 +16,12 @@ export interface UpdateProfileRequest {
 
 export interface ProfileData {
   id: string;
-  phoneNumber: string;
+  // Null for a guest.
+  phoneNumber: string | null;
   name: string | null;
+  authProvider?: string;
+  // The stored Support ID: guests have one, older accounts have null.
+  supportId?: string | null;
   // Exposed only for deriving the frontend's "Support ID" display (see
   // shared/utils/supportId.ts) - not used for anything auth-related
   // client-side.

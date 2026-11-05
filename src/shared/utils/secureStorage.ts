@@ -95,6 +95,25 @@ export const secureStorage = {
     }
   },
 
+  // For deciding whether a stored login exists. Unlike getTokens/getUser it
+  // throws when the phone's secure storage fails, because "couldn't read" must
+  // not look like "nothing stored". A value that can't be parsed is damaged for
+  // good, so it counts as nothing stored.
+  async readSession(): Promise<{ user: any | null; tokens: AuthTokens | null }> {
+    const [userString, tokensString] = await Promise.all([
+      SecureStore.getItemAsync(USER_KEY),
+      SecureStore.getItemAsync(TOKENS_KEY),
+    ]);
+    const parse = (value: string | null) => {
+      try {
+        return value ? JSON.parse(value) : null;
+      } catch {
+        return null;
+      }
+    };
+    return { user: parse(userString), tokens: parse(tokensString) };
+  },
+
   // Clear all data
   async clearAll(): Promise<void> {
     await Promise.all([

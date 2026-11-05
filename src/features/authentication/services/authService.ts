@@ -6,6 +6,7 @@ import {
   VerifyOTPRequest,
   VerifyOTPResponse,
   VerifyFirebasePhoneAuthRequest,
+  GuestStartRequest,
   User,
 } from '../types';
 
@@ -26,6 +27,11 @@ class AuthService {
   // duplicated under a new name.
   async verifyFirebasePhoneAuth(data: VerifyFirebasePhoneAuthRequest): Promise<VerifyOTPResponse> {
     return apiClient.post<VerifyOTPResponse>(API_ENDPOINTS.AUTH.FIREBASE_VERIFY, data);
+  }
+
+  // Same response envelope as a phone login. See guestSession.ts.
+  async startGuest(data: GuestStartRequest): Promise<VerifyOTPResponse> {
+    return apiClient.post<VerifyOTPResponse>(API_ENDPOINTS.AUTH.GUEST, data);
   }
 
   async getUserProfile(): Promise<User> {

@@ -7,8 +7,8 @@ import { handleSessionExpired } from './sessionExpiry';
 import { getInstalledBuild } from '@/utils/appUpdate/installedBuild';
 import { canShowAds } from '@/features/ads/adsModule';
 
-// Login/logout requests - a 401 from these is a failed login, not an expired
-// session, so it must not trigger the session-expired prompt.
+// Login/logout/guest-start requests - a 401 from these is a failed login, not
+// an expired session, so it must not trigger a silent guest start.
 const isAuthEndpoint = (url?: string): boolean => !!url && url.includes('/v1/auth/');
 
 class ApiClient {
@@ -112,13 +112,18 @@ class ApiClient {
 
         // A dead session - the backend's 401 for an expired token, a token it no
         // longer accepts, or a deleted user - is handled here, for every request:
-        // the session is cleared and the "Session Expired" prompt shown, once
-        // (see sessionExpiry.ts). There is no token refresh; the user logs in
-        // again. The login/logout endpoints themselves are excluded, so a failed
-        // login attempt never triggers it.
+        // the app silently gets a guest session (see sessionExpiry.ts), then repeats
+        // this request once, so the screen never notices. Guest start and the old
+        // login endpoints are excluded.
         const isDeadSession = error.response?.status === 401 && !isAuthEndpoint(originalRequest?.url);
-        if (isDeadSession) {
-          handleSessionExpired();
+        if (isDeadSession && !originalRequest?._guestRetry) {
+          const failedToken = String(originalRequest?.headers?.Authorization ?? '').replace('Bearer ', '');
+          const canRepeat = await handleSessionExpired(failedToken);
+          if (canRepeat) {
+            // Once only. The request interceptor attaches the new token.
+            originalRequest._guestRetry = true;
+            return this.client(originalRequest);
+          }
         }
 
         return Promise.reject(this.handleApiError(error, isDeadSession));

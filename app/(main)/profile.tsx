@@ -15,18 +15,19 @@ import { useTranslation } from 'react-i18next';
 import { useI18nStore, SELECTABLE_LANGUAGES } from '@/shared/stores/i18nStore';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
 import { profileService } from '@/features/profile/services/profileService';
-import { deriveSupportId } from '@/shared/utils/supportId';
+import { getSupportId } from '@/shared/utils/supportId';
 import { logPaywallHit, logUpgradeCtaClicked } from '@/utils/analytics/conversionEvents';
 
 export default function ProfileScreen() {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const { isPremium, setShowPaywall } = usePremiumStore();
   const { t } = useTranslation();
   const { language, setLanguage, getLanguageLabel } = useI18nStore();
   const { contentPadding } = useTabBarHeight();
   const [showLanguageModal, setShowLanguageModal] = useState(false);
   const [displayName, setDisplayName] = useState<string | null>(null);
-  const [supportId, setSupportId] = useState<string | null>(null);
+  const [supportId, setSupportId] = useState<string | null>(getSupportId(user));
+  const isGuest = user?.authProvider === 'guest';
 
   // Refetches on every focus (not just mount) so returning from Edit Profile
   // reflects a just-saved name without a full app restart - matches the
@@ -40,7 +41,7 @@ export default function ProfileScreen() {
         .then((profile) => {
           if (!isMounted) return;
           setDisplayName(profile.name || null);
-          setSupportId(deriveSupportId(profile.firebaseUid));
+          setSupportId(getSupportId(profile));
         })
         .catch((error) => {
           console.error('Failed to load profile:', error);
@@ -55,13 +56,6 @@ export default function ProfileScreen() {
     code,
     name: getLanguageLabel(code),
   }));
-
-  const handleLogout = () => {
-    Alert.alert(t('profile.logout'), t('profile.confirmLogout'), [
-      { text: t('profile.no'), style: 'cancel' },
-      { text: t('profile.yes'), style: 'destructive', onPress: logout },
-    ]);
-  };
 
   const handleEditProfile = () => {
     router.push('/(main)/edit-profile');
@@ -240,9 +234,20 @@ export default function ProfileScreen() {
             <Text variant="h4" weight="bold" align="center">
               {displayName || t('profile.defaultName')}
             </Text>
-            <Text variant="body" color="secondary" align="center">
-              {user?.phoneNumber ? `${user.countryCode} ${user.phoneNumber}` : 'Phone User'}
-            </Text>
+            {isGuest ? (
+              <>
+                <Text variant="body" color="secondary" align="center" style={styles.guestText}>
+                  {supportId ? `${t('profile.guestLabel')} · ${supportId}` : t('profile.guestLabel')}
+                </Text>
+                <Text variant="caption" color="secondary" align="center" style={styles.guestNote}>
+                  {t('profile.guestSavedOnDevice')}
+                </Text>
+              </>
+            ) : (
+              <Text variant="body" color="secondary" align="center">
+                {user?.phoneNumber ? `${user.countryCode} ${user.phoneNumber}` : 'Phone User'}
+              </Text>
+            )}
           </View>
 
           {isPremium ? (
@@ -356,35 +361,6 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {/* Logout Button */}
-        {/* CLAUDE.md confirmed recurring bug: "लॉग आउट" (two words) was
-            losing its second word after the space. Pill dimensions
-            (variant/fullWidth/size, hence padding+minHeight) are
-            deliberately untouched - only the title Text's own style is
-            adjusted via Button's textStyle override.
-            First attempt (fontSize 13 + textAlignVertical:'auto' alone) was
-            adb-confirmed NOT to fix this - the TextView still measured to
-            ~53dp wide (room for "लॉग" only) despite the button offering
-            ~361dp, and app/_layout.tsx's font-loading gate (return null
-            until fontsLoaded) rules out a font-load race as the cause since
-            no screen can mount before the Devanagari font is ready. What DID
-            work on the identical Up Next bug was forcing an explicit width
-            floor instead of relying on intrinsic measurement - minWidth here
-            applies that same proven fix, sized for this row+icon layout
-            (not Up Next's 70%-of-screen value, which would needlessly
-            separate the icon from the text here). textAlign:'center' keeps
-            the label centered within that wider box so the icon+text group
-            still reads as a tight, centered unit. */}
-        <View style={styles.logoutContainer}>
-          <Button
-            title={t('profile.logout')}
-            onPress={handleLogout}
-            variant="outline"
-            fullWidth
-            icon={<Ionicons name="log-out-outline" size={18} color="#dc2626" />}
-            textStyle={{ fontSize: 13, textAlignVertical: 'auto', minWidth: 150, textAlign: 'center' }}
-          />
-        </View>
 
       </ScrollView>
 
@@ -567,9 +543,17 @@ const styles = StyleSheet.create({
   optionContent: {
     flex: 1,
   },
-  logoutContainer: {
-    marginHorizontal: 24,
-    marginTop: 32,
+  // Width + lineHeight/minHeight floors: the CLAUDE.md §71 Devanagari fix.
+  guestText: {
+    width: '100%',
+    lineHeight: 24,
+    minHeight: 24,
+  },
+  guestNote: {
+    width: '100%',
+    lineHeight: 20,
+    minHeight: 20,
+    marginTop: 4,
   },
   // Language Modal Styles
   modalContainer: {

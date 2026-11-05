@@ -34,6 +34,7 @@ import { usePlaybackStore, QueueItem } from '@/store/playbackStore';
 import { useChantHintStore } from '@/store/chantHintStore';
 import ChantHintBubble from '@/components/molecules/ChantHintBubble/ChantHintBubble';
 import { logFirstContentCompletedIfNewUser } from '@/utils/analytics/activationEvents';
+import { requestNotificationPermissionOnce } from '@/utils/notifications/permission';
 import { logContentProgress, logChantCounterUsed } from '@/utils/analytics/engagementEvents';
 import { logMetaChantCounterUsed } from '@/utils/analytics/metaAppEvents';
 import { useChantCounterAnalytics } from '@/hooks/useChantCounterAnalytics';
@@ -1398,6 +1399,7 @@ export default function AudioPlayerScreen() {
     // deliberately never reach this screen/effect at all, so they're
     // naturally excluded, not specially filtered out here.
     logFirstContentCompletedIfNewUser(contentData.type);
+    requestNotificationPermissionOnce();
 
     // Aarti/Bhajan only, and only early-returns when there's actually
     // somewhere to advance to - showTrackNav is false for mantra (see its

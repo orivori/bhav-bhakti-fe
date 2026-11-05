@@ -203,7 +203,9 @@
       "other": "Other",
       "saveProfile": "Save Profile",
       "saveFailed": "Failed to save profile. Please try again."
-    }
+    },
+    "guestLabel": "Guest",
+    "guestSavedOnDevice": "Your likes and settings are saved on this device."
   },
   "auth": {
     "phoneAuth": "Phone Authentication",
@@ -424,5 +426,12 @@
     "liked": "Liked",
     "more": "More",
     "moreDeities": "More Deities"
+  },
+  "guestStart": {
+    "failedTitle": "Couldn't start",
+    "failedBody": "Please try again.",
+    "offlineTitle": "Please connect",
+    "offlineBody": "Bhav Bhakti needs the internet to get started.",
+    "retry": "Try again"
   }
 }

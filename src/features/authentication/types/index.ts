@@ -1,7 +1,11 @@
 export interface User {
   id: string;
-  phoneNumber: string;
-  countryCode: string;
+  // Both null for a guest.
+  phoneNumber: string | null;
+  countryCode: string | null;
+  authProvider?: string;
+  // The stored Support ID: guests have one, older accounts have null.
+  supportId?: string | null;
   isVerified: boolean;
   createdAt: string;
   updatedAt: string;
@@ -40,6 +44,11 @@ export interface VerifyOTPRequest {
   otp: string;
   sessionId?: string;
   orderId: string;
+}
+
+export interface GuestStartRequest {
+  installId: string;
+  isTestAccount: boolean;
 }
 
 export interface VerifyFirebasePhoneAuthRequest {

@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useEffect } from 'react';
 import { router } from 'expo-router';
-import Constants from 'expo-constants';
 import { getAuth, signInWithPhoneNumber } from '@react-native-firebase/auth';
 import { useAuthStore } from '@/shared/stores/authStore';
 import { authService } from '../services/authService';
@@ -12,16 +11,11 @@ import {
   clearFirebaseConfirmation,
 } from '../utils/firebaseConfirmation';
 import { getJwtExpiryMs } from '../utils/jwt';
+import { IS_TEST_ACCOUNT } from '../utils/testAccount';
 import { logOtpSent, logLoginCompleted, logLoginFailed } from '@/utils/analytics/activationEvents';
 import { logMetaLoginSuccess } from '@/utils/analytics/metaEvents';
 
-// True only for the .dev app variant (development/preview builds) - never
-// true in production, since app.config.js's APP_VARIANT defaults to
-// "production" and only the .dev variant sets it otherwise. Read from
-// Constants.expoConfig.extra rather than an EXPO_PUBLIC_ env var, since it's
-// tied directly to the same APP_VARIANT that already decides the app's
-// package name/identity, not a separately-maintained duplicate.
-const IS_TEST_ACCOUNT = Constants.expoConfig?.extra?.appVariant !== 'production';
+export { IS_TEST_ACCOUNT };
 
 // A handful of the Firebase phone-auth error codes actually likely to be hit
 // in practice (invalid number, wrong/expired code, rate limiting) mapped to
