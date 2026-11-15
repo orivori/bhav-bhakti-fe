@@ -12,6 +12,7 @@ import { usePlaybackStore } from '@/store/playbackStore';
 import { usePremiumStore } from '@/store/premiumStore';
 import { useAuthPromptStore } from '@/store/authPromptStore';
 import { selectIsAdFlowOpen, useAdFlowStore } from '@/store/adFlowStore';
+import { useStoryNoticeStore } from '@/store/storyNoticeStore';
 import { useAuthStore } from '@/shared/stores/authStore';
 import { openStoreForUpdate } from '@/utils/appUpdate/openStoreForUpdate';
 import { shouldShowSoftPrompt } from '@/utils/appUpdate/updateDecision';
@@ -48,7 +49,9 @@ export function UpdatePromptModal() {
   const isLoginPromptOpen = useAuthPromptStore((state) => state.showLoginPrompt);
   // The rewarded-ad flow, from its opt-in card to the end of the ad.
   const isAdFlowOpen = useAdFlowStore(selectIsAdFlowOpen);
-  const isOtherModalOpen = isPaywallOpen || isLoginPromptOpen || isAdFlowOpen;
+  // The centred story ad-lock notice (StoryNotice).
+  const isStoryNoticeOpen = useStoryNoticeStore((state) => state.messageKey !== null);
+  const isOtherModalOpen = isPaywallOpen || isLoginPromptOpen || isAdFlowOpen || isStoryNoticeOpen;
   const { hasHydrated, isFirstSession, hasShownThisSession, isVisible, dismissedForLatest, dismissedAt, show, dismiss } =
     useUpdatePromptStore();
 
