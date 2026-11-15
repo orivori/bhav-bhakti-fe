@@ -48,6 +48,11 @@ export interface Feed {
   state?: string | null;
   freeEpisodes?: number | null;
   unlockedCount?: number | null;
+  // Stories on Home (backend §145): on a series row or single story, sent
+  // only to apps that send X-Stories-Capable: 1 while the backend switch is
+  // on. The first episode free by its settings, or null (nothing free - no
+  // audio link exists). Read it through parseStoryPreview() (storyLock.ts).
+  preview?: { feedId: number; episodeNumber: number | null; url: string; duration: number | null } | null;
   likesCount: number;
   commentsCount: number;
   downloadsCount: number;

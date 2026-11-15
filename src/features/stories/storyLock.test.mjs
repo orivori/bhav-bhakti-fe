@@ -8,6 +8,8 @@ import {
   classifyStoryUnlockResponse,
   isStoryStatePlayable,
   parseStoryState,
+  parseStoryPreview,
+  storyKind,
   storyTapAction,
   unlockedSummary,
 } from './storyLock.ts';
@@ -93,5 +95,51 @@ test('every key storyMessageKey can return exists in English and Hindi', async (
         assert.equal(typeof strings.storyLock[key], 'string', lang + ' ' + key);
       }
     }
+  }
+});
+
+// ---- storyKind: the one way to tell series, single stories and episodes apart ----
+
+test('storyKind: a series row has no media type and is not an episode', () => {
+  assert.equal(storyKind({ type: 'stories', mediaType: null, seriesId: null, episodeNumber: null }), 'series');
+  assert.equal(storyKind({ type: 'stories' }), 'series');
+});
+
+test('storyKind: a single story has a media type and no series id / episode number', () => {
+  assert.equal(storyKind({ type: 'stories', mediaType: 'audio', seriesId: null, episodeNumber: null }), 'single');
+});
+
+test('storyKind: a LOCKED single story (no url, episodeCount 0 from the server) is still single', () => {
+  assert.equal(storyKind({ type: 'stories', mediaType: 'audio', url: null, episodeCount: 0, state: 'next', seriesId: null }), 'single');
+});
+
+test('storyKind: an episode has a series id or an episode number, locked or not', () => {
+  assert.equal(storyKind({ type: 'stories', mediaType: 'audio', seriesId: 3, episodeNumber: 2 }), 'episode');
+  assert.equal(storyKind({ type: 'stories', mediaType: 'audio', url: null, state: 'locked', seriesId: 3, episodeNumber: 4 }), 'episode');
+  assert.equal(storyKind({ type: 'stories', mediaType: null, seriesId: 3 }), 'episode');
+  assert.equal(storyKind({ type: 'stories', episodeNumber: 1 }), 'episode');
+});
+
+test('storyKind: anything that is not a story is null', () => {
+  for (const feed of [null, undefined, {}, { type: 'aarti', mediaType: 'audio' }, { type: 'wallpaper', mediaType: null }]) {
+    assert.equal(storyKind(feed), null);
+  }
+});
+
+// ---- parseStoryPreview ----
+
+test('parseStoryPreview keeps a usable preview', () => {
+  assert.deepEqual(parseStoryPreview({ feedId: 10, episodeNumber: 1, url: 'https://x/ep1.mp3', duration: 48 }), {
+    feedId: 10, episodeNumber: 1, url: 'https://x/ep1.mp3', duration: 48,
+  });
+  // A single story previews itself: no episode number.
+  assert.deepEqual(parseStoryPreview({ feedId: '21', episodeNumber: null, url: 'u', duration: null }), {
+    feedId: 21, episodeNumber: null, url: 'u', duration: null,
+  });
+});
+
+test('parseStoryPreview: null, missing or malformed means no preview', () => {
+  for (const value of [undefined, null, 'x', 3, {}, { feedId: 10 }, { feedId: 10, url: '' }, { feedId: 0, url: 'u' }, { feedId: 'abc', url: 'u' }, { feedId: 1.5, url: 'u' }, { url: 'u' }]) {
+    assert.equal(parseStoryPreview(value), null);
   }
 });

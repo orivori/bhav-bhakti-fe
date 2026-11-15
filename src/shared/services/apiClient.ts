@@ -46,6 +46,12 @@ class ApiClient {
         if (canShowAds()) {
           config.headers['X-Ads-Capable'] = '1';
         }
+        // This code can show stories on Home (the story card and story
+        // page). The backend adds story rows to Home only for requests that
+        // carry it AND only while its STORIES_HOME_ENABLED switch is on
+        // (backend §145) - older code never sends it, so it never receives
+        // a card it can't display.
+        config.headers['X-Stories-Capable'] = '1';
         if (__DEV__) {
           console.log('🚀 API Request:', {
             url: `URL===>${config.baseURL}${config.url}`,

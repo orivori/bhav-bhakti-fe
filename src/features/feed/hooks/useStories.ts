@@ -1,6 +1,7 @@
 import { useInfiniteQuery, useQuery, useQueryClient, InfiniteData } from '@tanstack/react-query';
 import { feedService } from '../services/feedService';
 import { Feed, FeedListResponse } from '@/types/feed';
+import { storyKind } from '@/features/stories/storyLock';
 
 /**
  * Stories data (Bhav_Bhakti_Stories_Plan.md, phase 4). Same caching as the
@@ -99,9 +100,9 @@ export function useSeriesEpisodes(seriesId: number) {
 }
 
 // A series row: a story with no media of its own (its episodes have it).
-// Decided by mediaType, NOT by a missing url: with the ad-lock on, a locked
-// single story also comes back with url null (backend §144), and must still
-// open as a story, not as an empty series.
-export function isStorySeries(feed: Pick<Feed, 'type' | 'mediaType' | 'seriesId'>): boolean {
-  return feed.type === 'stories' && !feed.mediaType && !feed.seriesId;
+// One rule for the whole app: storyKind() (storyLock.ts) - by mediaType,
+// never by a missing url (a locked single story also has url null, and the
+// server may send it episodeCount: 0).
+export function isStorySeries(feed: Pick<Feed, 'type' | 'mediaType' | 'seriesId'> & { episodeNumber?: number | null }): boolean {
+  return storyKind(feed) === 'series';
 }
