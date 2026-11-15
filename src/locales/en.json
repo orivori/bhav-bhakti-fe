@@ -444,10 +444,11 @@
   "storyLock": {
     "adBody": "Watch a short ad to unlock this episode",
     "adBodySingle": "Watch a short ad to unlock this story",
-    "previousFirst": "Unlock the previous episode first",
+    "previousFirst": "Please unlock the previous episode first",
     "dailyLimit": "Daily unlock limit reached. Please try again tomorrow.",
     "unlockFailed": "Couldn't unlock, please try again",
     "noFillUnlocked": "No ad was available right now, so we've unlocked this episode for you.",
+    "noFillUnlockedSingle": "No ad was available right now, so we've unlocked this story for you.",
     "ok": "OK",
     "unlockNext": "Unlock next episode",
     "unlockToListen": "Watch an ad to unlock",
