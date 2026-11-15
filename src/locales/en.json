@@ -441,6 +441,19 @@
     "noEpisodes": "No episodes yet",
     "episodesHeading": "Episodes"
   },
+  "storyLock": {
+    "adBody": "Watch a short ad to unlock this episode",
+    "adBodySingle": "Watch a short ad to unlock this story",
+    "previousFirst": "Unlock the previous episode first",
+    "unlockedFor24h": "Unlocked for 24 hours",
+    "dailyLimit": "Daily unlock limit reached. Please try again tomorrow.",
+    "unlockFailed": "Couldn't unlock right now. Please try again.",
+    "unlockNext": "Unlock next episode",
+    "unlockToListen": "Watch an ad to unlock",
+    "locked": "Locked",
+    "unlockedSummary": "{{unlocked}} of {{total}} unlocked",
+    "nextLockedTitle": "The next episode is locked"
+  },
   "guestStart": {
     "failedTitle": "Couldn't start",
     "failedBody": "Please try again.",

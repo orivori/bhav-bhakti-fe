@@ -19,6 +19,16 @@ const IS_PRODUCTION = Constants.expoConfig?.extra?.appVariant === 'production';
 // secret - it ships inside the APK.
 const PRODUCTION_REWARDED_AD_UNIT_ID = 'ca-app-pub-2045583960519339/8937270797';
 
+// A separate rewarded ad unit for story unlocks, so AdMob revenue splits
+// between stories and wallpapers/ringtones (the AdMob -> BigQuery sync groups
+// by ad unit). EMPTY until the founder creates the unit in AdMob - while
+// empty (or not a real id) stories use PRODUCTION_REWARDED_AD_UNIT_ID.
+// Never put Google's sample id here; .dev always uses the test unit.
+export const STORY_REWARDED_AD_UNIT_ID = '';
+
+// Which ad unit a rewarded ad is for.
+export type AdPlacement = 'media' | 'story';
+
 // Phones registered as AdMob test devices for Closed testing on the real
 // production build (the ID is printed in logcat on the first ad request).
 // Empty for .dev, which only ever uses Google's test ad unit.
@@ -50,10 +60,11 @@ export function getAdsLib(): AdsLib | null {
  * the module is missing, or production has no real unit yet. .dev always
  * uses Google's test unit.
  */
-export function getRewardedAdUnitId(): string | null {
+export function getRewardedAdUnitId(placement: AdPlacement = 'media'): string | null {
   const lib = getAdsLib();
   if (!lib) return null;
   if (IS_PRODUCTION) {
+    if (placement === 'story' && isRealAdUnitId(STORY_REWARDED_AD_UNIT_ID)) return STORY_REWARDED_AD_UNIT_ID;
     return isRealAdUnitId(PRODUCTION_REWARDED_AD_UNIT_ID) ? PRODUCTION_REWARDED_AD_UNIT_ID : null;
   }
   return lib.TestIds.REWARDED;

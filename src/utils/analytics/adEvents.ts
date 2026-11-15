@@ -13,9 +13,10 @@ export type AdUnlockAction = 'view' | 'download' | 'share';
 
 // The action word in analytics only - a ringtone's 'download' is reported
 // as 'set_ringtone', the same words as gate_action_tap
-// (download | share | view | set_ringtone). The backend still gets
-// AdUnlockAction ('download') - see toAdEventAction.
-export type AdEventAction = AdUnlockAction | 'set_ringtone';
+// (download | share | view | set_ringtone | listen). The backend still gets
+// AdUnlockAction ('download') - see toAdEventAction. 'listen' is a story
+// episode or single story unlocked by an ad (storyUnlockFlow.ts).
+export type AdEventAction = AdUnlockAction | 'set_ringtone' | 'listen';
 
 export function toAdEventAction(feedType: string | undefined, action: AdUnlockAction): AdEventAction {
   return feedType === 'ringtone' && action === 'download' ? 'set_ringtone' : action;
