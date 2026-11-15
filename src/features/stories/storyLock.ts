@@ -81,9 +81,57 @@ export function unlockedSummary(feed: { unlockedCount?: number | null; episodeCo
   return { unlocked: Math.min(unlocked, total), total };
 }
 
-// A single story (one-off, not part of a series): no series and no episode
-// number. Decided from those two fields only - never from a missing audio
-// link, which a locked episode also has.
+export type StoryKind = 'series' | 'single' | 'episode';
+
+/**
+ * THE way to tell story rows apart (use it everywhere; never a missing url):
+ *   episode - has a series id or an episode number
+ *   single  - neither, and has a media type (its own audio file)
+ *   series  - neither, and no media type (its episodes carry the audio)
+ * Null for anything that isn't a story. A locked single story has no url
+ * (and the server may even send it episodeCount: 0) but keeps its media
+ * type, so it is still 'single', never mistaken for a series.
+ */
+export function storyKind(
+  feed: { type?: unknown; mediaType?: unknown; seriesId?: number | null; episodeNumber?: number | null } | null | undefined
+): StoryKind | null {
+  if (!feed || feed.type !== 'stories') return null;
+  if (feed.seriesId || feed.episodeNumber) return 'episode';
+  return feed.mediaType ? 'single' : 'series';
+}
+
+/**
+ * The preview the server attaches to a series row or single story on Home
+ * (and GET /feed/:id) when stories are on Home (backend §145): the first
+ * episode free by the series' settings - the same for everyone - or null
+ * when nothing is free (then no audio link exists at all).
+ */
+export interface StoryPreview {
+  feedId: number;
+  episodeNumber: number | null;
+  url: string;
+  duration: number | null;
+}
+
+// A usable preview, or null for anything else (missing, null, malformed).
+export function parseStoryPreview(value: unknown): StoryPreview | null {
+  if (typeof value !== 'object' || value === null) return null;
+  const { feedId, episodeNumber, url, duration } = value as Record<string, unknown>;
+  const id = typeof feedId === 'string' ? Number(feedId) : feedId;
+  if (typeof id !== 'number' || !Number.isInteger(id) || id <= 0) return null;
+  if (typeof url !== 'string' || url.length === 0) return null;
+  return {
+    feedId: id,
+    episodeNumber: typeof episodeNumber === 'number' && episodeNumber > 0 ? episodeNumber : null,
+    url,
+    duration: typeof duration === 'number' && Number.isFinite(duration) && duration > 0 ? duration : null,
+  };
+}
+
+// A single story (one-off, not part of a series) for the unlock prompts:
+// no series and no episode number. Only ever called with something
+// playable (an episode or a single story), never a series row - for
+// telling all three apart use storyKind().
 export function isSingleStory(item: { seriesId?: number | null; episodeNumber?: number | null }): boolean {
   return !item.seriesId && !item.episodeNumber;
 }
