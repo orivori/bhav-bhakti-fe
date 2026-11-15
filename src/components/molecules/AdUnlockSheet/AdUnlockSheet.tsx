@@ -21,6 +21,7 @@ import { useAdFlowStore } from '@/store/adFlowStore';
 export const AdUnlockSheet: React.FC = () => {
   const { t } = useTranslation();
   const phase = useAdFlowStore((state) => state.phase);
+  const offerBodyKey = useAdFlowStore((state) => state.offerBodyKey);
   const registerHost = useAdFlowStore((state) => state.registerHost);
   const answerOptIn = useAdFlowStore((state) => state.answerOptIn);
   const cancelLoading = useAdFlowStore((state) => state.cancelLoading);
@@ -47,7 +48,7 @@ export const AdUnlockSheet: React.FC = () => {
         ) : (
           <View style={styles.card}>
             <Text variant="body" align="center" style={styles.body}>
-              {t('adUnlock.body')}
+              {t(offerBodyKey ?? 'adUnlock.body')}
             </Text>
             <Button
               title={t('adUnlock.watch')}

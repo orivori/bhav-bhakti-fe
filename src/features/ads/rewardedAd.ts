@@ -3,7 +3,7 @@ import Constants from 'expo-constants';
 import * as Device from 'expo-device';
 import { getCrashlytics, setAttribute } from '@react-native-firebase/crashlytics';
 import type { RewardedAd } from 'react-native-google-mobile-ads';
-import { getAdsLib, getRewardedAdUnitId, initializeAds } from './adsModule';
+import { getAdsLib, getRewardedAdUnitId, initializeAds, type AdPlacement } from './adsModule';
 import { useAdFlowStore } from '@/store/adFlowStore';
 
 // One rewarded ad at a time (Revenue Model §5e sections 3 and 8).
@@ -60,6 +60,11 @@ class PreparedRewardedAd {
 
   get loadMs(): number | undefined {
     return this.state.status === 'loaded' ? this.state.loadMs : undefined;
+  }
+
+  // .dev "Simulate no ad": this load was forced to fail as no_fill.
+  get isSimulatedNoAd(): boolean {
+    return this.simulateNoAd;
   }
 
   // Still worth handing out from the preload slot.
@@ -179,9 +184,12 @@ class PreparedRewardedAd {
   }
 }
 
-export type RewardedAdHandle = Pick<PreparedRewardedAd, 'waitForLoad' | 'show' | 'release' | 'loadMs'>;
+export type RewardedAdHandle = Pick<PreparedRewardedAd, 'waitForLoad' | 'show' | 'release' | 'loadMs' | 'isSimulatedNoAd'>;
 
 let preloaded: PreparedRewardedAd | null = null;
+// The ad unit the preloaded ad belongs to: a wallpaper ad is never handed to
+// a story unlock or the other way round (separate AdMob units).
+let preloadedPlacement: AdPlacement = 'media';
 let hasShownAdThisSession = false;
 
 function createAndStart(unitId: string, simulateNoAd: boolean): PreparedRewardedAd {
@@ -194,8 +202,8 @@ function createAndStart(unitId: string, simulateNoAd: boolean): PreparedRewarded
  * Starts getting an ad ready (or hands over the preloaded one). Null when ads
  * can't run at all in this build.
  */
-export function prepareRewardedAd(): RewardedAdHandle | null {
-  const unitId = getRewardedAdUnitId();
+export function prepareRewardedAd(placement: AdPlacement = 'media'): RewardedAdHandle | null {
+  const unitId = getRewardedAdUnitId(placement);
   if (!unitId) return null;
 
   // .dev-only "Simulate no ad" (Profile > Debug): this load fails as no_fill.
@@ -203,7 +211,7 @@ export function prepareRewardedAd(): RewardedAdHandle | null {
     return createAndStart(unitId, true);
   }
 
-  if (preloaded?.isUsable) {
+  if (preloaded?.isUsable && preloadedPlacement === placement) {
     const handle = preloaded;
     preloaded = null;
     return handle;
@@ -214,17 +222,30 @@ export function prepareRewardedAd(): RewardedAdHandle | null {
 }
 
 /**
+ * A second load attempt after a first one found no ad (story unlocks retry
+ * once). A simulated no-ad (.dev debug switch) stays simulated, so the
+ * switch still ends in the no-fill path.
+ */
+export function prepareRewardedAdRetry(placement: AdPlacement, previous: RewardedAdHandle): RewardedAdHandle | null {
+  const unitId = getRewardedAdUnitId(placement);
+  if (!unitId) return null;
+  return createAndStart(unitId, !IS_PRODUCTION && previous.isSimulatedNoAd);
+}
+
+/**
  * Called once an ad has been shown: preloads the next one on phones with
  * enough memory.
  */
-export function noteAdShownAndMaybePreload(): void {
+export function noteAdShownAndMaybePreload(placement: AdPlacement = 'media'): void {
   hasShownAdThisSession = true;
-  if (preloaded?.isUsable) return;
+  if (preloaded?.isUsable && preloadedPlacement === placement) return;
   const totalMemory = Device.totalMemory;
   if (!totalMemory || totalMemory <= PRELOAD_MIN_TOTAL_MEMORY_BYTES) return;
-  const unitId = getRewardedAdUnitId();
+  const unitId = getRewardedAdUnitId(placement);
   if (!unitId || !hasShownAdThisSession) return;
+  preloaded?.release();
   preloaded = createAndStart(unitId, false);
+  preloadedPlacement = placement;
 }
 
 // True when the app is in the foreground - an ad is never shown otherwise.

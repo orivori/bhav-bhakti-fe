@@ -17,6 +17,9 @@ export type AdOptInAnswer = 'watch' | 'decline';
 
 interface AdFlowState {
   phase: AdFlowPhase;
+  // Translation key of the opt-in card's message for the current offer
+  // (null = the default 'adUnlock.body'). Stories use their own line.
+  offerBodyKey: string | null;
   // How many AdUnlockSheet hosts are mounted. With none (e.g. during
   // maintenance mode, §117) an offer answers 'decline' at once instead of
   // waiting forever.
@@ -26,8 +29,9 @@ interface AdFlowState {
   simulateNoAd: boolean;
 
   registerHost: () => () => void;
-  // Shows the opt-in card and waits for the user's answer.
-  requestOptIn: () => Promise<AdOptInAnswer>;
+  // Shows the opt-in card and waits for the user's answer. bodyKey: the
+  // card's message (translation key); omitted = the default.
+  requestOptIn: (bodyKey?: string) => Promise<AdOptInAnswer>;
   answerOptIn: (answer: AdOptInAnswer) => void;
   setPhase: (phase: AdFlowPhase) => void;
   // Hardware back on the loading overlay.
@@ -43,6 +47,7 @@ const cancelListeners = new Set<() => void>();
 
 export const useAdFlowStore = create<AdFlowState>((set, get) => ({
   phase: 'idle',
+  offerBodyKey: null,
   hostCount: 0,
   simulateNoAd: false,
 
@@ -51,11 +56,11 @@ export const useAdFlowStore = create<AdFlowState>((set, get) => ({
     return () => set((state) => ({ hostCount: Math.max(0, state.hostCount - 1) }));
   },
 
-  requestOptIn: () => {
+  requestOptIn: (bodyKey) => {
     if (get().hostCount === 0 || get().phase !== 'idle') {
       return Promise.resolve('decline');
     }
-    set({ phase: 'offer' });
+    set({ phase: 'offer', offerBodyKey: bodyKey ?? null });
     return new Promise<AdOptInAnswer>((resolve) => {
       pendingAnswer = resolve;
     });
