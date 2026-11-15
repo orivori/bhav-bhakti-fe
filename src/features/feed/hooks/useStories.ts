@@ -88,21 +88,35 @@ export const useStorySeries = useStory;
 // enabled: false skips the request (the story page for a single story).
 export function useSeriesEpisodes(seriesId: number, { enabled = true }: { enabled?: boolean } = {}) {
   return useQuery({
-    queryKey: storiesQueryKeys.episodes(seriesId),
-    queryFn: async (): Promise<Feed[]> => {
-      const episodes: Feed[] = [];
-      for (let page = 0; page < EPISODES_MAX_PAGES; page += 1) {
-        const response = await feedService.getFeeds({ seriesId, limit: EPISODES_LIMIT, offset: episodes.length });
-        episodes.push(...response.feeds);
-        if (!response.hasMore || response.feeds.length === 0) break;
-      }
-      return episodes;
-    },
+    ...seriesEpisodesQuery(seriesId),
     enabled: enabled && seriesId > 0,
-    staleTime: STALE_TIME_MS,
-    gcTime: GC_TIME_MS,
     refetchOnWindowFocus: false,
   });
+}
+
+// Every page of a series' episodes, in order.
+async function fetchSeriesEpisodes(seriesId: number): Promise<Feed[]> {
+  const episodes: Feed[] = [];
+  for (let page = 0; page < EPISODES_MAX_PAGES; page += 1) {
+    const response = await feedService.getFeeds({ seriesId, limit: EPISODES_LIMIT, offset: episodes.length });
+    episodes.push(...response.feeds);
+    if (!response.hasMore || response.feeds.length === 0) break;
+  }
+  return episodes;
+}
+
+/**
+ * The ONE definition of a series' episode-list query - the story page
+ * (useSeriesEpisodes) and the Home card's Listen (queryClient.fetchQuery)
+ * share it, so they share one cache entry and one request.
+ */
+export function seriesEpisodesQuery(seriesId: number) {
+  return {
+    queryKey: storiesQueryKeys.episodes(seriesId),
+    queryFn: () => fetchSeriesEpisodes(seriesId),
+    staleTime: STALE_TIME_MS,
+    gcTime: GC_TIME_MS,
+  };
 }
 
 // A series row: a story with no media of its own (its episodes have it).

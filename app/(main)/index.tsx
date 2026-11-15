@@ -20,6 +20,8 @@ import { LanguageToggle } from '@/components/molecules/LanguageToggle';
 import SearchBar from '@/components/molecules/SearchBar';
 import { useFeed, useHomePin } from '@/features/feed/hooks';
 import { placePinnedFeed } from '@/utils/deepLinks/homePin';
+import { storyKind } from '@/features/stories/storyLock';
+import { openStoryPage } from '@/features/stories/openStoryPage';
 import { Feed } from '@/types/feed';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { containsDevanagari, getEnhancedLineHeight } from '@/utils/textUtils';
@@ -140,6 +142,14 @@ export default function HomeScreen() {
       type: feed.type,
       mediaType: feed.mediaType
     });
+
+    // A story never plays from here: FeedList gives Home's story rows their
+    // own card (StoryHomeCard). Defensive only - open its story page.
+    const kind = storyKind(feed);
+    if (kind === 'series' || kind === 'single') {
+      openStoryPage({ storyId: feed.id, source: 'home_card', returnTo: '/(main)' });
+      return;
+    }
 
     // Track view
     viewFeed(feed.id.toString());

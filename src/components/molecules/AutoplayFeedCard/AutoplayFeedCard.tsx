@@ -35,6 +35,29 @@ interface AutoplayFeedCardProps {
   // true for the elected card and its immediate neighbours; otherwise the
   // thumbnail (or a plain placeholder) is shown and no player exists.
   shouldMountVideo?: boolean;
+  // Home story card only (StoryHomeCard, backend §145). Absent = every other
+  // card, exactly as before.
+  story?: StoryCardOptions;
+}
+
+/**
+ * A series row or single story on Home, shown in the audio-card layout. The
+ * preview (a series' first free episode, or the single story itself) is the
+ * audio; its id is the audio cache key - never the series row's id. No
+ * background download of the preview file (a free episode can be long), no
+ * Share/Like, no view/play counts on a series row. With no preview: the
+ * cover only, no sound, no autoplay, and Listen/Play open the story page.
+ */
+export interface StoryCardOptions {
+  previewFeedId: string | null;
+  previewUrl: string | null;
+  isSingle: boolean;
+  // The footer line ("8 episodes" for a series, the duration for a single
+  // story), or null.
+  footerText: string | null;
+  onOpenPage: () => void;
+  onListen: () => void;
+  onSeeAll: () => void;
 }
 
 // --- Sizing (Phase 3, reworked) ---
@@ -246,7 +269,7 @@ const SEE_ALL_TARGETS: Partial<Record<Feed['type'], { pathname: string; params?:
  * Phase 4: real content. Own isolated player (no playbackStore involvement,
  * per CLAUDE.md §29), content-type-aware playback, real action row.
  */
-export default function AutoplayFeedCard({ feed, isActive, shouldMountVideo = true }: AutoplayFeedCardProps) {
+export default function AutoplayFeedCard({ feed, isActive, shouldMountVideo = true, story }: AutoplayFeedCardProps) {
   const { language } = useI18nStore();
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
@@ -342,8 +365,14 @@ export default function AutoplayFeedCard({ feed, isActive, shouldMountVideo = tr
   const feedIdStr = feed.id.toString();
   const usableViewportHeight = windowHeight - insets.top - tabBarHeight;
 
-  const hasAudioMedia = feed.mediaType === 'audio';
-  const audioSourceUri = hasAudioMedia ? feed.url : undefined;
+  // A story card always uses the audio layout (cover + controls), with the
+  // preview as its audio - or none at all (cover only) when nothing is free.
+  const isStoryCard = !!story;
+  const hasAudioMedia = isStoryCard || feed.mediaType === 'audio';
+  const audioSourceUri = isStoryCard ? story.previewUrl ?? undefined : hasAudioMedia ? feed.url : undefined;
+  // The audio cache key: the PREVIEW EPISODE's id on a story card (the same
+  // file the player caches under that id), else this feed's own id.
+  const audioCacheKey = isStoryCard ? story.previewFeedId ?? feedIdStr : feedIdStr;
   const thumbnailUrl = getFeedThumbnailUrl(feed);
   // Ringtone gets its own CTA (direct set-as-ringtone, no navigation) -
   // mantra/aarti/bhajan share the 'Listen'-into-full-player behavior.
@@ -375,6 +404,10 @@ export default function AutoplayFeedCard({ feed, isActive, shouldMountVideo = tr
   const contentTypeLabel = contentTypeLabels[feed.type];
   const seeAllTarget = SEE_ALL_TARGETS[feed.type];
   const handleSeeAllPress = () => {
+    if (isStoryCard) {
+      story.onSeeAll();
+      return;
+    }
     if (!seeAllTarget) return;
     // Cast needed: SEE_ALL_TARGETS is a plain lookup table, so its pathname
     // strings aren't narrowed to expo-router's generated typed-route union.
@@ -439,7 +472,7 @@ export default function AutoplayFeedCard({ feed, isActive, shouldMountVideo = tr
   // actually interacted with, a small, user-driven set - nowhere near the
   // "every rendered card, unconditionally" scope of the original leak.
   const [userRequestedPlayback, setUserRequestedPlayback] = useState(false);
-  const shouldMountAudioPlayer = hasAudioMedia && (isActive || userRequestedPlayback);
+  const shouldMountAudioPlayer = hasAudioMedia && (!isStoryCard || !!audioSourceUri) && (isActive || userRequestedPlayback);
   // Separate from isEffectivelyActive above (which stays isActive-only,
   // still correct for video's shouldPlay) - audio's "should this actually be
   // playing" needs to fold in the manual-tap override too, or a manually
@@ -458,6 +491,8 @@ export default function AutoplayFeedCard({ feed, isActive, shouldMountVideo = tr
   const hasTrackedAudioViewRef = useRef(false);
   useEffect(() => {
     if (!shouldMountAudioPlayer || hasTrackedAudioViewRef.current) return;
+    // No view/play counts on a series row (it has no audio of its own).
+    if (isStoryCard && !story.isSingle) return;
     hasTrackedAudioViewRef.current = true;
     feedService.viewFeed(feedIdStr).then(() => incrementView(feedIdStr)).catch((e) =>
       console.error('AutoplayFeedCard: view tracking error:', e)
@@ -465,7 +500,7 @@ export default function AutoplayFeedCard({ feed, isActive, shouldMountVideo = tr
     feedService.playFeed(feedIdStr).catch((e) =>
       console.error('AutoplayFeedCard: play tracking error:', e)
     );
-  }, [shouldMountAudioPlayer, feedIdStr, incrementView]);
+  }, [shouldMountAudioPlayer, feedIdStr, incrementView, isStoryCard, story?.isSingle]);
 
   // Track a view once when visual (non-audio) content becomes active -
   // audio's own view tracking is the hasTrackedAudioViewRef effect above.
@@ -677,6 +712,10 @@ export default function AutoplayFeedCard({ feed, isActive, shouldMountVideo = tr
   // their own paths, via the same authorizeMediaAction gate as every other
   // download/share.
   const handleCtaPress = () => {
+    if (isStoryCard) {
+      story.onListen();
+      return;
+    }
     if (hasAudioMedia) {
       if (isRingtoneType) {
         handleSetRingtone();
@@ -702,13 +741,24 @@ export default function AutoplayFeedCard({ feed, isActive, shouldMountVideo = tr
 
   const ctaDisabled = (isRingtoneType && isSettingRingtone) || (!hasAudioMedia && isSettingStatus);
 
+  // Story card: the title and the cover open the story page. Every other
+  // card renders them exactly as before (no wrapper at all).
+  const wrapStoryTap = (child: React.ReactElement): React.ReactElement =>
+    isStoryCard ? (
+      <TouchableOpacity onPress={story.onOpenPage} activeOpacity={0.85}>
+        {child}
+      </TouchableOpacity>
+    ) : (
+      child
+    );
+
   return (
     // Audio and visual cards now share the same horizontal gutter (styles.card) -
     // see CARD_WIDTH above for how that feeds the visual branch's height math.
     <View style={styles.card}>
       <View style={styles.headerRow}>
         <Text style={styles.headerTypeLabel}>{contentTypeLabel}</Text>
-        {seeAllTarget && (
+        {(seeAllTarget || isStoryCard) && (
           <TouchableOpacity
             onPress={handleSeeAllPress}
             activeOpacity={0.7}
@@ -739,19 +789,25 @@ export default function AutoplayFeedCard({ feed, isActive, shouldMountVideo = tr
             {/* Title -> thumbnail -> controls, centered as one stack (see
                 audioThumbnailSize above). */}
             <View style={styles.audioStack}>
-              <Text
-                style={[styles.audioTitle, { width: audioThumbnailSize }]}
-                numberOfLines={AUDIO_TITLE_MAX_LINES}
-              >
-                {title}
-              </Text>
+              {/* Story card: the title and the cover open the story page
+                  (disabled - a plain view - on every other card). */}
+              {wrapStoryTap(
+                <Text
+                  style={[styles.audioTitle, { width: audioThumbnailSize }]}
+                  numberOfLines={AUDIO_TITLE_MAX_LINES}
+                >
+                  {title}
+                </Text>
+              )}
 
               {thumbnailUrl ? (
-                <Image
-                  source={{ uri: thumbnailUrl }}
-                  style={[styles.audioThumbnail, { width: audioThumbnailSize, height: audioThumbnailSize }]}
-                  resizeMode="cover"
-                />
+                wrapStoryTap(
+                  <Image
+                    source={{ uri: thumbnailUrl }}
+                    style={[styles.audioThumbnail, { width: audioThumbnailSize, height: audioThumbnailSize }]}
+                    resizeMode="cover"
+                  />
+                )
               ) : (
                 <View
                   style={[
@@ -774,14 +830,17 @@ export default function AutoplayFeedCard({ feed, isActive, shouldMountVideo = tr
                     eagerly holding a native player instance no one asked for. */}
                 {shouldMountAudioPlayer ? (
                   <AudioPlaybackController
-                    feedIdStr={feedIdStr}
+                    cacheKey={audioCacheKey}
                     audioSourceUri={audioSourceUri}
                     isEffectivelyActive={shouldPlayAudio}
+                    allowBackgroundDownload={!isStoryCard}
                   />
                 ) : (
                   <TouchableOpacity
                     style={styles.audioPlayPauseButton}
-                    onPress={() => setUserRequestedPlayback(true)}
+                    // A story card with nothing free to preview: Play opens
+                    // the story page, like Listen (no sound on Home).
+                    onPress={isStoryCard && !audioSourceUri ? story.onListen : () => setUserRequestedPlayback(true)}
                     activeOpacity={0.8}
                   >
                     <Ionicons name="play" size={26} color="#fff" style={styles.playIconNudge} />
@@ -864,6 +923,18 @@ export default function AutoplayFeedCard({ feed, isActive, shouldMountVideo = tr
         )}
       </View>
 
+      {isStoryCard ? (
+        // Story card: no Like, Share or views in this version - just the
+        // "N episodes" / duration line, at the same height so the card's
+        // size (and the next card's peek) doesn't change.
+        <View style={[styles.footer, { height: FOOTER_HEIGHT }]}>
+          {story.footerText ? (
+            <Text variant="caption" style={styles.storyFooterText} numberOfLines={1}>
+              {story.footerText}
+            </Text>
+          ) : null}
+        </View>
+      ) : (
       <View style={[styles.footer, { height: FOOTER_HEIGHT }]}>
         <TouchableOpacity style={styles.footerAction} onPress={handleLike} activeOpacity={0.7}>
           <Ionicons
@@ -902,14 +973,19 @@ export default function AutoplayFeedCard({ feed, isActive, shouldMountVideo = tr
           )}
         </View>
       </View>
+      )}
     </View>
   );
 }
 
 interface AudioPlaybackControllerProps {
-  feedIdStr: string;
+  // The audio cache key - the feed's id, or a story card's preview episode id.
+  cacheKey: string;
   audioSourceUri: string | undefined;
   isEffectivelyActive: boolean;
+  // False on a story card: a cached copy is still used if one exists, but
+  // the preview file is never downloaded in the background.
+  allowBackgroundDownload?: boolean;
 }
 
 // Owns the actual native player - only ever rendered by the parent while
@@ -918,7 +994,12 @@ interface AudioPlaybackControllerProps {
 // native instance automatically on unmount, so simply not rendering this
 // component when the card is irrelevant is the entire fix - no manual
 // release() call is needed here.
-function AudioPlaybackController({ feedIdStr, audioSourceUri, isEffectivelyActive }: AudioPlaybackControllerProps) {
+function AudioPlaybackController({
+  cacheKey: feedIdStr,
+  audioSourceUri,
+  isEffectivelyActive,
+  allowBackgroundDownload = true,
+}: AudioPlaybackControllerProps) {
   const player = useAudioPlayer(null);
   const status = useAudioPlayerStatus(player);
   const hasLoadedSourceRef = useRef(false);
@@ -935,7 +1016,7 @@ function AudioPlaybackController({ feedIdStr, audioSourceUri, isEffectivelyActiv
           const sourceUri = cachedUri ?? audioSourceUri;
           player.replace({ uri: sourceUri });
           hasLoadedSourceRef.current = true;
-          if (!cachedUri) {
+          if (!cachedUri && allowBackgroundDownload) {
             downloadToCacheInBackground(feedIdStr, audioSourceUri);
           }
         }
@@ -965,7 +1046,7 @@ function AudioPlaybackController({ feedIdStr, audioSourceUri, isEffectivelyActiv
     return () => {
       isEffectCurrent = false;
     };
-  }, [isEffectivelyActive, audioSourceUri, feedIdStr, player]);
+  }, [isEffectivelyActive, audioSourceUri, feedIdStr, player, allowBackgroundDownload]);
 
   // Shared with handleToggleAudioPlayPause below - both need the exact same
   // "has this track reached its cap" definition, kept as one function so
@@ -1258,6 +1339,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+  },
+  // The story card's "N episodes" / duration line (footer, left). Line-height
+  // floor for Hindi (CLAUDE.md §71).
+  storyFooterText: {
+    flex: 1,
+    lineHeight: 22,
+    minHeight: 22,
+    color: goldenTempleTheme.colors.text.secondary,
   },
   footerActionCount: {
     color: goldenTempleTheme.colors.text.secondary,

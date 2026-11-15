@@ -16,6 +16,8 @@ import FeedCard from '../FeedCard/FeedCard';
 import RingtoneFeedCard from '../RingtoneFeedCard/RingtoneFeedCard';
 import AudioContentCard from '../AudioContentCard/AudioContentCard';
 import AutoplayFeedCard from '../AutoplayFeedCard/AutoplayFeedCard';
+import StoryHomeCard from '../StoryHomeCard/StoryHomeCard';
+import { storyKind } from '@/features/stories/storyLock';
 import { Feed, FeedFilters } from '@/types/feed';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { useFeedStore } from '@/store/feedStore';
@@ -290,6 +292,20 @@ function FeedList({
     // isn't its own Feed.type (it's a Feed.mediaType value), so this already covers
     // wallpaper/thought/future-video with no per-type whitelist to maintain.
     if (enableViewportAutoplay) {
+      // Stories on Home (backend §145): a series row (no media file at all)
+      // or a single story gets the story card - checked first, since a
+      // series has no url and a locked single story's url is null, and
+      // neither must fall through to the generic card below.
+      const kind = storyKind(feed);
+      if (kind === 'series' || kind === 'single') {
+        return (
+          <StoryHomeCard
+            feed={feed}
+            isActive={isActive}
+            shouldMountVideo={Math.abs(index - electedIndex) <= VIDEO_MOUNT_RADIUS}
+          />
+        );
+      }
       const hasAnyMedia = !!feed.url;
       if (hasAnyMedia) {
         return (
