@@ -31,6 +31,7 @@ import {
   type RewardedAdHandle,
 } from '@/features/ads/rewardedAd';
 import { showStoryNotice } from '@/store/storyNoticeStore';
+import { storyMessageKey } from './storyLock';
 import { recordStoryUnlock, type StoryUnlockRecordSource } from './storyUnlockApi';
 
 // The rewarded-ad unlock flow for a story episode or single story
@@ -129,7 +130,8 @@ async function record(
   switch (outcome) {
     case 'granted':
       logStoryUnlockCompleted(storyContext, source);
-      if (source === 'no_fill') queueNotice('storyLock.noFillUnlocked');
+      // "...unlocked this story" for a single story, "...this episode" otherwise.
+      if (source === 'no_fill') queueNotice(storyMessageKey('noFillUnlocked', target));
       return 'unlocked';
     case 'disabled':
       return 'disabled';
@@ -165,7 +167,6 @@ async function loadWithOneRetry(
 }
 
 async function runFlowSteps(target: StoryUnlockTarget): Promise<StoryUnlockFlowResult> {
-  const isSingle = !target.seriesId;
   const storyContext: StoryEventContext = {
     episodeNumber: target.episodeNumber,
     seriesId: target.seriesId,
@@ -185,7 +186,7 @@ async function runFlowSteps(target: StoryUnlockTarget): Promise<StoryUnlockFlowR
   logAdUnlockOffered(context);
   const answer = await useAdFlowStore
     .getState()
-    .requestOptIn(isSingle ? 'storyLock.adBodySingle' : 'storyLock.adBody');
+    .requestOptIn(storyMessageKey('adBody', target));
   if (answer === 'decline') {
     ad.release();
     logAdUnlockDeclined(context);

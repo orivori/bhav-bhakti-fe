@@ -67,3 +67,31 @@ test('"N of M unlocked" only with both counts', () => {
   assert.equal(unlockedSummary({ episodeCount: 8 }), null);
   assert.equal(unlockedSummary({ unlockedCount: 0, episodeCount: 0 }), null);
 });
+
+test('single story vs series episode: decided by series and episode number, never by audio', async () => {
+  const { isSingleStory, storyMessageKey } = await import('./storyLock.ts');
+  assert.equal(isSingleStory({ seriesId: null, episodeNumber: null }), true);
+  assert.equal(isSingleStory({}), true);
+  assert.equal(isSingleStory({ seriesId: 187, episodeNumber: 3 }), false);
+  // Either field alone still means "part of a series".
+  assert.equal(isSingleStory({ seriesId: 187 }), false);
+  assert.equal(isSingleStory({ episodeNumber: 2 }), false);
+  assert.equal(storyMessageKey('noFillUnlocked', { seriesId: null }), 'storyLock.noFillUnlockedSingle');
+  assert.equal(storyMessageKey('noFillUnlocked', { seriesId: 187, episodeNumber: 3 }), 'storyLock.noFillUnlocked');
+  assert.equal(storyMessageKey('adBody', {}), 'storyLock.adBodySingle');
+  assert.equal(storyMessageKey('adBody', { seriesId: 187, episodeNumber: 1 }), 'storyLock.adBody');
+});
+
+test('every key storyMessageKey can return exists in English and Hindi', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { storyMessageKey } = await import('./storyLock.ts');
+  for (const lang of ['en', 'hi']) {
+    const strings = JSON.parse(readFileSync(new URL('../../locales/' + lang + '.json', import.meta.url), 'utf8'));
+    for (const message of ['adBody', 'noFillUnlocked']) {
+      for (const item of [{}, { seriesId: 1, episodeNumber: 1 }]) {
+        const key = storyMessageKey(message, item).split('.')[1];
+        assert.equal(typeof strings.storyLock[key], 'string', lang + ' ' + key);
+      }
+    }
+  }
+});

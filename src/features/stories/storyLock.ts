@@ -80,3 +80,20 @@ export function unlockedSummary(feed: { unlockedCount?: number | null; episodeCo
   if (typeof unlocked !== 'number' || typeof total !== 'number' || total <= 0) return null;
   return { unlocked: Math.min(unlocked, total), total };
 }
+
+// A single story (one-off, not part of a series): no series and no episode
+// number. Decided from those two fields only - never from a missing audio
+// link, which a locked episode also has.
+export function isSingleStory(item: { seriesId?: number | null; episodeNumber?: number | null }): boolean {
+  return !item.seriesId && !item.episodeNumber;
+}
+
+// Prompt text that names what is being unlocked: "this story" for a single
+// story, "this episode" for a series episode (translation keys).
+export type StoryMessage = 'adBody' | 'noFillUnlocked';
+export function storyMessageKey(
+  message: StoryMessage,
+  item: { seriesId?: number | null; episodeNumber?: number | null }
+): string {
+  return 'storyLock.' + message + (isSingleStory(item) ? 'Single' : '');
+}
