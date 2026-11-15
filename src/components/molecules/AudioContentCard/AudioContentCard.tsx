@@ -47,6 +47,15 @@ interface AudioContentCardProps {
   episodeNumber?: number | null;
   detail?: string | null;
   showLike?: boolean;
+  // Stories ad-lock (story-series.tsx): 'open' = playable (a small open
+  // lock next to Play), 'next' = a lock and lockHint ("Watch an ad to
+  // unlock"), 'locked' = greyed with a lock. Omitted (the lock is off, or
+  // any other content) = exactly as before.
+  lockState?: 'open' | 'next' | 'locked' | null;
+  lockHint?: string | null;
+  // Replaces the default "open in the player" tap (the story lock rules
+  // decide what a tap does).
+  onPress?: () => void;
 }
 
 // Deliberately basic, unlike RingtoneFeedCard - functional first, no design
@@ -66,6 +75,9 @@ export default function AudioContentCard({
   episodeNumber,
   detail,
   showLike = true,
+  lockState = null,
+  lockHint = null,
+  onPress,
 }: AudioContentCardProps) {
   const { language } = useI18nStore();
 
@@ -107,8 +119,8 @@ export default function AudioContentCard({
 
   return (
     <TouchableOpacity
-      style={[styles.card, isCurrentlyPlaying && styles.cardPlaying]}
-      onPress={handlePress}
+      style={[styles.card, isCurrentlyPlaying && styles.cardPlaying, lockState === 'locked' && styles.cardLocked]}
+      onPress={onPress ?? handlePress}
       activeOpacity={0.8}
     >
       {episodeNumber != null && (
@@ -141,6 +153,11 @@ export default function AudioContentCard({
           <Text variant="caption" style={styles.detail} numberOfLines={1}>
             {detail}
           </Text>
+          {lockState === 'next' && lockHint ? (
+            <Text variant="caption" weight="semibold" style={styles.lockHint}>
+              {lockHint}
+            </Text>
+          ) : null}
         </View>
       ) : (
         <Text
@@ -152,7 +169,20 @@ export default function AudioContentCard({
           {title}
         </Text>
       )}
-      <Ionicons name="play-circle" size={30} color={goldenTempleTheme.colors.primary.DEFAULT} />
+      {lockState === 'next' || lockState === 'locked' ? (
+        <Ionicons
+          name="lock-closed"
+          size={26}
+          color={lockState === 'next' ? goldenTempleTheme.colors.primary.DEFAULT : goldenTempleTheme.colors.text.secondary}
+        />
+      ) : (
+        <View style={styles.playIcons}>
+          {lockState === 'open' && (
+            <Ionicons name="lock-open-outline" size={16} color={goldenTempleTheme.colors.text.secondary} />
+          )}
+          <Ionicons name="play-circle" size={30} color={goldenTempleTheme.colors.primary.DEFAULT} />
+        </View>
+      )}
       {/* Same icon/color logic as MantraFeedCard's Like button - sized
           (22px) and unboxed to match this card's own bare-icon Play
           treatment, rather than MantraFeedCard's boxed circular button. */}
@@ -186,6 +216,24 @@ const styles = StyleSheet.create({
   // language, not two different ones.
   cardPlaying: {
     backgroundColor: designSystemTheme.colors.secondary,
+  },
+  // Stories ad-lock: an episode that needs the previous one unlocked first.
+  cardLocked: {
+    opacity: 0.5,
+  },
+  playIcons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  // "Watch an ad to unlock" under a `next` episode. Line-height floor per
+  // CLAUDE.md §71 (Devanagari); may wrap to two lines.
+  lockHint: {
+    marginTop: 2,
+    lineHeight: 20,
+    minHeight: 20,
+    alignSelf: 'stretch',
+    color: designSystemTheme.colors.primary,
   },
   thumbnail: {
     width: 48,

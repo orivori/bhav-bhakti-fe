@@ -10,6 +10,7 @@ import { designSystemTheme } from '@/styles/designSystemTheme';
 import { getFeedThumbnailUrl } from '@/utils/feedFields';
 import { formatDuration } from '@/utils/formatDuration';
 import { isStorySeries } from '@/features/feed/hooks/useStories';
+import { isStoryStatePlayable, parseStoryState } from '@/features/stories/storyLock';
 
 interface StoryTileProps {
   feed: Feed;
@@ -29,6 +30,9 @@ export default function StoryTile({ feed, width, onPress }: StoryTileProps) {
   const { language } = useI18nStore();
 
   const isSeries = isStorySeries(feed);
+  // Stories ad-lock: a single story the server sent as next/locked shows a
+  // lock (a tap then offers the ad). No state = the lock is off.
+  const isLocked = !isSeries && parseStoryState(feed.state) !== null && !isStoryStatePlayable(feed.state);
   const title = feed.title?.[language] || feed.title?.en || '';
   const coverUrl = getFeedThumbnailUrl(feed);
   const episodeCount = feed.episodeCount ?? 0;
@@ -48,9 +52,10 @@ export default function StoryTile({ feed, width, onPress }: StoryTileProps) {
             <Ionicons name="book-outline" size={36} color={goldenTempleTheme.colors.primary.DEFAULT} />
           </View>
         )}
-        {/* What a tap does: a series opens its episode list, a one-off plays. */}
+        {/* What a tap does: a series opens its episode list, a one-off plays
+            (or, when locked, offers the ad). */}
         <View style={styles.badge}>
-          <Ionicons name={isSeries ? 'albums' : 'play'} size={14} color="#fff" />
+          <Ionicons name={isSeries ? 'albums' : isLocked ? 'lock-closed' : 'play'} size={14} color="#fff" />
         </View>
       </View>
       {/* minHeight keeps tiles in a row aligned whether a title takes one
@@ -64,6 +69,11 @@ export default function StoryTile({ feed, width, onPress }: StoryTileProps) {
           {label}
         </Text>
       ) : null}
+      {isLocked ? (
+        <Text variant="caption" weight="semibold" style={styles.lockHint} numberOfLines={2}>
+          {t('storyLock.unlockToListen')}
+        </Text>
+      ) : null}
     </TouchableOpacity>
   );
 }
@@ -71,6 +81,13 @@ export default function StoryTile({ feed, width, onPress }: StoryTileProps) {
 const styles = StyleSheet.create({
   tile: {
     marginBottom: goldenTempleTheme.spacing.lg,
+  },
+  // "Watch an ad to unlock" under a locked single story; line-height floor
+  // per CLAUDE.md §71.
+  lockHint: {
+    lineHeight: 20,
+    minHeight: 20,
+    color: goldenTempleTheme.colors.primary.DEFAULT,
   },
   cover: {
     borderRadius: 12,
