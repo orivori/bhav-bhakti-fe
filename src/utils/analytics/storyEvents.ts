@@ -15,7 +15,7 @@ import { logAnalyticsEvent } from './logEvent';
 //                    up_next | single_story | during_playback
 
 export type StoryTrigger = 'episode_list' | 'end_of_episode' | 'up_next' | 'single_story' | 'during_playback';
-export type StoryUnlockSource = 'reward' | 'no_fill' | 'temporary';
+export type StoryUnlockSource = 'reward' | 'no_fill';
 
 export interface StoryEventContext {
   episodeNumber?: number | null;
@@ -52,9 +52,9 @@ export function logStoryUnlockTapped(context: StoryEventContext): void {
   logAnalyticsEvent('story_unlock_tapped', params(context));
 }
 
-// The server recorded the unlock. source reward = permanent; no_fill = no ad
-// was available (24 h); temporary is reserved for a later 24-hour grant that
-// isn't a no-fill.
+// The server recorded the unlock. Both sources are permanent unlocks
+// (2026-11-15): reward = the listener watched the ad; no_fill = no ad was
+// available, so the episode was unlocked anyway (never counted as a reward).
 export function logStoryUnlockCompleted(context: StoryEventContext, source: StoryUnlockSource): void {
   logAnalyticsEvent('story_unlock_completed', { ...params(context), source });
 }

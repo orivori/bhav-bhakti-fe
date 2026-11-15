@@ -1,5 +1,4 @@
-import { AppState, ToastAndroid } from 'react-native';
-import i18n from 'i18next';
+import { AppState } from 'react-native';
 import { useAdFlowStore } from '@/store/adFlowStore';
 import {
   logAdClosedNoReward,
@@ -31,6 +30,7 @@ import {
   type AdLoadOutcome,
   type RewardedAdHandle,
 } from '@/features/ads/rewardedAd';
+import { showStoryNotice } from '@/store/storyNoticeStore';
 import { recordStoryUnlock, type StoryUnlockRecordSource } from './storyUnlockApi';
 
 // The rewarded-ad unlock flow for a story episode or single story
@@ -44,15 +44,22 @@ import { recordStoryUnlock, type StoryUnlockRecordSource } from './storyUnlockAp
 // 3. Reward -> POST /story-unlocks source=reward (permanent) -> 'unlocked'.
 //    Closed before the reward -> nothing recorded -> 'declined'.
 // 4. No ad (timeout, no fill, load error): ONE more load attempt, then
-//    source=no_fill (24 hours) -> 'temp', with a short "unlocked for 24
-//    hours" line. A show error also counts as no ad.
+//    source=no_fill -> 'unlocked'. Since 2026-11-15 a no-fill unlock is
+//    PERMANENT, like a reward (no fill is AdMob's fault, not the
+//    listener's); the listener is told "No ad was available right now, so
+//    we've unlocked this episode for you." A show error also counts as no ad.
 // Back on the overlay, or the app leaving the foreground -> 'declined',
 // nothing recorded.
 //
 // Server answers: 409 -> 'refused' ("previous episode first"); 403
 // STORY_LOCK_DISABLED -> 'disabled' (the lock is off: play it); 429 ->
-// 'cap_reached' (daily limit line); anything else -> 'failed'.
-// The caller refetches and plays on 'unlocked' / 'temp' / 'disabled'.
+// 'cap_reached' (daily limit); anything else -> 'failed' ("Couldn't
+// unlock, please try again").
+//
+// Every message is the centred StoryNotice (storyNoticeStore), shown only
+// after the ad card/overlay are gone, and this function resolves only once
+// it's dismissed - so the caller plays the episode AFTER the listener taps
+// OK (or outside). The caller refetches and plays on 'unlocked' / 'disabled'.
 
 export interface StoryUnlockTarget {
   feedId: string;
@@ -63,7 +70,6 @@ export interface StoryUnlockTarget {
 
 export type StoryUnlockFlowResult =
   | 'unlocked'
-  | 'temp'
   | 'disabled'
   | 'declined'
   | 'refused'
@@ -74,21 +80,21 @@ export type StoryUnlockFlowResult =
 // True when the item may now be played (refetch first: the audio link only
 // comes with a fresh response).
 export function isStoryUnlockPlayable(result: StoryUnlockFlowResult): boolean {
-  return result === 'unlocked' || result === 'temp' || result === 'disabled';
+  return result === 'unlocked' || result === 'disabled';
 }
 
-function toast(key: string): void {
-  try {
-    ToastAndroid.show(i18n.t(key), ToastAndroid.LONG);
-  } catch {
-    // Never let a message break the flow.
-  }
+// The message to show once the flow's ad screens are gone (flows never
+// overlap, so one slot is enough).
+let pendingNotice: string | null = null;
+function queueNotice(messageKey: string): void {
+  pendingNotice = messageKey;
 }
 
-// "Unlock the previous episode first" - shared by every caller.
-export function showPreviousEpisodeFirst(target: Omit<StoryUnlockTarget, 'feedId'> & { feedId?: string }): void {
+// "Unlock the previous episode first" - shared by every caller; a centred
+// notice (resolves when dismissed).
+export function showPreviousEpisodeFirst(target: Omit<StoryUnlockTarget, 'feedId'> & { feedId?: string }): Promise<void> {
   logStoryLockShown({ episodeNumber: target.episodeNumber, seriesId: target.seriesId, trigger: target.trigger }, 'previous_first');
-  toast('storyLock.previousFirst');
+  return showStoryNotice('storyLock.previousFirst');
 }
 
 type LoadWaitResult = AdLoadOutcome | { ok: false; reason: 'cancelled' | 'backgrounded' };
@@ -123,21 +129,21 @@ async function record(
   switch (outcome) {
     case 'granted':
       logStoryUnlockCompleted(storyContext, source);
-      if (source === 'no_fill') toast('storyLock.unlockedFor24h');
-      return source === 'reward' ? 'unlocked' : 'temp';
+      if (source === 'no_fill') queueNotice('storyLock.noFillUnlocked');
+      return 'unlocked';
     case 'disabled':
       return 'disabled';
     case 'refused':
-      toast('storyLock.previousFirst');
+      queueNotice('storyLock.previousFirst');
       return 'refused';
     case 'cap_reached':
-      toast('storyLock.dailyLimit');
+      queueNotice('storyLock.dailyLimit');
       return 'cap_reached';
     case 'unauthorized':
       // apiClient has already renewed or reset the session (§137).
       return 'failed';
     default:
-      toast('storyLock.unlockFailed');
+      queueNotice('storyLock.unlockFailed');
       return 'failed';
   }
 }
@@ -158,11 +164,7 @@ async function loadWithOneRetry(
   return { ad: second, loaded: await waitForAdOrAbort(second.waitForLoad(AD_LOAD_TIMEOUT_MS)) };
 }
 
-export async function runStoryUnlockFlow(target: StoryUnlockTarget): Promise<StoryUnlockFlowResult> {
-  // Double taps: one flow at a time, and never while another ad flow runs.
-  if (flowRunning || useAdFlowStore.getState().phase !== 'idle') return 'busy';
-  flowRunning = true;
-
+async function runFlowSteps(target: StoryUnlockTarget): Promise<StoryUnlockFlowResult> {
   const isSingle = !target.seriesId;
   const storyContext: StoryEventContext = {
     episodeNumber: target.episodeNumber,
@@ -171,71 +173,87 @@ export async function runStoryUnlockFlow(target: StoryUnlockTarget): Promise<Sto
   };
   const context: AdEventContext = { content_type: 'stories', action: 'listen', trigger: target.trigger };
 
+  const ad = prepareRewardedAd('story');
+  if (!ad) {
+    // Ads can't run in this build - behave like no fill.
+    logAdUnavailable(context, 'load_error');
+    logStoryUnlockNoFill(storyContext);
+    return await record(target, storyContext, 'no_fill');
+  }
+
+  logStoryLockShown(storyContext, 'unlock_offer');
+  logAdUnlockOffered(context);
+  const answer = await useAdFlowStore
+    .getState()
+    .requestOptIn(isSingle ? 'storyLock.adBodySingle' : 'storyLock.adBody');
+  if (answer === 'decline') {
+    ad.release();
+    logAdUnlockDeclined(context);
+    return 'declined';
+  }
+  logAdWatchTapped(context);
+  logMetaAdWatchTapped(context);
+  logStoryUnlockTapped(storyContext);
+
+  const paused = pauseMediaForAd();
   try {
-    const ad = prepareRewardedAd('story');
-    if (!ad) {
-      // Ads can't run in this build - behave like no fill.
-      logAdUnavailable(context, 'load_error');
+    const { ad: readyAd, loaded } = await loadWithOneRetry(ad, context);
+    if (!loaded.ok) {
+      readyAd.release();
+      if (loaded.reason === 'cancelled' || loaded.reason === 'backgrounded') {
+        logAdFailed(context, loaded.reason);
+        return 'declined';
+      }
+      logAdUnavailable(context, loaded.reason);
       logStoryUnlockNoFill(storyContext);
       return await record(target, storyContext, 'no_fill');
     }
 
-    logStoryLockShown(storyContext, 'unlock_offer');
-    logAdUnlockOffered(context);
-    const answer = await useAdFlowStore
-      .getState()
-      .requestOptIn(isSingle ? 'storyLock.adBodySingle' : 'storyLock.adBody');
-    if (answer === 'decline') {
-      ad.release();
-      logAdUnlockDeclined(context);
+    if (!isAppInForeground()) {
+      readyAd.release();
+      logAdFailed(context, 'not_foreground', loaded.loadMs);
       return 'declined';
     }
-    logAdWatchTapped(context);
-    logMetaAdWatchTapped(context);
-    logStoryUnlockTapped(storyContext);
 
-    const paused = pauseMediaForAd();
-    try {
-      const { ad: readyAd, loaded } = await loadWithOneRetry(ad, context);
-      if (!loaded.ok) {
-        readyAd.release();
-        if (loaded.reason === 'cancelled' || loaded.reason === 'backgrounded') {
-          logAdFailed(context, loaded.reason);
-          return 'declined';
-        }
-        logAdUnavailable(context, loaded.reason);
-        logStoryUnlockNoFill(storyContext);
-        return await record(target, storyContext, 'no_fill');
-      }
+    useAdFlowStore.getState().setPhase('showing');
+    const outcome = await readyAd.show();
+    noteAdShownAndMaybePreload('story');
 
-      if (!isAppInForeground()) {
-        readyAd.release();
-        logAdFailed(context, 'not_foreground', loaded.loadMs);
-        return 'declined';
-      }
-
-      useAdFlowStore.getState().setPhase('showing');
-      const outcome = await readyAd.show();
-      noteAdShownAndMaybePreload('story');
-
-      if (outcome === 'rewarded') {
-        logAdRewardEarned(context, loaded.loadMs);
-        logMetaAdWatched(context);
-        return await record(target, storyContext, 'reward');
-      }
-      if (outcome === 'closed_no_reward') {
-        logAdClosedNoReward(context, loaded.loadMs);
-        logStoryUnlockClosedNoReward(storyContext);
-        return 'declined';
-      }
-      logAdFailed(context, 'show_error', loaded.loadMs);
-      logStoryUnlockNoFill(storyContext);
-      return await record(target, storyContext, 'no_fill');
-    } finally {
-      useAdFlowStore.getState().setPhase('idle');
-      resumeMediaAfterAd(paused);
+    if (outcome === 'rewarded') {
+      logAdRewardEarned(context, loaded.loadMs);
+      logMetaAdWatched(context);
+      return await record(target, storyContext, 'reward');
     }
+    if (outcome === 'closed_no_reward') {
+      logAdClosedNoReward(context, loaded.loadMs);
+      logStoryUnlockClosedNoReward(storyContext);
+      return 'declined';
+    }
+    logAdFailed(context, 'show_error', loaded.loadMs);
+    logStoryUnlockNoFill(storyContext);
+    return await record(target, storyContext, 'no_fill');
   } finally {
+    useAdFlowStore.getState().setPhase('idle');
+    resumeMediaAfterAd(paused);
+  }
+}
+
+export async function runStoryUnlockFlow(target: StoryUnlockTarget): Promise<StoryUnlockFlowResult> {
+  // Double taps: one flow at a time (the notice included), and never while
+  // another ad flow runs.
+  if (flowRunning || useAdFlowStore.getState().phase !== 'idle') return 'busy';
+  flowRunning = true;
+  pendingNotice = null;
+  try {
+    const result = await runFlowSteps(target);
+    // The ad screens are gone now: show the message and wait for OK (or a
+    // tap outside) before the caller plays anything.
+    const notice = pendingNotice;
+    pendingNotice = null;
+    if (notice) await showStoryNotice(notice);
+    return result;
+  } finally {
+    pendingNotice = null;
     flowRunning = false;
   }
 }

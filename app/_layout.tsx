@@ -8,6 +8,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '@/features/authentication/hooks/useAuth';
 import { PremiumPaywall } from '@/components/molecules/PremiumPaywall';
 import { AdUnlockSheet } from '@/components/molecules/AdUnlockSheet';
+import { StoryNotice } from '@/components/molecules/StoryNotice';
 import { MaintenanceScreen } from '@/components/molecules/MaintenanceScreen';
 import { UpdateRequiredScreen } from '@/components/molecules/UpdateRequiredScreen';
 import { UpdatePromptModal } from '@/components/molecules/UpdatePromptModal';
@@ -329,6 +330,8 @@ export default function RootLayout() {
               {/* Rewarded-ad opt-in card (adFlowStore). Not mounted while
                   blocked, so an ad offer then answers "decline" at once. */}
               {!isAppBlocked && <AdUnlockSheet />}
+              {/* Centred story ad-lock notice (storyNoticeStore). */}
+              {!isAppBlocked && <StoryNotice />}
               {!isAppBlocked && <UpdatePromptModal />}
             </AuthProvider>
           </ToastProvider>

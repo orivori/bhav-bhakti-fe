@@ -3,7 +3,10 @@
 // reads this file directly (storyLock.test.mjs).
 //
 // The backend sends each story a `state` when STORY_LOCK_ENABLED is on:
-//   free / unlocked / temp - playable, the audio url is present
+//   free / unlocked        - playable, the audio url is present (since
+//                            2026-11-15 every unlock, ad or no ad, is
+//                            permanent; 'temp' is no longer sent but is
+//                            still read as playable, for old data)
 //   next                   - the one item an ad unlocks now (url null)
 //   locked                 - needs the previous item first (url null)
 // No state at all (switch off, or old data) means playable - exactly as

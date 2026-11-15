@@ -1,11 +1,10 @@
 import { useCallback } from 'react';
-import { ToastAndroid } from 'react-native';
-import i18n from 'i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { Feed } from '@/types/feed';
 import { feedService } from '@/features/feed/services/feedService';
 import { storiesQueryKeys } from '@/features/feed/hooks/useStories';
 import { openAudioPlayer } from '@/utils/openAudioPlayer';
+import { showStoryNotice } from '@/store/storyNoticeStore';
 import type { StoryTrigger } from '@/utils/analytics/storyEvents';
 import { storyTapAction } from './storyLock';
 import { isStoryUnlockPlayable, runStoryUnlockFlow, showPreviousEpisodeFirst } from './storyUnlockFlow';
@@ -57,7 +56,7 @@ export function useStoryOpener() {
         return;
       }
       if (action === 'previous_first') {
-        showPreviousEpisodeFirst(target);
+        void showPreviousEpisodeFirst(target);
         return;
       }
 
@@ -88,7 +87,7 @@ export function useStoryOpener() {
       } catch {
         // fall through to the message below
       }
-      ToastAndroid.show(i18n.t('storyLock.unlockFailed'), ToastAndroid.LONG);
+      void showStoryNotice('storyLock.unlockFailed');
     },
     [queryClient, refreshStories]
   );

@@ -9,7 +9,6 @@ import {
   Alert,
   AppState,
   BackHandler,
-  ToastAndroid,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -29,6 +28,7 @@ import { canPlayQueueItem, isStoryStatePlayable, parseStoryState, storyTapAction
 import { isStoryUnlockPlayable, runStoryUnlockFlow, showPreviousEpisodeFirst } from '@/features/stories/storyUnlockFlow';
 import { isAppInForeground } from '@/features/ads/rewardedAd';
 import { toQueueItem } from '@/utils/openAudioPlayer';
+import { showStoryNotice } from '@/store/storyNoticeStore';
 import { logStoryEpisodeCompleted, logStoryEpisodeStarted, type StoryTrigger } from '@/utils/analytics/storyEvents';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { designSystemTheme } from '@/styles/designSystemTheme';
@@ -1455,7 +1455,7 @@ export default function AudioPlayerScreen() {
     async (item: QueueItem, trigger: StoryTrigger, playAfter: boolean, isImmediateNext: boolean) => {
       const target = { feedId: item.feedId, seriesId: item.seriesId ?? null, episodeNumber: item.episodeNumber ?? null, trigger };
       if (!isImmediateNext && storyTapAction(item.storyState) === 'previous_first') {
-        showPreviousEpisodeFirst(target);
+        void showPreviousEpisodeFirst(target);
         return;
       }
       const result = await runStoryUnlockFlow(target);
@@ -1484,7 +1484,7 @@ export default function AudioPlayerScreen() {
       trigger: (feedData.seriesId ? 'episode_list' : 'single_story') as StoryTrigger,
     };
     if (parseStoryState(feedData.state) === 'locked') {
-      showPreviousEpisodeFirst(target);
+      void showPreviousEpisodeFirst(target);
       return;
     }
     const result = await runStoryUnlockFlow(target);
@@ -1497,9 +1497,9 @@ export default function AudioPlayerScreen() {
       // A fresh play request: the auto-start effect plays it exactly once.
       router.setParams({ autoPlay: 'true', playRequestId: newPlayRequestId(), audioUrl: encodeURIComponent(fresh.url) });
     } catch {
-      ToastAndroid.show(t('storyLock.unlockFailed', { ns: 'translation' }), ToastAndroid.LONG);
+      void showStoryNotice('storyLock.unlockFailed');
     }
-  }, [feedData, feedId, refreshStoryQueue, t]);
+  }, [feedData, feedId, refreshStoryQueue]);
 
   // Opened straight into a locked story (stale list, Up Next, the mini
   // player): offer the unlock once per play request - never an error.
