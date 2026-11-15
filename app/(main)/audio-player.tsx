@@ -9,6 +9,7 @@ import {
   Alert,
   AppState,
   BackHandler,
+  ToastAndroid,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -22,7 +23,13 @@ import { useAudioPlayer, useAudioPlayerStatus, setAudioModeAsync } from 'expo-au
 import * as FileSystem from 'expo-file-system/legacy';
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { Gesture, GestureDetector, Directions } from 'react-native-gesture-handler';
-import { Text } from '@/components/atoms';
+import { Button, Text } from '@/components/atoms';
+import { useQueryClient } from '@tanstack/react-query';
+import { canPlayQueueItem, isStoryStatePlayable, parseStoryState, storyTapAction } from '@/features/stories/storyLock';
+import { isStoryUnlockPlayable, runStoryUnlockFlow, showPreviousEpisodeFirst } from '@/features/stories/storyUnlockFlow';
+import { isAppInForeground } from '@/features/ads/rewardedAd';
+import { toQueueItem } from '@/utils/openAudioPlayer';
+import { logStoryEpisodeCompleted, logStoryEpisodeStarted, type StoryTrigger } from '@/utils/analytics/storyEvents';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { designSystemTheme } from '@/styles/designSystemTheme';
 import { feedService } from '@/features/feed/services/feedService';
@@ -419,6 +426,12 @@ export default function AudioPlayerScreen() {
 
   // Feed data state
   const [feedData, setFeedData] = useState<Feed | null>(null);
+  // Stories ad-lock actions, assigned further down once defined - called
+  // from togglePlayback and the end-of-track effect, which come first.
+  const storyLockActionsRef = useRef<{
+    unlockCurrentStory: () => void;
+    requestEndOfEpisodeUnlock: (item: QueueItem) => void;
+  }>({ unlockCurrentStory: () => {}, requestEndOfEpisodeUnlock: () => {} });
   const [isFeedLoading, setIsFeedLoading] = useState(true);
   const [feedError, setFeedError] = useState<string | null>(null);
 
@@ -1007,6 +1020,12 @@ export default function AudioPlayerScreen() {
       }
 
       if (!contentData.audioUrl) {
+        // Stories ad-lock: a locked episode comes without audio - offer the
+        // unlock (or "previous episode first") instead of an error.
+        if (contentData.type === 'stories') {
+          storyLockActionsRef.current.unlockCurrentStory();
+          return;
+        }
         console.log('❌ Audio Player: No audio URL provided');
         Alert.alert(t('audioPlaybackError'), t('noAudioUrlError'));
         return;
@@ -1392,21 +1411,189 @@ export default function AudioPlayerScreen() {
     });
   }, [params.returnTo, params.returnParams]);
 
+  // ---- Stories ad-lock (src/features/stories; backend CLAUDE.md §144) ----
+  // The player never moves to a story item without audio: a locked item is
+  // unlocked with an ad first (foreground only), then the queue is
+  // refreshed from the server and the item plays.
+  const queryClient = useQueryClient();
+
+  // Re-reads the series and refreshes every queue item's audio link and lock
+  // state (one request). No state from the server = playable (lock off).
+  const refreshStoryQueue = useCallback(async (seriesId?: number | null) => {
+    queryClient.invalidateQueries({ queryKey: ['stories'] });
+    if (!seriesId) return;
+    try {
+      const response = await feedService.getFeeds({ seriesId, limit: 300 });
+      const patches: Record<string, Partial<QueueItem>> = {};
+      for (const episode of response.feeds) {
+        const fresh = toQueueItem(episode, language);
+        patches[fresh.feedId] = { audioUrl: fresh.audioUrl, storyState: fresh.storyState, thumbnailUrl: fresh.thumbnailUrl };
+      }
+      usePlaybackStore.getState().patchQueueItems(patches);
+    } catch (error) {
+      console.warn('refreshStoryQueue failed', error);
+    }
+  }, [queryClient, language]);
+
+  // Jumps the queue to an item and plays it - only if it now has audio.
+  const playQueueItemByFeedId = useCallback((targetFeedId: string) => {
+    const current = usePlaybackStore.getState().queue;
+    if (!current) return;
+    const position = current.playOrder.findIndex((index) => current.originalItems[index].feedId === targetFeedId);
+    if (position < 0) return;
+    const item = current.originalItems[current.playOrder[position]];
+    if (!canPlayQueueItem(item)) return;
+    usePlaybackStore.getState().jumpToIndex(position);
+    navigateToQueueItem(item);
+  }, [navigateToQueueItem]);
+
+  // Unlocks a queue item with an ad and, if asked, plays it afterwards.
+  // isImmediateNext: the item right after a playable current one - always
+  // the server's `next`, even if its list state is stale ('locked'), so the
+  // ad is offered without checking the state.
+  const unlockQueueItem = useCallback(
+    async (item: QueueItem, trigger: StoryTrigger, playAfter: boolean, isImmediateNext: boolean) => {
+      const target = { feedId: item.feedId, seriesId: item.seriesId ?? null, episodeNumber: item.episodeNumber ?? null, trigger };
+      if (!isImmediateNext && storyTapAction(item.storyState) === 'previous_first') {
+        showPreviousEpisodeFirst(target);
+        return;
+      }
+      const result = await runStoryUnlockFlow(target);
+      if (result === 'refused') {
+        await refreshStoryQueue(item.seriesId);
+        return;
+      }
+      if (!isStoryUnlockPlayable(result)) return;
+      await refreshStoryQueue(item.seriesId);
+      if (playAfter) playQueueItemByFeedId(item.feedId);
+    },
+    [refreshStoryQueue, playQueueItemByFeedId]
+  );
+
+  // The opened story itself is locked (its fetch came back next/locked,
+  // url null): the play button and the auto-start offer the unlock.
+  const isCurrentStoryLocked =
+    contentData.type === 'stories' && !!feedData && String(feedData.id) === feedId && !isStoryStatePlayable(feedData.state);
+
+  const unlockCurrentStory = useCallback(async () => {
+    if (!feedData || String(feedData.id) !== feedId) return;
+    const target = {
+      feedId: String(feedData.id),
+      seriesId: feedData.seriesId ?? null,
+      episodeNumber: feedData.episodeNumber ?? null,
+      trigger: (feedData.seriesId ? 'episode_list' : 'single_story') as StoryTrigger,
+    };
+    if (parseStoryState(feedData.state) === 'locked') {
+      showPreviousEpisodeFirst(target);
+      return;
+    }
+    const result = await runStoryUnlockFlow(target);
+    if (result === 'refused' || isStoryUnlockPlayable(result)) await refreshStoryQueue(feedData.seriesId);
+    if (!isStoryUnlockPlayable(result)) return;
+    try {
+      const fresh = await feedService.getFeedById(String(feedData.id));
+      if (!fresh?.url) throw new Error('still no audio');
+      setFeedData(fresh);
+      // A fresh play request: the auto-start effect plays it exactly once.
+      router.setParams({ autoPlay: 'true', playRequestId: newPlayRequestId(), audioUrl: encodeURIComponent(fresh.url) });
+    } catch {
+      ToastAndroid.show(t('storyLock.unlockFailed', { ns: 'translation' }), ToastAndroid.LONG);
+    }
+  }, [feedData, feedId, refreshStoryQueue, t]);
+
+  // Opened straight into a locked story (stale list, Up Next, the mini
+  // player): offer the unlock once per play request - never an error.
+  const lockedPromptKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!isCurrentStoryLocked || !autoPlay) return;
+    const key = playRequestId ?? 'feed:' + feedId;
+    if (lockedPromptKeyRef.current === key) return;
+    lockedPromptKeyRef.current = key;
+    if (!isAppInForeground()) return;
+    void unlockCurrentStory();
+  }, [isCurrentStoryLocked, autoPlay, playRequestId, feedId, unlockCurrentStory]);
+
+  // End of an episode whose next one is locked: playback stops (the
+  // end-of-track effect) and the unlock is offered now - or, with the app in
+  // the background (an ad can't show there), when the listener returns.
+  // After the ad the next episode starts.
+  const pendingEndUnlockRef = useRef<QueueItem | null>(null);
+  const requestEndOfEpisodeUnlock = useCallback((item: QueueItem) => {
+    if (isAppInForeground()) {
+      pendingEndUnlockRef.current = null;
+      void unlockQueueItem(item, 'end_of_episode', true, true);
+    } else {
+      pendingEndUnlockRef.current = item;
+    }
+  }, [unlockQueueItem]);
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (next) => {
+      if (next !== 'active' || !pendingEndUnlockRef.current) return;
+      const item = pendingEndUnlockRef.current;
+      pendingEndUnlockRef.current = null;
+      // Still the same queue position? Then offer it.
+      const current = usePlaybackStore.getState().queue;
+      const nextItem = current && current.position < current.playOrder.length - 1
+        ? current.originalItems[current.playOrder[current.position + 1]]
+        : null;
+      if (nextItem && nextItem.feedId === item.feedId && !canPlayQueueItem(nextItem)) {
+        void unlockQueueItem(nextItem, 'end_of_episode', true, true);
+      }
+    });
+    return () => subscription.remove();
+  }, [unlockQueueItem]);
+
+  storyLockActionsRef.current = {
+    unlockCurrentStory: () => void unlockCurrentStory(),
+    requestEndOfEpisodeUnlock,
+  };
+
+  // The next queue item, if it's a locked story: "Unlock next episode"
+  // shows while the current one plays, so the ad happens in the foreground.
+  const nextQueueItem =
+    queue && queue.position < queue.playOrder.length - 1 ? queue.originalItems[queue.playOrder[queue.position + 1]] : null;
+  const showUnlockNext = isStory && !isCurrentStoryLocked && !!nextQueueItem && !canPlayQueueItem(nextQueueItem);
+
+  // story_episode_started: once per play request, when audio first plays.
+  const storyStartLoggedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!isStory || !status.playing || !feedData || String(feedData.id) !== feedId) return;
+    const key = feedId + ':' + (playRequestId ?? '');
+    if (storyStartLoggedRef.current === key) return;
+    storyStartLoggedRef.current = key;
+    logStoryEpisodeStarted({ episodeNumber: feedData.episodeNumber ?? null, seriesId: feedData.seriesId ?? null });
+  }, [isStory, status.playing, feedData, feedId, playRequestId]);
+
   const handlePrevious = useCallback(() => {
     if (!canGoPrevious) return;
+    const currentQueue = usePlaybackStore.getState().queue;
+    const previousItem = currentQueue ? currentQueue.originalItems[currentQueue.playOrder[currentQueue.position - 1]] : null;
+    if (contentData.type === 'stories' && previousItem && !canPlayQueueItem(previousItem)) {
+      // Lock-screen Previous in the background: stay put, no error.
+      if (isAppInForeground()) void unlockQueueItem(previousItem, 'during_playback', true, false);
+      return;
+    }
     usePlaybackStore.getState().goToPrevious();
     const updatedQueue = usePlaybackStore.getState().queue;
     if (!updatedQueue) return;
     navigateToQueueItem(updatedQueue.originalItems[updatedQueue.playOrder[updatedQueue.position]]);
-  }, [canGoPrevious, navigateToQueueItem]);
+  }, [canGoPrevious, navigateToQueueItem, contentData.type, unlockQueueItem]);
 
   const handleNext = useCallback(() => {
     if (!canGoNext) return;
+    const currentQueue = usePlaybackStore.getState().queue;
+    const upcoming = currentQueue ? currentQueue.originalItems[currentQueue.playOrder[currentQueue.position + 1]] : null;
+    if (contentData.type === 'stories' && upcoming && !canPlayQueueItem(upcoming)) {
+      // In-app Next offers the ad; the lock-screen Next (app in the
+      // background) stays on the current episode - no error, no crash.
+      if (isAppInForeground()) void unlockQueueItem(upcoming, 'during_playback', true, true);
+      return;
+    }
     usePlaybackStore.getState().advanceQueue();
     const updatedQueue = usePlaybackStore.getState().queue;
     if (!updatedQueue) return;
     navigateToQueueItem(updatedQueue.originalItems[updatedQueue.playOrder[updatedQueue.position]]);
-  }, [canGoNext, navigateToQueueItem]);
+  }, [canGoNext, navigateToQueueItem, contentData.type, unlockQueueItem]);
 
   // QueueSheet renders in ACTIVE order (playOrder-resolved, so shuffled when
   // shuffled) - it's a pure list with no knowledge of originalItems/playOrder
@@ -1425,11 +1612,18 @@ export default function AudioPlayerScreen() {
   // reactive `queue` selector once the store updates) is what shows the
   // selection actually landed, in place of a dismiss-on-tap confirmation.
   const handleJumpToQueueIndex = useCallback((index: number) => {
+    const currentQueue = usePlaybackStore.getState().queue;
+    const tapped = currentQueue ? currentQueue.originalItems[currentQueue.playOrder[index]] : null;
+    if (contentData.type === 'stories' && tapped && !canPlayQueueItem(tapped)) {
+      // Same rules as the series screen: next -> ad, locked -> previous first.
+      void unlockQueueItem(tapped, 'up_next', true, false);
+      return;
+    }
     usePlaybackStore.getState().jumpToIndex(index);
     const updatedQueue = usePlaybackStore.getState().queue;
     if (!updatedQueue) return;
     navigateToQueueItem(updatedQueue.originalItems[updatedQueue.playOrder[updatedQueue.position]]);
-  }, [navigateToQueueItem]);
+  }, [navigateToQueueItem, contentData.type, unlockQueueItem]);
 
   // Handle natural end-of-track: auto-loop restart + counter increment.
   // Unlike expo-av, expo-audio does not auto-rewind position on finish, and
@@ -1476,7 +1670,21 @@ export default function AudioPlayerScreen() {
     // left (or no queue at all - e.g. reached via Search/Home, which never
     // call setQueue) falls straight through to the existing clean-stop
     // behavior in the unchanged branches below, unchanged.
-    if (showTrackNav && queue && queue.position < queue.playOrder.length - 1) {
+    if (contentData.type === 'stories' && feedData && String(feedData.id) === feedId) {
+      logStoryEpisodeCompleted({ episodeNumber: feedData.episodeNumber ?? null, seriesId: feedData.seriesId ?? null });
+    }
+
+    // Stories ad-lock: the next episode is locked - don't advance; playback
+    // stops cleanly below and the unlock is offered (after the ad the next
+    // episode starts).
+    const nextAfterFinish =
+      queue && queue.position < queue.playOrder.length - 1 ? queue.originalItems[queue.playOrder[queue.position + 1]] : null;
+    const nextIsLockedStory = contentData.type === 'stories' && !!nextAfterFinish && !canPlayQueueItem(nextAfterFinish);
+    if (nextIsLockedStory && nextAfterFinish) {
+      storyLockActionsRef.current.requestEndOfEpisodeUnlock(nextAfterFinish);
+    }
+
+    if (!nextIsLockedStory && showTrackNav && queue && queue.position < queue.playOrder.length - 1) {
       console.log('⏭️ Audio Player: track finished, advancing queue');
       usePlaybackStore.getState().advanceQueue();
       const updatedQueue = usePlaybackStore.getState().queue;
@@ -2494,6 +2702,27 @@ export default function AudioPlayerScreen() {
               separate, future, dedicated pass. */}
           {showTrackNav ? (
             <>
+            {/* Stories ad-lock: "Unlock next episode" while this one plays (the
+                ad happens in the foreground, the next episode follows
+                without a break), or "Watch an ad to unlock" when this
+                episode itself is locked. */}
+            {isStory && (isCurrentStoryLocked || showUnlockNext) && (
+              <View style={styles.storyUnlockRow}>
+                <Button
+                  title={t(isCurrentStoryLocked ? 'storyLock.unlockToListen' : 'storyLock.unlockNext', { ns: 'translation' })}
+                  onPress={() => {
+                    if (isCurrentStoryLocked) {
+                      void unlockCurrentStory();
+                    } else if (nextQueueItem) {
+                      void unlockQueueItem(nextQueueItem, 'during_playback', false, true);
+                    }
+                  }}
+                  variant="outline"
+                  fullWidth
+                  textStyle={styles.storyUnlockButtonText}
+                />
+              </View>
+            )}
             {/* No card/box wrapper - controls sit directly on the page
                background. Single row: shuffle/previous (smaller) flank a
                larger central play/pause, next/repeat (smaller) on the
@@ -2810,6 +3039,19 @@ export default function AudioPlayerScreen() {
 }
 
 const styles = StyleSheet.create({
+  // Stories ad-lock button above the controls.
+  storyUnlockRow: {
+    paddingHorizontal: 24,
+    marginBottom: 8,
+  },
+  // CLAUDE.md §132: a Button with a Devanagari label needs the full width,
+  // centred, with a line-height floor, or Android cuts it to one word.
+  storyUnlockButtonText: {
+    flex: 1,
+    textAlign: 'center',
+    lineHeight: 26,
+    minHeight: 26,
+  },
   container: {
     flex: 1,
     backgroundColor: goldenTempleTheme.colors.background, // Light cream background
