@@ -13,7 +13,7 @@ import { useI18nStore } from '@/shared/stores/i18nStore';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
 import { useScrollToTopOnTabPress } from '@/hooks/useScrollToTopOnTabPress';
 import { useStoriesList, isStorySeries } from '@/features/feed/hooks/useStories';
-import { openAudioPlayer } from '@/utils/openAudioPlayer';
+import { useStoryOpener } from '@/features/stories/useStoryOpener';
 import { Feed } from '@/types/feed';
 
 const { width } = Dimensions.get('window');
@@ -33,6 +33,7 @@ export default function StoriesScreen() {
   const { contentPadding } = useTabBarHeight();
   const listRef = useRef<FlatList<Feed>>(null);
 
+  const { openStory } = useStoryOpener();
   const { stories, isLoading, isError, refetch, isRefetching, fetchNextPage, hasNextPage, isFetchingNextPage } =
     useStoriesList();
 
@@ -50,9 +51,10 @@ export default function StoriesScreen() {
         router.push({ pathname: '/(main)/story-series' as any, params: { seriesId: String(feed.id) } });
         return;
       }
-      openAudioPlayer({ feed, language, returnTo: '/(main)/stories' });
+      // A single story: plays, or (ad-lock on, state next) offers the ad.
+      openStory({ feed, language, trigger: 'single_story', returnTo: '/(main)/stories' });
     },
-    [language]
+    [language, openStory]
   );
 
   const handleEndReached = useCallback(() => {

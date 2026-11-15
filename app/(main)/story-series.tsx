@@ -24,6 +24,9 @@ import { useStorySeries, useSeriesEpisodes, isStorySeries } from '@/features/fee
 import { getFeedSubtitle, getFeedThumbnailUrl } from '@/utils/feedFields';
 import { formatDuration } from '@/utils/formatDuration';
 import { Feed } from '@/types/feed';
+import { useStoryOpener } from '@/features/stories/useStoryOpener';
+import { parseStoryState, isStoryStatePlayable, unlockedSummary } from '@/features/stories/storyLock';
+import { rememberSeriesFreeEpisodes } from '@/utils/analytics/storyEvents';
 
 const { width } = Dimensions.get('window');
 const COVER_SIZE = Math.min(width * 0.6, 280);
@@ -47,6 +50,12 @@ export default function StorySeriesScreen() {
   const episodesQuery = useSeriesEpisodes(seriesId);
   const series = seriesQuery.data;
   const episodes = episodesQuery.data ?? [];
+  const { openStory } = useStoryOpener();
+
+  // Story events carry the series' free-episode count (storyEvents.ts).
+  useEffect(() => {
+    if (series) rememberSeriesFreeEpisodes(series.id, series.freeEpisodes);
+  }, [series]);
 
   // This screen stays mounted between visits (a hidden Tabs screen), so a
   // different series must start at the top.
@@ -77,20 +86,40 @@ export default function StorySeriesScreen() {
     episodesQuery.refetch();
   }, [seriesQuery, episodesQuery]);
 
+  // Stories ad-lock: each row's lock look comes from the server's state
+  // (none = the lock is off: the row looks and plays exactly as before), and
+  // a tap goes through openStory (play / ad / "previous episode first").
   const renderEpisode = useCallback(
-    ({ item, index }: { item: Feed; index: number }) => (
-      <AudioContentCard
-        feed={item}
-        queueItems={episodes}
-        queueIndex={index}
-        episodeNumber={item.episodeNumber}
-        detail={formatDuration(item.duration)}
-        showLike={false}
-        returnTo="/(main)/story-series"
-        returnParams={{ seriesId: String(seriesId) }}
-      />
-    ),
-    [episodes, seriesId]
+    ({ item, index }: { item: Feed; index: number }) => {
+      const state = parseStoryState(item.state);
+      const lockState = state === null ? null : isStoryStatePlayable(state) ? 'open' : state === 'next' ? 'next' : 'locked';
+      return (
+        <AudioContentCard
+          feed={item}
+          queueItems={episodes}
+          queueIndex={index}
+          episodeNumber={item.episodeNumber}
+          detail={formatDuration(item.duration)}
+          showLike={false}
+          lockState={lockState}
+          lockHint={t('storyLock.unlockToListen')}
+          returnTo="/(main)/story-series"
+          returnParams={{ seriesId: String(seriesId) }}
+          onPress={() =>
+            openStory({
+              feed: item,
+              language,
+              queueItems: episodes,
+              queueIndex: index,
+              trigger: 'episode_list',
+              returnTo: '/(main)/story-series',
+              returnParams: { seriesId: String(seriesId) },
+            })
+          }
+        />
+      );
+    },
+    [episodes, seriesId, openStory, language, t]
   );
 
   const renderHeader = () => {
@@ -99,6 +128,8 @@ export default function StorySeriesScreen() {
     const subtitle = getFeedSubtitle(series, language);
     const coverUrl = getFeedThumbnailUrl(series);
     const count = series.episodeCount ?? episodes.length;
+    // "N of M unlocked" - only while the lock is on (the server sends both).
+    const summary = unlockedSummary(series);
 
     return (
       <View style={styles.seriesHeader}>
@@ -120,6 +151,11 @@ export default function StorySeriesScreen() {
         <Text variant="caption" weight="semibold" align="center" style={styles.episodeCount}>
           {count === 1 ? t('stories.episodeCountOne') : t('stories.episodeCountOther', { count })}
         </Text>
+        {summary ? (
+          <Text variant="caption" align="center" style={styles.unlockedSummary}>
+            {t('storyLock.unlockedSummary', summary)}
+          </Text>
+        ) : null}
         <Text variant="h5" weight="semibold" style={styles.episodesHeading}>
           {t('stories.episodesHeading')}
         </Text>
@@ -287,6 +323,14 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     marginTop: goldenTempleTheme.spacing.sm,
     color: goldenTempleTheme.colors.primary.DEFAULT,
+  },
+  // "N of M unlocked". Full width + a line-height floor (CLAUDE.md §71).
+  unlockedSummary: {
+    alignSelf: 'stretch',
+    marginTop: 4,
+    lineHeight: 20,
+    minHeight: 20,
+    color: goldenTempleTheme.colors.text.secondary,
   },
   episodesHeading: {
     alignSelf: 'stretch',
