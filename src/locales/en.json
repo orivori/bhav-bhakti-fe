@@ -438,6 +438,8 @@
     "loadError": "Couldn't load stories",
     "seriesLoadError": "Couldn't load this series",
     "seriesUnavailable": "This series isn't available right now",
+    "storyLoadError": "Couldn't load this story",
+    "storyUnavailable": "This story isn't available right now",
     "noEpisodes": "No episodes yet",
     "episodesHeading": "Episodes"
   },

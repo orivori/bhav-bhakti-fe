@@ -408,6 +408,8 @@
     "loadError": "कहानियाँ लोड नहीं हो सकीं",
     "seriesLoadError": "यह कथा-श्रृंखला लोड नहीं हो सकी",
     "seriesUnavailable": "यह कथा-श्रृंखला अभी उपलब्ध नहीं है",
+    "storyLoadError": "यह कहानी लोड नहीं हो सकी",
+    "storyUnavailable": "यह कहानी अभी उपलब्ध नहीं है",
     "noEpisodes": "अभी कोई एपिसोड नहीं है",
     "episodesHeading": "एपिसोड"
   },

@@ -56,11 +56,13 @@ export function useStoriesList() {
 }
 
 /**
- * A series row by id. Starts from the Stories list's own copy when there is
+ * A story (series row or single story) by id - the story page's header and,
+ * for a single story, its one row. Starts from the Stories list's own copy when there is
  * one, so the header shows instantly and reuses the cover image already on
  * screen (same signed URL) instead of downloading it again.
  */
-export function useStorySeries(seriesId: number) {
+export function useStory(storyId: number) {
+  const seriesId = storyId;
   const queryClient = useQueryClient();
 
   return useQuery({
@@ -79,8 +81,12 @@ export function useStorySeries(seriesId: number) {
   });
 }
 
+// Old name, same hook.
+export const useStorySeries = useStory;
+
 // A series' episodes, in episode order (empty unless the series is active).
-export function useSeriesEpisodes(seriesId: number) {
+// enabled: false skips the request (the story page for a single story).
+export function useSeriesEpisodes(seriesId: number, { enabled = true }: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: storiesQueryKeys.episodes(seriesId),
     queryFn: async (): Promise<Feed[]> => {
@@ -92,7 +98,7 @@ export function useSeriesEpisodes(seriesId: number) {
       }
       return episodes;
     },
-    enabled: seriesId > 0,
+    enabled: enabled && seriesId > 0,
     staleTime: STALE_TIME_MS,
     gcTime: GC_TIME_MS,
     refetchOnWindowFocus: false,

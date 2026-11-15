@@ -6,6 +6,7 @@ import { storiesQueryKeys } from '@/features/feed/hooks/useStories';
 import { openAudioPlayer } from '@/utils/openAudioPlayer';
 import { showStoryNotice } from '@/store/storyNoticeStore';
 import type { StoryTrigger } from '@/utils/analytics/storyEvents';
+import type { StoryEpisodeEntry } from './storyPage';
 import { storyTapAction } from './storyLock';
 import { isStoryUnlockPlayable, runStoryUnlockFlow, showPreviousEpisodeFirst } from './storyUnlockFlow';
 
@@ -26,6 +27,8 @@ export interface OpenStoryOptions {
   queueItems?: Feed[];
   queueIndex?: number;
   trigger: StoryTrigger;
+  // Where the playback starts from (story_episode_started's entry).
+  entry?: StoryEpisodeEntry;
   returnTo: string;
   returnParams?: Record<string, string>;
 }
@@ -81,7 +84,10 @@ export function useStoryOpener() {
       try {
         const fresh = await feedService.getFeedById(String(feed.id));
         if (fresh?.url) {
-          openAudioPlayer({ ...options, feed: fresh, queueItems: undefined, queueIndex: undefined });
+          // A single story is its own queue of one; an episode whose list
+          // isn't loaded opens without a queue.
+          const isSingle = !feed.seriesId;
+          openAudioPlayer({ ...options, feed: fresh, queueItems: isSingle ? [fresh] : undefined, queueIndex: isSingle ? 0 : undefined });
           return;
         }
       } catch {
