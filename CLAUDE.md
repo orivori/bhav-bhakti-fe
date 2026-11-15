@@ -1,679 +1,444 @@
 # Bhav Bhakti — Project Context
 
-*Last verified against actual code/config: 2026-10-22 (§110–§127 each checked against the commits and branches, and where relevant the databases, the Storage bucket, Railway deploys and Crashlytics; the rest last had a full staleness pass on 2026-09-29). §128 (2026-10-23) recorded from the founder's rotation work and today's commits. Last condensed 2026-10-23 (ninth pass — see the archive's note of that date). Newest: §143 AdMob → BigQuery daily sync, live in production as Railway `admob_sync` (`main` `b811ab3`, 2026-11-14); §142 v11 live in Production, soft update prompt ON, deferred deep link tested (founder-confirmed 2026-11-07); §141 deep link catalog, live on `main` (2026-11-07). On dev/develop only (NOT production): §120 Stories phases 1–5. Newest on `production`: §140 v11 (`1237b5a`, versionCode 11, guest login), §139 the cherry-picks. Frontend `master` was fast-forwarded to `1237b5a` on 2026-11-07 and equals `production`. Newest live in production: §142 v11 and the soft update prompt (2026-11-07); §141 deep link catalog scripts (`main` `1cec6be`, 2026-11-07); §140 guest backend with `GUEST_LOGIN_ENABLED=true` (2026-11-06); §138 Taurus/Leo/Scorpio birthdate fix (`main` `9744993`, 2026-11-05); §133 link safety handler + deferred-link probe (OTA on v9), v9 (1.1.0) in Closed testing, A2 backend live (2026-10-30 to 11-02); §132 A3/A4 AdMob app (in v9); §130 A2 AdMob backend (on `main`); §129 A1 counter default 11 + baseline events (v8 OTA from `96e7c89`); §128 Railway incident — every secret rotated (2026-10-23); §127 Search and video fixes (2026-10-22); §126 update-available prompt (soft prompt ON since 2026-11-07, §142); §125 video-memory fix; §124 v8 live on the Play Store (2026-10-11). Earlier production work: §110–§123.*
+*Last verified against actual code/config: 2026-11-15 (tenth-pass spot check of branches, versionCode/runtime, models, migrations and where Stories lives; §136–§143 were checked against git when written). Last condensed 2026-11-15 (tenth pass, ~151k → ~75k characters). The full text before every pass, including this one, is in `CLAUDE_ARCHIVE_2026-07-29_full-history.md` (two identical copies: `D:\bhav_bhakti\` and `D:\bhav_bhakti_Claude_docs\`). Condensed before on 2026-07-29, 08-13, 08-20 (twice), 09-10, 09-14, 09-18, 09-29, 10-05 and 10-23.*
 
-*Still-open items carried forward:* **Media Stage 2 paused** (WebP variants and thumbnails, §125); **v9 scope** (at least expo-image and native crash symbols, §125). **Revenue:** the Revenue Model and the roadmap live in `D:\bhav_bhakti_Claude_docs` (`Bhav_Bhakti_Revenue_Model.md`, `Bhav_Bhakti_Roadmap_2026-10-15.md`); AdMob (Model 2), chosen 2026-10-15, is **the next build** (Revenue Model §5c, Roadmap). **§87 — `isPremium` is permanently `false` for every user** (the Premium pipeline's frontend, wiring up the already-built `GET /subscription/status`, was never built) — HIGH PRIORITY for the next Premium session. **Security audit:** every group is complete. Group 4 is 9 of 10 — step 7 (App Check) deliberately skipped and permanent Firebase download tokens accepted as-is, no rotation (founder decisions, §112); Group 7 done apart from the Expo SDK 54→57 upgrade, parked as its own future project (§114). `Bhav_Bhakti_Security_Audit_Plan.md` is authoritative. **Docker images (§128):** `.dockerignore` excludes `package-lock.json`; the API `Dockerfile`'s `HEALTHCHECK` calls `/health`, which 404s — noted only. **Play Console:** the Data Safety form, the Advertising ID declaration and the foreground-service declaration are done; v11 live in Production (§142). **Content (§110/§111):** the import sheet must be brought in line with production before any re-import, or it undoes the dedupe; the Feed TEMPLATE CSV's example row points at deleted files (§112). **Product decision pending:** audio "views" vs "plays" (§113). **Claude never runs an OTA update, dev or production — the founder runs every one (§111); no device testing unless explicitly asked (§113).** **§85 is the standing branch workflow:** everyday commits on `dev`; `production` receives only cherry-picks from `dev` once tested; real production pushes only from `production` (`npm run update:production`); `master` fast-forwarded from `production` once confirmed live.
+*Where things stand (2026-11-15):* frontend `production` = `master` = `1237b5a` (**v11**, versionCode 11, version and OTA runtime 1.1.0, guest login), live in Play Production (§142); the `.dev` app is versionCode 6. Backend `main` = `b811ab3`. **Newest live in production:** §143 AdMob → BigQuery daily sync (Railway `admob_sync`); the Rashifal job retry fix (`main` `039c2b3`, 2026-11-11, §5); §142 v11 + soft update prompt ON + deferred deep link tested; §141 deep link catalog; §140 guest login ON; §138 Taurus/Leo/Scorpio birthdate fix; §134 Home pin; §133 link safety handler + deferred-link probe; §130 A2 ad-unlock backend (both switches OFF); §132 the A3/A4 ad engine (inside v9+ builds). **On dev/develop only, NOT production:** §120 Stories phases 1–5 (its migration `20261006000001` has never run on production).
 
-*Condensing history:* this file was condensed on 2026-07-29, 08-13, 08-20 (twice), 09-10, 09-14, 09-29, 10-05 and 10-23. The full original text of every condensed or rewritten section is preserved in `CLAUDE_ARCHIVE_2026-07-29_full-history.md`.
+*Still open:*
+- **Ads / Stories:** the Stories ad-lock build is next. Hard update (`ANDROID_MIN_BUILD`) comes **before** ads are switched on (founder decision, §140/§142). A2's `AD_UNLOCK_ENABLED`/`AD_VIEW_GATE_ENABLED` were last recorded OFF on production.
+- **§87 — `isPremium` is permanently `false` for every user** (the Premium frontend wiring `GET /subscription/status` was never built) — HIGH PRIORITY for the next Premium session. Keep `PREMIUM_GATING_ENABLED` off until real checkout exists (§123).
+- **Media Stage 2 paused** (WebP variants, thumbnails, video faststart, §125); expo-image and native crash-symbol upload were planned for "v9" but are still not installed/done.
+- **Security audit:** complete except Group 4 step 7 (App Check, skipped) and the Expo SDK 54→57 upgrade (parked, §114); permanent Firebase download tokens accepted as-is (§112). `Bhav_Bhakti_Security_Audit_Plan.md` is authoritative. Deferred findings: §100.
+- **Content:** never re-import the stale import sheet (§110/§111); the Feed TEMPLATE CSV's example row points at deleted files (§112); `Content Upload Sheet - Deities.csv` is out of step — never run `create-deities-from-csv.js` on a live database (§110/§118).
+- **Product decisions pending:** audio "views" vs "plays" (§113); content-management tooling (§3); link-up vs delete for 3 orphan screens (§10).
+- **Docker (§128):** `.dockerignore` excludes `package-lock.json`; the API `Dockerfile`'s `HEALTHCHECK` calls `/health`, which 404s — noted only.
+- **Privacy policy text** (draft in the Phase 3 plan doc, §140). v8's update screens keep cut-off Hindi labels (no v8 OTA, §140).
+- Smaller: seek bar has no drag (§13); lock-screen artwork test (§38); overnight ExoPlayer stall (§69); "Welcome Back" text hardcoded and no reset-to-Home after a long background (§83); per-user language never sent (§9); search alias laxmi → Maa Lakshmi, cancelled shares counted, English-only Status caption (§118); a downloaded wallpaper won't open (Handoff item 10); `role = 'admin'` not set on any production account (§97).
+
+*Standing rules (detail in the sections named):* **Claude never runs an OTA, dev or production — the founder runs every one (§111). No device or emulator testing unless explicitly asked (§113).** **§85 branch workflow:** everyday commits on `dev`; `production` gets only tested cherry-picks; real pushes only from `production` (`npm run update:production`); `master` fast-forwarded from `production` once live. **Never publish an OTA to runtime 1.1.0 from a branch without guest login** (§139/§142). Frontend CLAUDE.md commits stay on `dev`, never `production`/`master`; backend CLAUDE.md commits stay on `develop` (`main`'s copy stopped at §121, §141).
 
 ## 1. Project overview
 
-Bhav Bhakti is a devotional content app: wallpapers, ringtones, daily horoscopes (Rashifal), and a social "feed" of devotional content (mantras, etc.).
+Bhav Bhakti is a devotional content app: wallpapers, ringtones, aartis/bhajans/mantras, daily horoscopes (Rashifal), and a Home feed of devotional content.
 
-Two sibling repos live under this parent folder (`D:\bhav_bhakti`, which is **not itself a git repo** — only the two subfolders below are):
-- `bhav-bhakti-fe` — Expo / React Native frontend (Expo Router, TypeScript, Zustand; `expo-audio` for audio, `expo-av` still used for video). GitHub: `orivori/bhav-bhakti-fe`.
-- `bhav-bhakti-be` — Express / Sequelize backend (MySQL). GitHub: `orivori/bhav-bhakti-be`.
+Two sibling repos under `D:\bhav_bhakti` (**not itself a git repo**):
+- `bhav-bhakti-fe` — Expo / React Native (Expo SDK 54, Expo Router, TypeScript, Zustand; `expo-audio` for audio, `expo-av` still for video). GitHub `orivori/bhav-bhakti-fe`. Branches `dev` / `production` / `master` (§85).
+- `bhav-bhakti-be` — Express / Sequelize (MySQL). GitHub `orivori/bhav-bhakti-be`. Branches `develop` (Railway dev) / `main` (production).
 
-**Founder context:** solo, non-technical founder. No dev team — all implementation work goes through Claude Code. When a decision has technical tradeoffs, explain them in plain language before the founder has to choose.
+CLAUDE.md exists in four identical copies: `D:\bhav_bhakti\`, both repos, and `D:\bhav_bhakti_Claude_docs\` (read by the Claude app). Keep all four (and both archive copies) in sync.
+
+**Founder context:** solo, non-technical founder; all implementation goes through Claude Code. Explain technical trade-offs in plain language before the founder chooses.
 
 ## 2. Backend infrastructure
 
-**Database:** MySQL, hosted on Railway since 2026-08-25 (§64) — production and a separate development environment (§96), each with its own database. **Local development does NOT use `localhost`:** `bhav-bhakti-be/.env`'s `DB_HOST` points at a Railway database — the development environment's (`metro.proxy.rlwy.net`) since 2026-09-24; before that it was silently production's (`shinkansen.proxy.rlwy.net`) while saying `NODE_ENV=development` (§97). Always check `DB_HOST`, never `NODE_ENV`, to know which database a local script will hit — database-writing scripts enforce this via `scripts/confirm-db-target.js` (§97). The `dev`/`start` npm scripts run plain `nodemon`/`node`. Railway builds the API from the repo's `Dockerfile` (and the backup cron from `Dockerfile.backup`, §99); `docker-compose*.yml` and `DEPLOYMENT_GUIDE.md`'s old AWS EC2 plan still exist but are unused.
-- **18** Sequelize models in `src/models/` (2026-09-29): DailyHoroscope, Deity, Feed, FeedDownload, FeedLike, FeedShare, FeedTag, HoroscopeFeedback, HoroscopeReadHistory, LoginHistory, OTPLog, Payment, Subscription, SubscriptionEvent, Tag, User, UserProfile, UserZodiac. (Category and FeedMedia were removed by the feeds redesign, §104; the 4 Quiz models by §101.)
-- **53** migration files in `src/database/migrations/` (the newest, `20260930000001`, created the ranking tables, §111). Railway deploys never run migrations — they're run by hand (production via `scripts/migrate-production.js`, §104; dev via `railway run` with the dev-scoped token).
+**Database:** MySQL on Railway (§64), production and a separate development environment (§96). **Local `.env` does not use localhost:** `DB_HOST` points at Railway dev (`metro.proxy.rlwy.net`); production is `shinkansen.proxy.rlwy.net`. **Always check `DB_HOST`, never `NODE_ENV`**; writing scripts enforce this via `scripts/confirm-db-target.js` (§97). Railway builds the API from `Dockerfile` (backup from `Dockerfile.backup`, §99; AdMob sync from `Dockerfile.admob`, §143); `docker-compose*.yml` and the old AWS EC2 guide are unused.
+- **19** Sequelize models in `src/models/` (checked 2026-11-15; same on `main`): AdUnlock, DailyHoroscope, Deity, Feed, FeedDownload, FeedLike, FeedShare, FeedTag, HoroscopeFeedback, HoroscopeReadHistory, LoginHistory, OTPLog, Payment, Subscription, SubscriptionEvent, Tag, User, UserProfile, UserZodiac.
+- **56** migration files on `develop`, **55** on `main` (checked 2026-11-15) — the difference is the Stories migration `20261006000001`. Newest: `20261105000001-add-guest-accounts`. Railway deploys never run migrations: production via `scripts/migrate-production.js` (§104), dev via `scripts/migrate-development.js` (§136) or `railway run` with the dev token.
 
-**Media storage:** Firebase Cloud Storage, bucket `bhav-bhakti.firebasestorage.app` (migrated from AWS S3, `67c303b`). Uploads go through `src/services/uploadService.js` (a custom `FirebaseStorageEngine` with Sharp optimization); every upload/delete route is admin-only (§97). Feeds store Storage **paths**, not URLs (§104), and since §108 every feed response returns V4 signed URLs that expire after 72 hours.
-- `storage.rules` (the repo copy matches what's live; locked 2026-09-30, Group 4 step 10, §112): deny by default — no client `get`, `list` or write anywhere — except `FCMImages/` (push-notification images), which allows `get` by exact path. `backups/` stays private under the default deny. The app is unaffected, because it only uses backend-signed links; those, permanent download tokens and the Admin SDK all bypass the rules. Only bare token-free `firebasestorage.googleapis.com/...?alt=media` links stop working. **The `.dev` and production apps share this one bucket, so any rules change is live for both at once** — test in the Storage emulator first (§112). Rules are published by the founder in Firebase Console; Claude Code can't publish them.
-- Service account key `src/config/firebase-service-account.json`: gitignored (`.gitignore` line 6) and not tracked — re-check before every commit. On Railway the credentials come from a base64 environment variable instead (§64).
+**Media storage:** Firebase Cloud Storage, bucket `bhav-bhakti.firebasestorage.app`, shared by the `.dev` and production apps (any rules change is live for both). Uploads via `src/services/uploadService.js`; every upload/delete route is admin-only (§97). Feeds store Storage **paths**; every feed response returns V4 signed URLs valid 72 hours (§108). `storage.rules`: deny by default except `get` on `FCMImages/`; `backups/` private (§112). The founder publishes rules in the Console; Claude can't.
+- Service account key `src/config/firebase-service-account.json` is gitignored — re-check before every commit. Railway gets credentials from a base64 variable (§64). Current key: §128.
 
-**Auth:** Firebase Phone Auth is the only login path (§43/§45): the backend verifies the Firebase ID token, then issues its own JWT (10-day expiry). The old OTPless code and the master-OTP bypass were deleted outright (§45). Production's `JWT_SECRET` was rotated off the `.env.example` placeholder on 2026-09-24 (§97).
+**Auth:** silent guest login on first open (§136/§137) plus Firebase Phone Auth (§43/§45); the backend issues its own JWT (10 days). OTPless and the master OTP were deleted (§45).
 
-**AWS leftovers** (low priority — don't proactively fix): the unused `aws-sdk`, `@aws-sdk/client-s3` and `multer-s3` packages were removed in Group 7 step 4 (§114). Still left: `S3_SETUP_INSTRUCTIONS.md` is a stale S3-era doc, and unused `AWS_*`/`OTPLESS_*` environment variables are still set (audit plan's "still open, small" list). (`scripts/optimize-s3-assets.js`, `scripts/S3_OPTIMIZATION_GUIDE.md` and `profile.controller.js`'s host-string storage-cleanup branch are gone. The old "legacy CloudFront URLs in `FeedMedia`" trap is gone too: `feed_media` was merged into `feeds`, and every stored path was extracted from a Firebase URL, §104.)
+**AWS leftovers** (low priority): `S3_SETUP_INSTRUCTIONS.md` is stale. The leftover `AWS_*`/`OTPLESS_*` Railway variables were deleted on 2026-10-23 (§128).
 
 ## 3. Content ingestion
 
-**There is still no admin panel, dashboard or CMS in either repo.** Content is added with `npm run import:feeds` (`scripts/import-feeds-from-csv.js`), which writes `feeds`/`feed_tags` directly via Sequelize, bypassing the API. Since the feeds redesign (§102/§104) it takes a single sheet (template: `bhav-bhakti-be/Content Upload Sheet - Feed TEMPLATE.csv`), requires `id` and `url` on every row, converts each Firebase URL to a Storage path, and does find-or-update on `csv_id` (§50). It asks for a typed confirmation of the target database first (`confirm-db-target.js`, §97). **Refresh step after every import:** a production import through `scripts/import-feeds-production.js` refreshes `deeplink_catalog.csv` by itself; if it prints a catalog warning, or a change skipped the importer (such as retiring a feed), run the refresh command in §141.
+**No admin panel or CMS exists.** Content goes in with `npm run import:feeds` (`scripts/import-feeds-from-csv.js`): one sheet (template `bhav-bhakti-be/Content Upload Sheet - Feed TEMPLATE.csv`), `id` and `url` required, Firebase URLs converted to Storage paths, find-or-update on `csv_id` (§50), typed confirmation of the target database (§97). Production imports run through `scripts/import-feeds-production.js` (§141), which also refreshes `deeplink_catalog.csv`; if it prints a catalog warning, or a change skipped the importer (e.g. retiring a feed), run the refresh in §141. Importer rules: §110, §120, §135.
 
-The API route (`POST /upload/media`, then `POST /feed`) still exists but is admin-only on both: `POST /feed` has had `authenticate` + `requireAdmin` since `bfb3a51` (2026-09-24, merged to production `main` via `1ca0f5e`, §100). No production account has `role = 'admin'` (deliberately deferred, §97), so in practice this route is unused. `POST /feed` still hardcodes user 1 as the owner of every new feed (§100).
+`POST /upload/media` + `POST /feed` exist but are admin-only and unused (no admin account; `POST /feed` hardcodes user 1 as owner, §100).
 
-**Content-management tooling — undecided since 2026-07-19, pending a co-founder discussion:** (a) keep improving the CSV importer (cheapest; no edit/delete after import); (b) a minimal custom admin upload form calling the existing upload + create-feed endpoints (would need a real admin account); (c) Directus as a full CMS over the MySQL schema (~1–2 days; structural changes must still only ever happen via Sequelize migrations, never Directus's Data Model UI, or the ORM and live schema drift). Don't assume any of these has been built — confirm with the founder. The original option-by-option analysis is archived.
+**Content tooling undecided** (pending a co-founder talk): (a) keep improving the CSV importer; (b) a minimal admin upload form (needs an admin account); (c) Directus over the MySQL schema (schema changes still only via Sequelize migrations). Don't assume any was built.
 
 ## 4. Frontend display — content screens
 
-**Where real Feed data is shown:** Home (`index.tsx`, viewport-autoplay `AutoplayFeedCard`, §30); the Audio hub (`ringtones.tsx` — Ringtones/Aartis/Bhajans sub-tabs, §21/§27/§60); the Wallpaper hub (`daily-status.tsx` — Status/Thought/Wallpapers sub-tabs, §23/§33/§61); Mantra Explorer (`mantras.tsx`, §56); Search (`search-results.tsx`, §59); and the full player (`audio-player.tsx`, `expo-audio`, §57/§58).
-
-**Orphaned:** `wallpapers.tsx` still renders static `src/data/mockWallpapers.ts`, and nothing navigates to it (§10). It is unrelated to the working Wallpaper hub in `daily-status.tsx` — don't conflate the two. (`wallpaper-detail.tsx` was deleted in §53.)
-
-**Title and subtitle:** `Feed.title` and `Feed.subtitle` are both bilingual (`{en, hi}`). `subtitle` replaced the old single-language `caption` in the feeds redesign (§102/§103) and is shown in the current language — settling the old "build out or remove `caption`" question.
+Real Feed data: Home (`index.tsx`, `AutoplayFeedCard`, §30); Audio hub (`ringtones.tsx`, Ringtones/Aartis/Bhajans); Wallpaper hub (`daily-status.tsx`, Status/Thought/Wallpapers); Mantra Explorer (`mantras.tsx`); Search (`search-results.tsx`); full player (`audio-player.tsx`, `expo-audio`). `wallpapers.tsx` is an orphan on mock data — not the Wallpaper hub. `Feed.title` and `Feed.subtitle` are bilingual `{en, hi}`; resolve `title[language] || title.en`.
 
 ## 5. Horoscope engine
 
-Daily Rashifal content is AI-generated: `scripts/generate-daily-horoscopes-gemini.js` generates English with Gemini (`temperature: 1.4`, §90), then translates that exact content into Hindi (§55). A Railway cron runs it nightly with `TZ=Asia/Kolkata` (§66) — in production that's the service renamed "daily horoscope" on 2026-10-23 (formerly Railway's auto-generated `alert-transformation`, §128), which redeploys alongside `bhav-bhakti-be` on every push to `main`. The old third-party APIs (Aztro, horoscope-app-api) and their static fallback were removed (§40). `astrology.service.js` does real western zodiac-sign calculation from date of birth; Vedic details (moon sign, ascendant) are still stubbed (`// TODO: Future enhancement - call Vedic astrology API`, line 57).
+`scripts/generate-daily-horoscopes-gemini.js`: Gemini generates English (`temperature: 1.4`, §90), then translates that exact content into Hindi (§55). Railway cron with **`TZ=Asia/Kolkata`** (§66) — production service "daily horoscope" (`Daily_Horroscope`), redeployed with every push to `main`. **Since 2026-11-11 (`develop` `8dd7a32` → `main` `039c2b3`):** the job reads today's rows first and fills only what's missing (no API call when all 24 exist; Hindi-only gaps are translated from the saved English), retries 408/429/5xx/network/timeouts up to 4 times (~5/20/60 s), validates each answer before saving, works 2 signs at a time, stops after 3 exhausted calls in a row, forced exit at 25 minutes, and exits 1 whenever a reading is still missing — so a failed night can simply be re-run. Dev-only switches `GEMINI_BASE_URL`/`HOROSCOPE_TEST_DELAY_SCALE` are refused outside dev/local. `astrology.service.js` computes the western sign from date of birth; Vedic details are still stubbed.
 
-## 6. Known resolved issues (history only — don't redo these)
+## 6. Known resolved issues (history only)
 
-- **Seeder JSON bug** — fixed (`bhav-bhakti-be` `15c2b0a`): multilingual JSON columns need values like `JSON.stringify({ en: ... })`.
-- **AWS S3 → Firebase Storage migration** — `67c303b`, confirmed end-to-end 2026-07-18 (AWS package cleanup was separate, §2).
-- **Feed title/caption mismatch** — fixed (`bhav-bhakti-fe` `4e65b55`): resolve `feed.title[language] || feed.title.en`, never `feed.caption`. `caption` was later replaced by the bilingual `subtitle` (§4). `MantraCard.tsx` is dead code.
-- An original infrastructure audit and two 2026-07-19 reference documents (a Product Status Report `.xlsx` and a Navigation Map `.html`) exist only as founder-held files outside both repos — not in git.
+Seeder JSON (`15c2b0a`: multilingual JSON columns need `JSON.stringify`); S3 → Firebase (`67c303b`); title/caption mismatch (`4e65b55`). `MantraCard.tsx` is dead code. Founder-held reference files (Product Status Report, Navigation Map) are outside the repos.
 
-## 7. Session state — uncommitted local changes (resolved)
-
-Resolved 2026-07-22 (the `package-lock.json` drift and `api.ts`'s `10.0.2.2` override). HeidiSQL vs. Claude Code for data questions: §8.
+## 7. Session state — resolved 2026-07-22.
 
 ## 8. Working style / preferences
 
-- Founder is non-technical: always explain *why*, not just *what*, when something requires a decision from them (e.g. hosting choice, auth approach, tradeoffs between doing something quickly vs. correctly).
-- Flag security- and cost-relevant issues clearly and promptly (e.g. an open endpoint or an auth bypass — historically `POST /api/v1/feed` and the master OTP, both since fixed: §100, §45) — but don't block ongoing work on low-priority cleanup items (AWS leftovers, stale docs) unless asked.
-- After completing meaningful milestones, remind the founder to commit to GitHub — and always confirm sensitive files (keys, credentials, `.env`, `firebase-service-account.json`) are gitignored *before* committing, not after.
-- **Founder prefers checking data directly in HeidiSQL for simple lookups** — viewing a table's contents, checking whether a single row exists, eyeballing a value. Only use Claude Code for data questions that require actual code logic, multi-table joins/queries, or scripting (e.g. counting bilingual-field fill rates across several tables, cross-referencing DB rows against what the app code actually does with them). When a request comes in that's really just "what's in this table" or "does this row exist," flag that it could be checked directly in HeidiSQL instead of running it on the founder's behalf by default.
-- **Standing operational fact, recurs regularly (originally documented §20):** home WiFi periodically reassigns the laptop a new local IP, silently breaking physical-device testing until `bhav-bhakti-fe/.env`'s `EXPO_PUBLIC_DEV_API_HOST` is manually updated to match. Check via `ipconfig`'s "Wireless LAN adapter Wi-Fi" entry specifically (other entries can show misleading addresses). A full Metro restart is required after any `.env` change (`EXPO_PUBLIC_*` vars inline at bundle time). Expect to repeat this periodically for as long as the manual-IP-override approach is in use — session logs elsewhere just note the IP changed and point back here, rather than re-explaining it each time.
+- Explain *why*, not just *what*, whenever the founder must decide.
+- Flag security- and cost-relevant issues promptly; don't block work on low-priority cleanup unless asked.
+- After milestones, remind the founder to commit; confirm keys, credentials, `.env` and `firebase-service-account.json` are gitignored *before* committing.
+- **Simple data lookups** (a table's contents, does a row exist): suggest HeidiSQL instead of running them. Use Claude Code for joins, code logic or scripting.
+- **WiFi IP changes** silently break physical-device testing: update `bhav-bhakti-fe/.env`'s `EXPO_PUBLIC_DEV_API_HOST` from `ipconfig`'s "Wireless LAN adapter Wi-Fi" entry, then fully restart Metro (`EXPO_PUBLIC_*` inline at bundle time).
 
-## 9. Localization / i18n — remaining content gaps
+## 9. Localization / i18n
 
-The translation system itself is sound: react-i18next resolves strings (§54), `useI18nStore` (Zustand, persisted to AsyncStorage) is the single source of truth for the selected language, and `getLocalizedText()` genuinely follows it (§57). Remaining gaps, last reconfirmed 2026-09-29:
-- **Language picker:** English and Hindi only for MVP. Gujarati/Bengali are hidden but intact — re-enable via `SELECTABLE_LANGUAGES` in `i18nStore.ts`. Their translation coverage is only ~25% (`gu.json`/`bn.json` are missing whole sections that `en.json`/`hi.json` have) — moot while hidden.
-- **Deities:** all 20 rows bilingual (2026-07-19). The old Categories fill-rate figures are moot — the `categories` table was dropped (§104).
-- **Per-user language preference: backend-ready, never wired up.** `UserProfile.language` exists and `GET`/`PUT /profile` read and write it, but the app never sends it — Edit Profile (§63) covers name, gender and date of birth only. Language stays phone-local and resets on reinstall or a new device.
+react-i18next (§54) with `useI18nStore` (persisted) as the source of truth; `getLocalizedText()` follows it. English and Hindi only (Gujarati/Bengali hidden via `SELECTABLE_LANGUAGES` in `i18nStore.ts`, ~25% translated). Deities all bilingual. **Per-user language is backend-ready but never sent by the app** — it resets on reinstall.
 
-## 10. Navigation map — screen reachability (audit 2026-07-19, recounted 2026-10-05)
+## 10. Navigation map — screen reachability
 
-**19 screen files** (`app/index.tsx`, 2 in `app/(auth)/`, 16 in `app/(main)/`; `_layout.tsx` files not counted). **5 bottom tabs** (`app/(main)/_layout.tsx`): Home (`index.tsx`), Mantra (`mantras.tsx`), Audio (`ringtones.tsx`, relabeled from "Ringtone" in §21), Wallpapers (`daily-status.tsx`, relabeled from "Status" in §23), Rashifal (`horoscope.tsx`). Navigation is all `router.push`/`router.replace` (no `<Link>` components), plus the push-notification deep-link allowlist (§95). A full navigation graph exists in a founder-held Navigation Map `.html` outside the repos, dated 2026-07-19 — likely out of date.
+Production: 19 screen files (`app/index.tsx`, 2 in `(auth)`, 16 in `(main)`; plus `app/+native-intent.tsx`, §133). `dev` adds `stories.tsx` and `story-series.tsx` (§120). 5 bottom tabs on production: Home, Mantra, Audio (`ringtones.tsx`), Wallpapers (`daily-status.tsx`), Rashifal (`horoscope.tsx`); on `dev` Stories replaces Rashifal. Navigation is `router.push`/`navigate`/`replace` only, plus the notification allow-list (§95). **Unreachable** (`href: null`, nothing navigates there): `wallpapers.tsx`, `spiritual.tsx`, `zodiac-selection.tsx` — link-up vs delete undecided. `choose-start.tsx` is live (Home header link).
 
-**3 screens are unreachable** — registered in `_layout.tsx` with `href: null`, but nothing navigates to them (rechecked by grep 2026-09-29):
-- `wallpapers.tsx` — mock data (§4).
-- `spiritual.tsx` — fully built on mock data (`src/data/mockSpiritual.ts`).
-- `zodiac-selection.tsx` — superseded: the Rashifal grid goes straight to `horoscope-detail.tsx`.
+## 11. 2026-07-20 — Ringtones playback/caching, Trending planning
 
-Link-up vs. delete is undecided for all three — confirm with the founder. (Since the audit: `wallpaper-detail.tsx` deleted in §53, `mantra-quiz.tsx` in §101; `edit-profile`, `legal-document` and `delete-account` added, reachable from Profile. `choose-start.tsx` is live and counted above: registered with `href: null`, opened from Home's header link, `index.tsx:312`.)
+Superseded. Still use the "Audio Content Pre-Work Scoping Checklist" (archive) before any new audio content type.
 
-## 11. 2026-07-20 session — Ringtones playback/caching, play count tracking, Trending Now planning
+## 12. 2026-07-21 — Aarti/Bhajan foundation
 
-Superseded (coordinator §17, caching §24/§25, Trending §22). Still worth applying: the "Audio Content Pre-Work Scoping Checklist" (playback exclusivity, caching, platform and product questions) before building any new audio content type. Detail archived.
+Baseline: `'aarti'`/`'bhajan'` type ENUMs and `is_repeatable`. A shared `FEED_TYPES` constant exists on `develop` only (§120), not on `main`.
 
-## 12. 2026-07-21 session — Network fix, visual/design audit, Aarti/Bhajan foundation, Audio hub decided
+## 13. 2026-07-21 — Player redesign, seek bar
 
-Resolved or superseded elsewhere (Audio hub §21, Wallpaper Hub §23, date arrows §42, emoji icons §62). Still baseline: the `'aarti'`/`'bhajan'` type ENUMs and `is_repeatable`. The missing shared `FEED_TYPES` constant flagged here now exists on `develop` (`src/constant/index.js`, with `HOME_FEED_TYPES`, §120) but not yet on `main`. Detail archived.
+**Still open:** the seek bar is tap-only (no `Gesture.Pan()` drag).
 
-## 13. 2026-07-21 session (continued) — Audio player redesign, seek bar diagnosed, category duplicate confirmed, Home tap/startup jitter root-caused
+## 14. 2026-07-22 — react-native-track-player evaluated and removed
 
-Superseded (player §57/§58; category duplicate moot, §56; tap and startup jitter fixed, §25/§47). **Still open:** the seek bar has no drag gesture (tap-only `onPress`, no `Gesture.Pan()`); smoothness improved in §26, but real drag-seeking was never built. Detail archived.
+**Decision: `expo-audio`, not `react-native-track-player`.** Free v4.1.2 fails to compile with Expo SDK 54 + New Architecture (Kotlin nullability, real Gradle failure); v5 is paid (€99/mo+). Re-try only if budget changes or a free fix ships. `expo-audio` has no queue concept — multi-episode queue/autoplay is hand-built (as Stories did, §120).
 
-## 14. 2026-07-22 session — react-native-track-player evaluated and removed
+## 15. 2026-07-23 — USB dev builds
 
-**Decision: use `expo-audio`, not `react-native-track-player`, for persistent/background audio.** `react-native-track-player` (free v4.1.2) was installed, natively configured, tested, then fully removed after hitting a genuine compile-time incompatibility with this project's toolchain (Expo SDK 54 + New Architecture) — confirmed via an actual Gradle build failure (Kotlin nullability mismatch), not just a warning. The only version that compiles against current toolchains, v5/`@rntp/player`, is commercially licensed (€99/mo+) — not viable on current budget. Removal was verified fully clean (native config reverted, rebuild succeeded, `git status` clean). Re-attempt only if budget changes or a free-tier fix ships. **Trade-off to remember for Stories:** `expo-audio` has no built-in queue/playlist concept — multi-episode "queue + autoplay-next" will need to be hand-built on top of it.
+After any USB reconnect: `adb reverse tcp:3000 tcp:3000` and `adb reverse tcp:8081 tcp:8081` (check `adb reverse --list`).
 
-## 15. 2026-07-23 session — Animation fix, autoPlay-on-tap fix, Ringtones migrated to expo-audio, USB dev-build crash fix
+## 16. 2026-07-23 — expo-audio migration
 
-Superseded (§17, §25). Still relevant: after any USB reconnect, run `adb reverse tcp:3000 tcp:3000` and `adb reverse tcp:8081 tcp:8081` (check with `adb reverse --list`). Detail archived.
+**Lesson:** use `expo-audio`'s setter methods (`setPlaybackRate()` etc.), never property assignment — it silently no-ops.
 
-## 16. 2026-07-23 session (continued) — FeedMedia cleanup, content-rendering map, audio-player migrated to expo-audio, coordinator confirmed as next milestone
+## 17. 2026-07-23 — Global playback coordinator
 
-Historical. **Lesson:** use `expo-audio`'s setter methods (e.g. `setPlaybackRate()`), never direct property assignment — it silently no-ops at runtime despite the TS types. Detail archived.
+`src/store/playbackStore.ts` (Zustand, not persisted — holds live closures): slots `ephemeral` (ringtones) and `persistent` (mantra, aarti/bhajan, stories). Same-mode hand-off stops the outgoing item; a ringtone preempting persistent content **pauses** it; persistent preempting a ringtone stops it. `MiniPlayer` reads only `persistent`, hidden on `/audio-player`. Inactive tabs stay mounted, so the player survives navigation. Minor known risk: a `RingtoneFeedCard` unmounting while registered could leave stale `activeControls`.
 
-## 17. 2026-07-23 session (continued) — global playback coordinator built and shipped
+## 18. 2026-07-23 — Lock-screen controls
 
-Done (`3de37e5`), tested on-device. `src/store/playbackStore.ts` (Zustand, deliberately not persisted — it holds live closures bound to a mounted player) has two slots: `ephemeral` (ringtones) and `persistent` (mantra, aarti/bhajan, stories). A same-mode hand-off stops the outgoing item; a ringtone preempting persistent content **pauses** it (resumable in the mini-player); persistent content preempting a ringtone stops it. `MiniPlayer` (`src/components/molecules/MiniPlayer/`, a sibling of `<Tabs>`) reads only the `persistent` slot and hides on `/audio-player`; ✕ stops. `RingtoneFeedCard` self-registers with the store, which gives cross-screen exclusivity. The player persists across navigation because inactive tab screens aren't unmounted. **Known minor risk, not hit:** a `RingtoneFeedCard` unmounting while registered could leave a stale `activeControls` reference (a defensive try/catch was recommended). Detail archived.
+Baseline. `interruptionMode` stays `duckOthers`; no notification deep link to a screen; iOS out of scope (no `ios/` project).
 
-## 18. 2026-07-23 session (continued) — lock-screen/notification controls built, a crash fixed, zero error boundaries found
+## 19. 2026-07-23 — emulator regression, resolved in §20.
 
-Lock-screen/notification controls — baseline. Error boundaries since added (§94). Standing scope decisions: `interruptionMode` stays `duckOthers`; no deep link to a specific screen from the notification; iOS out of scope (no `ios/` project). Detail archived.
+## 20. 2026-07-24 — isDevice fix confirmed; WiFi note now in §8.
 
-## 19. 2026-07-23 session (continued) — lock-screen confirmed on a real phone, WiFi issue narrowed, emulator regression root-caused (fixed next session, see §20)
+## 21. 2026-07-24 — Audio hub restructure
 
-Resolved in §20. Detail archived.
+**Lesson:** any cleanup touching an `expo-audio` player needs a try/catch — there's no synchronous "is released" check.
 
-## 20. 2026-07-24 session — isDevice fix confirmed, recurring WiFi IP-reassignment documented, an unidentified network error logged
+## 22. 2026-07-24 — Deity/trending filter
 
-`isDevice` fix confirmed; the WiFi IP note now lives in §8. Detail archived.
+Origin of `DeityFilterRow` (hub-level filter state, "Others" as a real Deity row) — the standard for filterable content types.
 
-## 21. 2026-07-24 session (continued) — Audio hub restructure shipped, a real crash found and fixed
+## 23. 2026-07-24 — Wallpaper Hub
 
-Audio hub sub-tabs (visuals since §60). **Lesson:** any cleanup that touches an `expo-audio` player needs a defensive try/catch — there is no synchronous "is released" check, and this crash recurred (§24, §25). Detail archived.
+`WallpaperFeedCard`'s `variant` prop is temporary scaffolding (founder wants one card style eventually). Share-to-WhatsApp-Status/Instagram-Story deep-linking parked.
 
-## 22. 2026-07-24 session (continued) — shared deity/trending filter shipped for Ringtones, three trending bugs found and fixed
+## 24. 2026-07-27 — Cache-Control on imported media; CDN deferred until volume/billing justify it.
 
-Origin of the shared `DeityFilterRow` pattern (hub-level filter state, "Others" as a real Deity row) — the standard for any filterable content type (§23, §27, §56). Three `GET /feed/trending` bugs fixed (baseline; see §41). Detail archived.
+## 25. 2026-07-27 — first bulk import validated; cross-content playback bug fixed.
 
-## 23. 2026-07-24 session (continued) — Wallpaper Hub built end-to-end, mirroring the Audio hub pattern
+## 26. 2026-07-28 — Connection-pool fix
 
-Wallpaper Hub (Status/Thought/Wallpapers) — since extended in §33 and restyled in §61. **Not actioned:** `WallpaperFeedCard`'s `variant` prop (`default`/`grid-tile`) is temporary scaffolding; the founder wants one card style eventually — check before assuming. Share deep-linking to WhatsApp Status/Instagram Story is parked. Detail archived.
+**Load-bearing:** `expo-audio`'s `AudioModule.kt` is patched (`maxRequestsPerHost` 5→20) via `patch-package` (`patches/expo-audio+1.1.1.patch`, reapplied on `postinstall`), compiled from source (§36). **Lesson:** related-looking symptoms can have unrelated causes — investigate fresh.
 
-## 24. 2026-07-27 session — Cache-Control metadata pass for CSV-imported media, persistent player local caching ported from Ringtones, CDN deferred
+## 27. 2026-07-28 — Aarti/Bhajan tabs
 
-Cache-Control metadata on CSV-imported media (still in place). A real CDN in front of Storage was deferred — revisit when volume and billing justify it. Detail archived.
+Origin of the `returnTo`/`returnParams` back-navigation convention every entry point passes.
 
-## 25. 2026-07-27 session (continued) — First real bulk CSV import validated, a significant cross-content playback bug fixed, caching sequencing fixed, a native connection-pool bug found (fixed next day, §26)
+## 28. 2026-07-29 — Aarti/Bhajan queue (base of §57).
 
-First bulk CSV import validated; a bug where every mantra/aarti/bhajan card played the same audio was fixed; the connection-pool bug found here was fixed in §26. Detail archived.
+## 29. 2026-07-31 — autoplay scoped (built in §30).
 
-## 26. 2026-07-28 session — Connection-pool fix built and confirmed, real root cause of icon/seek-bar lag found (a dead decorative animation, not expo-audio), .env IP update
+## 30. 2026-08-01 — Home viewport-autoplay (with §31's backgrounding fix)
 
-**Load-bearing:** `expo-audio`'s native `AudioModule.kt` is patched (`maxRequestsPerHost` 5→20) via `patch-package` (`patches/expo-audio+1.1.1.patch`), reapplied by `postinstall` on every `npm install` and compiled from source (§36). The icon/seek-bar lag was a decorative fake wave visualizer, removed. **Lesson:** related-looking symptoms can have unrelated causes — investigate fresh. Detail archived.
+Built (`fb8b518`, `39e5fc9`, `a21460b`): Home only; the card ≥60% visible autoplays, one at a time (200 ms debounce, 500 ms floor between starts); `AutoplayFeedCard` has its own player (no `playbackStore`), a 30 s audio cap, looping muted-by-default video (persisted unmute, `soundPreferenceStore`); backgrounding stops it via `AppState`. 
 
-## 27. 2026-07-28 session (continued) — Aarti/Bhajan Audio hub tabs built and shipped, generalized back-navigation fix, Search Results isRepeatable bug fixed
+## 31. 2026-08-01 — muted-by-default video + backgrounding fix (in §30).
 
-Aarti/Bhajan Audio hub tabs (visuals since §60). The `returnTo`/`returnParams` back-navigation convention that every entry point passes started here (§56, §59, §62). Detail archived.
+## 32. 2026-08-02 — FlatList snap-scroll Reels feed abandoned (no zero-bleed guarantee).
 
-## 28. 2026-07-29 session — Aarti/Bhajan auto-loop fix, full 8-phase queue feature built, two lock-screen items deferred
+## 33. 2026-08-03 — Wallpaper Hub video + Viewing Window
 
-Auto-loop fix and the Aarti/Bhajan queue (Previous/Next, shuffle-ready store, Like/Share, "Up Next" sheet) — the base of §57. Of the two deferred lock-screen items, skip was fixed in §36; the metadata mismatch is still partly open (§38). Detail archived.
+Grid tiles loop muted video; tap opens the Viewing Window (80%×80% `Modal`, Like/Share/Download via `useWallpaperActions`). Shared `getMediaFileExtension` for downloads. Pager-view Reels abandoned.
 
-## 29. 2026-07-31 session — Home feed viewport-autoplay: scoped, not built
+## 34. 2026-08-04 — Real sharing via `react-native-share` (`shareContent(feed)`; captions §116).
 
-Scoped only; built in §30. Detail archived.
+## 35. 2026-08-04 — superseded by §36.
 
-## 30. 2026-08-01 session — Home feed viewport-autoplay Phases 1-4 built and shipped
+## 36. 2026-08-05 — Lock-screen skip fix
 
-Done (`fb8b518`, `39e5fc9`), frontend-only. Home only (opt-in `enableViewportAutoplay`): the card at least 60% visible autoplays, one at a time (200 ms debounce, plus a 500 ms floor between player starts because of connection-pool sensitivity). Cards measure themselves (no fixed `getItemLayout`). `AutoplayFeedCard` has its own per-card player (no `playbackStore` — overlapping the persistent player is accepted), a 30 s audio cap, looping video, a play/pause overlay, CTA pills and a Like/Share/Views footer (`formatCount`). Phase 6 (hardening) was never formally run. Detail archived.
+**Keep `expo.autolinking.android.buildFromSource: ["expo-audio"]`** (in `package.json`) — without it `expo-audio` links a prebuilt AAR and every native patch (incl. §26) silently stops applying. Lock-screen seek commands = skip next/previous.
 
-## 31. 2026-08-01 session (continued) — Phase 5 confirmed already built, app-backgrounding autoplay bug fixed
+## 37. 2026-08-05 — Skip-vanish fix (stable `instanceId` via `useId()`; in-place `updateLockScreenMetadata`; paused entry auto-dismisses after 30 min).
 
-Muted-by-default video with a persisted unmute (`soundPreferenceStore`); backgrounding now stops Home autoplay through an `AppState` listener folded into `isEffectivelyActive` (`a21460b`). Detail archived.
+## 38. 2026-08-06 — Lock-screen metadata: PARTIAL
 
-## 32. 2026-08-02 session — Status sub-tab Reels-style feed: first attempt reverted, rebuild scoped
+Title fix works (not yet proven against a file with competing embedded title tags). **Artwork fix not effective:** embedded cover art (ID3 `APIC`) rides on the audio track's own `Format.metadata`, which disabling `TRACK_TYPE_METADATA` doesn't touch. **Next real test, not yet run:** upload a real thumbnail to a track and see whether the app's data or the embedded picture wins.
 
-Abandoned (§33): a FlatList snap-scroll can't guarantee zero adjacent-item bleed. Nothing committed. Detail archived.
+## 39. 2026-08-11 — Branding
 
-## 33. 2026-08-03 session — Wallpaper Hub video support + Viewing Window feature shipped; pager-view rebuild abandoned
+Display name "Bhav Bhakti"; package `com.orivori.bhavbhakti`. **Gotcha:** adaptive-icon artwork needs a safe-zone margin in the 1024×1024 canvas.
 
-Done (`c691eda`, `65be4d7`), frontend-only. Grid tiles loop muted video (independent of `soundPreferenceStore`); tapping opens the **Viewing Window** (a centered 80%×80% `Modal`, with sound, Like/Share/Download via `useWallpaperActions`, gated by `PREMIUM_GATING_ENABLED`, §106). Fixed: a stale Like state, video not pausing in the background (explicit `pauseAsync()`), and download name collisions plus a hardcoded `.jpg` that corrupted videos (shared `getMediaFileExtension`). The pager-view Reels feed was abandoned, not deferred. Detail archived.
+## 40. 2026-08-12 — Rashifal MVP
 
-## 34. 2026-08-04 session — Real content sharing built (react-native-share)
+**Use the shared `getLocalDateString`, never `new Date().toISOString().split('T')[0]`** (UTC/IST off-by-one).
 
-`react-native-share` replaced RN's text-only `Share` (it sends a real file plus caption on Android). The shared `shareContent(feed)` handles MIME types, thumbnail-only sharing for audio, a double-tap guard and share counts. Captions since §116; share gating since §106 (off). Detail archived.
+## 41. 2026-08-12 — Trending 7-day window removed (`a4d16e5`).
 
-## 35. 2026-08-04 session (continued) — Lock-screen skip-button root cause found, fix unverified this session
+## 42. 2026-08-12 — Rashifal today-only; `isPremiumUser` stubs consolidated onto `usePremiumStore` (real status unbuilt, §87).
 
-Superseded by §36. Detail archived.
+## 43. 2026-08-12/13 — Firebase Phone Auth Phases 1–4
 
-## 36. 2026-08-05 session — Skip-button fix DONE, confirmed on a real device; buildFromSource root cause confirmed via dex decompilation
+Backend verifies the Firebase ID token, then issues its own session. `google-services.json` is untracked and deliberately left in git history (same key ships in every APK).
 
-Done, confirmed on device and by decompiling the installed APK. `expo-audio` linked a prebuilt AAR, ignoring every native patch, until `expo.autolinking.android.buildFromSource: ["expo-audio"]` — **keep it, or every native patch (incl. §26) silently stops applying**. The lock-screen seek commands now trigger skip next/previous (seek-by-10 s removed, founder's choice). Detail archived.
+## 44. 2026-08-12 — Dependency drift fixed with `npx expo install --fix`; icon resized.
 
-## 37. 2026-08-05 session (continued) — Lock-screen/notification skip-vanish bug: two real root causes fixed and confirmed on-device; a new, separate metadata-race finding logged, not yet investigated
+## 45. 2026-08-13 — OTPless bypass (master OTP, `TEST_NUMBERS`) deleted. SMS auto-fill not pursued (`READ_SMS` risks Play rejection).
 
-Two fixes, tested on-device: a stable `instanceId` (`useId()`) lets the coordinator tell new content on the same player from a different player; skips use the in-place `updateLockScreenMetadata` instead of a full session rebuild. A paused lock-screen entry auto-dismisses after 30 minutes. The metadata race found here is §38. Detail archived.
+## 46. 2026-08-13 — UI design-system foundation; §47–§53 summarised here
 
-## 38. 2026-08-06 session — Lock-screen metadata fix: PARTIAL, title confirmed working, artwork gap documented, not fixed
+UI foundation (background in `goldenTempleTheme.ts`, Noto Sans Devanagari, every `Text` via the shared atom); auth flicker fixed; local SVG icons (`react-native-svg-transformer`, focus colour `#FF6B00`); card header row (`HEADER_ROW_HEIGHT` subtracted to keep the peek); importer duplicate-insert fixed via `csv_id`; audio card (`AUDIO_CONTENT_HEIGHT_RATIO` 0.75 is the floor); tap-active-tab scrolls to top (`useScrollToTopOnTabPress`); TypeScript cleanup.
 
-**Metadata mismatch fix (§37's finding) — PARTIAL, committed as-is, not silently presented as done.** Two-part fix built: explicit `MediaItem` metadata (title/artist/artwork) declared at load time from the already-available `contentData`, plus disabling ExoPlayer's `TRACK_TYPE_METADATA` track selection so nothing should compete with it. **Title fix confirmed working via real on-device testing** — though not yet proven against a file with genuinely competing embedded title data; the current test files may simply lack one, so this isn't fully conclusive yet. **Artwork fix confirmed present and compiled but NOT effective.** Root cause: `TRACK_TYPE_METADATA` disables the wrong mechanism — embedded cover art (ID3 `APIC` frames) on local/progressive audio files rides directly on the audio track's own `Format.metadata`, not a separate disableable metadata track, so the disable call never touches it. Committed as-is with this documented honestly rather than presented as fixed — the title win is real progress, the artwork gap is inert (no crash/regression), just not yet closed.
+## 47. auth flicker — in §46.
 
-**NEXT REAL TEST, not yet run:** once a genuine thumbnail is uploaded to any track, check whether the app's data or the file's embedded picture wins — that's the honest signal needed before any further work here. If title also gets overridden once tested against a file with real embedded title data, the same root issue applies there too, meaning the title "fix" was untested luck, not a genuine confirmation.
+## 48. icons — in §46.
 
-## 39. 2026-08-11 session — App branding: icon, splash screen, display name, package identifier
+## 49. card header row — in §46.
 
-Done. Display name "Bhav Bhakti"; package `com.orivori.bhavbhakti`. **Gotcha:** adaptive-icon artwork needs margin inside the 1024×1024 canvas or Android's shape mask crops it (the safe zone is reused in §44). Detail archived.
+## 50. importer duplicates (`csv_id`) — in §46.
 
-## 40. 2026-08-12 session — Rashifal MVP core built: real AI content, birthdate-collection flow, three real bugs found and fixed
+## 51. audio card — in §46.
 
-Done, tested on-device. Gemini-generated Rashifal replaced the dead third-party chain (missing content now fails visibly). Home's horoscope card asks for a birthdate once, then routes straight to the sign. Fixed: a profile call to a non-existent URL; 8 horoscope routes with `validate` passed uninvoked (they hung forever); a UTC/IST date bug — **use the shared local-date utility (`getLocalDateString`), never `new Date().toISOString().split('T')[0]`.** Detail archived.
+## 52. tap tab to scroll to top — in §46.
 
-## 41. 2026-08-12 session (continued) — Trending 7-day window removed, previously undocumented
+## 53. TypeScript cleanup — in §46.
 
-Done (`a4d16e5`): `getTrendingFeeds` no longer drops content older than 7 days for any type.
+## 54. 2026-08-17 — react-i18next migration (namespaces `translation` and `player`; `useI18nStore` synced via `i18n.changeLanguage()`).
 
-## 42. 2026-08-12 session (continued) — Rashifal Phase 4 shipped, premium status stub consolidated
+## 55. 2026-08-19 — Horoscope Hindi is a translation of the stored English (retry-safe).
 
-Done (`d791560`, `6b4681d`). Rashifal is today-only (date pill removed); the grid paywall was later removed (§69). Three `isPremiumUser` stubs were consolidated onto `usePremiumStore` — real per-user premium status is still unbuilt (§87). Detail archived.
+## 56. 2026-08-19 — Mantra Explorer
 
-## 43. 2026-08-12 session (continued), resolved 2026-08-13 — Firebase Phone Auth Phases 1-4
+`DeityFilterRow` + `useMantraFeed`; "Trending" renamed "All"; mood tiles play a random match (`sortBy: random`, `tags=`). Mantra ordering (`Feed.order` never populated) is a separate, unscoped task.
 
-Phases 1–4 done: the backend verifies the Firebase ID token, then issues its own session. Sideload-era quirks (the Android API key's app restriction relaxed to "None" for the reCAPTCHA fallback; no Play Integrity) ended with Play Store distribution (§81). `google-services.json` is untracked and deliberately left in git history (the same key ships in every APK). Detail archived.
+## 57. 2026-08-20 — Aarti/Bhajan player (YT-Music style, nav hidden) and Mantra player (Speed / Play-Pause / Chant counter; `CounterSheet.tsx` SVG arc; `MoreTargetsSheet.tsx` portaled).
 
-## 45. 2026-08-13 session — Firebase Phone Auth Phase 5 shipped: fake OTPless bypass fully removed, all 5 phases complete
+## 58. 2026-08-20 — Mantra player — in §57.
 
-Done. The OTPless bypass (master OTP `123456`, `TEST_NUMBERS`, `SEND_OTP_ENABLED`) and its routes and service were deleted; existing users kept their accounts. SMS auto-fill not pursued (`READ_SMS` is a Play rejection risk). Detail archived.
+## 59. 2026-08-20 — Search
 
-## 44. 2026-08-12 session (continued) — Dependency drift cleanup, app icon resized
+Matches bilingual title, deity name and type label (word-split OR, ranked by match count). Shared `MantraFeedCard`.
 
-Done. `npx expo install --fix` brought 6 packages to Expo's recommended versions (the §26 patch reapplied); the icon was resized within §39's safe zone.
+## 60. 2026-08-21 — Audio hub, Wallpaper hub, Rashifal and Profile UI overhauls (current look); Edit Profile (name, gender, DOB). The notification-settings deep link was never confirmed.
 
-## 46. 2026-08-13 session (continued) — UI design-system foundation shipped
+## 61. Wallpaper hub UI — in §60.
 
-Done. Background colour centralised in `goldenTempleTheme.ts`; Noto Sans Devanagari loaded and weight-aware; every `Text` goes through the shared atom. Detail archived.
+## 62. Rashifal UI — in §60.
 
-## 47. 2026-08-13 session (continued) — Phone-login → verify-otp navigation flicker resolved, both auth screens redesigned
+## 63. Profile rebuild — in §60.
 
-Done. The login → OTP flicker was fixed (a duplicate toast, the auth stack's background colour, keyboard-dismiss timing); both auth screens redesigned. Detail archived.
+## 64. 2026-08-25 — Hosting: backend + MySQL on Railway; Firebase credentials via a base64 variable; EAS Build connected.
 
-## 48. 2026-08-14 session — Nav bar + Home quick-links icons: dead CloudFront links replaced with local SVGs
+## 65. 2026-08-26 — EAS Update set up
 
-Done. Dead CloudFront `SvgUri` icons replaced with local SVGs (`react-native-svg-transformer`); tab focus colour `#FF6B00`; a shared `QuickLinkCard` + `categories.ts`. Detail archived.
+**Database dumps: use `--result-file`/`SOURCE`, never a PowerShell pipe** (it corrupted Devanagari).
 
-## 49. 2026-08-14 session (continued) — AutoplayFeedCard restructuring + Home decluttering shipped; peek-spacing regression fixed same session
+## 66. 2026-08-26 — After an OTA, close and reopen the app twice. **The horoscope cron needs `TZ=Asia/Kolkata`.**
 
-Done. The card type label sits in a header row with "See all"; `HEADER_ROW_HEIGHT` is subtracted from `contentAreaHeight` to keep the next-card peek. Detail archived.
+## 67. 2026-08-27 — Hardware back respects `returnTo` via `BackHandler`; chant counter resets only on a real feedId change.
 
-## 50. 2026-08-14 session (continued) — Feed import duplicate-insert bug found and fixed
+## 68. 2026-08-27 — Route-param corruption
 
-Done. The importer inserted duplicates on every run; it now does find-or-update on a unique `csv_id`. Detail archived.
+`useLocalSearchParams()` decodes params, breaking Firebase URLs' percent-encoding — every entry into `audio-player.tsx` passes `encodeURIComponent()` (`fd4c43b`).
 
-## 51. 2026-08-14 session (continued) — AutoplayFeedCard audio redesign shipped
+## 69. 2026-08-30 — Player investigation
 
-Done. Audio card layout (since redone, §112); `AUDIO_CONTENT_HEIGHT_RATIO` 0.75 is the safe floor. Play after the 30 s cap uses `getPlaybackCapSeconds()` + `seekTo(0)`. Detail archived.
+Fixed: 5 ExoPlayers on every launch; cache directory + 14-day sweep; Rashifal free for everyone. **Still unresolved:** the overnight ExoPlayer stall (needs a native `onPlayerError` listener).
 
-## 52. 2026-08-15 session — Tap-active-tab-to-scroll-to-top shipped across all 5 bottom tabs
+## 70. 2026-08-31 — Release-keystore SHA fingerprints registered in Firebase; `eas.json` production profile has its update channel.
 
-Frontend-only, done on all 5 tabs: tapping the active tab scrolls to the top (`useScrollToTopOnTabPress`, `tabPress` + `isFocused()`); list components expose their `FlatList` via `forwardRef`. Visual only — refresh-on-tap is a separate, deferred feature. Detail archived.
+## 71. 2026-09-01 — Hindi text truncation: the reusable fix
 
-## 53. 2026-08-16 session — TypeScript cleanup pass
+**Pattern:** Android's text self-measurement fails with the Devanagari font (not a width problem). Fix with explicit `minWidth`/`lineHeight`/`minHeight` floors. For a `Button` label (§132): `textStyle` with `flex: 1`, centred, lineHeight/minHeight floor — every new Devanagari `Button` needs it.
 
-Done. Fixed `search-results.tsx`'s wrong `SafeAreaView` import; removed the clipboard OTP leftover; deleted dead screens; fixed `horoscopeService.ts`'s unused methods that double-unwrapped responses. Detail archived.
+## 72. 2026-09-01 — Chant counter attention bubble (all users, 3×/day, 7 s, tap to dismiss).
 
-## 54. 2026-08-17 session — Language/i18n system migrated to react-i18next: ALL 5 PHASES DONE, COMMITTED, TESTED
+## 73. 2026-09-04 — Play Console cleanup (with §74–§76).
 
-Done. react-i18next replaced six hand-rolled mechanisms, with two namespaces, `translation` and `player` (both once had a top-level `mantras` key). `useI18nStore` stays the source of truth, synced via `i18n.changeLanguage()`. Gujarati/Bengali hidden (§9). Detail archived.
+**Two apps:** `com.orivori.bhavbhakti` and `.dev`, each with its own Firebase registration and keystore; production OTAs only via `npm run update:production` (typed confirmation, staged rollout). `users.is_test_account` + unique `(firebase_uid, is_test_account)` keep `.dev` and production logins separate users (shared `Feed` counters accepted). `eas update` ignores `eas.json` env blocks, so the safety script pins `--environment production`.
 
-## 55. 2026-08-19 session — Horoscope English/Hindi content mismatch found and fixed
+## 74. dev/production package split — in §73.
 
-Done. English is generated once, then that exact content is translated into Hindi (`luckyNumber` copied; retry-safe by reading the English row back from the database). Old mismatched rows left as-is. Detail archived.
+## 75. test-account isolation — in §73.
 
-## 56. 2026-08-19 session (continued) — Mantra Explorer redesign: ALL 4 PHASES BUILT, COMMITTED, TESTED ON-DEVICE
+## 76. migration reconciliation — in §73.
 
-Done, on device. Mantra Explorer: `DeityFilterRow` + `useMantraFeed` replaced the broken `categoryId` grid; "Trending" renamed "All" app-wide; mood tiles play a random match (`sortBy: random`, filtered by `tags=`, §103). Mantra list ordering (`Feed.order` is never populated) was scoped out as a separate task. Detail archived.
+## 77. 2026-09-06 — Premium pipeline backend (Razorpay; §78–§79 here too)
 
-## 57. 2026-08-20 session — Aarti/Bhajan Player Redesign: ALL 6 PHASES DONE, COMMITTED, TESTED ON-DEVICE
+Tables `subscriptions`/`subscription_events`/`payments`; `isPremiumNow` util; webhook `POST /api/v1/webhooks/razorpay` (HMAC via `req.rawBody`, idempotent on `X-Razorpay-Event-Id`, one transaction); `/subscription` create/status/cancel; `scripts/reconcile-subscriptions.js`. Verified in Razorpay test mode. Frontend never built (§87).
 
-Done, on device. YT-Music-style Aarti/Bhajan player with the bottom nav hidden. Fixed: the importer overwrote the artist with the English title; `getLocalizedText()` was hardcoded to English. Detail archived.
+## 78. webhook — in §77.
 
-## 58. 2026-08-20 session (continued) — Mantra Player Redesign: DONE, COMMITTED, TESTED ON-DEVICE
+## 79. service layer — in §77.
 
-Done, on device. Mantra controls: Speed / Play-Pause / Chant counter. `CounterSheet.tsx` rebuilt (an SVG arc — the old indicator maxed at 50%); `MoreTargetsSheet.tsx` is portaled, fixing a layering bug. Detail archived.
+## 80. 2026-09-07 — `new-upload-key.jks` is EAS's production signing credential, matching Play Console.
 
-## 59. 2026-08-20 session (continued) — Search: FOUND BROKEN, FULLY FIXED, COMMITTED, TESTED
+## 81. 2026-09-08 — Play Store phone-auth bug
 
-Done. Search matches the bilingual title, deity name and content-type label (word-split OR, ranked by match count; no SOUNDEX). A shared `MantraFeedCard` on Home/Search/Mantra Explorer; `WallpaperFeedCard`'s default variant plays video; Search passes `returnParams`. Detail archived.
+Play's SMS auto-verification beat `confirm(otp)` → `auth/session-expired`; fixed by also watching `onIdTokenChanged` (`60bac85`). **Lesson:** test numbers bypass this native path; they can't validate real-number auth.
 
-## 60. 2026-08-21 session — Audio hub UI overhaul shipped
+## 82. 2026-09-09 — scoped; built in §84.
 
-Done, still the current look: search bars on Mantra Explorer and the Audio hub, consistent card styles, and the Set-as-Ringtone "Sound Settings" button fixed. Detail archived.
+## 83. 2026-09-09 — session/auth items: see §84's open items.
 
-## 61. 2026-08-23 session — Wallpaper hub UI overhaul, MiniPlayer/audio-player small fixes
+## 84. 2026-09-09 — Legal documents (`LegalDocumentViewer`, WebView), Support ID from `firebaseUid`, account deletion. **§83 still open:** no reset to Home after a long background; "Welcome Back" on `phone-login.tsx` hardcoded for everyone.
 
-Done. Wallpaper hub restyle (`wallpaperHub` namespace); thought content now uses `WallpaperFeedCard`; a buggy pulsating play animation removed; MiniPlayer restyled; a tab-bar height mismatch fixed across 15 files. Detail archived.
+## 85. 2026-09-10 — PERMANENT BRANCHING WORKFLOW: dev / production / master
 
-## 62. 2026-08-23 session (continued) — Rashifal UI overhaul
+**Why:** `eas update` ships whatever is in the working directory, regardless of git — that's how untested work reached production on 2026-09-09.
+- **`dev`** — everyday branch; all commits land here first, tested on the `.dev` app (`preview` channel).
+- **`production`** — receives ONLY `git cherry-pick`s from `dev` once tested. Real production OTAs ONLY from here (`npm run update:production`). `scripts/confirm-production-update.js` refuses any other branch or a dirty tree.
+- **`master`** — trusted baseline, only fast-forwarded from `production` once confirmed live; GitHub's default branch.
 
-Done. Rashifal restyle; the back button respects the entry point (`returnTo`). Detail archived.
+Backend equivalent: `develop` (Railway dev) → `main` (production); since 2026-11 `develop` is never merged wholesale into `main` (it carries Stories) — commits are cherry-picked.
 
-## 63. 2026-08-24 session — Profile section rebuild
+## 86. 2026-09-10 — v4 to Closed Testing (history).
 
-Done. A real Edit Profile screen (name, gender, DOB) and Profile screen; non-working stubs removed; Manage Subscription/Terms/Refund Policy stubs added. The notification-settings deep link was never confirmed. Detail archived.
+## 87. 2026-09-13 — Session expiry
 
-## 64. 2026-08-25 session — App hosting
+The app reads the JWT's own `exp` (matches the backend's 10 days). `jwt.util.js`: expired/invalid → 401, other errors → 500. Central 401 handling since §106/§107 (and guest renewal since §137). **Still open — HIGH PRIORITY:** `isPremium` is permanently `false`; `setSubscription()` is never called; `usePremiumStore`'s stub is seeded from the `enablePremiumSubscriptionUI` flag.
 
-Done. Backend and MySQL on Railway; Firebase credentials via a base64 env var; EAS Build connected. Detail archived.
+## 88. 2026-09-11 — Rashifal hardware back (`BackHandler` + `useFocusEffect`).
 
-## 65. 2026-08-26 session — EAS Update pipeline + real bug fixes
+## 89. 2026-09-11 — "✓ Verified automatically" banner on SMS auto-verify (`isVerifyingRef` guard).
 
-Done. Fixed Devanagari corruption from the first database migration — **use `--result-file`/`SOURCE` for dumps, never a PowerShell pipe**. The `Text` atom no longer forces `fontFamily: 'System'`; the Liked filter was wired up; EAS Update set up. Detail archived.
+## 90. 2026-09-11/14 — Rashifal variety: `temperature: 1.4` (English only) and no anchoring example values; probabilistic, worth watching.
 
-## 66. 2026-08-26 session (continued) — EAS Update proven, permission audit, Liked-filter crash fixed, horoscope cron automated
+## 91. resolved (see §87).
 
-Done. After an OTA, close and reopen the app twice. MediaLibrary permission handling audited. Horoscope generation automated as a Railway cron — **the cron service needs `TZ=Asia/Kolkata`**, or every reading is labelled a day off.
+## 92. 2026-09-12 — Jio blocked `*.up.railway.app`; production uses `api.orivori.com` with an automatic Railway fallback. **Lesson:** production backends need a custom domain.
 
-## 67. 2026-08-27 session — Three small fixes: language toggle, mantra counter rework, back navigation
+## 93. 2026-09-13 — Observability scoped; built in §94.
 
-Done. The language toggle shows the current language; the chant counter resets only on a real feedId change; hardware back respects `returnTo` via `BackHandler`.
+## 94. 2026-09-15 — Observability
 
-## 68. 2026-08-27 session (continued) — route-param URL corruption bug fixed
+Crashlytics with the Support ID (`setUserIdentifier()`), backend uncaught-exception/unhandled-rejection handler, root error boundary. Crashlytics custom keys `ota_update` (short tag) and `ota_update_id`, set in `app/_layout.tsx` (§125). SLO dashboards/APM declined as premature.
 
-Done (`fd4c43b`). `useLocalSearchParams()` decodes params, which corrupted Firebase URLs' percent-encoding — every entry into `audio-player.tsx` passes `encodeURIComponent()`. Detail archived.
+## 95. 2026-09-18 — Push notifications + Analytics
 
-## 69. 2026-08-30 session — Audio-player investigation, second half
+One all-users topic; notification icon from a hand-written config plugin (a `firebase.json` fix avoids a manifest clash with `react-native-firebase/messaging`); deep links go through a validated route allow-list (invalid → Home); foreground display deferred; sending from Firebase Console. Since §137 the permission dialog is asked once after a first qualifying action. Analytics: 4 of 5 buckets live; Premium conversion events wait for the Premium frontend.
 
-Done: Home created 5 ExoPlayers on every launch (fixed); a stuck retry; the cache directory + a 14-day sweep; Rashifal made free for everyone; Hindi translations. **Still unresolved:** the overnight ExoPlayer stall (needs a native `onPlayerError` listener). Payment scoping started here. Detail archived.
+## 96. 2026-09-24 — Railway dev environment; first audit fixes
 
-## 70. 2026-08-31 session — Premium pipeline scoped, Firebase Auth SHA-fingerprint bug fixed, eas.json production profile fixed
+Dev environment with its own MySQL, deployed from `develop`; `.dev`'s `development` variant uses `api-dev.orivori.com`. Live: TLS to the database, HSTS, `ResponseHandler.errorSafe()` (no raw exceptions to clients), no JWT/PII in frontend logs.
 
-Premium pipeline scoped (built §77–§79). Fixed: the release-keystore SHA fingerprints are now the ones registered in Firebase; `eas.json`'s production profile has its update channel. Detail archived.
+## 97. 2026-09-24 — Audit Group 2 (Access Control), live
 
-## 71. 2026-09-01 session — Recurring Hindi text truncation bug fixed (Up Next, Logout, See-all, header title)
+`requireAdmin` on all upload routes and `DELETE /upload/media/:key`; Facebook OAuth removed; forgeable `admin.auth.middleware.js` deleted; `POST /profile/photo` removed (a real hole). **`scripts/confirm-db-target.js`:** labels the target PRODUCTION/DEVELOPMENT/LOCAL/UNKNOWN from `DB_HOST`, requires typing the label, refuses non-interactive runs — update its host map (and §141's `KNOWN_DB_HOSTS`) if Railway regenerates a proxy hostname. Production `JWT_SECRET` was the `.env.example` placeholder — rotated (again in §128). Still open: no production admin account (deliberate).
 
-Fixed a real, recurring Hindi text truncation bug affecting 5 locations (Up Next handle, Logout button, both See-all links, Home header title) — root cause was React Native's own text self-measurement failing on Android with the Devanagari font, NOT a space/width constraint (confirmed via real adb uiautomator captures). Proven fix: explicit minWidth/lineHeight/minHeight floors instead of relying on auto-measurement — reusable pattern for any future occurrence of this exact class of bug.
+## 98. 2026-09-24 — Audit Group 3 (Rate Limiting), live
 
-## 72. 2026-09-01 session (continued) — Mantra chant counter attention bubble
+All in `src/middlewares/rateLimit.middleware.js`: login 20/min **and** 75/hour per IP; `POST /subscription/create` 5/hour per user; Razorpay webhook 100/min per IP; one shared 300/min per-IP content budget (feed, horoscope, deities, feature-flags; mounted before route auth); `/profile/*` 20 writes/15 min, 30 reads/min. Every 429 is `{ success: false, message }` and logs `[rate-limit]`. Login/content limits are loose on purpose (Jio/Airtel CGNAT). **`trust proxy` is `2`** (`src/app.js`, Railway's two relays; edge discards client `X-Forwarded-For`) — **change it if a CDN/proxy is ever put in front of `api.orivori.com`.** Malformed JSON → 400. Counts live in memory: reset on deploy, not shared across instances (would need Redis).
 
-Added the mantra chant counter attention bubble (shown to all users, 3x/day cap, 7s auto-dismiss, tap-anywhere-to-dismiss, right-aligned positioning) — feature-discovery nudge ahead of the future chant-counter paywall. DONE, COMMITTED, TESTED.
+## 99. 2026-09-24 — Audit Group 5 (Backups), live
 
-## 73. 2026-09-04 session — Play Console setup: account cleanup, versionCode bumped
+Production-only Railway cron (`db_backup`, auto-deploy off) runs `scripts/backup-database.js` daily 3am IST (`30 21 * * *` UTC): `mysqldump` → gzip → Storage `backups/YYYY-MM-DD-HHmm.sql.gz` → retention (newest per day for 7 days with backups + newest per week for 4 weeks, ≤~11 files; count-based; deletes only after a successful upload; ignores non-matching names; `src/utils/backupRetention.util.js`). Logs one `[db-backup] SUCCESS …` or `FAILED stage=…` line; failures exit 1. `Dockerfile.backup` is built on `mysql:9.4` + Node (Alpine's MariaDB `mysqldump` can't log in to MySQL 9) — **bump the tag if Railway's MySQL is upgraded**; it connects only via the private host. `backups/` must stay private in `storage.rules`. Restore verified on dev. **`Dockerfile.backup` copies a hand-picked file list — any new `require` in `firebase.config.js` must be added to it (§128).**
 
-Play Console ownership cleaned up. (`versionCode` is now 8, §122.) Detail archived.
+## 100. 2026-09-24 — Audit Group 9 (Adversarial), 2 fixed / 2 deferred
 
-## 74. 2026-09-05 session — Real dev/production package identity split, production-push safety script, Play Console upload key reset
+Fixed and live: `POST /feed` now `authenticate` + `requireAdmin` (`bfb3a51`, `1ca0f5e`). **Deferred (MVP, founder decision):** (1) Firebase ID-token reuse within its hour opens new 10-day sessions — fix: reject tokens whose `auth_time` is more than a few minutes old; (2) Razorpay webhook replay with a new event-ID header — fix: dedupe on a raw-body hash and/or ignore events older than the last applied (no money impact). Dev's `RAZORPAY_WEBHOOK_SECRET` differs from local `.env`'s.
 
-Done. Two separate apps, `com.orivori.bhavbhakti` and `.dev` (each with its own Firebase registration and keystore); production OTAs only via `npm run update:production` (typed confirmation, staged rollout). Since `402ce89` the `.dev` app's `development` variant uses `api-dev.orivori.com`; the `preview` variant can still point at production (§96). The upload key reset is §80. Detail archived.
+## 101. 2026-09-25 — Mantra quiz removed end to end (4 tables dropped; content backed up at `bhav-bhakti-be/archive/mantra-quiz-content-backup-2026-09-25.json`).
 
-## 75. 2026-09-05 session (continued) — Test-account data isolation
+## 102. 2026-09-26 — Feeds schema redesign built on dev (see §104).
 
-Done. `users.is_test_account` plus a unique `(firebase_uid, is_test_account)` index make `.dev` and production logins separate users. Shared `Feed` counters are an accepted cosmetic trade-off. Detail archived.
+## 103. 2026-09-26 — `label` retired (see §104).
 
-## 76. 2026-09-05 session (continued) — Railway database migration reconciliation, eas update environment-variable gap closed
+## 104. 2026-09-26 — Feeds schema redesign, live
 
-Done. Railway's `SequelizeMeta` was backfilled (the database came from a dump). `eas update` ignores `eas.json`'s env blocks, so the safety script pins `--environment production`. Detail archived.
+**`D:\bhav_bhakti_Claude_docs\Bhav_Bhakti_Feeds_Schema_Redesign_Plan.md` is the source of truth for feeds, tags and the importer.** `categories` retired; `label` replaced by `tags`/`feed_tags` (filter `tags=` / `excludeTagGroup=`, e.g. the Wallpapers tab uses `excludeTagGroup=occasion`); `feed_media` merged into `feeds` (Storage paths, bilingual `subtitle`). A request still sending `label` gets **400** by design. App reads fields via `src/utils/feedFields.ts`. **Production migrations only via `scripts/migrate-production.js`** (production-only, typed `PRODUCTION`, mandatory `--to`).
 
-## 77. 2026-09-06 session — Premium Subscription Pipeline Chunk 1: credential-free slice built and shipped
+## 105. 2026-09-26 — promotion re-verified against git.
 
-Done. Tables `subscriptions`/`subscription_events`/`payments`; the `isPremiumNow` util (unit-tested); the Razorpay SDK. Detail archived.
+## 106. 2026-09-27 — Audit Group 4 steps 2, 5, 6, 9; central 401 handling (§107 = the production promotion, `43f2ba7`/`7c353e5`, `6f687c8`)
 
-## 78. 2026-09-06 session (continued) — Chunk 2: the full Razorpay webhook handler, built and tested against self-crafted fixtures
+- **Premium gate (step 2):** backend `checkMediaAccess`/`requireMediaAccess`, frontend `authorizeMediaAction` called first by every download/share/view path. Live but **off** (`PREMIUM_GATING_ENABLED` unset; since §130 `AD_UNLOCK_ENABLED` decides instead when on). `authorizeMediaAction` stops on 401; fails open only on no network, timeout, 5xx, 404.
+- **Step 5:** `authenticate` on every feed-serving endpoint (only the `view`/`play` counters are open). Live-verified: `/feed*` → 401 without login; `/deities` and `/api/v1/health` 200; bare `/health` 404.
+- **Step 6:** the 300/min limit stays; anonymous Storage listing was closed instead.
+- **Frontend:** every 401 handled once centrally (`apiClient` → `src/shared/services/sessionExpiry.ts`); React Query doesn't retry a 401. Since §137 a 401 renews a guest session instead of prompting.
 
-Done. `POST /api/v1/webhooks/razorpay`: HMAC-SHA256 check (`req.rawBody` via `express.json()`'s `verify`), idempotency on `X-Razorpay-Event-Id`, and one transaction for event logging + state sync (`syncFromRazorpayEntity`). Replay caveat: §100. Detail archived.
+## 107. 2026-09-28 — step 5 + 401 handling live (frontend first, then backend) — in §106.
 
-## 79. 2026-09-06 session (continued) — Chunk 3: service layer, endpoints, reconciliation job — DONE, verified against Razorpay's real test-mode API
+## 108. 2026-09-28 — Signed URLs (Group 4 step 8), live
 
-Done, verified against Razorpay test mode: `razorpay.service.js`, `/subscription` create/status/cancel, and `scripts/reconcile-subscriptions.js`. An unset `RAZORPAY_PLAN_ID` no longer crashes startup. Detail archived.
+Every feed response returns V4 signed URLs (`storage.googleapis.com/...?X-Goog-Signature=...`) for `url`/`thumbnailSquareUrl`/`thumbnailPortraitUrl`, valid **72 hours** (`SIGNED_URL_TTL_MS`, `src/utils/feedMedia.util.js`; `version: 'v4'` explicit — V2 has no expiry ceiling). Minted at feed-listing time (autoplay needs them); `applyMediaFields`/`serializeFeed` are async (guarded by `feed.service.serialize.test.js`). The ~208 permanent Firebase download tokens were **not rotated** (accepted, §112). Side effect: images (plain RN `Image`, cached by URL) re-download often; audio is cached by feed ID; videos aren't cached (§125). Day-stable signed URLs (B1) postponed.
 
-## 80. 2026-09-07 session — Play Console upload key now live in EAS production credentials
+## 109. 2026-09-29 — Meta (Facebook/Instagram) SDK, live
 
-Done. `new-upload-key.jks` is EAS's `production` signing credential, matching Play Console. Detail archived.
+`react-native-fbsdk-next`, configured for the production package only. Events client-side, no parameters/PII: install/app-open, `login_success`, `fb_mobile_complete_registration` (literal string) only when `isNewUser`. More events since §134. Only Play App Signing key hash (Meta) and SHA-1 (Firebase) remain registered. Plan: `Bhav_Bhakti_Meta_SDK_Plan.md`.
 
-## 81. 2026-09-08 session — Real, first-of-its-kind Play Store phone-auth bug: DIAGNOSED, FIXED, AND CONFIRMED WORKING
+## 110. 2026-09-29/30 — Storage reorganized, 173 live feeds
 
-Done (`fe: 60bac85`, v3). Real-number login failed with `auth/session-expired` because Play's SMS auto-verification beat `confirm(otp)`; fixed by also watching `onIdTokenChanged`. **Lesson:** test numbers bypass this native path and can't validate real-number auth. Detail archived.
+- **Khatu Shyam = deity 22** (both databases).
+- **Storage layout:** `Audio/<kind>/<Deity or miscellaneous>/` (`aartis`, `bhajans`, `mantras`, `mantras-extended`, `chalisa`, `ringtones`) — capital `A`; sheet paths must match exactly. Wallpapers under `Wallpapers/Static wallpapers/…`; only feeds 30/31 (videos) still in `other/`.
+- Import side effects: every `subtitle` empty; feeds owned by user 2 (`DEFAULT_USER_ID`); Chalisas imported as `bhajan`.
+- **Validate before importing:** the importer commits every good row even if others fail (bad tag, missing file or a type change drops that row silently), saves an unknown `type` as `general`, skips a title-less row without counting an error, and doesn't check that files exist. **On `main` (production), a blank or missing `views_count`/`likes_count` still resets a live counter to 0 on update** (rechecked 2026-11-15); only `develop`'s importer leaves counters alone (§120).
+- **Never re-import the old import sheet** (rows 1–8 still `other/…`, deleted duplicates, old titles) — regenerate from production or use the 2026-09-30 export (§111). Production import runs per §141.
 
-## 82. 2026-09-09 session — Legal documents + account deletion: SCOPED (superseded by §84)
+## 111. 2026-09-29/30 — Weighted feed ranking, live; OTA rule
 
-Scoped here; built in §84. Detail archived.
+- **Dev feed ids ≠ production's — match across databases by `csv_id`.** Re-import source: `D:\bhav_bhakti_Claude_docs\archive\2026-09-29-content-migration\production-feeds-export-2026-09-30.csv`.
+- **Tables** (migration `20260930000001`; plain SQL in `src/services/feedRanking.service.js`): `feed_weight_config` (`factor`, `target_key`, `weight`; seeded media_type audio 1 / image 2 / video 3; deity by `deities.name` — ganesha, shiva, hanuman, rama, krishna 2, durga 1.5; else 1) and `feed_campaign_overrides` (`name`, `target_type` deity/media_type/type/tag, `target_key`, `multiplier`, `start_at`/`end_at`, `active` default 0). Campaign windows are **IST wall-clock**, compared against `getIstDateTimeString()` (never MySQL `NOW()`); start inclusive, end exclusive; overlaps multiply; invalid rows count as neutral and log `[feed-ranking]`.
+- **`GET /feed?sortBy=weighted&seed=…`** (seed 1–64 of letters/digits/`-`/`_`; none → one per user per IST day): Efraimidis–Spirakis `u^(1/weight)`, weight = media-type × deity × campaigns (`buildFactors()`); `mixRuns()` keeps ≤2 in a row of the same media type or deity; signed URLs only for the returned page. App: `src/utils/feedSeed.ts`, one seed per scroll session (Home, Thought, every hub chip). `GET /feed/trending` serves only Mantra Explorer's "All" and old installs.
+- **Tuning in HeidiSQL, effective next request:** edit `feed_weight_config.weight`, or add a campaign: `INSERT INTO feed_campaign_overrides (name, target_type, target_key, multiplier, start_at, end_at, active) VALUES ('Janmashtami', 'deity', 'krishna', 5, '2026-09-04 00:00:00', '2026-09-06 00:00:00', 1);` (deities by `deities.name`, tags by `tags.key`; a typo silently counts as 1×). Lower the `image` weight if Home feels too visual. Loads the whole library per request — revisit in the thousands. Deferred: time-of-day boost, pin mode, deity cooldown, single-feed campaigns.
+- **Standing rule (founder, 2026-09-30): Claude never runs an OTA — not `.dev`, not production.** Claude commits/pushes, then hands over the command and a before/after checklist. Dev (from `bhav-bhakti-fe` on `dev`): `$env:APP_VARIANT = "development"; npx eas-cli@latest update --channel preview --message "..."; Remove-Item Env:APP_VARIANT`. Production: `npm run update:production` from a clean `production`, then `npm run update:production:complete-rollout`.
 
-## 83. 2026-09-09 session (continued) — Session/auth improvements: SCOPED here, resolved elsewhere
+## 112. 2026-09-30 — Home fixes; Storage cleanup; `storage.rules` locked (Group 4 now 9 of 10)
 
-Four items found: (1) the frontend/backend expiry mismatch and (2) dead 401 code — shipped (§87). (3) Expiry is now re-checked on resume (§106/§107); **still unbuilt:** resetting navigation to Home after a long background. (4) `isNewUser` is now used for analytics (§95, §109), but **the "Welcome Back" text on `phone-login.tsx` is still hardcoded for everyone.** Detail archived.
+- **Lesson: drive expo-av video imperatively (`pauseAsync()`/`playAsync()` via a ref) for background behaviour, never through `shouldPlay`** — the global `staysActiveInBackground: true` (`app/_layout.tsx`, leave it) disables expo-av's own pause.
+- Audio card: title → thumbnail → play + CTA; `MAX_THUMBNAIL_SIZE` 0.66 of width.
+- Lowercase `audio/` and unused `other/` files deleted (backup of 3 unique files in the content-migration archive folder).
+- **Rules locked:** deny by default except `get` on `FCMImages/`; signed and tokened links and the Admin SDK still work; bare `?alt=media` links 403. Test rules in the Storage emulator (`npx firebase-tools emulators:exec`, demo project, Java 21 from `D:\Android Studio\jbr`) because both apps share the bucket. App Check skipped, token rotation dropped (founder).
+- **Access:** Claude may run read-only production database checks with `RAILWAY_TOKEN_PROD` (`railway run --service MySQL`, SELECT-only script that refuses outside production). Production writes need typed-confirmation scripts and an explicit go-ahead.
 
-## 84. 2026-09-09 session (continued) — Legal documents + account deletion: BUILT AND CONFIRMED WORKING
+## 113. 2026-10-01 — Player fixes, live
 
-Done, shipped in v4 (§86). `LegalDocumentViewer` (WebView; full-screen and bottom-sheet modes) for Terms/Privacy/Refund Policy in Profile and the login screen; a Support ID derived from `firebaseUid` (backend `8c8a7c0`); the account-deletion flow (`5b504d3`). Six bugs fixed along the way. Detail archived.
+- Every autoplay entry sends a fresh `playRequestId` (`src/utils/playRequest.ts`); the player acts once per request (`lastHandledPlayRequestRef`), ignoring a request for the track already playing/loading. The player drops a queue whose current item isn't the opened track; Up Next needs a queue of 2+.
+- **Lesson: never `dismiss()` a `@gorhom/bottom-sheet` BottomSheetModal that may never have been presented** — 5.2.14 sticks in DISMISSING and ignores later `present()`.
+- **Pending product decision — "views" vs "plays":** audio views count up to 3× per tap; `feeds.plays_count`/`POST /feed/:feedId/play` exist but only `AutoplayFeedCard` calls it and `playsCount` is never shown. Open: what counts as a play?
+- **Standing rule (founder, 2026-10-01): no default device testing.** Emulator/device only when explicitly asked; the founder tests and Claude hands over the OTA command + checklist. The local `Pixel_10` emulator has `.dev`; never write the Firebase test number into docs or commits.
 
-## 85. 2026-09-10 session — NEW, PERMANENT BRANCHING WORKFLOW ADOPTED: dev / production / master
+## 114. 2026-10-01 — Audit Group 7 (dependencies), live
 
-**NEW WORKFLOW, adopted 2026-09-10, following a real production incident on 2026-09-09 that exposed a critical gap: `eas update` ships whatever is physically present in the local working directory at the moment it runs, completely independent of git commit status — meaning uncommitted or unintended code can reach production silently.** That gap is exactly how untested session/auth work reached production that night (see the incident's own live investigation earlier this session — the crash-causing update was bundled from an uncommitted working tree that also, unintentionally, included the already-committed-but-`.dev`-only-tested legal documents feature).
+Backend `npm audit fix` (`firebase-admin` 14.5 → `@google-cloud/storage` 8.2, **needs Node ≥ 22**), `sharp` 0.35.5, AWS packages removed. Frontend JS-only updates (`axios` 1.20.0). **Expo SDK 54→57 parked** as its own project (`expo-av` gone in SDK 55, 266-line `expo-audio` patch to re-port, store build needed). `.npmrc`'s `force=true` removed (`legacy-peer-deps=true` stays). **Before any frontend OTA, diff the lockfile for native packages.** Testing admin routes on dev: temporarily set dev user 30 to admin via a dev-only script, mint a 10-minute JWT inside `railway run -s bhav-bhakti-be -e development` (never print `JWT_SECRET`), clean up, restore `role = 'user'`. Check deploys with `railway deployment list -s bhav-bhakti-be -e development|production`.
 
-We now use three branches with distinct, permanent roles:
+## 115. 2026-10-01 — Downloads album; back button
 
-- **`dev`** — our everyday, active working branch. All regular commits, features, and fixes happen here first, tested against our `.dev` app via `eas update --branch preview`.
-- **`production`** — a curated branch that ONLY receives specific commits via `git cherry-pick` from `dev`, once something is deliberately confirmed tested and ready to go live. We push to real production ONLY from this branch (`npm run update:production`), never from `dev` directly.
-- **`master`** — our trusted, stable baseline. Only updated by merging FROM `production` once something is confirmed working in real, live production. GitHub's default branch stays `master`, deliberately — matching this model, where `master` represents the trusted, stable state, exactly what an outside visitor or fresh clone should see first.
+Wallpapers save to a "Bhav Bhakti" album (`Pictures/Bhav Bhakti/`, `src/utils/saveFeedToGallery.ts`) as `bhav_bhakti_<feedId>.<ext>` with an "Already saved" check (can't read the gallery on Android 13+ since §122). **Rule: inside `(main)`'s Tabs, never `router.replace` to a different tab — use `router.navigate`** (expo-router 6.0.24's `tabRouterOverride` drops Home from history). `replace` is fine across navigators or to re-target the same route.
 
-`scripts/confirm-production-update.js` now enforces this at the tooling level — it checks the current branch is genuinely `production` and the working tree is clean before allowing any production push to proceed, refusing with a clear error otherwise.
+## 116. 2026-10-01 — Shares
 
-All three branches were established from a single, correct shared baseline (commit `d0c3d25`, `bhav-bhakti-fe`) on 2026-09-10.
+`PLAY_STORE_URL` (`src/shared/config/appStoreLink.ts`, always the production listing). `shareContent()`'s `buildShareCaption(feed)`: mantra/aarti/bhajan/ringtone send a translated caption + the **thumbnail, never the audio**; wallpaper/thought/video send the file with "Shared via Bhav Bhakti — {link}". Player and cards all use `shareContent()` (option `onShareRecorded`). Rashifal shares a one-line `horoscope.shareCaption`.
 
-## 86. 2026-09-10 session (continued) — versionCode 4 submitted to Play Console Closed Testing
+## 117. 2026-10-05 — Maintenance-mode kill switch; About tag, live
 
-v4 submitted to Closed Testing (now v8, §122). Detail archived.
+**How the switch works** (also in `Bhav_Bhakti_Immediate_Plan_2026-09-30.md`):
+- Railway → right environment → `bhav-bhakti-be` → Variables. **On:** `MAINTENANCE_MODE` = `true` (only `true`, trimmed, any case); optional `MAINTENANCE_MESSAGE` (≤300 chars, shown under the built-in translated title/body — write specifics like "Back in about 30 minutes"). The service redeploys; variables are read at startup.
+- **Verify** `GET /api/v1/feature-flags` shows `"maintenanceMode":true` (`https://api.orivori.com/api/v1/feature-flags`, dev `https://api-dev.orivori.com/api/v1/feature-flags`). **Off:** delete the variable or set `false`, redeploy, re-check.
+- App: checks on cold start (splash held ≤1 s), re-checks on foreground at most every 5 min, Retry button; `MaintenanceScreen` replaces the whole navigator (back exits the app; deep links/notifications ignored; paywall and login prompt not mounted). Failed checks fail open. Only builds with this update react; useless if the backend is fully down.
+- `GET /feature-flags` has no `optionalAuth` (never touches the database) — per-user flags would need it back.
+- **About:** `Bhav Bhakti v<version> (xxxxP)` = last 4 chars of the OTA update ID + channel letter (`P` production, `D` preview/.dev, `?` other); embedded build shows the version only.
 
-## 87. 2026-09-13 session — Session-expiry sync + contextual login prompt: DONE, live in production and merged to master (since generalized, §106/§107)
+## 118. 2026-10-05 — Co-founder feedback pass, live
 
-**Part 1:** the app reads the JWT's own `exp` claim (a small hand-written base64url decoder) instead of a hardcoded 24h, so its local check matches the backend's real 10-day expiry. `jwt.util.js` now preserves the real error type — expired or invalid token → 401, an unrelated server/database error → 500, never misreported as session expiry. **Part 2:** a "session expired, please log in again" prompt (one Zustand store, one modal at the app root, same pattern as the paywall) that returns the user to the screen they were on. It originally fired only for six opted-in action endpoints; since §106/§107 every 401 is handled once, centrally. The original product rule here — browsing needs no login, only actions do — was **superseded by §107**: every feed-serving endpoint now requires login (Group 4 step 5).
+- Devotional display names via `scripts/update-deity-display-names.js` (dry run default). **Never change `deities.name`** — ranking, campaigns, analytics, chip order key on it.
+- `GET /deities?hasContent=true` (5-min cache): chips only for deities with content, ≤8 then "More".
+- Home wallpaper cards labelled "Status"; pill "Set as Status" calls `shareContent()`.
+- `src/utils/openSoundSettings.ts`; `src/utils/saveRingtoneToDevice.ts` saves to a "Ringtones" album (`Music/Ringtones/`) as `Bhav Bhakti - <English title>.mp3`.
+- Open: search alias (laxmi → Maa Lakshmi); cancelled shares counted; audio pill Hindi line height; English-only Status caption; 3 ringtones with Hindi embedded title tags.
 
-**Still open — HIGH PRIORITY for the next Premium session:** `isPremium` is permanently `false` for every user. `setSubscription()` is never called anywhere; the Premium frontend (wiring up `GET /subscription/status`, purchase UI) was never built, so a paying subscriber is indistinguishable from anyone else. `usePremiumStore`'s stub is now seeded from the `enablePremiumSubscriptionUI` feature flag.
+## 119. 2026-10-06 — Home first-10 guarantee, live
 
-## 88. 2026-09-11 session — Rashifal back-navigation fix: DONE, CONFIRMED WORKING, live in production and merged to master
-
-Done, live. Hardware back on `horoscope-detail.tsx` respects the entry point (`BackHandler` + `useFocusEffect`). Detail archived.
-
-## 89. 2026-09-11 session (continued) — Auto-verification visible feedback: DONE, CONFIRMED WORKING, live in production and merged to master
-
-Done, live. A "✓ Verified automatically" banner and input lock on SMS auto-verification (an `isVerifyingRef` guard stops false positives). Checking typed digits against the auto-retrieved code was deliberately not built. Detail archived.
-
-## 90. 2026-09-11 session (continued), updated 2026-09-14 — Rashifal variety: second fix applied
-
-The first fix (real date interpolation) helped day-to-day repetition, but different signs then converged on identical lucky values on the same night. Root cause: no `temperature` set on the Gemini call, and no sign-specific signal for those fields. Fixed: `temperature: 1.4` (English generation only, not the Hindi translation); anchoring example values and two instructions a stateless call can't honor were removed. `Bhav_Bhakti_Handoff.md` treats this as fixed; since temperature is probabilistic, within-sign and cross-sign variety are still worth watching.
-
-## 91. 2026-09-11 session (continued) — NEXT SESSION reminder: pick up the deferred §87 session/auth work — RESOLVED, see updated §87
-
-Resolved — see §87 (and §107, which later required login on every feed endpoint). Detail archived.
-
-## 92. 2026-09-12 session — Jio network blocking Railway backend: DIAGNOSED AND FIXED
-
-Done, live. Jio blocked `*.up.railway.app`; production uses `api.orivori.com` with an automatic Railway fallback. **Lesson:** production backends need a custom domain. Detail archived.
-
-## 93. 2026-09-13 session (continued) — Observability gaps: SCOPED here, all three tasks shipped in §94
-
-Scoped here; all three tasks built in §94. SLO dashboards/Grafana/APM declined as premature. Detail archived.
-
-## 94. 2026-09-15 session — Observability trio: DONE, CONFIRMED WORKING
-
-Done, shipped in v5. Crashlytics with the Support ID (`setUserIdentifier()`), a backend uncaught-exception/unhandled-rejection handler and a root error boundary — a triggered test crash was confirmed in the Console. Since §125 Crashlytics also gets the custom keys `ota_update` (the Profile > About short tag) and `ota_update_id`, set at app start in `app/_layout.tsx`. Plans written here (`Bhav_Bhakti_Push_Notifications_Plan.md`, `Bhav_Bhakti_Analytics_Event_Plan.md`) shipped in §95. Detail archived.
-
-## 95. 2026-09-18 session — Push notifications shipped to production; Analytics 4-of-5 buckets shipped to production
-
-**Push notifications — live, merged to master.** Permission asked right after login; one all-users topic; the notification icon comes from a hand-written config plugin, not `expo-notifications` (a `firebase.json` fix avoids a manifest-merger clash with `react-native-firebase/messaging`); deep links go through a validated route allowlist (an invalid route falls back to Home). Foreground display deferred (needs Notifee or similar). No custom backend — sending is done from Firebase Console.
-
-**Firebase Analytics — partly done.** Built and checked in DebugView across the funnel buckets (Acquisition deliberately left to Play Console). Still open: refining `login_failed`'s raw error codes and `card_rank` position tracking; the Premium conversion events (`trial_started`, `trial_converted_to_paid`, `subscription_cancelled`) wait for the Premium frontend — only `paywall_hit` and `upgrade_cta_clicked` are live. Detail archived.
-
-## 96. 2026-09-24 session — Railway dev environment provisioned; first security-audit fixes shipped to production
-
-A Railway **development environment** now exists for the backend — its own MySQL database, deployed from a new `bhav-bhakti-be` `develop` branch. The frontend `.dev` app's `development` variant has used it since `402ce89` (frontend `dev`, 2026-09-24) via `api-dev.orivori.com`; the `preview` variant can still point at production. **First security-audit fixes — DONE, live in production on both repos:** TLS on the database connection, HSTS, a centralized `ResponseHandler.errorSafe()` that stops raw exception details reaching the client (swept across all controllers), and no more JWT/PII in frontend logs (`authStore.ts`, `useAuth.tsx`, `apiClient.ts`, `secureStorage.ts` — confirmed via an on-device logcat capture). Detail in `Bhav_Bhakti_Security_Audit_Plan.md`.
-
-## 97. 2026-09-24 session (continued) — Security audit Group 2 (Access Control): DONE, live in production
-
-Backend `develop` merged into `main` (`7698adb`); a 31-check smoke test against production passed, nothing written. Backend-only. Shipped: `requireAdmin` on `/categories/admin` (since removed with `categories`, §104), all 5 upload routes and `DELETE /upload/media/:key`; `authenticate` on `/analytics/global-stats`; Facebook OAuth removed (the `users.facebook_id` column kept); the forgeable `admin.auth.middleware.js` deleted; `POST /profile/photo` removed, closing a real hole — any logged-in user could point `profilePicture` at a content file, then `DELETE /profile/photo` deleted it from storage (it now only clears the database reference).
-
-**New safety mechanism:** `scripts/confirm-db-target.js` — before `import:feeds`, `create-categories-from-csv.js` or `create-deities-from-csv.js` touches a database, it shows the target labeled PRODUCTION/DEVELOPMENT/LOCAL/UNKNOWN from the real `DB_HOST` (never `NODE_ENV`) and requires typing that label; it refuses to run non-interactively. Update its host-to-label map if Railway ever regenerates a proxy hostname.
-
-**Significant finding, fixed:** production's `JWT_SECRET` was still the `.env.example` placeholder (anyone guessing it could forge a login for any user) — rotated in both Railway environments. **Still open:** `role = 'admin'` not set on the founder's production account (deliberately deferred — the CSV importer bypasses the API); dev database password rotation declined by the founder.
-
-## 98. 2026-09-24 session (continued) — Security audit Group 3 (Rate Limiting): DONE, live in production
-
-Backend `develop` merged into `main` (`8fee297`). Every limit was triggered for real on dev; production got a light smoke test only. Five limits (`express-rate-limit`, all in `src/middlewares/rateLimit.middleware.js`, one named constant per value): login (`POST /auth/firebase/verify`) 20/min **and** 75/hour per IP; `POST /subscription/create` 5/hour per user (after `authenticate`); Razorpay webhook 100/min per IP (flood backstop); one shared 300/min per-IP budget for the content API (feed, horoscope, deities, feature-flags — mounted in `src/routes/index.js`, before any route-level auth); the existing `/profile/*` limiters unchanged (20 writes/15 min, 30 reads/min). Every 429 is the standard `{ success: false, message }` and logs a `[rate-limit]` line — search Railway logs for it if a user reports being blocked. Login and content limits are deliberately looser than the audit's first draft (a founder decision): Jio/Airtel CGNAT puts many real users behind one public IP.
-
-**`trust proxy` is `2`** (`src/app.js`): Railway has two relays in front of the app; wrong values either split one user across edge IPs or lumped many users together (this also fixed the `/profile` limiter lumping users onto a shared relay address). Railway's edge discards client-supplied `X-Forwarded-For`, so the IP can't be spoofed. **If a CDN/proxy is ever put in front of `api.orivori.com`, this hop count must change.** Also: malformed JSON bodies now return 400, not 500. Known limitation: counts live in server memory — reset on every deploy, and not shared if the backend ever runs multiple instances (that would need Redis).
-
-## 99. 2026-09-24 session (continued) — Security audit Group 5 (Automated Database Backups): DONE, live in production
-
-Backend `develop` merged into `main` (`aae14c3`). A production-only Railway cron service (auto-deploy off, set up by the founder) runs `scripts/backup-database.js` daily at 3am IST (`30 21 * * *` UTC): `mysqldump` → gzip → Firebase Storage `backups/YYYY-MM-DD-HHmm.sql.gz` (India time) → retention cleanup. Each run logs one `[db-backup] SUCCESS …` or `[db-backup] FAILED stage=… error=…` line; failures exit 1. First production run: ~509 KB, 5.9 seconds.
-
-Separate image `Dockerfile.backup` (selected via `RAILWAY_DOCKERFILE_PATH`), built on the official `mysql:9.4` image plus Node — Alpine only offers MariaDB's `mysqldump`, which can't log in to MySQL 9.x. **If Railway's MySQL is ever upgraded, bump the `mysql:` tag to match.** It connects only via the database's private address (`${{MySQL.MYSQLHOST}}`) and refuses the public `*.proxy.rlwy.net` one.
-
-Retention (`src/utils/backupRetention.util.js`, unit-tested): the newest backup from each of the last 7 days that have one, plus the newest from each of the 4 weeks before — at most ~11 files. Count-based, so a gap in runs never wipes old backups as "too old"; deletes only after a successful upload; never touches files that don't match the naming pattern. **Found and fixed before any real backup was uploaded:** the bucket was publicly listable/readable, so `storage.rules` now excludes `backups/` from public reads — any future rules change must keep that exclusion. Restore verified during dev testing (0 row-count differences, Hindi intact). The audit plan notes a backup-schedule doc-vs-behavior mismatch not yet reconciled.
-
-## 100. 2026-09-24 session (continued) — Security audit Group 9 (Adversarial Testing): DONE — 4 findings, 2 fixed and live, 2 deliberately deferred
-
-10 real attacks against the dev environment (not code review): cross-account reads/writes and privilege escalation via profile updates; expired, tampered, `alg:none` and wrong-secret JWTs; login-token reuse; non-admin access to admin, upload and delete-media routes; forged and replayed Razorpay webhooks; bad page sizes; a 600-request burst (the limiter held at exactly 300/min). All rejected except 4 findings.
-
-**Fixed, live in production (merge `1ca0f5e`):** `POST /feed` was fully open, with no login at all — now `authenticate` + `requireAdmin` (`bfb3a51`; the CSV importer writes via Sequelize and is unaffected). `GET /categories/:id/feeds` accepted unbounded or negative page sizes (that route has since been removed with `categories`, §104).
-
-**Deliberately NOT fixed (MVP scope, founder decision):** (1) Firebase login-token reuse — the same ID token is accepted repeatedly within its 1-hour validity, each time opening a new 10-day session; fix when picked up: reject tokens whose `auth_time` is more than a few minutes old. (2) Razorpay webhook replay with a new event ID — duplicate detection keys on the unsigned `X-Razorpay-Event-Id` header, so a captured signed body re-sent with a new ID is processed again; no money or premium-time impact (payments key on Razorpay's payment ID, handlers write absolute values), worst case a stale status is reapplied; fix: also dedupe on a hash of the raw body and/or ignore events older than the last applied. Minor: `POST /feed` hardcodes user 1 as owner. Testing notes: the dev database has no admin users (tests temporarily promoted one and reverted); dev's `RAZORPAY_WEBHOOK_SECRET` differs from the local `.env`'s.
-
-## 101. 2026-09-25 session — Mantra quiz feature fully removed: DONE, live in production
-
-Done, live. The quiz never produced recommendations, so it was removed end to end; its 4 tables were dropped in both databases (migration `20260925000001`, run by hand). Content backed up at `bhav-bhakti-be/archive/mantra-quiz-content-backup-2026-09-25.json`. Backend `main` merge `1cf22a4`; frontend `c9ec390`. Detail archived.
-
-## 102. 2026-09-26 session — Feeds schema redesign Phases 1–3 built on dev (superseded by §104)
-
-Built on dev, promoted in §104. **`D:\bhav_bhakti_Claude_docs\Bhav_Bhakti_Feeds_Schema_Redesign_Plan.md` is the source of truth for anything touching feeds, tags or the CSV importer.** Dev migrations run with the dev-scoped Railway token (`railway run --service MySQL`), never via `.env`. Detail archived.
-
-## 103. 2026-09-26 session (continued) — Feeds schema redesign Phases 2–3 finished on dev, `label` retired (superseded by §104)
-
-Promoted in §104. The app reads the new fields via `src/utils/feedFields.ts`; new `excludeTagGroup` filter (the Wallpapers tab uses `excludeTagGroup=occasion`); a request still sending `label` gets a **400** by design (ignoring `label=none` would widen an old build's Wallpapers tab). Still open: a downloaded wallpaper appears in the gallery but won't open (Handoff item 10, not re-tested since §115). Detail archived.
-
-## 104. 2026-09-26 session (continued) — Feeds schema redesign: FULLY COMPLETE, live in production
-
-**Live in production since 2026-09-26** (backend `main` merge `24091f6`; frontend `production`/`master` `0e0c9a7`). Full record: the plan doc's Part 9. `categories` retired; `label` replaced by a many-to-many `tags`/`feed_tags` system (filter with `tags=`/`excludeTagGroup=`); `feed_media` merged into `feeds` (Storage paths, bilingual `subtitle`); the `media[]`/`caption`/`label` shims retired. Five staged releases, one ~10-minute outage. Production migrations go through `bhav-bhakti-be/scripts/migrate-production.js` (production-only, typed `PRODUCTION`, mandatory `--to`); JSON backups in `bhav-bhakti-be/archive/production-*-2026-09-26.json`. The v7 follow-up shipped with §109. Detail archived.
-
-## 105. 2026-09-26 session (continued) — Feeds schema redesign production promotion: verified complete against git
-
-Re-verified against git on 2026-09-27; stage-by-stage commits archived.
-
-## 106. 2026-09-27 session — Security audit Group 4: steps 1–4, 6 and 9 closed; step 5 and the step-2 refinement built (both since live, §107)
-
-Full detail in `Bhav_Bhakti_Security_Audit_Plan.md` (Item 11 and the Group 4 build log).
-- **Step 2 — premium gate on download/share/enlarged view:** backend `checkMediaAccess` + `requireMediaAccess`; one frontend `authorizeMediaAction` gate that every download/share/view path calls first. **Live in production but switched off** (backend `main` merge `c22c86d`, frontend `production` `79b4a4d`; `PREMIUM_GATING_ENABLED` unset — see §107's open item). When on, it gates wallpaper/thought download, share and view, and ringtone download. The same release retired the old `isPremium` stub on Home's action button and the enlarged view (Listen is always free), fixed double-counted downloads/shares, and started counting ringtone downloads. `profile.tsx` (and the orphan `spiritual.tsx`/`wallpapers.tsx`) still read the old stub — left for the Premium frontend work.
-- **Steps 3–4 — storage paths instead of URLs:** done by the feeds redesign (§104).
-- **Step 6 — closed:** the 300/min per-IP content limit stays (no API limit can stop metadata scraping — one `GET /feed?limit=100` returns the whole library). The real gap it surfaced was fixed instead: anonymous listing of Storage folders — `storage.rules` now allows `get` but denies `list` (repo `0497737`, published by the founder, verified live).
-- **Step 9 — billing alert:** confirmed already set up in an earlier session (audit plan, Item 11 step 9). The inconsistency this section originally flagged is resolved.
-- **Step 5 + frontend 401 handling — built and tested on dev here, promoted in §107:** backend `cea19d5` puts `authenticate` on every feed-serving endpoint (and fixes Home/Search showing user 1's likes to everyone); frontend `c2cbbda` handles any 401 once, centrally (`apiClient` → `src/shared/services/sessionExpiry.ts`): session cleared, a non-dismissible, translated Session Expired prompt shown once, same return-to-screen login, token expiry re-checked on resume, React Query no longer retries a 401, the six `promptOnAuthFailure` opt-ins removed. `7a4af6e` makes `authorizeMediaAction` stop on a 401 instead of failing open (fail-open kept only for no network, timeout, 5xx, 404). Production order had to be frontend first, then backend.
-
-Full original text (including the on-device test log) archived.
-
-## 107. 2026-09-28 session — Security audit Group 4 step 5 + central 401 handling: DONE, live in production
-
-Promoted in the agreed order. **Frontend first:** `c2cbbda` and `7a4af6e` cherry-picked onto `production` as **`43f2ba7`** and **`7c353e5`**. One conflict, in `useAuth.tsx`, resolved by keeping production's side, so the `.dev`-only debug tools stay off production — the only difference between `43f2ba7` and `c2cbbda` is comment wording inside those debug functions; `7c353e5` matches `7a4af6e` exactly. Published via `npm run update:production` (EAS update group `36201b40-3e60-4544-88d6-af44d79c85d0`), staged at 10%, verified on-device, then 100%; `master` fast-forwarded. **Then backend:** `develop` merged into `main` as **`6f687c8`**, bringing in only `cea19d5`'s `feed.routes.js`/`feed.controller.js`; no migration.
-
-Live-verified against `api.orivori.com` with no login: `GET /feed`, `/feed/trending`, `/feed/trending/mantras`, `/feed/tags/popular` and `/feed/:id` return **401**; `/deities` and `/api/v1/health` still 200 (a bare `/health` returns 404, §123). Rechecked in code 2026-09-29: every feed-returning route in `src/routes/feed.routes.js` has `authenticate`; only the `view`/`play` counters are open, and they return only `{ success: true }`; `admin-feed.routes.js` isn't mounted; no categories routes exist.
-
-**Still open:** `PREMIUM_GATING_ENABLED` on production needs a manual re-confirmation (Railway dashboard → backend service → Variables) — this session's CLI only had development access. **Group 4 now stands at 8 of 10** (with step 8, §108): only step 7 (App Check) and step 10 (lock `storage.rules`, gated on 7 and on rotating the existing permanent download tokens) remain. *(Update: step 10 done, step 7 skipped and token rotation dropped by founder decision, 9 of 10 — §112.)*
-
-## 108. 2026-09-28 session — Security audit Group 4 step 8 (signed URLs for media): DONE, live in production
-
-**Full detail in `Bhav_Bhakti_Security_Audit_Plan.md`** — this is a pointer/summary. Backend-only; no frontend change. Built on `develop` (`17b7c50`), merged to `main` (`5f2942e`), deployed to production (Railway deploy `b1b1ae72`) on 2026-09-28, confirmed working via an on-device production check.
-
-Every feed response now returns V4 signed Cloud Storage URLs (`storage.googleapis.com/...?X-Goog-Signature=...`) for `url`/`thumbnailSquareUrl`/`thumbnailPortraitUrl`, expiring after **72 hours** (`SIGNED_URL_TTL_MS` in `src/utils/feedMedia.util.js`; `version: 'v4'` explicit — the library defaults to V2, which has no expiry ceiling). `applyMediaFields`/`serializeFeed` are now async; all 5 call sites in `feed.service.js` await them, guarded by `feed.service.serialize.test.js`.
-
-**Shipped in a different shape than planned:** the plan had URLs minted at a delivery endpoint; they're actually minted at feed-listing time (every feed response), since autoplay needs a playable URL in the feed itself.
-
-**Not done, still open:** the ~208 existing permanent Firebase download tokens were **not rotated** — old tokened links (and, until step 10 locks `storage.rules`, old token-free links) still work, so signing alone isn't access control yet. Steps 7 (App Check) and 10 (lock `storage.rules`) not started — with step 5 live (§107), Group 4 stands at 8 of 10. *(Update 2026-09-30, §112: step 10 done, so bare links now fail; tokens accepted as-is, no rotation; step 7 skipped — founder decisions.)*
-
-**Known side effect:** images (thumbnails/wallpapers, plain RN `Image`, cached by URL) re-download more often, since the signed URL changes on every fetch. Audio is unaffected (cached on disk by feed ID, not URL); videos are not cached at all (§125). Measured and planned around in §125 (B1, day-stable signed URLs, postponed).
-
-## 109. 2026-09-29 session — Meta (Facebook/Instagram) Ads SDK: DONE, live in production
-
-**Live in production.** Plan and build log: `D:\bhav_bhakti_Claude_docs\Bhav_Bhakti_Meta_SDK_Plan.md`. Frontend-only.
-- **`react-native-fbsdk-next`**, configured in `app.config.js` for the production package only; `src/utils/analytics/metaEvents.ts` is inert in `.dev` (a lazy `require` since `765b45f`, §123); the native module is in every build.
-- **Events, all client-side, no parameters (no PII):** automatic install/app-open; a custom `login_success` on every login; Meta's `fb_mobile_complete_registration` (written as a literal, never read from the native module) only when `isNewUser` is true — both from `useAuth.tsx`.
-- Verified on a Play Store install of v7. Only the Play App Signing key hash (Meta) and SHA-1 (Firebase) remain registered (debug entries removed 2026-10-14).
-- `feature/meta-sdk` branched off `production` was a one-time exception to §85. Data Safety form and Advertising ID declaration done. Deferred: deferred deep linking, a Purchase event, Advanced Matching. Detail archived.
-
-## 110. 2026-09-29/30 session — Storage reorganized, content sheet imported to production (173 live feeds), Khatu Shyam deity added
-
-**DONE, live in production.** Data and Storage work only — no code changed. Sheet: `D:\bhav_bhakti_Claude_docs\Bhav_Bhakti_Feed_Import_Sheet.xlsx`; working files (generated import CSV, import log, original thumbnails) in `D:\bhav_bhakti_Claude_docs\archive\2026-09-29-content-migration\`.
-- **Khatu Shyam = deity 22** in both databases (one-off insert, `sort_order` 21, before "Others" at 9999). **Don't run `create-deities-from-csv.js` against a live database** until `Content Upload Sheet - Deities.csv` is rewritten — it would blank icons, colours and other-language names on every existing deity and add Shani/Gayatri/Ashwatthama.
-- **Storage:** 58 audio files copied into `Audio/<kind>/<Deity or miscellaneous>/` (`aartis`, `bhajans`, `mantras`, `mantras-extended` for the 108-times recordings, `chalisa`, `ringtones`), keeping content-type and download token. `Audio/` (capital A) is not the old lowercase `audio/` (deleted, §112) — sheet paths must match exactly. Two oversized thumbnails compressed in place (originals in the archive folder).
-- **Import:** 181 rows → 150 created, 31 updated, 0 errors. Side effects: every feed's `subtitle` is now empty, and every feed is owned by user 2 (`DEFAULT_USER_ID`). Shiv/Hanuman Chalisa went in as `bhajan` (no chalisa type yet). A dedupe then deleted 8 byte-identical wallpaper duplicates, repointed feeds 1–8 to `Wallpapers/Static wallpapers/…` and renumbered 16 titles → **173 active feeds** (113 wallpaper, 27 ringtone, 13 bhajan, 12 mantra, 6 aarti, 2 thought). Only feeds 30/31 (the two videos) still use `other/`.
-- **Running the importer against production:** `.env` points at dev and `confirm-db-target.js` needs a real keyboard, so the founder runs it in their own PowerShell: `$env:RAILWAY_TOKEN = $env:RAILWAY_TOKEN_PROD`, then `railway run --service MySQL -- node <wrapper>`, where the wrapper maps Railway's MySQL variables onto `DB_HOST`/`DB_PORT`/`DB_NAME`/`DB_USER`/`DB_PASSWORD` and runs the importer (the wrapper isn't in either repo). The banner then correctly shows PRODUCTION.
-- **Validate before importing:** the importer commits every good row even when others fail (a bad tag, a missing file or a type change silently drops that row), saves an unknown `type` as `general`, skips a row with no title without counting an error, and turns a blank or missing `views_count`/`likes_count` into 0 — which resets a live counter on update (confirmed in code, §111).
-- **Still open:** the import sheet is stale against production (rows 1–8 still `other/…`, the 8 deleted rows still present, 16 old titles) — re-importing it as-is recreates the duplicates. Use the 2026-09-30 export CSV (§111) or regenerate from production first. `Content Upload Sheet - Deities.csv` is out of step with the live deities.
-
-Full detail (thumbnail sizes, duplicate ids, verification) archived.
-
-## 111. 2026-09-29/30 session — Dev content synced to production; weighted feed ranking live in production; new OTA rule
-
-**Dev synced to production (2026-09-30)** from `D:\bhav_bhakti_Claude_docs\archive\2026-09-29-content-migration\production-feeds-export-2026-09-30.csv` (173 rows — the current, correct source for any re-import). Dev now matches production (173 feeds, same type mix, 22 deities). **Dev feed ids don't match production's — match feeds across the two databases by `csv_id`, never `id`.**
-
-**Weighted feed ranking — DONE, live in production at 100% (§112).** Backend `develop` `4e83ebf` → `main` `f1a8db1`; frontend `dev` `503884e` → `production` `36f0fd6`.
-- **Tables** (migration `20260930000001`, which seeds the defaults; read with plain SQL in `src/services/feedRanking.service.js`, no Sequelize models): `feed_weight_config` (`factor`, `target_key`, `weight`; seeded `media_type` audio 1 / image 2 / video 3, and `deity` by `deities.name` — ganesha, shiva, hanuman, rama, krishna 2, durga 1.5; anything without a row is 1) and `feed_campaign_overrides` (`name`, `target_type` = deity / media_type / type / tag, `target_key`, `multiplier`, `start_at`/`end_at`, `active` default 0). Campaign windows are **IST wall-clock values**, compared against IST computed in code (`getIstDateTimeString()`), never MySQL `NOW()`; `start_at` inclusive, `end_at` exclusive. Overlapping campaigns multiply. Invalid weights or unknown target types count as neutral and log `[feed-ranking]`.
-- **`GET /feed?sortBy=weighted&seed=…`** (seed: 1–64 letters, digits, `-`, `_`; no seed → one per user per IST day). Loads every matching feed, ranks with the Efraimidis–Spirakis key `u^(1/weight)` (weight = media-type × deity × active campaigns, an open chain in `buildFactors()`), mixes, then slices the page; signed URLs only for the page returned. **Mixing** (`mixRuns()`, `src/utils/feedRanking.util.js`): never more than 2 in a row of the same media type (audio/image/video) or deity, relaxed only when nothing else is left.
-- **App:** `src/utils/feedSeed.ts` — one seed per scroll session (new on a fresh open or pull-to-refresh). Home and the Thought tab (`useFeed`) and every Audio/Wallpaper hub chip, "All" and deity (`useRingtones`, `useAudioFeed`, `useWallpaperFeed`), use it. Liked, Search and Mantra Explorer are unchanged; `GET /feed/trending` now serves only Mantra Explorer's "All" chip and old installs. Newest-first no longer appears in the hubs.
-- **Tuning (HeidiSQL, no redeploy — next request):** edit `feed_weight_config.weight`, or add a campaign, e.g. `INSERT INTO feed_campaign_overrides (name, target_type, target_key, multiplier, start_at, end_at, active) VALUES ('Janmashtami', 'deity', 'krishna', 5, '2026-09-04 00:00:00', '2026-09-06 00:00:00', 1);` (deities by `deities.name`, tags by `tags.key`; a mistyped name silently counts as 1x). On dev, 77% of Home's top 5 slots were visual — lower the `image` weight if Home feels too visual.
-- Every weighted request loads the whole matching library — fine at 173 rows; revisit in the thousands. **Deferred to v2:** time-of-day boost, real pin mode (needs a `mode` column), soft deity cooldown, a single-feed campaign target.
-
-**Standing rule (founder, 2026-09-30): Claude never runs an OTA update — not `.dev` (`preview` channel), not production.** Claude commits and pushes, then gives the founder the exact command plus what to check before and after. Dev: `$env:APP_VARIANT = "development"; npx eas-cli@latest update --channel preview --message "..."; Remove-Item Env:APP_VARIANT` (from `bhav-bhakti-fe` on `dev`). Production: `npm run update:production` from a clean `production` branch, then `npm run update:production:complete-rollout`.
-
-Full detail (spec changes from the original brief and why, dev verification, rollout sequence, Storage cleanup plan) archived.
-
-## 112. 2026-09-30 session (continued) — Home video/audio-card fixes live; old Storage folders deleted; `storage.rules` locked (Group 4 step 10, now 9 of 10)
-
-**Home fixes — live at 100%** (`dev` `bb8e072` → `production` `75c3f61`; this update also carried §111's ranking).
-- **Background audio:** an unmuted Home video kept playing after the app was backgrounded. expo-av's `shouldPlay` prop isn't reliably applied in the background, and the global `staysActiveInBackground: true` (`app/_layout.tsx`, deliberately left alone — it affects every expo-av player) disables expo-av's own pause-on-background. `AutoplayFeedCard` now calls `pauseAsync()`/`playAsync()` through a ref whenever `isEffectivelyActive` changes — the same fix §33 used in `ViewingWindowSheet`. **Lesson: drive expo-av video imperatively for background behaviour, not through props.**
-- **Audio card layout:** title → thumbnail → play button + CTA pill, centred; title 2 lines max with §71-style line-height floors. Card height unchanged (`AUDIO_CONTENT_HEIGHT_RATIO` 0.75); `MAX_THUMBNAIL_SIZE` (0.66 of card width) shrinks on short screens instead.
-
-**Storage cleanup — done.** Bucket 257 → 219 objects; lowercase `audio/` is gone, and 10 unused `other/` files too (its 2 videos kept — feeds 30/31, no other copy). The 3 unique, unused files deleted are backed up locally in `D:\bhav_bhakti_Claude_docs\archive\2026-09-29-content-migration\storage-backup-2026-09-29\audio\`. **Leftover to fix:** the example row in `bhav-bhakti-be/Content Upload Sheet - Feed TEMPLATE.csv` points at deleted `audio/aartis/…` files; the importer doesn't check that files exist.
-
-**Group 4 step 10 — `storage.rules` locked, live** (backend `develop` `ea8f3d9` → `main`). Deny by default except `get` on `FCMImages/`. Signed links, tokened links and the Admin SDK still work; bare `?alt=media` links return 403. Founder decisions: App Check (step 7) skipped, token rotation dropped. Full record in `Bhav_Bhakti_Security_Audit_Plan.md`.
-- Both apps share one bucket, so rules were tested in the Storage emulator instead: `npx firebase-tools emulators:exec` with a demo project, using Java 21 from `D:\Android Studio\jbr` (system Java 1.8 is too old).
-- The founder publishes rules in Firebase Console → Storage → Rules (Claude Code lacks Rules permissions); rollback = republish from git history or the Console's rules history. Verified live after publishing.
-- Side effect: the unused admin upload route's response still builds a bare link, which no longer opens.
-
-**Access note:** Claude Code may run read-only production database checks with `RAILWAY_TOKEN_PROD` (`railway run --service MySQL`, with a SELECT-only script that refuses to run outside production). Production writes still go through their typed-confirmation scripts and an explicit go-ahead.
-
-Full detail (root-cause trace, per-folder delete lists, emulator and live test results) archived.
-
-## 113. 2026-10-01 session — Player fixes live in production (replay auto-start, stale queue, mantra first-play repeat, Up Next); audio "views vs plays" open
-
-Frontend-only, live at 100%, founder-confirmed on `.dev` and production.
-- **Replay auto-start** (`dev` `51382cd` → `production` `215eadf`): replaying the same track after ✕ opened paused, because the never-unmounted player's auto-start fired once per track per session. Every autoplay entry point now sends a fresh `playRequestId` (`src/utils/playRequest.ts`); the player acts once per request (`lastHandledPlayRequestRef`) and ignores a request for the track already playing or loading (`togglePlayback` is a toggle). Only the auto-start effect reads `playRequestId` — highlighting, queue and Up Next never see it.
-- **Stale queue, mantra first-play repeat, Up Next** (`dev` `0c5d48b`/`2e8db9d`/`54576f4` → `production` `2a6ebc9`/`1277010`/`6b293f2`): the player drops the queue when the opened track isn't the queue's current item; Home's Listen pill now sends `type`/`isRepeatable`, and auto-repeat is re-decided once the fetch lands; the "Up Next" handle isn't rendered without a queue of 2+. **Lesson: never call `dismiss()` on a `@gorhom/bottom-sheet` BottomSheetModal that may never have been presented** — in 5.2.14 it sticks in DISMISSING and ignores every later `present()`.
-- **Parked:** a queue for Home's Listen (per-session hub seed, start at the tapped track, wrap round) — proposal only.
-- **Pending product decision — audio "views" vs "plays":** the player shows a views pill and counts views for audio up to 3 times per tap (the list's tap handler, `fetchFeedData`, `togglePlayback`). A plays counter exists but is barely used: `feeds.plays_count` and `POST /feed/:feedId/play` (open, no login), called only by `AutoplayFeedCard`; `playsCount` is never displayed. Firebase has only `content_progress`/`first_content_completed`. Open: what counts as a play (start, N seconds, full listen)? Do Home's 30s previews, mantra loops, or replays after ✕ count?
-
-**Standing rule (founder, 2026-10-01): no default device testing.** Claude uses an emulator or device only when explicitly asked for a specific task; the founder tests on their phone, and Claude hands over the OTA command plus a testing checklist. The local `Pixel_10` emulator has the `.dev` app; the Firebase test number is never written into docs or commits.
-
-Full detail archived.
-
-## 114. 2026-10-01 session — Security audit Group 7 (dependency fixes): DONE, live in production; Expo SDK upgrade parked
-
-Full record in `Bhav_Bhakti_Security_Audit_Plan.md` (Group 7 build log).
-- **Backend:** `npm audit fix` (`main` merge `7c80569`; `firebase-admin` 14.5 moves `@google-cloud/storage` to 8.2, which needs **Node ≥ 22**), `sharp` 0.35.5, unused AWS packages removed. 2 moderate findings remain (`sequelize`'s bundled `uuid`, not reachable as used).
-- **Frontend:** JS-only packages updated by name, incl. `axios` 1.20.0 (`production` `11f2056`). 24 findings remain (the Expo chain, never-imported Firestore's `grpc-js`, build-time `image-size`).
-- **Expo SDK 54→57 deliberately parked** as its own project: `expo-av` is gone in SDK 55 (6 video files → `expo-video`), the 266-line `expo-audio` native patch needs re-porting, every native module needs compatible versions, and it needs a Play Store build.
-- **`bhav-bhakti-fe/.npmrc`'s `force=true` removed** (`legacy-peer-deps=true` stays): it made every npm command act like `--force`. **Before any frontend OTA, diff the lockfile for native packages.**
-- **Testing admin-only upload routes on dev:** temporarily set dev user 30 (founder's test account) to `role = 'admin'` via a script that refuses unless `.env` points at dev; mint a 10-minute JWT inside `railway run -s bhav-bhakti-be -e development` so `JWT_SECRET` is never printed; call `/upload/media` and `/upload/optimized-image` on `api-dev`; delete the uploads; restore `role = 'user'`. Check deploys with `railway deployment list -s bhav-bhakti-be -e development|production` (production via `RAILWAY_TOKEN_PROD`).
-- Noted, not changed: `GET /upload/config` is public (limits and types only). The nightly backup service kept its pre-Group-7 image until it was redeployed on 2026-10-23, which exposed a file missing from `Dockerfile.backup` (§128).
-
-## 115. 2026-10-01 session — Wallpaper downloads go to a "Bhav Bhakti" album with an already-saved check; hardware back no longer minimizes the app: live in production
-
-Frontend-only, JS-only: `dev` `a04fa15`/`6f0aef6` → `production` `769a36d`/`c81c5b2`, 100%, founder-confirmed (13 on-device checks).
-- **Downloads** (`a04fa15`): they used to land in `DCIM/` under timestamped names with no duplicate check, so repeats piled up and gallery apps hid the identical copies. New shared `src/utils/saveFeedToGallery.ts` (used by `useWallpaperActions.ts`, `AutoplayFeedCard.tsx`, `FeedCard.tsx`; ringtone saves are separate) saves to a "Bhav Bhakti" album (`Pictures/Bhav Bhakti/`, `GALLERY_ALBUM_NAME` — the first save creates it from the file, so nothing passes through DCIM and no permission dialog appears) as `bhav_bhakti_<feedId>.<ext>`. If that name is already in the album, nothing is downloaded or counted and "Already saved" shows (the check runs before `authorizeMediaAction`). A failed album lookup saves anyway; a failed album save falls back to DCIM; a non-200 download now shows the error alert. The dead `downloadWallpaper.ts` was removed. Pre-fix downloads aren't recognised. Handoff item 10 (a downloaded wallpaper won't open) was not re-tested.
-- **Back button** (`6f0aef6`, Handoff item 11): inside Tabs, `router.replace()` becomes a tab jump, and expo-router 6.0.24's `tabRouterOverride` then removes `history[index - 1]` using the tab's position in the bar — losing Home for Mantras and Audio, so a second back press minimized the app. Fixed by `router.replace` → `router.navigate` in the `returnTo` back handlers of `audio-player.tsx`, `search-results.tsx` and `horoscope-detail.tsx`; the `returnTo`/`returnParams` mechanism is unchanged. `verify-otp.tsx`'s post-login `replace` is correct (it crosses navigators).
-- **Rule: inside `(main)`'s Tabs, never `router.replace` to a different tab — use `router.navigate`.** `replace` is fine across navigators or to re-target the same route.
-
-Full detail archived.
-
-## 116. 2026-10-01 session — Shares carry the real Play Store link; audio and Rashifal shares send a caption, not the content: live in production
-
-Frontend-only, JS-only: `dev` `d8ae5aa` → `production` `381413f`, 100%, founder-confirmed.
-- The placeholder `bhavbhakti.app/download` is replaced by `PLAY_STORE_URL` (`src/shared/config/appStoreLink.ts`) — always the production listing, also from `.dev`.
-- `shareContent()`'s `buildShareCaption(feed)`: per-type captions for mantra/aarti/bhajan/ringtone (`common.shareCaptionMantra`/`Aarti`/`Bhajan`/`Ringtone`, English and Hindi, title in the app language), sent with the **thumbnail image, never the audio**. Wallpaper, thought, video and title-less feeds keep "Shared via Bhav Bhakti — {link}" with the real file.
-- The full player, `RingtoneFeedCard` and `FeedCard` moved from RN `Share.share` (which on Android drops `url`) onto `shareContent()`. New option `onShareRecorded` lets the player update its own share count. These shares now download the thumbnail first and log `content_shared`.
-- Rashifal shares a one-line `horoscope.shareCaption` (text-only `Share.share`) instead of the whole reading.
-- The receiving app decides whether to keep the caption (WhatsApp does; Instagram drops it). No other store link exists in either repo (no invite or rate-us feature, none in Profile). An audio feed imported without thumbnails would share text only.
-
-Full detail archived.
-
-## 117. 2026-10-05 session — Maintenance-mode kill switch and a short About-screen update tag: live in production
-
-**Build.** Backend `develop` `fde067e`, merged to `main` as `4d76323` (production deploy `c87a603e`). Frontend `dev` `fab469f` (maintenance mode) and `4156bab` (About screen), cherry-picked to `production` as `92a4c03` and `67b368e` (identical patches); `master` fast-forwarded to `67b368e`. Production OTA update group `0a555358-2008-4f15-9690-2113372aa86c`, rolled out to 100%. JS/backend only — no packages, no native change. Tested by the founder on the `.dev` app against Railway dev (on, message shown, Hindi fine, hardware back exits, Retry stays while on, Retry recovers once off). Source of the switch instructions below: "How the maintenance switch works" in `D:\bhav_bhakti_Claude_docs\Bhav_Bhakti_Immediate_Plan_2026-09-30.md`.
-
-**How the maintenance switch works:**
-- Two Railway variables on the **backend service (`bhav-bhakti-be`)**, in the environment to affect (dev for testing, production for real). They don't exist in normal operation — a missing variable means maintenance is OFF.
-- **Turn on:** Railway → project → the right environment → `bhav-bhakti-be` → Variables → add `MAINTENANCE_MODE` = `true`. Only exactly `true` (trimmed, any case) turns it on; any other value means off (`src/utils/featureFlags.util.js`, unit-tested). Optionally add `MAINTENANCE_MESSAGE` (free text, capped at 300 characters, shown under the screen's built-in translated title and body — so don't repeat "we'll be back soon"; write specifics like "Back in about 30 minutes"). Deploy; the service redeploys, and the variables are read once at startup.
-- **Verify:** `GET <api base>/v1/feature-flags` must show `"maintenanceMode":true` before trusting the app. Dev: `https://api-dev.orivori.com/api/v1/feature-flags`; production: `https://api.orivori.com/api/v1/feature-flags`.
-- **Turn off:** delete `MAINTENANCE_MODE` (and the message) or set it to `false`; redeploy; confirm the URL shows `false`.
-- **How the app reacts:** it checks on every cold start, holding the splash screen until the check settles, capped at 1 second (after that the app shows normally, and a later "maintenance" answer swaps the screen in). It re-checks on returning to the foreground, at most every 5 minutes. Users on the screen can tap Retry. The screen replaces the whole navigator (`app/_layout.tsx` renders `MaintenanceScreen` instead of the root `<Stack>`, providers kept), so back, deep links and notifications can't reach the app underneath; hardware back exits the app. When the flag goes off, the navigator remounts fresh through `app/index.tsx`.
-- **Limits:** only app versions containing this update react; the switch lives in the backend, so it doesn't help if the backend itself is fully down (users then see each screen's own error); a user who only resumes a long-backgrounded app sees the change within about 5 minutes of returning.
-
-**App pieces:** `src/store/featureFlagStore.ts` (`maintenanceMode`/`maintenanceMessage`, `status` checking / ok / maintenance, overlapping fetches share one request, `refetchOnForeground()` throttle); `src/components/molecules/MaintenanceScreen/` (en/hi strings under `maintenance.*`, §71 line-height floors); the guard in `src/utils/notifications/deepLink.ts`.
-
-**Deviations from the spec, and why:**
-- **Paywall and session-expired login prompt aren't mounted during maintenance** — both are full-screen modals that would cover the maintenance screen, and both navigate into a navigator that doesn't exist then.
-- **Notification taps:** the cold-start tap is now handled once the screens actually exist (the splash can be held for up to 1s first); any tap during maintenance is ignored.
-- **About keeps its "Published:" line** — only the full update ID and the raw channel name were asked to go.
-- **Failed checks fail open:** a failed cold-start check lands on `ok` (the app behaves exactly as before the feature); a failed re-check never changes the current state. Only a real boolean `true` from a successful response turns maintenance on.
-
-**Deliberately not built: a "can't connect" screen.** Without NetInfo (a native package) the app can't tell a phone being offline from the server being down, so such a screen risks false positives for users on flaky networks, locking out people the app could otherwise serve. A failed flag check behaves exactly as before. Can be added later.
-
-**`optionalAuth` removed from `GET /feature-flags`** (`src/routes/featureFlag.routes.js`): nothing read `req.user`, and with a token attached, the auth middleware returned 401 for an expired login (hiding the flag and triggering the session-expired prompt) and 500 while the database was down (the user lookup) — exactly the cases maintenance mode must cover. The endpoint now never touches the database; it stays behind the shared 300/min content rate limit. **Per-user flags (e.g. test-account-only rollouts) would need it back.** Not a Premium-pipeline dependency: Premium status comes from `GET /subscription/status`, enforcement from `PREMIUM_GATING_ENABLED`.
-
-**About screen** (`app/(main)/profile.tsx`): `Bhav Bhakti v1.0.0 (xxxxP)` — the last 4 characters of the running OTA update ID plus one channel letter, read from `expo-updates`' `Updates.channel` (set per build from `eas.json`): `P` = production, `D` = preview (the `.dev` app), `?` = anything else. The embedded build (no OTA applied, no update ID) shows the version only. `versionName` is unchanged — it can only change with a native build (deferred).
-
-**Not in scope, still open (Immediate Plan doc):** a `versionName` scheme (next native build), deep linking (its own session). The force-update / "update available" prompt is now built and live (soft prompt on since 2026-11-07, no hard minimum) — see §126 and §142.
-
-## 118. 2026-10-05 session — Co-founder feedback pass: deity names, content-only chips, Status share pill, ringtone save flow: live in production
-
-Backend `develop` `606fa9b`, `914b177` → `main` `e4ad3ce`. Frontend `dev` `c3d50ea` → `production` `c33cad8`; `fcbab4f`, `9ff5f22` → `6e17767`, `c9b4581`; `16d4ee6` → `f6c16ba`. `master` = `production` = `f6c16ba`.
-- **Deity names:** devotional display names (Shiv Ji, Maa Lakshmi, Khatu Shyam Ji…) set by `scripts/update-deity-display-names.js` (dry run by default; `--target production` asks for PRODUCTION and backs up `deities` to `archive/` first). Only `deities.display_name` changed. **Never change `deities.name`** — ranking weights and campaigns, analytics, the chip order and the CSV script key on it. **Don't run `create-deities-from-csv.js`** — it would overwrite the names.
-- **Chips:** `GET /deities?hasContent=true` (5-minute server cache; the app falls back to the full list) — chips show only deities with active content, at most 8 in the row, "More" only beyond that. Chip labels and Aarti/Bhajan/Ringtone titles wrap to two lines; chip strings translated (`deityFilter.*`).
-- **Home wallpaper cards:** labelled "Status"; the wallpaper and thought pill is "Set as Status" and calls `shareContent()`; "See all" opens the Status sub-tab; the set-as-wallpaper code and strings removed.
-- **Sound settings:** new `src/utils/openSoundSettings.ts` (`expo-intent-launcher`) — both ringtone cards open Android's Sound settings.
-- **Ringtone save (Android only):** new `src/utils/saveRingtoneToDevice.ts` saves into a media-library album named exactly "Ringtones" (`Music/Ringtones/`, which Android flags as a ringtone) as `Bhav Bhakti - <English title>.mp3`, with an ASCII-name retry, a duplicate check before the premium gate and one translated alert.
-- **Still open:** Home ordering diversity (done, §119); a search alias (laxmi → Maa Lakshmi); cancelled shares counted as shares; the audio pill's Hindi line height (§71); the English-only Status share caption; 3 production ringtones with Hindi embedded title tags (content team).
-
-Full detail in the commit messages.
-
-## 119. 2026-10-06 session — Home first-10 guarantee (one of each content type): live in production
-
-Backend only: `develop` `e6ff90d` → `main` `5cc1f8d`. No app, schema or response change.
-- **What:** the first 10 Home items always include the best-ranked ringtone, aarti, mantra, bhajan, wallpaper (video wallpapers count) and thought that have live content; a type with none is skipped and its slot goes to the next best feed. Weights, campaigns and the seed decide each representative, as before.
-- **When:** every `GET /feed?sortBy=weighted` with no type, deity, tags, tag-group or creator filter, **at every offset** — it reshapes the whole ranked list before the page is cut, so pages of one seed never repeat or skip. Home is detected implicitly by "no filters" (`isHomeRequest` in `feed.service.js`); any new unfiltered weighted caller would get it too. Hubs, Thought, Liked, Search and Mantra Explorer are unchanged.
-- **How** (`feedRanking.service.js`/`feedRanking.util.js`): `splitGuaranteedTop()` builds the top set (`HOME_TOP_SIZE = 10`, `HOME_TOP_TYPES`), skipping fillers that would put more than 7 of one media type or deity in the 10; the top 10 is mixed on its own by `mixRunsExact()` (backtracking — the greedy `mixRuns` broke the max-2 rule in ~2% of seeds on a set this tight), falling back to `mixRuns` if no valid order exists; the rest is mixed with `mixRuns(…, alreadyPlaced)` so the rule holds across slots 10/11.
-- **Tuning:** unchanged — `feed_weight_config` in HeidiSQL (e.g. lower the `image` weight if the 4 open slots feel too visual).
-- **Known content gap:** only 2 live thoughts, so one of the same two appears in the top 10 on every Home visit; aarti (6) repeats often too.
+For `GET /feed?sortBy=weighted` with **no filters** (`isHomeRequest`, `feed.service.js`) at every offset: the first 10 include the best-ranked ringtone, aarti, mantra, bhajan, wallpaper and thought (types with none skipped); ≤7 of one media type or deity in the 10; `splitGuaranteedTop()` (`HOME_TOP_SIZE = 10`, `HOME_TOP_TYPES`), `mixRunsExact()` backtracking for the top 10, `mixRuns(…, alreadyPlaced)` for the rest. Any new unfiltered weighted caller gets this too. Content gap: only 2 thoughts.
 
 ## 120. 2026-10-06 session — Stories phases 1–5: dev/develop only, NOT on production or main
 
-Full plan and phase tracker: `D:\bhav_bhakti_Claude_docs\Bhav_Bhakti_Stories_Plan.md`.
+*(Rechecked 2026-11-15: `stories.tsx`/`story-series.tsx` exist only on frontend `dev`; migration `20261006000001` only on backend `develop`.)* Full plan and phase tracker: `D:\bhav_bhakti_Claude_docs\Bhav_Bhakti_Stories_Plan.md`.
 - **Data (Option A):** stories are `feeds` rows, type `stories`. A series row has no audio (cover in the thumbnails); episodes carry `series_id` + `episode_number`; one-offs have neither. `cover_video_url` exists for later.
 - **Backend phase 1** (`develop` `9920d9b`; migration run on dev only): shared `FEED_TYPES`; `HOME_FEED_TYPES` excludes stories; `listableFeedWhere()` (active, type rule, never an episode) on every list path; `GET /feed?seriesId=` returns episodes in order, only for an active series; series rows get `episodeCount`. `/tags/popular` now counts only listable feeds.
 - **Importer** (`develop` only): series rows import first and need a cover thumbnail; story shape can't change on re-import; **counters are never written when updating an existing feed** (all types). Production's importer still resets them until develop is merged.
@@ -681,241 +446,159 @@ Full plan and phase tracker: `D:\bhav_bhakti_Claude_docs\Bhav_Bhakti_Stories_Pla
 - **Frontend** (`dev`): the Stories tab replaces Rashifal in the bar (Rashifal screens kept, reached from Home); Stories page + series screen (`58952a9`); story player — Next/Previous, auto-advance, Up Next, speed pill instead of the views eye, no shuffle/repeat/counter (`56b3721`, `1875ca0`, `2206623`). Shared `src/utils/openAudioPlayer.ts`. Speed applies only where a speed control is visible (Aarti/Bhajan always 1x). Mantra speed button is now icon + speed text.
 - **Not done:** Home/search stories (phase 6), the launch gate (phase 8, production migration + release). Cover video deferred (short looping Home thumbnail idea only).
 - **Parked:** rethink views — the eye is in the player, `AutoplayFeedCard` and `FeedCard`; removing it is ~30–45 min; tied to the views-vs-plays decision (§113).
+- **When Stories ships:** `MAIN_TAB_PATHNAMES` already holds `/stories` (§129); deep links need `stories` added to both the catalog and `contentLink.ts` together (§141); never merge `develop` into `main` wholesale — the Stories migration must run on production first.
 
-## 121. 2026-10-06 session — Player auto-advance lost the queue: fixed, live in production (v8)
+## 121. 2026-10-06 — Auto-advance lost the queue: fixed in v8 (`ce67a95`) with a "finish already handled" flag (Android keeps `didJustFinish` true while ended).
 
-Fixed (`dev` `f2c92f2` → v8 `ce67a95`, §122). When a track ended, the next one opened with no queue: `didJustFinish` stays true on Android while ended, and `advanceQueue()` changes a dependency of the end-of-track effect, so it advanced twice and §113's clean-up dropped the mismatched queue. A "finish already handled" flag at the top of the effect fixes it.
+## 122. 2026-10-09 — Play rejection fix, v8
 
-## 122. 2026-10-09 — Play rejection fix, v8 build, Play Console state
+v7 rejected (Photo and Video Permissions policy). Removed READ_MEDIA_IMAGES/VIDEO/VISUAL_USER_SELECTED, RECORD_AUDIO, ACCESS_MEDIA_LOCATION; `blockedPermissions` added; wallpapers use a write-only request on Android 13+, ringtones audio only; READ_MEDIA_AUDIO and READ/WRITE_EXTERNAL_STORAGE kept. `expo-application` added (import inside try/catch). An old CLAUDE.md is tracked on `production`/`master` from an old commit — left in place.
 
-- **Rejection:** Google rejected `versionCode` 7 (READ_MEDIA_IMAGES/VIDEO, Photo and Video Permissions policy). Cause: our hand-written permission list, the `expo-media-library` plugin defaults and library manifests.
-- **Fix (`dev` `a9d0678`):** removed READ_MEDIA_IMAGES/VIDEO/VISUAL_USER_SELECTED, RECORD_AUDIO and ACCESS_MEDIA_LOCATION; added `blockedPermissions`; wallpapers on Android 13+ use a write-only request, ringtones request audio only. READ_MEDIA_AUDIO and READ/WRITE_EXTERNAL_STORAGE kept. Known consequence: the wallpaper "Already saved" check can't read the gallery on Android 13+, so repeat saves download again (accepted, no fix planned).
-- **`expo-application`** added (`3c1765f`) so a later update prompt can read the real versionCode — import it inside try/catch.
-- **v8 on `production`:** `ce67a95` (auto-advance fix, §121), `7cbedc2` (permissions), `210865e` (expo-application), `cc2fe58` (versionCode 8; `version` stays 1.0.0). Production EAS build `92041ff4-261a-4228-94ad-c92212a30d16`; the built AAB was inspected directly and has none of the removed permissions.
-- **Play Console:** v8 is on Internal and Closed testing, and was approved by Google and published to Production on 2026-10-11 at 13:53 IST via Managed publishing (§124). The earlier rule "don't cherry-pick onto `production` until Google approves v8" is lifted.
-- An old CLAUDE.md is tracked on `production`/`master` (from an old "§84" commit); left in place, decide later.
+## 123. 2026-10-09 — .dev splash hang; Premium popup
 
-## 123. 2026-10-09 — .dev splash hang (Meta SDK), Premium popup, Edit Profile back, Railway
+**Rule: any native module added to the shared `package.json` must be tested on a `.dev` build first** (`.dev` has no Meta plugin; an eager `react-native-fbsdk-next` import hung the splash; `dev` `765b45f` loads it lazily — deliberately not on production, which loads it fine). Premium "coming soon" popup: `PREMIUM_PURCHASE_AVAILABLE = false` in `PremiumPaywall.tsx`. Railway: health check `/api/v1/health` (300 s); production MySQL volume 5 GB; usage alert $20, hard limit $50. Razorpay: company GST registered; build checkout on `.dev` with test keys first.
 
-- **Splash hang:** the fresh `.dev` build hung on the splash because `metaEvents.ts` imported `react-native-fbsdk-next` at load time and `.dev` has no Meta plugin/App ID, so the native module threw before RootLayout. Fix on `dev`: `765b45f` (lazy `require` in try/catch, only when `appVariant === 'production'`). **Rule: any native module added to the shared `package.json` must be tested on a `.dev` build first.**
-- **Live in production since 2026-10-11:** `dev` `0ead152` → `production` `0cc2a00` — Premium coming-soon popup via `PREMIUM_PURCHASE_AVAILABLE = false` in `PremiumPaywall.tsx` (the old paywall faked a purchase; keep `PREMIUM_GATING_ENABLED` off until real checkout exists); `dev` `5010f3c` → `production` `3dfe44b` — Edit Profile hardware back returns to Profile. OTA update group `7d258f81-3ae2-4faf-8335-9ce401ae5628` (10%, then completed to 100%); `master` fast-forwarded to `3dfe44b` on 2026-10-11.
-- **Railway:** backend health check path is `/api/v1/health` (not `/health`, which 404s) on dev and production, 300 s timeout; production MySQL volume resized to 5 GB (limit is per volume, billed on use); usage soft alert $20 / hard limit $50.
-- **Razorpay:** the company is now GST registered; plan is to build and test checkout on `.dev` first with Razorpay test keys, then a production native build.
+## 124. 2026-10-11 — v8 live on Play (Managed publishing); Meta app published (`com.orivori.bhavbhakti`). Numbers: Play Console Statistics, Firebase `first_open`, Meta Events Manager, the database. Closed testing track kept for testing.
 
-## 124. 2026-10-11 — Launch day: v8 live on the Play Store, Meta app published
+## 125. 2026-10-14 — Video-memory fix (Stage 1), live
 
-- **v8 live** 2026-10-11 at 13:53 IST (Managed publishing). Public listing: `com.orivori.bhavbhakti`. The store description had a stray drafting line; the founder removed it and resubmitted the listing for review.
-- **Meta developer app:** privacy policy, contact email, icon and category filled in, and the app published (the dashboard's Publish button is the old Live switch). Android platform entry = `com.orivori.bhavbhakti`. The temporary debug key hash (Meta) and the debug SHA-1 (Firebase) were confirmed removed on 2026-10-14; only the Play App Signing entries remain. Data Safety form confirmed done. The co-founder runs the ads.
-- **Where to see numbers:** Play Console → Statistics (true installs; lags about a day); Firebase Analytics `first_open` and New users; Meta Events Manager (app opens and `login_success`); the database (registered users).
-- **Closed testing** track kept for testing v9; testers are removed through the tester email list.
+Reference: `Bhav_Bhakti_Media_Memory_Investigation_2026-10-14.md`. Firebase MCP (Crashlytics) is read-only — no notes or state changes.
+- Cause of OOM crashes: hub grids kept 10+ videos playing, Home ~10 loaded players, full-size originals, no thumbnails; plain RN `Image` keyed by signed URL (**expo-image NOT installed**); videos uncached (expo-av).
+- Fix: hub grids mount a player only while a tile is ≥50% visible, ≤4 playing, hub focused (`src/hooks/useVisibleVideoTiles.ts`, `shouldMountVideo`); Home mounts the active card ±1; `windowSize` 5 on hubs and Home.
+- `.dev`'s "Test crash (Crashlytics)" button is in Profile → Debug.
+- **Paused Stage 2:** `sharp` WebP variants + thumbnails (dev database first, then OTA, then production), lossless faststart remux for videos. B1 (day-stable signed URLs) postponed. expo-image and native crash symbols still to do.
 
-## 125. 2026-10-14 — Crashlytics investigation and the video-memory fix (Stage 1): live in production
+## 126. 2026-10-15 — Update-available prompt, live (soft prompt ON since 2026-11-07, §142)
 
-Full reference: `D:\bhav_bhakti_Claude_docs\Bhav_Bhakti_Media_Memory_Investigation_2026-10-14.md`.
-- **Firebase MCP server** added to Claude Code (user scope, `--only core,crashlytics`, logged in with `firebase login`). Used read-only: no Crashlytics notes and no issue-state changes. Gemini in Firebase and CLI usage reporting declined. It reads Crashlytics but not Play installs.
-- **Findings:** v8 crash-free users about 94.4% (14 of 252). 4 of 8 issues are out-of-memory (13 of 20 crashes: `okio.Segment`, ExoPlayer `AudioTrackPositionTracker`, `MediaCodec.getBuffer`), plus a SIGABRT in `libc.so` (7 users) clustered around the Wallpapers hub — unreadable, since no native symbols are uploaded. Baseline 13–14 Oct (before the fix): 12 crashes, 267 users.
-- **Cause:** hub grids kept 10+ video tiles playing (unconditional `shouldPlay`, default `windowSize` 21); Home kept about 10 cards with loaded video players (`windowSize` 10); full-size originals everywhere (wallpapers median 2.8 MB PNG at 1024×1536, about 6.3 MB decoded; videos 720×1280 at 3–11 Mbit/s with the index at the end of the file); no wallpaper or video has a thumbnail. Images use plain RN `Image` keyed by URL, so the 72-hour signed URLs (§108) defeat the cache — **expo-image is NOT installed**. Videos aren't cached at all (expo-av). Audio is cached by feed ID, with four small leaks: double download on first play, Home's 30 s previews download then discard, ringtones cached under two names, and the 14-day sweep.
-- **Fix shipped (Stage 1, JS-only):** `dev` `c268b98` → `production` `d25bb7c`; production OTA update group `a37ff9d2-d368-4dbd-a05c-ed76b4e0e564` on 2026-10-14 (10%, then 100%). Hub grids (Status/Wallpapers/Thought) create a video player only while a tile is at least half visible, at most 4 playing, and only while the hub is focused (new `src/hooks/useVisibleVideoTiles.ts`; `WallpaperFeedCard`'s `shouldMountVideo`). Home mounts players only for the active card and one neighbour each side (`FeedList` → `AutoplayFeedCard` `shouldMountVideo`). `windowSize` 5 on the hub lists and on Home (other `FeedList` screens unchanged). Crashlytics custom keys `ota_update` (short tag, same as Profile > About) and `ota_update_id` set at app start (`app/_layout.tsx`); a crash with no key ran older code.
-- **Trade-offs:** a cream tile shows before playback; videos reload on re-entry (no video cache); the Viewing Window doesn't pause the grid behind it; Search Results' wallpaper cards still play every video.
-- **`master` intentionally NOT fast-forwarded** to `d25bb7c` until the Crashlytics check (about 17 Oct and 21 Oct: crashes per day per issue against the baseline, split by `ota_update`).
-- The `.dev` app's **"Test crash (Crashlytics)"** button is in Profile → "Debug (.dev only)", just above Logout.
-- **Paused plan:** Stage 2 = `sharp` WebP variants into the shared bucket plus `thumbnail_portrait_url`/`thumbnail_square_url`, dev database first, then an OTA, then the production database; videos start with a lossless faststart remux. B1 (day-stable signed URLs) postponed. C1 (expo-image) and native crash-symbol upload go in v9.
+Rules and test table: "UPDATE PROMPT" in `Bhav_Bhakti_Handoff.md`.
+- Soft (dismissible) prompt below the latest build; full-screen `UpdateRequiredScreen` below the minimum; both open the production listing via `openStoreForUpdate()` (`src/utils/appUpdate/`).
+- **Flags** on `bhav-bhakti-be`, served by `GET /feature-flags`: `UPDATE_PROMPT_ENABLED` (exactly `true`), `ANDROID_LATEST_BUILD`, `ANDROID_MIN_BUILD` (1–9999; min ignored unless a valid latest exists and min ≤ latest). Missing = off. Each edit redeploys — check the flags URL after.
+- **Installed build:** lazy try/catch `require('expo-application').nativeBuildVersion`. **Never use `Constants.expoConfig.android.versionCode`** (comes from the OTA). Runs only on production builds and `.dev`, never `__DEV__`; any odd value = nothing; maintenance wins; soft prompt only at calm moments on `MAIN_TAB_PATHNAMES` (`updateDecision.ts`: `/`, `/mantras`, `/ringtones`, `/daily-status`, `/horoscope`, `/stories`).
+- **Rule: never raise `ANDROID_MIN_BUILD` until the new build is at 100% on Play.**
 
-## 126. 2026-10-15 — Update-available prompt: live in production (soft prompt ON since 2026-11-07, §142)
-
-Full rules, the production turn-on order and the test table: "UPDATE PROMPT" section of `D:\bhav_bhakti_Claude_docs\Bhav_Bhakti_Handoff.md`.
-- **What:** a dismissible soft prompt when the installed build is below the latest; a full-screen hard block (`UpdateRequiredScreen`, swapped in like `MaintenanceScreen`) below the minimum. Both open the **production** Play listing through `openStoreForUpdate()` in `src/utils/appUpdate/` — v9 can swap Google's in-app update API in there.
-- **Flags:** Railway variables on `bhav-bhakti-be`, served by `GET /feature-flags`: `UPDATE_PROMPT_ENABLED` (exactly `true`), `ANDROID_LATEST_BUILD`, `ANDROID_MIN_BUILD` (whole numbers 1–9999; the minimum is ignored unless a valid latest is set and min ≤ latest). Missing = off. Each variable edit redeploys the backend — check the flags URL after every edit.
-- **Installed build:** lazy try/catch `require('expo-application').nativeBuildVersion` (v8 = 8; the `.dev` app = 4; module missing = older than 8; unreadable = never act). **Never use `Constants.expoConfig.android.versionCode`** (it comes from the OTA, so it says 8 everywhere).
-- **Behaviour:** runs only on production builds and the `.dev` app (never a local `__DEV__` bundle); any fetch error or odd value = nothing; maintenance mode wins; the soft prompt appears only at calm moments (Handoff section).
-- **Rule:** never raise `ANDROID_MIN_BUILD` until the new build is at 100% on Play. Current production values: §142.
-- **Commits:** backend `develop` `2ac2396` → `main` `402e535`; frontend `dev` `c353c03`, `c5be104`, `0d419dc` (+ the `.dev`-only debug row `bcda6ca`, not cherry-picked) → `production` `367fe3f`, `028c10e`, `bee72ca`.
-- **Known gap:** the soft prompt's main-tab list (`MAIN_TAB_PATHNAMES`, `updateDecision.ts`) came from `dev`, where Stories replaced Rashifal — on production `/horoscope` is missing, so the soft prompt never appears on that tab. Add it before switching the prompt on; re-check the list when Stories reaches production.
-
-## 127. 2026-10-22 — §125 check, Search/video fixes: live in production
-
-JS-only OTA: `dev` d5df45a..d323da6 (6) → `production` 40dea53..48f86e2; `master` = `production` = `48f86e2`. Crashlytics: OOM 6 → 1, ANRs 3 → 0; `libc.so` SIGABRT at the Wallpapers hub unchanged (symbols in v9). Grid videos pause under the Viewing Window; Search Results plays only visible ones (`limitVideoTiles`); Search back and the player round trip keep `returnTo`; "Up Next" opens on tap; Ringtones/Status texts translated. **Rule:** a hidden-tab screen reading `returnTo` needs a `useFocusEffect` BackHandler.
+## 127. 2026-10-22 — Search/video fixes, live (OOM 6 → 1, ANRs 3 → 0; `libc.so` SIGABRT at the Wallpapers hub unchanged, needs symbols). **Rule:** a hidden-tab screen reading `returnTo` needs a `useFocusEffect` BackHandler.
 
 ## 128. 2026-10-23 — Railway security incident: all secrets rotated
 
-Railway reported a breach of stored environment variables (status.railway.com/incident/QH8L8B3E), so every real secret in use was rotated on 2026-10-23 and the old values revoked; the Razorpay test keys were not rotated, and the unused leftover AWS/OTPless/Google keys were removed from Railway but not revoked at their issuers. Full map: `Railway_Credential_Rotation_Map_2026-10-22.md` in the docs folder.
-- One new Firebase service-account key (key ID starts `6b6312ba`) is used by the production API, the dev API, the backup service and the laptop's `src/config` file; the July and September keys are deleted.
-- **Database:** new passwords in both environments (old ones discarded via MySQL's `RETAIN`/`DISCARD OLD PASSWORD`). The MySQL service's `MYSQL_ROOT_PASSWORD` is the source; the backup service follows it by reference, but the API and the horoscope service hold hand-copied `DB_PASSWORD` values, so rotate all of them together. New `JWT_SECRET` (everyone logged out once), Gemini key, Railway tokens (the old ones were invalidated by Railway). Leftover `AWS_*`/`GOOGLE_*`/`FACEBOOK_*`/`OTPLESS_*` variables were deleted from Railway.
-- The horoscope cron service was renamed from "alert-transformation" to "daily horoscope".
-- **Found and fixed** (`64e85d1` on `main`): `Dockerfile.backup` copies a hand-picked list of files, and it was missing `src/config/storage.config.js`. Any new `require` inside `firebase.config.js` must also be added to `Dockerfile.backup`.
-- **Open, noted only:** `.dockerignore` excludes `package-lock.json` (the API installs by version range); the API `Dockerfile`'s `HEALTHCHECK` calls `/health`, which 404s.
+Map: `Railway_Credential_Rotation_Map_2026-10-22.md` (docs folder).
+- One Firebase service-account key (ID starts `6b6312ba`) for the production API, dev API, backup service and the laptop's `src/config` file; older keys deleted. (A separate `admob-sync` service account exists for BigQuery, §143.)
+- **Database:** new passwords in both environments. `MYSQL_ROOT_PASSWORD` on the MySQL service is the source; the backup service follows by reference, but the API and the horoscope service hold hand-copied `DB_PASSWORD` values — **rotate all together.** New `JWT_SECRET`, Gemini key and Railway tokens. Razorpay test keys not rotated; leftover AWS/Google/Facebook/OTPless variables deleted from Railway (not revoked at issuers).
+- `64e85d1`: `Dockerfile.backup` was missing `src/config/storage.config.js` (see §99's rule).
 
-## 129. 2026-10-28 — A1 "last v8 update": counter default 11, baseline events — on `production`, OTA pending founder
+## 129. 2026-10-28 — A1: counter default 11, baseline events, sheet back fixes — live (v8 OTA from `96e7c89`)
 
-JS-only, frontend only. Tested by the founder on `.dev` (visual checks and Firebase DebugView passed). `dev` `511dd0b`, `76bdfac`, `6dc580d`, `2f16aab` → `production` `20671e9`, `00c02f7`, `9d001bd`, `ff0153f` (cherry-picked with `-x`, no conflicts, pushed); `master` still `48f86e2`. **`765b45f` (lazy Meta SDK load) deliberately not cherry-picked** — founder decision; production loads the Meta SDK fine.
-- **Counter default 108 → 11** (`AudioPlayerSheets/chantTargets.ts`): chips 11/27/108, "More" 11–1008; the counter stays free and un-gated. Not saved between opens, so it applies from each user's next mantra open.
-- **Firebase events:** `counter_viewed`, `counter_opened`, `counter_target_changed`, `counter_milestone` (11/108/other, once per open = feedId + playRequestId; `src/hooks/useChantCounterAnalytics.ts`); `screenshot_taken {content_type}` (detection only, Android 14+ only; screens declare their type via `useScreenshotContentType`, `src/utils/analytics/screenshotEvents.ts`). Repeat counter use: GA4 cohort exploration on `counter_viewed`.
-- **Back with a sheet open** (dev `7e01156`, not yet on production): Android back/edge-swipe in the player now closes the topmost open sheet (counter, More targets, Up Next - all three had the bug) before navigating; `src/hooks/useSheetBackStack.ts` tracks open sheets from their own onChange/onDismiss (§113-safe).
-- **Follow-ups** (dev `fd1f78d`, `beea8cc`, not yet on production): "More targets" uses `stackBehavior="push"` - @gorhom/bottom-sheet 5.2.14's default 'switch' fully dismisses the sheet underneath instead of restoring it; the MiniPlayer now passes `returnTo`/`returnParams` (tab navigation replaces params, so back used to land on Home). Production order: `7e01156`, `fd1f78d`, `beea8cc`.
-- **Back fixes on production, OTA pending founder:** `7e01156`, `fd1f78d`, `beea8cc` → `production` `0fef442`, `03dbd2a`, `96e7c89` (pushed; `master` still `48f86e2`).
-- **Update prompt:** `MAIN_TAB_PATHNAMES` gains `/horoscope` and keeps `/stories` — correct before and after Stories ships (closes §126's known gap).
-- Next steps (A2–A7, AdMob plan): `D:\bhav_bhakti_Claude_docs\Bhav_Bhakti_Roadmap_2026-10-15.md` ("Decisions of 2026-10-25") and `Bhav_Bhakti_Revenue_Model.md` §5d.
+- Chant counter default 108 → 11 (`AudioPlayerSheets/chantTargets.ts`; chips 11/27/108, More 11–1008; free).
+- Firebase events `counter_viewed`, `counter_opened`, `counter_target_changed`, `counter_milestone` (`useChantCounterAnalytics.ts`); `screenshot_taken {content_type}` (Android 14+, `useScreenshotContentType`).
+- Android back closes the topmost open player sheet first (`src/hooks/useSheetBackStack.ts`); "More targets" uses `stackBehavior="push"` (5.2.14's default 'switch' dismisses the sheet underneath); the MiniPlayer passes `returnTo`/`returnParams`.
+- `MAIN_TAB_PATHNAMES` gained `/horoscope` and keeps `/stories`. Next steps: Roadmap ("Decisions of 2026-10-25") and Revenue Model §5d.
 
-## 130. 2026-10-28 — A2 AdMob backend, both switches OFF: backend `develop` only, NOT on `main`
+## 130. 2026-10-28 — A2 AdMob backend, both switches OFF (live on `main` since §133)
 
-Backend only (plan: Revenue Model §5d). `develop` `f8013a6` (account id in the request log), `a706a05` (`ad_unlocks` migration `20261028000001` + `AdUnlock` model), `372af88` (`POST /api/v1/ad-unlocks`), `6215f79` (gate). All four cherry-pick cleanly onto `main` (trial: 336 tests pass); no Stories code involved.
+Backend only (plan: Revenue Model §5d). `develop` `f8013a6` (account id in the request log), `a706a05` (`ad_unlocks` migration `20261028000001` + `AdUnlock` model), `372af88` (`POST /api/v1/ad-unlocks`), `6215f79` (gate) → `main` `bbe5e61`, `3addaf3`, `69f063d`, `e3d09c3`. No Stories code involved.
 - **Request log:** every morgan line ends `user=<id>` (or `user=-`).
 - **`ad_unlocks`:** user_id, feed_id (both cascade on delete), kind (`view`/`download`/`share`/`set_status`), source (`reward`/`no_fill`), granted_at, expires_at, client_build (`X-App-Build` header), ad_transaction_id (empty until SSV).
-- **`POST /ad-unlocks`** `{feedId, kind, source}`: login; only actions the gate can lock (wallpaper/thought view/download/share/set_status, ringtone download), else 400; 30-minute window (`AD_UNLOCK_WINDOW_MINUTES`); while active it returns 200 + the existing unlock and writes nothing; 20/min per user; 100 grants per user per IST day (`AD_UNLOCK_DAILY_CAP`; reward and no_fill both count) → 429 "Daily unlock limit reached…". Log line `[ad-unlock] user= feed= type= kind= source= build= result=` (`granted`/`already_active`/`cap_reached`). **no_fill is never a reward** — count rewards with `WHERE source = 'reward'`.
+- **`POST /ad-unlocks`** `{feedId, kind, source}`: login; only actions the gate can lock (wallpaper/thought view/download/share/set_status, ringtone download), else 400; 30-minute window (`AD_UNLOCK_WINDOW_MINUTES`); while active it returns 200 + the existing unlock and writes nothing; 20/min per user; 100 grants per user per IST day (`AD_UNLOCK_DAILY_CAP`; reward and no_fill both count) → 429 "Daily unlock limit reached…". Log line `[ad-unlock] user= feed= type= kind= source= build= result=` (`granted`/`already_active`/`cap_reached`). **no_fill is never a reward** — count rewards with `WHERE source = 'reward'`. Guests may use it (only `/subscription/create` refuses guests, §136).
 - **Gate** (`mediaAccess.service.js`): `AD_UNLOCK_ENABLED` (master) and `AD_VIEW_GATE_ENABLED` (enlarged view only; ignored without the master). Both off = exactly the old behaviour (no query unless `PREMIUM_GATING_ENABLED` is `true`). Master on: it decides alone (`PREMIUM_GATING_ENABLED` ignored) — ungated → allow; view with the view switch off → allow; no `X-Ads-Capable: 1` header → allow (old builds never stuck); premium → allow; active unlock for user + feed → allow; else 403 `PREMIUM_REQUIRED` + `unlock: 'ad'`. Stories and the counter not gated. Switch values: `true` trimmed, any case.
-- **The app must send** `X-Ads-Capable: 1` (only once the ads module has loaded) and `X-App-Build: <versionCode>` (A3).
-- **Not done:** dev migration (pending founder approval), production (cherry-pick to `main`, founder-run `migrate-production.js` after a backup). Known limits: two simultaneous grants for the same feed can both insert (harmless, one extra row); rate-limit counts reset on deploy (§98).
+- **The app must send** `X-Ads-Capable: 1` (only once the ads module has loaded) and `X-App-Build: <versionCode>` (A3, done).
+- Migration `20261028000001` is on `main`; whether it ran on production isn't recorded here (it precedes the guest migration the founder ran with `--to` on 2026-11-06, so it most likely did) — check `SequelizeMeta` before switching the gate on. Known limits: two simultaneous grants for the same feed can both insert (harmless, one extra row); rate-limit counts reset on deploy (§98).
 
-## 131. 2026-10-29 — A4 `.dev` build failed on Kotlin metadata: fixed on frontend `dev` (`c625665`)
+## 131. 2026-10-29 — A4 `.dev` build failed on Kotlin metadata: fixed (`dev` `c625665`, on `production`)
 
 `react-native-google-mobile-ads` 16.5.0 pins `play-services-ads` 25.4.0, built with Kotlin 2.3 (metadata 2.3.0; SDK 25.0.0–25.2.0 carry 2.2.0, 25.3.0+ carry 2.3.0). RN 0.81.5 compiles with Kotlin 2.1.20 (its version catalog; nothing overrides it), which reads metadata at most one version ahead, so `:react-native-google-mobile-ads:compileReleaseKotlin` failed. The library has no setting for the SDK version (it reads its own `package.json`). Fix: config plugin `plugins/withAdsKotlinMetadataSkip.js` adds `-Xskip-metadata-version-check` to that module's Kotlin compile only — the same fix the library ships itself from 17.0.0. **Remove it on library 17+ or Kotlin 2.3+.** Verified locally (Java 21, Gradle 8.14.3, `.dev` prebuild): the module and `:app:compileReleaseKotlin` compile; without the flag the module fails with the EAS error. **Lesson: a manifest-merge trial doesn't compile Kotlin; test a new native module with a real `compileReleaseKotlin`.** Writing a Gradle file from PowerShell 5.1 adds a BOM that Gradle rejects — edit with `sed`.
 
-## 132. 2026-10-29 — A3/A4 AdMob app: built and passing on `.dev`, frontend `dev` only (NOT on `production`)
+## 132. 2026-10-29 — A3/A4 AdMob app: built, in every build from v9 on
 
 Plan and IDs: Revenue Model §5e/§5f. **A3** (`dev` `5bad964`..`00bd107`, 8 commits): library pinned at 16.5.0; the ads plugin with a per-variant app ID and a guard that fails a production native build without a real app ID (`eas update` unaffected); the ad engine in `src/features/ads/` (lazy-loaded module, `rewardedAd.ts`, `adUnlockFlow.ts`, `pauseMediaForAd.ts`); the opt-in card `AdUnlockSheet` (en/hi `adUnlock.*`) mounted at the root; `mediaAccess.ts` runs the flow on 403 + `unlock: 'ad'`; `apiClient` sends `X-App-Build` and, only once the ads module has loaded, `X-Ads-Capable: 1` (§130); audio pauses and hub/Home/enlarged-view videos hold still while an ad loads or shows; `.dev`-only "Show test ad" / "Simulate no ad" in Profile → Debug (`d846442`); version 1.1.0, versionCode 9 / `.dev` 5 (`00bd107`, a new OTA runtime).
 - **A4:** the first `.dev` EAS build failed (§131); the second succeeded. The founder's phone checklist passed against the dev backend. "Closed before the reward" can't be tested with Google's test ad (no close button before the reward); confirmed by code reading: nothing recorded, `ad_closed_no_reward` sent, audio resumed only if we paused it, and the next tap offers the ad again.
-- **Hindi buttons** (`91bdddf`): "विज्ञापन देखें" / "अभी नहीं" showed only their first word — the §71 cause again (the `Button` title sizes itself and Android under-measures Devanagari). Fixed via `textStyle`: `flex: 1` (label takes the button's full width), centred, 26 lineHeight/minHeight floor; main line 14 → 18 (lineHeight 30). **Every new `Button` with a Devanagari label needs this `textStyle`** — `UpdatePromptModal`/`UpdateRequiredScreen` have only the lineHeight floor (unfixed; fix before the prompt goes on).
-- **Testing on `.dev`:** a fresh preview build calls PRODUCTION until the dev OTA (`APP_VARIANT=development`) lands — run the OTA and check Profile → About ends in `D` before logging in. Turn the gate on with `AD_UNLOCK_ENABLED` / `AD_VIEW_GATE_ENABLED` (`true`/`false`) on Railway dev's `bhav-bhakti-be`.
-- **A6 (production):** first tag `production` `v8-final`; cherry-pick `5bad964`, `ff22ada`, `6a798fc`, `3415310`, `e714fde`, `cd5fa04`, `c625665`, `91bdddf`, then the bump `00bd107` last (conflicts only on the versionCode line). **Never** `d846442` or CLAUDE.md commits. Only then put the real IDs (§5f) into `ADMOB_PRODUCTION_ANDROID_APP_ID` (`app.config.js`) and `PRODUCTION_REWARDED_AD_UNIT_ID` (`src/features/ads/adsModule.ts`; `TEST_DEVICE_IDS` there too).
+- **Hindi buttons** (`91bdddf`): "विज्ञापन देखें" / "अभी नहीं" showed only their first word — the §71 cause again. Fixed via `textStyle`: `flex: 1`, centred, 26 lineHeight/minHeight floor; main line 14 → 18 (lineHeight 30). **Every new `Button` with a Devanagari label needs this `textStyle`.** (`UpdatePromptModal`/`UpdateRequiredScreen` got the full fix in `7be1c3e`, on production as `3180290`.)
+- **Testing on `.dev`:** turn the gate on with `AD_UNLOCK_ENABLED` / `AD_VIEW_GATE_ENABLED` (`true`/`false`) on Railway dev's `bhav-bhakti-be`. (The old trap where a fresh preview build called PRODUCTION until a dev OTA landed ended with build 6, §138; still check Profile → About ends in `D`.)
+- **A6 (done, §133):** `production` = tag `v8-final` (`96e7c89`) + cherry-picks `5bad964`, `ff22ada`, `6a798fc`, `3415310`, `e714fde`, `cd5fa04`, `c625665`, `91bdddf` (as `af58aa3`..`a753ccc`, real AdMob IDs in `ADMOB_PRODUCTION_ANDROID_APP_ID` in `app.config.js` and `PRODUCTION_REWARDED_AD_UNIT_ID` in `src/features/ads/adsModule.ts`; `TEST_DEVICE_IDS` there too) + bump `2c53d86`. **Never** cherry-pick `d846442` or CLAUDE.md commits.
+- **Release flow for turning ads on:** hard update first (`ANDROID_MIN_BUILD`, §126/§142), then `AD_UNLOCK_ENABLED` (and optionally `AD_VIEW_GATE_ENABLED`) on production's `bhav-bhakti-be`, verified via the flags/endpoint behaviour.
 
-## 133. 2026-10-30 to 11-02 — v9 in closed testing, A2 live, link safety handler + deferred-link probe live; v10 = the Meta build
+## 133. 2026-10-30 to 11-02 — v9 in closed testing, A2 live, link safety handler + deferred-link probe live
 
-- **v9 (1.1.0, versionCode 9)** is on Play's Closed testing track. `production` = `v8-final` (`96e7c89`) + the A6 cherry-picks (`af58aa3`..`a753ccc`, real AdMob IDs included) + the bump `2c53d86`. `master` is still `96e7c89`.
+- **v9 (1.1.0, versionCode 9):** `production` = `v8-final` (`96e7c89`) + the A6 cherry-picks (`af58aa3`..`a753ccc`, real AdMob IDs included) + the bump `2c53d86`. Superseded by v10 (§134) and v11 (§140/§142); all share runtime 1.1.0 and every OTA.
 - **A2 AdMob backend (§130) is on `main`** (`bbe5e61`, `3addaf3`, `69f063d`, `e3d09c3`) and live: on `api.orivori.com`, `POST /api/v1/ad-unlocks` returns 401 without a login (an unknown route returns 404).
-- **Live on production as an OTA** (runtime 1.1.0, so v9 installs only), both cherry-picked with `-x`: `dev` `f0812ba` → `production` `324ebcc`, the link safety handler (`app/+native-intent.tsx`, `src/utils/deepLinks/contentLink.ts` + `contentLink.test.mjs`, `src/store/pendingContentLinkStore.ts`, cleared on logout); `dev` `5741b6e` → `production` `2f863ae`, the deferred-link probe (`src/utils/deepLinks/deferredAppLink.ts`; events `deferred_link_checked`/`deferred_link_received` in `deepLinkEvents.ts`; production app only, first 3 launches per install, never navigates; switch `DEFERRED_LINK_PROBE_ENABLED`).
+- **Live on production** (runtime 1.1.0), both cherry-picked with `-x`: `dev` `f0812ba` → `production` `324ebcc`, the link safety handler (`app/+native-intent.tsx`, `src/utils/deepLinks/contentLink.ts` + `contentLink.test.mjs`, `src/store/pendingContentLinkStore.ts`, cleared on logout); `dev` `5741b6e` → `production` `2f863ae`, the deferred-link probe (`src/utils/deepLinks/deferredAppLink.ts`; events `deferred_link_checked`/`deferred_link_received` in `deepLinkEvents.ts`; production app only, first 3 launches per install, never navigates; switch `DEFERRED_LINK_PROBE_ENABLED`).
 - **Rule: a `bhavbhakti://` link never opens a screen.** `redirectSystemPath` only stores a valid `bhavbhakti://open/<type>/<feedId>` as the pending link (7-day expiry, read once) and always returns `/`. Before this, expo-router opened any path in the scheme, skipping login and the notification allow-list, and `audio-player?audioUrl=` could play outside audio. Never build a route or param from a link; the id reaches the API only through `feedIdForApi()`.
-- The Home pin that shows the pending link is built (§134; `DEFERRED_LINK_PIN_ENABLED = true`, plus the backend flag). Tests: `node --test src/utils/deepLinks/contentLink.test.mjs src/utils/deepLinks/homePin.test.mjs`.
-- **v10 is built (§134):** Meta and Firebase events plus the Home pin, on `production` since 2026-11-02.
+- The Home pin that shows the pending link is built (§134). Tests: `node --test src/utils/deepLinks/contentLink.test.mjs src/utils/deepLinks/homePin.test.mjs`.
 
-## 134. 2026-11-02 — v10 built on `production`: Meta + Firebase events, Home pin (pin off on production)
+## 134. 2026-11-02 — v10: Meta + Firebase events, Home pin (pin ON on production)
 
-- **Commits:** `dev` `837760b` (events), `8159a04` (ringtone action word), `0921da6` (Home pin), `4700afa` (3 s cap) → `production` `7076447`, `c0bfef1`, `77ccc37`, `e739049` (`-x`, no conflicts), plus the bump `23c6480` (versionCode 10; `.dev` stays 5). `version` and runtime stay 1.1.0, so v10 and v9 share every OTA; no package, lockfile, plugin, `eas.json` or native change since v9 (`2c53d86`). `production` pushed; `master` still `96e7c89`. The founder uploaded the production build to EAS on 2 Nov.
+- **Commits:** `dev` `837760b` (events), `8159a04` (ringtone action word), `0921da6` (Home pin), `4700afa` (3 s cap) → `production` `7076447`, `c0bfef1`, `77ccc37`, `e739049` (`-x`, no conflicts), plus the bump `23c6480` (versionCode 10; tag `v10-final`). `version` and runtime stay 1.1.0, so v9/v10/v11 share every OTA; no native change since v9 (`2c53d86`).
 - **Events:** gate taps, logged at the tap before any gate, permission or "already saved" check (`gateTapEvents.ts`; same feed + action within 1 s counts once): Firebase `gate_action_tap {action, content_type}`, Meta `gate_action_tap` + `wallpaper_download`/`_share`, `thought_download`/`_share`, `ringtone_set`. Meta mirrors of `first_content_completed`, `rashifal_viewed`, `chant_counter_used`, `content_shared`; Meta `returned_day_2` (once ever; never for installs from before v10, `returnedDay2.ts`); `ad_watch_tapped` (Firebase + Meta) on "Watch ad"; Meta `ad_watched` now carries `content_type`/`action`. Pin events (Firebase only): `deferred_link_pinned {content_type}`, `deferred_link_pin_skipped {reason: expired|not_found|type_mismatch|error}`. No ids, titles or personal data anywhere.
 - **Rule: every analytics event uses the action words download | share | view | set_ringtone** (a ringtone's download is `set_ringtone`, `toAdEventAction` in `adEvents.ts`). The backend keeps `kind: 'download'` (`POST /ad-unlocks`).
 - **Meta events fire only in the production app** (SDK loaded lazily in `metaAppEvents.ts`/`metaAdEvents.ts`) and can't be tested on `.dev` — check them in Meta Events Manager on a production build. `metaEvents.ts` on `production` still imports the SDK at start, as in v8/v9 (§129).
-- **Home pin** (`useHomePin.ts`; pure rules in `homePin.ts` + `homePin.test.mjs`): needs BOTH the code constant `DEFERRED_LINK_PIN_ENABLED` (now `true`, `deferredAppLink.ts`) and the backend flag `deferredLinkPinEnabled` (backend `develop` `bb8f40c`, `main` `46b7574`; on 2026-11-06 production's `/feature-flags` shows it `true`, so the pin is on). Read once when Home mounts; flag off, missing or unsettled = Home exactly as before (no wait, no store read, no event). When on: waits for the probe only on an install under a day old, whole decision capped at 3 s, item from `GET /feed/:id`, the link type must match `feed.type`; card 1, removed from later pages, dropped on pull-to-refresh.
+- **Home pin** (`useHomePin.ts`; pure rules in `homePin.ts` + `homePin.test.mjs`): needs BOTH the code constant `DEFERRED_LINK_PIN_ENABLED` (`true` on production, `deferredAppLink.ts`, checked 2026-11-15) and the backend flag `deferredLinkPinEnabled` (backend `develop` `bb8f40c`, `main` `46b7574`; `true` on production since 2026-11-06). Read once when Home mounts; flag off, missing or unsettled = Home exactly as before (no wait, no store read, no event). When on: waits for the probe only on an install under a day old, whole decision capped at 3 s, item from `GET /feed/:id`, the link type must match `feed.type`; card 1, removed from later pages, dropped on pull-to-refresh.
 - **The reader writes, the pin only reads:** the probe saves a received link into the pending-link store (with installTime); the pin peeks and removes it only after a definitive result (shown, 404, type mismatch, expired or from another install). A network error, timeout, 5xx or 401 keeps it. Every link or pin failure falls back to the normal Home.
 - **Deferred-link tests:** after a reinstall, always run `adb shell pm clear com.orivori.bhavbhakti` before the first open — Android auto-backup restores old app data, including the Facebook SDK's own record, and a `none` then proves nothing. On `.dev` the probe never runs; test the pin with the adb VIEW link instead.
 
-## 135. 2026-11-02 — Feed 106 archived on production; importer never reactivates retired feeds
+## 135. 2026-11-02 — Feed 106 archived; importer never reactivates retired feeds
 
-- **Feed 106** (csv 106, "Kali Wallpaper 7", `Wallpapers/Static wallpapers/Kali/Kali 5.png`) was set to `status = 'archived'` on production on 2026-11-02 for an AI defect (3 hands). It was a founder-run one-off script with a typed confirmation and a JSON backup in the session's scratch folder. Only `status` changed; the row and its counters are kept. **The Storage file was left in place.** Production now has 172 active feeds and 1 archived.
-- **Undo:** `UPDATE feeds SET status = 'active' WHERE id = 106 AND csv_id = 106 AND status = 'archived';`
-- **Importer safeguard:** develop `6117c26`, main `9470507`. A re-import used to find a feed by `csv_id` whatever its status and write `status: 'active'` over it. **Rule: the importer skips any feed whose status is `archived` or `deleted` and writes nothing for that row (fields, status or tags).** It logs the skip and counts it as neither imported nor an error; the summary prints `Retired feeds skipped: N (ids ...)`. It still never deletes or deactivates rows missing from the sheet. Re-activating a feed is a deliberate manual step (the undo above).
-- **Caching:** the backend serves only `active` feeds and caches no feed lists. The app keeps an already-loaded list in memory until pull-to-refresh, a chip change or a restart.
+Feed 106 (csv 106, "Kali Wallpaper 7") set `status = 'archived'` on production (AI defect); Storage file kept. Undo: `UPDATE feeds SET status = 'active' WHERE id = 106 AND csv_id = 106 AND status = 'archived';` **Rule (develop `6117c26`, main `9470507`): the importer skips any feed whose status is `archived` or `deleted` and writes nothing for that row** (logs it; summary `Retired feeds skipped: N (ids ...)`). It never deletes or deactivates rows missing from the sheet; re-activating is a deliberate manual step. The backend serves only `active` feeds and caches no feed lists; the app keeps a loaded list until pull-to-refresh, chip change or restart.
 
-## 136. 2026-11-05 — Silent guest login, Phase 1 (backend): backend `develop` and dev database only, NOT on `main` or production
+## 136. 2026-11-05 — Silent guest login, backend (live since §140)
 
-Locked decisions: `D:\bhav_bhakti_Claude_docs\Bhav_Bhakti_Guest_Login_Build_Spec_2026-11-05.md` (overrides the investigation doc). Backend `develop` `7a788bd`; migration `20261105000001-add-guest-accounts` run on dev by the founder with the new `scripts/migrate-development.js` (dev counterpart of `migrate-production.js`).
-- **Order rule: migrate BEFORE the code deploys.** The new `User` model selects the new columns, so the code without the migration breaks every logged-in request. The migration alone is safe for old code. Inside it, `user_history` gets `'guest'` first, or the `users_after_insert` trigger fails the insert.
-- **Schema:** `'guest'` on `users.auth_provider`, `user_history.auth_provider`, `login_history.login_type`; `users.guest_install_hash` CHAR(64) and `users.support_id` VARCHAR(12), both unique; index `(auth_provider, created_at)` for the cap; `login_history.source` (`login`, `guest_start`, `guest_renew`; NULL on old rows). `down` refuses once guest rows exist.
-- **Guest row:** phone, country code and `firebase_uid` NULL, `auth_provider` guest, `is_verified` 1 (means "may pass `authenticate`", NOT "phone verified"), `is_active` 1, role user. Pass `countryCode: null` explicitly: the model's default is `+91`. Support ID = `G` + 6 characters from A–Z and 2–9 without O and I. The server stores only the SHA-256 of the install id (a v4 UUID, lowercased first).
-- **`POST /auth/guest`** `{installId, isTestAccount}` (`src/services/guestAuth.service.js`, `auth.controller.js`): known guest → 200 + fresh token, even with the switch off; unknown → 201, or 403 `GUEST_DISABLED` when off, 429 `GUEST_RATE_LIMITED` / `GUEST_DAILY_CAP` over a limit; row no longer a guest → 409 `GUEST_NOT_A_GUEST`; blocked guest → 403 `GUEST_INACTIVE`; bad id → 400. **Never 401**, which the app reads as "start a guest". Guest tokens are fixed at 10 days, independent of `JWT_EXPIRES_IN`. Parallel starts: the unique index rejects the loser, which re-reads the row.
-- **Limits:** 30/min and 200/hour per IP count only NEW install ids (mounted after the known-install check, so a shared carrier IP can't lock out a returning guest); a 300/min flood backstop covers every call; `GUEST_DAILY_CAP` (default 5,000 per IST day) is counted in the database, with one log warning a day per server start at 50%. Search Railway logs for `[guest-start]`.
-- **Switches:** `GUEST_LOGIN_ENABLED` (only `true`), `GUEST_DAILY_CAP`, read on every call but a Railway edit redeploys anyway. No rollout percentage, by decision. Dev has `GUEST_LOGIN_ENABLED=true`; production has neither.
-- **Also:** `GET /analytics/global-stats` now needs admin (no caller in the app); `POST /subscription/create` refuses guests (`refuseGuests`, 403 `GUEST_NOT_ALLOWED`); login responses carry `supportId`, `GET`/`PUT /profile` carry `authProvider` and `supportId`.
-- **Tested live on dev (2026-11-05), statuses and counts only:** 28 checks passed, including 8 parallel starts = one row, the limit at exactly 30, a known install working over it, the flood backstop, admin routes 403, another user's feed 404, tampered and `alg:none` tokens 401, and the cap still counted after a redeploy. The real trigger wrote history rows for every guest. Not triggered live: the 200/hour limit (same code as the per-minute one). Those tests left 30 guest rows on dev, deliberately not deleted.
+Locked decisions: `Bhav_Bhakti_Guest_Login_Build_Spec_2026-11-05.md`. `develop` `7a788bd` → `main` `ae29557`; migration `20261105000001-add-guest-accounts`.
+- **Order rule: migrate BEFORE the code deploys** (the `User` model selects the new columns). Inside the migration `user_history` gets `'guest'` first, or the `users_after_insert` trigger fails.
+- **Schema:** `'guest'` on `users.auth_provider`, `user_history.auth_provider`, `login_history.login_type`; `users.guest_install_hash` CHAR(64) and `users.support_id` VARCHAR(12), both unique; index `(auth_provider, created_at)`; `login_history.source` (`login`, `guest_start`, `guest_renew`). `down` refuses once guest rows exist.
+- **Guest row:** phone, country code, `firebase_uid` NULL (pass `countryCode: null` explicitly — model default is `+91`); `is_verified` 1 means "may pass `authenticate`", not "phone verified". Support ID = `G` + 6 chars from A–Z/2–9 without O and I. The server stores only the SHA-256 of the lowercased v4 install id.
+- **`POST /auth/guest`** `{installId, isTestAccount}` (`src/services/guestAuth.service.js`): known guest → 200 + fresh token, even with the switch off; unknown → 201, or 403 `GUEST_DISABLED` when off, 429 `GUEST_RATE_LIMITED`/`GUEST_DAILY_CAP`; no longer a guest → 409 `GUEST_NOT_A_GUEST`; blocked → 403 `GUEST_INACTIVE`; bad id → 400. **Never 401** (the app reads 401 as "start a guest"). Guest tokens fixed at 10 days.
+- **Limits:** 30/min and 200/hour per IP for NEW install ids only (after the known-install check); 300/min flood backstop; `GUEST_DAILY_CAP` (default 5,000 per IST day) counted in the database, one log warning a day at 50%. Logs: `[guest-start]`.
+- **Switches:** `GUEST_LOGIN_ENABLED` (only `true`), `GUEST_DAILY_CAP`. No rollout percentage. Both environments ON.
+- **Also:** `GET /analytics/global-stats` needs admin; `POST /subscription/create` refuses guests (403 `GUEST_NOT_ALLOWED`); login responses carry `supportId`; `GET`/`PUT /profile` carry `authProvider` and `supportId`. Dev has ~30 leftover test guest rows (kept on purpose).
 
-## 137. 2026-11-05 — Silent guest login, Phase 2 (app): built on frontend `dev` (`6791d19`), phone test pending, NOT on `production`
+## 137. 2026-11-05 — Silent guest login, app (live in v11)
 
-Spec as in §136. JS only: no package, plugin or native change. Tested so far: TypeScript clean, unit tests (`node --test src/features/authentication/utils/guestStartRules.test.mjs`), an Android bundle builds, and Edit Profile and like as a guest work against dev. Not yet run on a phone.
-- **Files:** `src/features/authentication/services/guestSession.ts` (`startGuestSession()`, overlapping callers share one request), `utils/installId.ts`, `utils/guestStartRules.ts`, `src/store/guestStartStore.ts`, `src/components/molecules/GuestStartScreen/`; `app/index.tsx` decides spinner, start, Retry or Home.
-- **Rules:** the install id lives in AsyncStorage and survives `secureStorage.clearAll()`. **No guest may start before storage has been read** (`whenAuthInitialized()`); `secureStorage.readSession()` tells a failed read from an empty one, three attempts, then it counts as empty so nobody is stuck for good. A read still unfinished after 10 s shows Retry and never starts a guest. An expired stored token is cleared with an `await` before starting, or a late clear could wipe the new session.
-- **Any 401** (`apiClient` → `handleSessionExpired(failedToken)`): guest session, then the request repeats once. Another request already renewed → just repeat. No signal → keep the session. Server refused → `clearSession()` and `router.replace('/')` (Retry). `clearSession()` keeps the pending content link; only `logout()` clears it, and nothing calls `logout()` now. `LoginPromptModal` isn't mounted; its file stays.
-- **New-guest events:** `guest_started` and `markNewUserSignup` fire when the server says new OR this install never finished a start (AsyncStorage `guest_start_finished`), so a reply lost to a kill or bad signal still counts. `markNewUserSignup` runs before `login()`, because logging in sends the app to Home at once.
-- **Notifications (founder widened the spec, 2026-11-05):** the dialog appears once, after the first of: a finished audio (`audio-player.tsx`), a wallpaper saved (`saveFeedToGallery.ts`), a wallpaper shared, including Set as Status (`shareContent.ts`), or a ringtone saved (`saveRingtoneToDevice.ts`), all through `requestNotificationPermissionOnce`. Thoughts don't count. Android 12 and older have no dialog and join the topic as soon as there is a session. A cancelled share can also trigger it, because Android can report a cancelled share as done (§118).
-- **Testing on `.dev`:** a clean install or `pm clear` first runs the OLD embedded bundle (build 5: login screen, production API, §132). Don't log in there; force-quit and reopen until Profile → About ends in `D`. The true first open (new code in the build, no OTA) can only be seen on a v11 build.
+`dev` `6791d19` → `production` `4e0509d`. JS only.
+- **Files:** `src/features/authentication/services/guestSession.ts` (`startGuestSession()`, shared in-flight request), `utils/installId.ts`, `utils/guestStartRules.ts` (+ `guestStartRules.test.mjs`), `src/store/guestStartStore.ts`, `src/components/molecules/GuestStartScreen/`; `app/index.tsx` decides spinner, start, Retry or Home.
+- **Rules:** the install id lives in AsyncStorage and survives `secureStorage.clearAll()`. **No guest may start before storage has been read** (`whenAuthInitialized()`); `secureStorage.readSession()` tells a failed read from an empty one (3 attempts); a read unfinished after 10 s shows Retry. An expired stored token is cleared with an `await` before starting.
+- **Any 401** (`apiClient` → `handleSessionExpired(failedToken)`): start/renew a guest session and repeat the request once; server refusal → `clearSession()` + `router.replace('/')` (Retry). `clearSession()` keeps the pending content link; only `logout()` clears it, and nothing calls `logout()` now (Logout removed on production). `LoginPromptModal` isn't mounted.
+- **Events:** `guest_started` and `markNewUserSignup` fire when the server says new OR this install never finished a start (`guest_start_finished`); `markNewUserSignup` runs before `login()`. Firebase user property `account_type` (`guest`/`phone`, `authStore.ts`).
+- **Notifications:** the dialog is asked once, after the first finished audio, wallpaper save, wallpaper share/Set as Status, or ringtone save (`requestNotificationPermissionOnce`; not thoughts). The flag is set only after Android answers (`8a0a836`); Android ≤12 subscribes as soon as there's a session.
+- **Testing:** `pm clear` wipes the OTA (`.expo-internal` is under `filesDir`), so the built-in code runs first — a true first open needs a build containing the code.
 
-## 138. 2026-11-05 — Birthdate bug for Taurus, Leo and Scorpio fixed, live in production; Phase 2 phone test findings and fixes on `dev`
+## 138. 2026-11-05 — Taurus/Leo/Scorpio birthdate fix, live; `.dev` build 6
 
-**Bug fixed, live in production (`main` `9744993`, deploy `9bcbbb5e`; phone check pending):** `profile.validator.js` rejected the rashi names that `POST /horoscope/zodiac/calculate` returns for three signs (`vrishabh`, `singh`, `vrishchik`), so a birthdate in those signs couldn't be saved from Edit Profile or Home's Rashifal popup, for any user: 400, and name and gender are lost with it. Production on 2026-11-05: 27 real users with birthdates, none in those signs. Fix: backend `develop` `5e268bc` accepts every name in `RASHI_TO_ZODIAC`, so the lists can't drift. No migration (`rashi` is VARCHAR(50)), no OTA. Tested live on dev: all 12 signs save and read back; it was cherry-picked to `main` alone, with the founder's one-time permission for Claude to push. **Still don't merge `develop` into `main`: its `User` model needs the guest migration first (§136).**
-- **Rashifal doesn't read the rashi:** Home opens `horoscope-detail` from `zodiacSign`, and production has all 12 signs in both languages for today. Dev has almost no horoscope rows (18, the newest 2026-09-23), so `/horoscope/today/:sign` returns 404 on dev for every sign, unrelated to this bug. `profile.zodiac.vedic` holds the English rashi under `hi` with `en` null for all 12 signs; old, and the app doesn't show it.
-- **Hindi** (`dev` `6609629`): Edit Profile's Save and Delete Account's button showed only their first word (§71, §132).
-- **Notification flag** (`dev` `8a0a836`): set only after Android answers, or after subscribing on Android 12 and older; `isRequestInFlight` stops a second dialog. A failed request no longer uses up the one chance. Why the founder saw no question in test 14 is still open: the likely cause is that a reinstall restored an old backup with the flag set (`allowBackup` is on, §134). A qualifying action did reach the rule on 2026-11-05.
-- **Debug row** (`dev` `898e2c0`, `.dev`-only, **never cherry-pick**): Profile → Debug shows whether the question was asked and Android's permission. The flag can't be read with adb because `.dev` is a release build.
-- **`pm clear` confirmed:** it wipes the OTA (`.expo-internal` is under `filesDir`), so the old built-in code runs first; production logged a `feature-flags` call from the founder's network 9 and 12 seconds before two guest calls on dev. Why no login screen was seen is unexplained. **A true first open needs a build with the guest code inside it:** a new `.dev` build (versionCode 6) is approved in principle, founder to say when, then repeat tests 7, 8, 9, 12, 15 and 16 on it.
-- **Phase 2 test status:** passed 1, 2, 3 (log proof), 5, 6, 7, 10, 11, 14, 15. Open: 4 and 13 (retest after these fixes), 8, 9, 12, 16.
-- **New `.dev` build prepared, not run (2026-11-05):** tests 4, 13 and 16 passed. versionCode 6 on `dev`. The `preview` profile in `eas.json` now sets `APP_VARIANT=development`, which ends §132's trap: the built-in code of a fresh preview build called production until a dev OTA landed. No package, lockfile or plugin change since `fc6eaec`; the only `app.config.js` change before this was production's AdMob ID.
+`profile.validator.js` rejected `vrishabh`, `singh`, `vrishchik`, so those birthdates couldn't be saved. Fix (`develop` `5e268bc` → `main` `9744993`): accept every name in `RASHI_TO_ZODIAC`. Rashifal itself reads `zodiacSign`, not the rashi; dev has almost no horoscope rows, so `/horoscope/today/:sign` 404s on dev. Hindi Save/Delete buttons fixed (`6609629`). `.dev`-only debug row `898e2c0` — **never cherry-pick**. `.dev` build 6: the `preview` profile in `eas.json` sets `APP_VARIANT=development`, ending §132's trap.
 
-## 139. 2026-11-06 — Silent guest login, Phase 3: backend live with the switch off, v11 not built yet
+## 139. 2026-11-06 — Guest login Phase 3: production (with §140)
 
-*Later state and decisions, including no v8 OTA, are in §140; it overrides this section where they differ.* Step-by-step plan with the founder's exact commands: `D:\bhav_bhakti_Claude_docs\Bhav_Bhakti_Guest_Login_Phase3_Production_Plan_2026-11-06.md`. The `.dev` build 6 passed the first-open tests on the founder's phone. On dev, GHTLJ8F (first open) and GHAU68A (killed during start) have one row and one `login_history` row each, nothing odd. Test 12 (daily limit) and the Hindi update screens also passed on dev (2026-11-06).
-- **Backend: LIVE with the switch off (2026-11-06).** Backup `backups/2026-11-06-0113.sql.gz` (1,052 KB); migration `20261105000001` run by the founder from `main` (never run it from `develop`, where `--to` would also run the Stories migration); `main` = `ae29557` (cherry-pick of `7a788bd`), pushed by Claude with the founder's one-time permission; deploy `65c7db84`. Verified: every table's row count matched the backup (only the migration log +1); `POST /auth/guest` for a new install returns 403 `GUEST_DISABLED`; 0 guest rows; `GUEST_LOGIN_ENABLED` unset. A real logged-in request was not checked by Claude (no login token). Structure against dev: only the guest and Stories differences; triggers identical; a leftover lowercase `sequelizemeta` table exists on production (harmless).
-- **Frontend `production` (pushed, `master` untouched):** `4e0509d` (from `6791d19`), `814ed36` (`f3e5c82`), `ffceb74` (`6609629`), `c7f22d6` (`8a0a836`), `3180290` (`7be1c3e`, Hindi update buttons), `1237b5a` (versionCode 11; `.dev` 6, because build 6 already has the guest code; version 1.1.0). `dev` has `7be1c3e` and `855dac6` (versionCode 11). Not picked: `898e2c0`, `6caf317`, `911e5af`, Stories, debug tools. `4e0509d` needed conflict resolution: Logout and debug tools removed, Stories strings left out. Tag `v10-final` = `23c6480`, the code before guest login.
-- **Rule: until v11 is live, no `npm run update:production`.** `production` has guest login and shares runtime 1.1.0 with v9 and v10, so an OTA would move those users to it.
-- **Rule: after v11 is built, never publish an OTA to runtime 1.1.0 from a branch without guest login.** It would be newer than v11's own code, and v11 would go back to phone login. An OTA older than the build should be ignored (first checked in the closed-testing test: Profile > About must show no update tag).
-- **Update prompt on v8:** in the code by OTA, not in the v8 build. The latest 1.0.0 OTA (`b97580be`, `96e7c89`) has it, with no rollout in progress. Never tested on a real v8 install. **v8's Hindi fix needs its own OTA from `ota/v8-hindi-update-buttons` (`8f699f0`, `v8-final` + the fix)**, by hand, because `update:production` refuses other branches. Founder runs it before the soft prompt.
-- **Release order:** v11 to Closed testing first; `GUEST_LOGIN_ENABLED` ON before submitting (old builds never call the endpoint); test; promote to Production at 100%; `master` fast-forward; soft prompt; 3 to 5 days later `ANDROID_MIN_BUILD=11`.
-- **Production service names (2026-11-06):** `MySQL`, `db_backup`, `Daily_Horroscope`, `bhav-bhakti-be`.
-- **Found, not fixed:** the 2026-11-06 Rashifal run crashed on Gemini 503 errors ("high demand"), so production has 5 of 24 rows for that date. A failed run needs a manual re-run, or the day stays incomplete.
+Plan with the founder's commands: `Bhav_Bhakti_Guest_Login_Phase3_Production_Plan_2026-11-06.md`.
+- **Backend:** backup `backups/2026-11-06-0113.sql.gz`; migration `20261105000001` run by the founder **from `main`** (never from `develop`, where `--to` would also run the Stories migration); `main` `ae29557`, deploy `65c7db84`; then `GUEST_LOGIN_ENABLED=true`. A leftover lowercase `sequelizemeta` table on production is harmless.
+- **Frontend `production`:** `4e0509d` (guest app; conflict resolved by removing Logout and debug tools, Stories strings left out), `814ed36`, `ffceb74`, `c7f22d6`, `3180290` (Hindi update buttons), `1237b5a` (versionCode 11; `.dev` 6). Not picked: `898e2c0`, `6caf317`, `911e5af`, Stories, debug tools. Tag `v10-final` = `23c6480` (code before guest login).
+- **Rule: never publish an OTA to runtime 1.1.0 from a branch without guest login** — it would be newer than v11's own code and put v11 back on phone login. The unused branch `ota/v8-hindi-update-buttons` (`8f699f0`) stays unused (**no v8 OTA**, founder decision).
+- Production service names: `MySQL`, `db_backup`, `Daily_Horroscope`, `bhav-bhakti-be` (+ `admob_sync`, §143).
+- Play: App access and Data safety updated; Firebase `account_type` user property registered. Open: privacy policy text.
+- Decisions: soft prompt right after v11 at 100% (done, §142); **hard update before ads.**
 
-## 140. 2026-11-06 — Guest login Phase 3: switch ON on production, v11 sent for Closed testing review
+## 140. 2026-11-06 — switch ON on production, v11 to review — in §139.
 
-Commits below were checked against git on 2026-11-06. Founder-reported, not independently checked: the switch, the build and upload, the Play forms, and the Firebase property.
-- **Zodiac fix:** the Taurus/Leo/Scorpio validator fix is live on backend `main` as `9744993` (`develop` `5e268bc`; §138).
-- **Dev testing:** all `.dev` build 6 tests passed, along with test 12 (daily limit) and the Hindi update screens.
-- **Production steps done:** backup `backups/2026-11-06-0113.sql.gz`; migration `20261105000001`; backend `main` `ae29557` (deploy `65c7db84`); `GUEST_LOGIN_ENABLED=true` set on production, so new installs on a build with the guest code can now start guest accounts. Old builds never call the endpoint.
-- **v11:** frontend `production` `1237b5a` was built, uploaded to Internal and Closed testing, and sent for review. *(Update: now live in Production, §142.)* Play App access and Data safety are updated, and the Firebase `account_type` user property is registered (the app sets it in `authStore.ts`, `guest` or `phone`).
-- **Decisions (founder):**
-  - **No v8 OTA.** This replaces §139's v8 Hindi OTA and step 10 of the plan doc. Branch `ota/v8-hindi-update-buttons` stays unused, so v8's update screens keep the cut-off Hindi button labels.
-  - **Soft update prompt right after v11 is at 100%.**
-  - **Hard update (`ANDROID_MIN_BUILD`) before ads.**
-- **Rules until v11 is at 100%:**
-  - No `npm run update:production`.
-  - No OTA to runtime 1.1.0 from a branch without guest login. After 100% this stays dangerous: such an OTA would be newer than v11's own code and would put v11 back on phone login (§139).
-  - Never raise `ANDROID_MIN_BUILD` before v11 is at 100%.
-- **Open:**
-  - The Rashifal cron fails on Gemini errors (503 "high demand", §139); a failed run leaves the day incomplete until someone re-runs it.
-  - The privacy policy text (draft in the plan doc).
-  - ~~The `master` fast-forward, once v11 is confirmed live.~~ Done: frontend `master` was fast-forwarded to `1237b5a` on 2026-11-07 and equals `production` (§142).
+## 141. 2026-11-07 — Deep link catalog, live on backend `main`
 
-## 141. 2026-11-07 — Deep link catalog: live on backend `main`, first production file checked
-
-- **What:** `deeplink_catalog.csv` lists every active aarti, bhajan, mantra, ringtone, wallpaper and thought on production, so the co-founder can find an asset's link for a Meta ad. First line is a comment with the IST time and row count; columns `id, type, title_en, title_hi, storage_path, deep_link`. It goes to `D:\bhav_bhakti_Claude_docs\` when that folder exists, otherwise to the gitignored `bhav-bhakti-be/deeplink-catalog-output/`. The file starts with a byte order mark so Excel reads the Hindi correctly.
-- **Commits:** `develop` `6405182` (export), `04cc081` (importer hook), `03a1071` (production import helper) → `main` `4800dfc`, `192e040`, `1cec6be`. No migration or package change. `main`'s CLAUDE.md copy stopped at §121, so CLAUDE.md commits stay on `develop`.
-- **Refresh by hand** (from `bhav-bhakti-be`, with a production token): `$env:RAILWAY_TOKEN = $env:RAILWAY_TOKEN_PROD`, then `railway run --service MySQL -- npm run export:deeplinks`, then close the window so the production token doesn't linger. Plain `npm run export:deeplinks` reads `.env`, which points at dev, so it refuses by design.
-- **Import to production:** `railway run --service MySQL -- node scripts/import-feeds-production.js "<sheet.csv>"` with the same token. This helper replaces §110's unrecorded wrapper: without the mapping, `railway run` falls back to `.env` and imports into dev.
-- **Rules:** production means the host check in `getDatabaseTargetLabel()` (`confirm-db-target.js`), never `NODE_ENV`. The session is read-only, enforced by MySQL. A stored path that is empty, a full URL or carries a token leaves its row out, with a warning listing feed ids only. An empty result or a failed write keeps the previous file; if it's open in Excel, the rename fails and the message says to close it. A failed refresh after an import is only a warning. **If Railway regenerates production's proxy host, update `KNOWN_DB_HOSTS`, or the export refuses.**
-- **Don't use the import sheet's `id` as a deep link id.** On production `id` equals `csv_id` for all 173 rows (checked 2026-11-07), but only by coincidence: the importer never sets `id`, and the next one is 182, while dev's Stories rows use sheet ids 201–209. The catalog reads the real id. Ids never change on a re-import, and a link to a retired feed just opens the normal Home.
-- **When Stories launches:** add a `stories` type here only together with the app's link parser, which doesn't accept it yet (`contentLink.ts`).
-- **Tested on dev only:** the guard refuses `.env`, `NODE_ENV=production` and `railway run` under dev; a real read returned 173 rows with no Stories, correct Hindi and writes blocked; a real importer run (one row failing validation, nothing written) skipped the catalog and, with a faked PRODUCTION label, refused and still finished successfully.
-- **First production file (2026-11-07), run by the founder and read back by Claude:** 172 rows (wallpaper 112, ringtone 27, bhajan 13, mantra 12, aarti 6, thought 2), no duplicate ids, no `token`, `https` or `alt=media` text, all 172 deep links matching their row, and Hindi script intact in every title. The importer hook hasn't yet run on a real production import.
+- **What:** `deeplink_catalog.csv` lists every active aarti, bhajan, mantra, ringtone, wallpaper and thought on production for Meta ads. First line: comment with IST time and row count; columns `id, type, title_en, title_hi, storage_path, deep_link`; UTF-8 BOM for Excel. Written to `D:\bhav_bhakti_Claude_docs\` if present, else gitignored `bhav-bhakti-be/deeplink-catalog-output/`. Lookup instructions for the co-founder: `Bhav_Bhakti_Deeplink_Lookup_Instructions_2026-11-07.md`.
+- **Commits:** `develop` `6405182`, `04cc081`, `03a1071` → `main` `4800dfc`, `192e040`, `1cec6be`.
+- **Refresh by hand** (from `bhav-bhakti-be`): `$env:RAILWAY_TOKEN = $env:RAILWAY_TOKEN_PROD`, then `railway run --service MySQL -- npm run export:deeplinks`, then close the window. Plain `npm run export:deeplinks` reads `.env` (dev) and refuses by design.
+- **Import to production:** same token, `railway run --service MySQL -- node scripts/import-feeds-production.js "<sheet.csv>"` (maps Railway's MySQL variables onto `DB_*`; without it `railway run` falls back to `.env` and imports into dev).
+- **Rules:** production = the host check in `getDatabaseTargetLabel()`, never `NODE_ENV`; read-only session enforced by MySQL; empty/URL/tokened paths are left out with a warning; an empty result or failed write keeps the old file (close Excel if the rename fails); a failed refresh after an import is only a warning. **If Railway regenerates production's proxy host, update `KNOWN_DB_HOSTS`.**
+- **Don't use the import sheet's `id` as a deep link id** — the catalog reads the real id (on production they match only by coincidence). A link to a retired feed opens the normal Home.
+- First production file (2026-11-07): 172 rows, all checks passed.
 
 ## 142. 2026-11-07 — v11 live in Production, soft update prompt ON, deferred deep link tested
 
-**Founder-confirmed 2026-11-07. Claude didn't check the Play Console, Railway or the flags URL itself.**
-- **v11** (`production` `1237b5a`, versionCode 11, guest login) is live in Production. §140's review status is out of date.
-- **Soft update prompt ON** in production since 2026-11-07, on `bhav-bhakti-be`: `UPDATE_PROMPT_ENABLED=true`, `ANDROID_LATEST_BUILD=11`, no `ANDROID_MIN_BUILD`, so nobody is blocked. Verified by the founder at `https://api.orivori.com/api/v1/feature-flags`.
-- **Deferred deep link tested,** including that Meta's install-ad Deep link field accepts `bhavbhakti://`. This closes the "still unproven" items in the deep link plan and the Handoff.
-- **Frontend `master` was fast-forwarded to `1237b5a` on 2026-11-07 and equals `production`,** locally and on GitHub (checked in git). It moved from `96e7c89` over 23 commits, fast-forward only with no merge commit, by Claude with the founder's permission.
-- **Still in force from §139/§140:** never publish an OTA to runtime 1.1.0 from a branch without guest login, because it would be newer than v11's own code and would put v11 back on phone login. Never raise `ANDROID_MIN_BUILD` before v11 is at 100%; the rollout percentage wasn't part of this confirmation. The hard update comes before ads (founder decision).
-- **Known on older installs:** v8's update screens keep the cut-off Hindi button labels (no v8 OTA, §140), and §139 recorded that the prompt had never been tested on a real v8 install.
+Founder-confirmed (Claude didn't check Play, Railway or the flags URL).
+- v11 (`1237b5a`) live in Production. Frontend `master` fast-forwarded to `1237b5a` (= `production`, rechecked 2026-11-15).
+- **Soft prompt ON:** `UPDATE_PROMPT_ENABLED=true`, `ANDROID_LATEST_BUILD=11`, no `ANDROID_MIN_BUILD` (nobody blocked).
+- Deferred deep link tested end to end; Meta's install-ad Deep link field accepts `bhavbhakti://`.
+- Still in force: the runtime-1.1.0 OTA rule (§139–140); never raise `ANDROID_MIN_BUILD` before v11 is at 100% (rollout % not confirmed); hard update before ads. v8's update prompt was never tested on a real v8 install.
 
 ## 143. 2026-11-14 — AdMob → BigQuery daily sync: live in production (Railway `admob_sync`)
 
-Design: the 2026-11-14 investigation report, plus the founder's decisions: account time zone IST, currency USD, dataset `admob` in `asia-south1` (same as the Firebase export), OAuth with the founder's own Google account, and a separate `admob-sync` service account for BigQuery. Rewarded completions come from the Firebase export, not this job. Reference doc for the co-founder: `D:\bhav_bhakti_Claude_docs\Bhav_Bhakti_AdMob_BigQuery_Reporting_2026-11-14.md`.
-- **Commits:** backend `develop` `adafd40`, `401ac95`, `7d62697`, `33d5d48`, `c03b2e8` → cherry-picked onto `main` as `f94e2b2`, `6d91678`, `ff8dc27`, `ed0aa4c`, `b811ab3` (2026-11-14). `develop` was never merged into `main`.
-- **Files:** `scripts/sync-admob-to-bigquery.js` (the job), `src/utils/admobReport.util.js` (pure logic), `scripts/admob-get-refresh-token.js` (one-time laptop helper; prints only the refresh token), `Dockerfile.admob` (hand-picked: 2 files + `@google-cloud/bigquery@9.5.0` + `dotenv`). `@google-cloud/bigquery` is a **devDependency**, so the API image is unchanged.
-- **What a run does:**
-  - **Window:** the last 7 days up to yesterday IST (never today), plus the whole previous month on the 5th, plus optional `--backfill-from YYYY-MM-DD`.
-  - **Pull:** one `networkReport:generate` per month, with USD requested every time; the header's currency must be USD. **Time zone:** the API header has none, so the job reads the account's `reportingTimeZone` once per run and refuses anything but India time (Asia/Kolkata or Asia/Calcutta); rows store `Asia/Kolkata` and `time_zone_source` (`header` | `account`). A range that hits the 100,000-row cap is halved.
-  - **Metrics:** earnings and the four counts are strict — missing or in a wrong form fails the run, nothing written. `IMPRESSION_RPM` and the three rates are check-only: stored as sent (`impression_rpm_reported`, FLOAT) or NULL when missing or odd, with one log line per run counting the NULLs.
-  - **Write:** load into `_staging_<run>` (expires after 1 day); one transaction deletes the window and inserts from staging; the row count is checked; staging is dropped; one `sync_runs` row is written.
-  - **Result:** one `[admob-sync] SUCCESS …` or `FAILED stage=… error=…` line; exit 1 on failure; secrets scrubbed from every line.
-  - **Retries:** HTTP 408/429/5xx and network errors, 4 attempts, about 5/20/60 s apart.
-  - **Safety:** an empty AdMob window never deletes stored days unless `--allow-empty` is given.
-  - **Modes:** `--print-only` (no BigQuery; includes a per-day RPM check), `--print-header` / `--print-shape` (diagnostics: settings and value shapes, never values), `--dry-run` (writes nothing).
-- **BigQuery objects** (created only if missing; existing ones are checked for location, schema and partitioning): `admob.network_report_daily` (partitioned by `report_date`, clustered by `country`, `ad_unit_id`; earnings in `estimated_earnings_micros`), `admob.sync_runs`, and the view `admob.daily_summary` (USD; eCPM and rates recalculated from summed counts — never sum or average AdMob's own rate columns, never use the reported RPM).
-- **Railway:** production service `admob_sync`, built from `Dockerfile.admob` (`RAILWAY_DOCKERFILE_PATH`), restart policy Never, cron `30 2 * * *` UTC (08:00 IST). Variables: `ADMOB_CLIENT_ID`, `ADMOB_CLIENT_SECRET`, `ADMOB_REFRESH_TOKEN`, `ADMOB_PUBLISHER_ID`, `ADMOB_BQ_SERVICE_ACCOUNT_JSON` (base64 of the key file). **Verified by a manual run at 17:09 IST on 2026-11-14, which replaced 3 rows with 3.**
-- **Decisions and findings (founder, 2026-11-14):**
-  - The account currency is USD and can't be changed (no new account).
-  - The API header has no time zone, so the job reads it from the account (above).
-  - AdMob days were compared against the dashboard for 11–13 Nov and matched exactly — the API's days are India days.
-  - `IMPRESSION_RPM` arrives as a decimal in dollars, not micros as the docs say.
-  - The OAuth consent screen is published "In production", so the refresh token doesn't expire after 7 days.
-- **Rules:**
-  - The two credential files live outside both repos in `D:\bhav_bhakti\` (`client_secret_…json`, `bhav-bhakti-…json`) and are never printed, committed, or copied into a repo or build context. `.gitignore` blocks `client_secret_*.json` and `bhav-bhakti-*.json`.
-  - **Any new `require` in the sync script or the util must be added to `Dockerfile.admob`.** `scripts/__tests__/dockerfile-admob.test.js` fails until it is (the §128 lesson).
-  - Each helper run mints a new refresh token. Google keeps at most 100 per account and client and silently retires the oldest.
-- **Known:** `APP_VERSION_NAME` is `1.1.0` for v9, v10 and v11, so the version column can't tell those builds apart.
-- **Not built:** Meta ad spend in BigQuery.
+Reference for the co-founder: `D:\bhav_bhakti_Claude_docs\Bhav_Bhakti_AdMob_BigQuery_Reporting_2026-11-14.md`. Decisions: account time zone IST, currency USD (unchangeable), dataset `admob` in `asia-south1` (same as the Firebase export), OAuth with the founder's Google account, a separate `admob-sync` service account for BigQuery. Rewarded completions come from the Firebase export, not this job.
+- **Commits:** `develop` `adafd40`, `401ac95`, `7d62697`, `33d5d48`, `c03b2e8` → `main` `f94e2b2`, `6d91678`, `ff8dc27`, `ed0aa4c`, `b811ab3`.
+- **Files:** `scripts/sync-admob-to-bigquery.js`, `src/utils/admobReport.util.js`, `scripts/admob-get-refresh-token.js` (one-time laptop helper, prints only the refresh token), `Dockerfile.admob` (2 files + `@google-cloud/bigquery@9.5.0` + `dotenv`). `@google-cloud/bigquery` is a devDependency — the API image is unchanged.
+- **A run:** window = last 7 days to yesterday IST (+ the whole previous month on the 5th, + optional `--backfill-from YYYY-MM-DD`); one `networkReport:generate` per month in USD (header currency must be USD); time zone read from the account's `reportingTimeZone` (must be Asia/Kolkata or Asia/Calcutta; rows store `Asia/Kolkata` + `time_zone_source`); ranges hitting the 100,000-row cap are halved. Earnings and the four counts are strict (missing/wrong form fails the run, nothing written); `IMPRESSION_RPM` (arrives as dollars, not micros) and rates are stored as sent or NULL. Load into `_staging_<run>` (1-day expiry) → one transaction deletes the window and inserts → row count checked → staging dropped → one `sync_runs` row. One `[admob-sync] SUCCESS …` or `FAILED stage=…` line; exit 1 on failure; secrets scrubbed. Retries 408/429/5xx/network 4× (~5/20/60 s). An empty AdMob window never deletes stored days unless `--allow-empty`. Modes: `--print-only`, `--print-header`, `--print-shape`, `--dry-run`.
+- **BigQuery:** `admob.network_report_daily` (partitioned by `report_date`, clustered by `country`, `ad_unit_id`; `estimated_earnings_micros`), `admob.sync_runs`, view `admob.daily_summary` (eCPM and rates recomputed from summed counts — **never sum/average AdMob's rate columns or use the reported RPM**).
+- **Railway:** service `admob_sync`, `Dockerfile.admob` via `RAILWAY_DOCKERFILE_PATH`, restart Never, cron `30 2 * * *` UTC (08:00 IST). Variables `ADMOB_CLIENT_ID`, `ADMOB_CLIENT_SECRET`, `ADMOB_REFRESH_TOKEN`, `ADMOB_PUBLISHER_ID`, `ADMOB_BQ_SERVICE_ACCOUNT_JSON` (base64). Verified by a manual run on 2026-11-14; AdMob days matched the dashboard for 11–13 Nov. OAuth consent screen is "In production" (refresh token doesn't expire after 7 days).
+- **Rules:** the two credential files live in `D:\bhav_bhakti\` (`client_secret_…json`, `bhav-bhakti-…json`), never printed, committed or copied into a repo/build context (`.gitignore` blocks both patterns). **Any new `require` in the sync script or util must be added to `Dockerfile.admob`** (`scripts/__tests__/dockerfile-admob.test.js` enforces it). Each helper run mints a new refresh token (Google keeps ≤100 per account+client, silently retiring the oldest).
+- **Known:** `APP_VERSION_NAME` is `1.1.0` for v9–v11, so the version column can't tell them apart. Not built: Meta ad spend in BigQuery.
