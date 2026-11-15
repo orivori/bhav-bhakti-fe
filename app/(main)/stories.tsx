@@ -12,6 +12,7 @@ import { useTabBarHeight } from '@/hooks/useTabBarHeight';
 import { useScrollToTopOnTabPress } from '@/hooks/useScrollToTopOnTabPress';
 import { useStoriesList } from '@/features/feed/hooks/useStories';
 import { openStoryPage } from '@/features/stories/openStoryPage';
+import { storyKind } from '@/features/stories/storyLock';
 import { Feed } from '@/types/feed';
 
 const { width } = Dimensions.get('window');
@@ -41,7 +42,12 @@ export default function StoriesScreen() {
   );
 
   const handlePress = useCallback((feed: Feed) => {
-    openStoryPage({ storyId: feed.id, source: 'stories_tab', returnTo: '/(main)/stories' });
+    openStoryPage({
+      storyId: feed.id,
+      source: 'stories_tab',
+      isSingle: storyKind(feed) === 'single',
+      returnTo: '/(main)/stories',
+    });
   }, []);
 
   const handleEndReached = useCallback(() => {

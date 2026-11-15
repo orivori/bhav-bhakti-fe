@@ -30,6 +30,9 @@ import { isAppInForeground } from '@/features/ads/rewardedAd';
 import { toQueueItem } from '@/utils/openAudioPlayer';
 import { showStoryNotice } from '@/store/storyNoticeStore';
 import { logStoryEpisodeCompleted, logStoryEpisodeStarted, type StoryTrigger } from '@/utils/analytics/storyEvents';
+import { useStory } from '@/features/feed/hooks/useStories';
+import { openStoryPage } from '@/features/stories/openStoryPage';
+import { parseReturnParams, parseStoryEpisodeEntry, STORY_PAGE_PATH, type StoryEpisodeEntry } from '@/features/stories/storyPage';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { designSystemTheme } from '@/styles/designSystemTheme';
 import { feedService } from '@/features/feed/services/feedService';
@@ -1312,6 +1315,33 @@ export default function AudioPlayerScreen() {
   // no shuffle, the speed pill in place of views, and a smaller cover with
   // two-line title/subtitle (story titles are full sentences).
   const isStory = contentData.type === 'stories';
+
+  // An episode's series (the shared Stories cache - usually already loaded
+  // by the story page or the Home card): its name sits above the title and
+  // opens the story page.
+  const storySeriesId = isStory && feedData && String(feedData.id) === feedId && feedData.seriesId ? feedData.seriesId : 0;
+  const storySeriesQuery = useStory(storySeriesId);
+  const storySeries = storySeriesId ? storySeriesQuery.data : undefined;
+  const storySeriesTitle = storySeries ? storySeries.title?.[language] || storySeries.title?.en || '' : '';
+
+  // The story page from the series name; its back goes wherever this
+  // player's back would go. When the player was itself opened from the
+  // story page, that is simply going back to it.
+  const handleOpenSeriesPage = useCallback(() => {
+    if (!storySeriesId) return;
+    const returnTo = params.returnTo?.toString();
+    if (returnTo === STORY_PAGE_PATH) {
+      handleBack();
+      return;
+    }
+    openStoryPage({
+      storyId: storySeriesId,
+      source: 'player',
+      isSingle: false,
+      returnTo: returnTo || '/(main)',
+      returnParams: parseReturnParams(params.returnParams?.toString()),
+    });
+  }, [storySeriesId, params.returnTo, params.returnParams, handleBack]);
   const showTrackNav = contentData.type === 'aarti' || contentData.type === 'bhajan' || isStory;
   const canGoPrevious = !!queue && queue.position > 0;
   const canGoNext = !!queue && queue.position < queue.playOrder.length - 1;
@@ -1376,7 +1406,10 @@ export default function AudioPlayerScreen() {
   // don't grow the back stack - handleBack's returnTo/returnParams still
   // point at the ORIGINAL entry screen either way, re-passed through
   // unchanged on every hop.
-  const navigateToQueueItem = useCallback((item: QueueItem) => {
+  // entry (stories only, story_episode_started): 'queue' for a Next /
+  // Previous / Up Next / after-unlock hop, 'auto_advance' when an episode
+  // ended and the next one started by itself.
+  const navigateToQueueItem = useCallback((item: QueueItem, entry: StoryEpisodeEntry = 'queue') => {
     router.replace({
       pathname: '/(main)/audio-player',
       params: {
@@ -1407,6 +1440,7 @@ export default function AudioPlayerScreen() {
         playRequestId: newPlayRequestId(),
         ...(params.returnTo ? { returnTo: params.returnTo.toString() } : {}),
         ...(params.returnParams ? { returnParams: params.returnParams.toString() } : {}),
+        ...(item.type === 'stories' ? { entry } : {}),
       },
     });
   }, [params.returnTo, params.returnParams]);
@@ -1561,8 +1595,12 @@ export default function AudioPlayerScreen() {
     const key = feedId + ':' + (playRequestId ?? '');
     if (storyStartLoggedRef.current === key) return;
     storyStartLoggedRef.current = key;
-    logStoryEpisodeStarted({ episodeNumber: feedData.episodeNumber ?? null, seriesId: feedData.seriesId ?? null });
-  }, [isStory, status.playing, feedData, feedId, playRequestId]);
+    logStoryEpisodeStarted({
+      episodeNumber: feedData.episodeNumber ?? null,
+      seriesId: feedData.seriesId ?? null,
+      entry: parseStoryEpisodeEntry(params.entry),
+    });
+  }, [isStory, status.playing, feedData, feedId, playRequestId, params.entry]);
 
   const handlePrevious = useCallback(() => {
     if (!canGoPrevious) return;
@@ -1689,7 +1727,7 @@ export default function AudioPlayerScreen() {
       usePlaybackStore.getState().advanceQueue();
       const updatedQueue = usePlaybackStore.getState().queue;
       if (updatedQueue) {
-        navigateToQueueItem(updatedQueue.originalItems[updatedQueue.playOrder[updatedQueue.position]]);
+        navigateToQueueItem(updatedQueue.originalItems[updatedQueue.playOrder[updatedQueue.position]], 'auto_advance');
       }
       return;
     }
@@ -2545,6 +2583,16 @@ export default function AudioPlayerScreen() {
             style={styles.contentHeaderTextBlock}
             onLayout={isStory ? (e) => measureStory('titleHeight', e.nativeEvent.layout.height) : undefined}
           >
+            {/* An episode of a series: the series name, which opens the
+                story page. */}
+            {storySeriesTitle ? (
+              <TouchableOpacity onPress={handleOpenSeriesPage} activeOpacity={0.7} style={styles.storySeriesLink}>
+                <Text numberOfLines={1} style={styles.storySeriesLinkText}>
+                  {storySeriesTitle}
+                </Text>
+                <Ionicons name="chevron-forward" size={14} color={goldenTempleTheme.colors.primary.DEFAULT} />
+              </TouchableOpacity>
+            ) : null}
             {/* Stories: up to 2 lines each, full width (CLAUDE.md §71 - a
                 self-measured Devanagari line can lose its last characters
                 on Android). */}
@@ -3109,6 +3157,23 @@ const styles = StyleSheet.create({
     lineHeight: 38,
     paddingVertical: 2,
     marginVertical: 0,
+  },
+  // The series name above an episode's title (opens the story page).
+  // Line-height floor for Hindi (CLAUDE.md §71).
+  storySeriesLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'stretch',
+    gap: 2,
+    marginBottom: 2,
+  },
+  storySeriesLinkText: {
+    flexShrink: 1,
+    fontSize: 13,
+    fontWeight: '600',
+    lineHeight: 22,
+    minHeight: 22,
+    color: goldenTempleTheme.colors.primary.DEFAULT,
   },
   contentSubtitleCompact: {
     fontSize: 13,
