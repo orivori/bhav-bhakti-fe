@@ -147,7 +147,7 @@ export default function HomeScreen() {
     // own card (StoryHomeCard). Defensive only - open its story page.
     const kind = storyKind(feed);
     if (kind === 'series' || kind === 'single') {
-      openStoryPage({ storyId: feed.id, source: 'home_card', returnTo: '/(main)' });
+      openStoryPage({ storyId: feed.id, source: 'home_card', isSingle: kind === 'single', returnTo: '/(main)' });
       return;
     }
 

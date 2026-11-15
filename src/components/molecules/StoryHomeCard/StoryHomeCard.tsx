@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
@@ -10,7 +10,8 @@ import { formatDuration } from '@/utils/formatDuration';
 import { openAudioPlayer } from '@/utils/openAudioPlayer';
 import { seriesEpisodesQuery } from '@/features/feed/hooks/useStories';
 import { parseStoryPreview, storyKind } from '@/features/stories/storyLock';
-import { homeListenQueue, storyCardModel, type StoryCardModel } from '@/features/stories/storyHomeCard';
+import { homeListenQueue, markStoryCardShown, storyCardModel, type StoryCardModel } from '@/features/stories/storyHomeCard';
+import { logStoryHomeCardShown, logStoryHomeCardTapped } from '@/utils/analytics/storyEvents';
 import { openStoryPage } from '@/features/stories/openStoryPage';
 
 interface StoryHomeCardProps {
@@ -45,13 +46,29 @@ export default function StoryHomeCard({ feed, isActive, shouldMountVideo }: Stor
     [feed]
   );
 
+  // story_home_card_shown: the first time this card is the elected (on
+  // screen, playing) card - once per card per app session.
+  useEffect(() => {
+    if (!model || !isActive) return;
+    if (markStoryCardShown(model.storyId)) {
+      logStoryHomeCardShown({ isSingle: model.isSingle, hasPreview: model.previewUrl !== null });
+    }
+  }, [model, isActive]);
+
   const openPage = useCallback(() => {
     if (!model) return;
-    openStoryPage({ storyId: model.storyId, source: 'home_card', returnTo: HOME });
+    openStoryPage({ storyId: model.storyId, source: 'home_card', isSingle: model.isSingle, returnTo: HOME });
   }, [model]);
+
+  const tapCover = useCallback(() => {
+    if (!model) return;
+    logStoryHomeCardTapped({ target: 'page', isSingle: model.isSingle });
+    openPage();
+  }, [model, openPage]);
 
   const listen = useCallback(async () => {
     if (!model) return;
+    logStoryHomeCardTapped({ target: 'listen', isSingle: model.isSingle });
     if (model.listenTarget === 'page') {
       openPage();
       return;
@@ -85,11 +102,11 @@ export default function StoryHomeCard({ feed, isActive, shouldMountVideo }: Stor
       previewUrl: model.previewUrl,
       isSingle: model.isSingle,
       footerText,
-      onOpenPage: openPage,
+      onOpenPage: tapCover,
       onListen: () => void listen(),
       onSeeAll: seeAll,
     };
-  }, [model, feed.duration, t, openPage, listen, seeAll]);
+  }, [model, feed.duration, t, tapCover, listen, seeAll]);
 
   if (!story) return null;
   return <AutoplayFeedCard feed={feed} isActive={isActive} shouldMountVideo={shouldMountVideo} story={story} />;
