@@ -45,9 +45,12 @@ interface OpenAudioPlayerOptions {
   // Where the player's back button returns to (see audio-player.tsx).
   returnTo: string;
   returnParams?: Record<string, string>;
+  // Stories only: where this playback started (story_episode_started's
+  // entry, storyPage.ts). Omitted for everything else.
+  entry?: string;
 }
 
-export function openAudioPlayer({ feed, language, queueItems, queueIndex, returnTo, returnParams }: OpenAudioPlayerOptions): void {
+export function openAudioPlayer({ feed, language, queueItems, queueIndex, returnTo, returnParams, entry }: OpenAudioPlayerOptions): void {
   // Seed the queue from the list as it stands right now, before navigating.
   if (queueItems && queueIndex !== undefined) {
     usePlaybackStore.getState().setQueue(
@@ -87,6 +90,7 @@ export function openAudioPlayer({ feed, language, queueItems, queueIndex, return
       // regardless of where the user actually came from.
       returnTo,
       ...(returnParams ? { returnParams: JSON.stringify(returnParams) } : {}),
+      ...(entry ? { entry } : {}),
     },
   });
 }

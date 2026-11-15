@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   View,
   StyleSheet,
@@ -20,53 +20,96 @@ import AudioContentCard from '@/components/molecules/AudioContentCard';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { useI18nStore } from '@/shared/stores/i18nStore';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
-import { useStorySeries, useSeriesEpisodes, isStorySeries } from '@/features/feed/hooks/useStories';
+import { useStory, useSeriesEpisodes } from '@/features/feed/hooks/useStories';
 import { getFeedSubtitle, getFeedThumbnailUrl } from '@/utils/feedFields';
 import { formatDuration } from '@/utils/formatDuration';
 import { Feed } from '@/types/feed';
 import { useStoryOpener } from '@/features/stories/useStoryOpener';
-import { parseStoryState, isStoryStatePlayable, unlockedSummary } from '@/features/stories/storyLock';
+import { parseStoryState, isStoryStatePlayable, unlockedSummary, storyKind } from '@/features/stories/storyLock';
+import {
+  buildStoryPageParams,
+  parseReturnParams,
+  parseStoryPageSource,
+  storyPageRows,
+  storyEntryForPageSource,
+  STORY_PAGE_PATH,
+} from '@/features/stories/storyPage';
 import { rememberSeriesFreeEpisodes } from '@/utils/analytics/storyEvents';
 
 const { width } = Dimensions.get('window');
 const COVER_SIZE = Math.min(width * 0.6, 280);
 
 /**
- * One story series (Bhav_Bhakti_Stories_Plan.md, phase 4, the MVP series
- * screen): a header with the cover, title, subtitle and episode count, then
- * the episodes in order. Tapping an episode plays it with the whole series
- * as the playback queue. The header is one self-contained block on purpose,
- * so the richer streaming-style header (section 9) can replace it later.
+ * The story page - ONE screen for a series AND a single story
+ * (Bhav_Bhakti_Stories_Ad_Lock_Plan_2026-11-15.md, section 11.1). Opened
+ * with `storyId` (the old `seriesId` param is still read, for anything that
+ * still sends it) through openStoryPage() (storyPage.ts), which always
+ * passes returnTo/returnParams/source explicitly, so nothing stale from an
+ * earlier visit can stick.
+ *
+ * Data: GET /feed/:id (it already carries the lock state). A series then
+ * loads its episodes (shared cache, storiesQueryKeys.episodes); a single
+ * story's list is just itself, with the same open/lock symbol, "Watch an ad
+ * to unlock" row and unlock flow as an episode row.
+ *
+ * Header: cover, title, subtitle; a series adds the episode count, "N of M
+ * unlocked" (lock on) and the "Episodes" heading - a single story shows none
+ * of the three. The header is one self-contained block on purpose, so the
+ * richer streaming-style header (Stories plan section 9) can replace it.
  */
-export default function StorySeriesScreen() {
+export default function StoryPageScreen() {
   const { t } = useTranslation();
   const { language } = useI18nStore();
   const { contentPadding } = useTabBarHeight();
-  const params = useLocalSearchParams<{ seriesId?: string; returnTo?: string }>();
-  const seriesId = Number(params.seriesId) || 0;
+  const params = useLocalSearchParams<{
+    storyId?: string;
+    seriesId?: string;
+    returnTo?: string;
+    returnParams?: string;
+    source?: string;
+  }>();
+  const storyId = Number(params.storyId || params.seriesId) || 0;
   const listRef = useRef<FlatList<Feed>>(null);
 
-  const seriesQuery = useStorySeries(seriesId);
-  const episodesQuery = useSeriesEpisodes(seriesId);
-  const series = seriesQuery.data;
-  const episodes = episodesQuery.data ?? [];
+  const storyQuery = useStory(storyId);
+  const story = storyQuery.data;
+  const kind = storyKind(story);
+  const episodesQuery = useSeriesEpisodes(storyId, { enabled: kind === 'series' });
+  const rows = useMemo(() => storyPageRows(kind, story, episodesQuery.data), [story, episodesQuery.data]);
   const { openStory } = useStoryOpener();
+  // Where an episode started from this page came from (story_episode_started's entry).
+  const entry = storyEntryForPageSource(params.source);
+  // The player's back returns here with exactly these, so the page comes
+  // back as it was - including its own back target (Home, Stories, ...).
+  const pageReturnParams = useMemo(
+    () =>
+      buildStoryPageParams({
+        storyId,
+        source: parseStoryPageSource(params.source) ?? 'stories_tab',
+        returnTo: params.returnTo || '/(main)/stories',
+        returnParams: parseReturnParams(params.returnParams),
+      }),
+    [storyId, params.source, params.returnTo, params.returnParams]
+  );
 
   // Story events carry the series' free-episode count (storyEvents.ts).
   useEffect(() => {
-    if (series) rememberSeriesFreeEpisodes(series.id, series.freeEpisodes);
-  }, [series]);
+    if (story && kind === 'series') rememberSeriesFreeEpisodes(story.id, story.freeEpisodes);
+  }, [story, kind]);
 
   // This screen stays mounted between visits (a hidden Tabs screen), so a
-  // different series must start at the top.
+  // different story must start at the top.
   useEffect(() => {
     listRef.current?.scrollToOffset({ offset: 0, animated: false });
-  }, [seriesId]);
+  }, [storyId]);
 
   const handleBack = useCallback(() => {
     // navigate, not replace - see CLAUDE.md §115.
-    router.navigate((params.returnTo || '/(main)/stories') as any);
-  }, [params.returnTo]);
+    router.navigate({
+      pathname: (params.returnTo || '/(main)/stories') as any,
+      params: parseReturnParams(params.returnParams),
+    });
+  }, [params.returnTo, params.returnParams]);
 
   // Hardware back and the edge-swipe gesture go through 'hardwareBackPress';
   // same handler as the on-screen arrow (pattern from horoscope-detail.tsx).
@@ -82,54 +125,58 @@ export default function StorySeriesScreen() {
   );
 
   const refresh = useCallback(() => {
-    seriesQuery.refetch();
-    episodesQuery.refetch();
-  }, [seriesQuery, episodesQuery]);
+    storyQuery.refetch();
+    if (kind === 'series') episodesQuery.refetch();
+  }, [storyQuery, episodesQuery, kind]);
 
   // Stories ad-lock: each row's lock look comes from the server's state
   // (none = the lock is off: the row looks and plays exactly as before), and
   // a tap goes through openStory (play / ad / "previous episode first").
-  const renderEpisode = useCallback(
+  // A single story is its own one-item queue.
+  const renderRow = useCallback(
     ({ item, index }: { item: Feed; index: number }) => {
       const state = parseStoryState(item.state);
       const lockState = state === null ? null : isStoryStatePlayable(state) ? 'open' : state === 'next' ? 'next' : 'locked';
+      const isSingle = kind === 'single';
       return (
         <AudioContentCard
           feed={item}
-          queueItems={episodes}
+          queueItems={rows}
           queueIndex={index}
-          episodeNumber={item.episodeNumber}
+          episodeNumber={isSingle ? null : item.episodeNumber}
           detail={formatDuration(item.duration)}
           showLike={false}
           lockState={lockState}
           lockHint={t('storyLock.unlockToListen')}
-          returnTo="/(main)/story-series"
-          returnParams={{ seriesId: String(seriesId) }}
+          returnTo={STORY_PAGE_PATH}
+          returnParams={pageReturnParams}
           onPress={() =>
             openStory({
               feed: item,
               language,
-              queueItems: episodes,
+              queueItems: rows,
               queueIndex: index,
-              trigger: 'episode_list',
-              returnTo: '/(main)/story-series',
-              returnParams: { seriesId: String(seriesId) },
+              trigger: isSingle ? 'single_story' : 'episode_list',
+              entry,
+              returnTo: STORY_PAGE_PATH,
+              returnParams: pageReturnParams,
             })
           }
         />
       );
     },
-    [episodes, seriesId, openStory, language, t]
+    [rows, pageReturnParams, openStory, language, t, kind, entry]
   );
 
   const renderHeader = () => {
-    if (!series) return null;
-    const title = series.title?.[language] || series.title?.en || '';
-    const subtitle = getFeedSubtitle(series, language);
-    const coverUrl = getFeedThumbnailUrl(series);
-    const count = series.episodeCount ?? episodes.length;
-    // "N of M unlocked" - only while the lock is on (the server sends both).
-    const summary = unlockedSummary(series);
+    if (!story) return null;
+    const title = story.title?.[language] || story.title?.en || '';
+    const subtitle = getFeedSubtitle(story, language);
+    const coverUrl = getFeedThumbnailUrl(story);
+    const isSeries = kind === 'series';
+    const count = story.episodeCount ?? rows.length;
+    // "N of M unlocked" - only for a series while the lock is on (the server sends both).
+    const summary = isSeries ? unlockedSummary(story) : null;
 
     return (
       <View style={styles.seriesHeader}>
@@ -148,22 +195,29 @@ export default function StorySeriesScreen() {
             {subtitle}
           </Text>
         ) : null}
-        <Text variant="caption" weight="semibold" align="center" style={styles.episodeCount}>
-          {count === 1 ? t('stories.episodeCountOne') : t('stories.episodeCountOther', { count })}
-        </Text>
+        {isSeries ? (
+          <Text variant="caption" weight="semibold" align="center" style={styles.episodeCount}>
+            {count === 1 ? t('stories.episodeCountOne') : t('stories.episodeCountOther', { count })}
+          </Text>
+        ) : null}
         {summary ? (
           <Text variant="caption" align="center" style={styles.unlockedSummary}>
             {t('storyLock.unlockedSummary', summary)}
           </Text>
         ) : null}
-        <Text variant="h5" weight="semibold" style={styles.episodesHeading}>
-          {t('stories.episodesHeading')}
-        </Text>
+        {isSeries ? (
+          <Text variant="h5" weight="semibold" style={styles.episodesHeading}>
+            {t('stories.episodesHeading')}
+          </Text>
+        ) : (
+          <View style={styles.singleSpacer} />
+        )}
       </View>
     );
   };
 
   const renderEmpty = () => {
+    if (kind !== 'series') return null;
     if (episodesQuery.isLoading) {
       return <ActivityIndicator style={styles.inlineState} color={goldenTempleTheme.colors.primary.DEFAULT} />;
     }
@@ -188,20 +242,20 @@ export default function StorySeriesScreen() {
     );
   };
 
-  // Whole-screen states: the series itself is loading, failed, or isn't a
-  // series (a bad or stale id).
+  // Whole-screen states: the story itself is loading, failed, or is neither
+  // a series nor a single story (a bad or stale id, or an episode id).
   let screenState: React.ReactNode = null;
-  if (!series) {
-    if (seriesQuery.isLoading) {
+  if (!story) {
+    if (storyQuery.isLoading) {
       screenState = <ActivityIndicator size="large" color={goldenTempleTheme.colors.primary.DEFAULT} />;
     } else {
       screenState = (
         <>
           <Text variant="body" weight="medium" align="center" style={styles.stateText}>
-            {seriesQuery.isError ? t('stories.seriesLoadError') : t('stories.seriesUnavailable')}
+            {storyQuery.isError ? t('stories.storyLoadError') : t('stories.storyUnavailable')}
           </Text>
-          {seriesQuery.isError ? (
-            <TouchableOpacity style={styles.retryButton} onPress={() => seriesQuery.refetch()} activeOpacity={0.8}>
+          {storyQuery.isError ? (
+            <TouchableOpacity style={styles.retryButton} onPress={() => storyQuery.refetch()} activeOpacity={0.8}>
               <Text weight="semibold" style={styles.retryText}>
                 {t('common.retry')}
               </Text>
@@ -210,10 +264,10 @@ export default function StorySeriesScreen() {
         </>
       );
     }
-  } else if (!isStorySeries(series)) {
+  } else if (kind !== 'series' && kind !== 'single') {
     screenState = (
       <Text variant="body" weight="medium" align="center" style={styles.stateText}>
-        {t('stories.seriesUnavailable')}
+        {t('stories.storyUnavailable')}
       </Text>
     );
   }
@@ -234,15 +288,15 @@ export default function StorySeriesScreen() {
       ) : (
         <FlatList
           ref={listRef}
-          data={episodes}
+          data={rows}
           keyExtractor={(item) => String(item.id)}
-          renderItem={renderEpisode}
+          renderItem={renderRow}
           ListHeaderComponent={renderHeader}
           ListEmptyComponent={renderEmpty}
           contentContainerStyle={[styles.list, { paddingBottom: contentPadding }]}
           refreshControl={
             <RefreshControl
-              refreshing={seriesQuery.isRefetching || episodesQuery.isRefetching}
+              refreshing={storyQuery.isRefetching || (kind === 'series' && episodesQuery.isRefetching)}
               onRefresh={refresh}
               tintColor={goldenTempleTheme.colors.primary.DEFAULT}
               colors={[goldenTempleTheme.colors.primary.DEFAULT]}
@@ -331,6 +385,10 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     minHeight: 20,
     color: goldenTempleTheme.colors.text.secondary,
+  },
+  // A single story has no "Episodes" heading: a little room before its one row.
+  singleSpacer: {
+    height: goldenTempleTheme.spacing.lg,
   },
   episodesHeading: {
     alignSelf: 'stretch',
