@@ -76,6 +76,12 @@ export interface QueueItem {
   // (every episode of a series shares one cover, so the number is what
   // tells the rows apart).
   episodeNumber?: number;
+  // Stories ad-lock (src/features/stories/storyLock.ts): the episode's lock
+  // state from the server (undefined = playable, as before) and its series.
+  // A next/locked item has audioUrl '' - the player never moves to it on
+  // its own (canPlayQueueItem); patchQueueItems fills it in after an unlock.
+  storyState?: string;
+  seriesId?: number;
 }
 
 // originalItems + playOrder (a permutation of indices into originalItems),
@@ -151,6 +157,11 @@ interface PlaybackCoordinatorState {
   // of whether the list is showing shuffled or original order. Out-of-range
   // indices are ignored.
   jumpToIndex: (index: number) => void;
+
+  // Updates queue items in place by feedId (e.g. a story episode's audioUrl
+  // and storyState after an ad unlock), keeping order, shuffle and
+  // position. Items not in the queue are ignored; no queue = no-op.
+  patchQueueItems: (patches: Record<string, Partial<QueueItem>>) => void;
 
   // Toggles shuffle without disturbing whatever is currently playing.
   // Turning ON: the current item stays first (so it keeps playing
@@ -311,6 +322,19 @@ export const usePlaybackStore = create<PlaybackCoordinatorState>()((set, get) =>
     if (queue.position <= 0) return;
 
     set({ queue: { ...queue, position: queue.position - 1 } });
+  },
+
+  patchQueueItems: (patches) => {
+    const { queue } = get();
+    if (!queue) return;
+    let changed = false;
+    const originalItems = queue.originalItems.map((item) => {
+      const patch = patches[item.feedId];
+      if (!patch) return item;
+      changed = true;
+      return { ...item, ...patch, feedId: item.feedId };
+    });
+    if (changed) set({ queue: { ...queue, originalItems } });
   },
 
   jumpToIndex: (index) => {
