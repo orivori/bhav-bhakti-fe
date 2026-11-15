@@ -10,8 +10,11 @@ import { Feed, FeedListResponse } from '@/types/feed';
  */
 
 const PAGE_SIZE = 20;
-// A series' episodes come back in one request (the API allows up to 100).
-const EPISODES_LIMIT = 100;
+// A series' episodes come back whole: the API allows up to 300 per page for
+// ?seriesId= (backend §144; the Gita has 108). Longer series page on.
+const EPISODES_LIMIT = 300;
+// Safety stop for the paging loop (300 x 10 = 3000 episodes).
+const EPISODES_MAX_PAGES = 10;
 const STALE_TIME_MS = 5 * 60 * 1000;
 const GC_TIME_MS = 10 * 60 * 1000;
 
@@ -79,8 +82,15 @@ export function useStorySeries(seriesId: number) {
 export function useSeriesEpisodes(seriesId: number) {
   return useQuery({
     queryKey: storiesQueryKeys.episodes(seriesId),
-    queryFn: async (): Promise<Feed[]> =>
-      (await feedService.getFeeds({ seriesId, limit: EPISODES_LIMIT })).feeds,
+    queryFn: async (): Promise<Feed[]> => {
+      const episodes: Feed[] = [];
+      for (let page = 0; page < EPISODES_MAX_PAGES; page += 1) {
+        const response = await feedService.getFeeds({ seriesId, limit: EPISODES_LIMIT, offset: episodes.length });
+        episodes.push(...response.feeds);
+        if (!response.hasMore || response.feeds.length === 0) break;
+      }
+      return episodes;
+    },
     enabled: seriesId > 0,
     staleTime: STALE_TIME_MS,
     gcTime: GC_TIME_MS,
@@ -88,7 +98,10 @@ export function useSeriesEpisodes(seriesId: number) {
   });
 }
 
-// A series row: a story with no media file of its own (its episodes have it).
-export function isStorySeries(feed: Pick<Feed, 'type' | 'url' | 'seriesId'>): boolean {
-  return feed.type === 'stories' && !feed.url && !feed.seriesId;
+// A series row: a story with no media of its own (its episodes have it).
+// Decided by mediaType, NOT by a missing url: with the ad-lock on, a locked
+// single story also comes back with url null (backend §144), and must still
+// open as a story, not as an empty series.
+export function isStorySeries(feed: Pick<Feed, 'type' | 'mediaType' | 'seriesId'>): boolean {
+  return feed.type === 'stories' && !feed.mediaType && !feed.seriesId;
 }

@@ -40,6 +40,14 @@ export interface Feed {
   episodeNumber?: number | null;
   coverVideoUrl?: string | null;
   episodeCount?: number;
+  // Stories ad-lock (backend CLAUDE.md §144), sent only while the backend's
+  // STORY_LOCK_ENABLED is on. state on episodes and single stories:
+  // free | unlocked | temp (url present) or next | locked (url null).
+  // No state = playable, as before (see src/features/stories/storyLock.ts).
+  // freeEpisodes and unlockedCount only on series rows.
+  state?: string | null;
+  freeEpisodes?: number | null;
+  unlockedCount?: number | null;
   likesCount: number;
   commentsCount: number;
   downloadsCount: number;

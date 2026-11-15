@@ -28,6 +28,10 @@ export function toQueueItem(feed: Feed, language: string): QueueItem {
     type: feed.type,
     isRepeatable: feed.isRepeatable,
     ...(feed.episodeNumber ? { episodeNumber: feed.episodeNumber } : {}),
+    // Stories ad-lock: carried only when the server sent them, so every
+    // other queue (and stories with the lock off) is exactly as before.
+    ...(feed.state ? { storyState: feed.state } : {}),
+    ...(feed.seriesId ? { seriesId: feed.seriesId } : {}),
   };
 }
 
