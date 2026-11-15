@@ -12,6 +12,7 @@ import { designSystemTheme } from '@/styles/designSystemTheme';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { useTranslation } from 'react-i18next';
 import type { QueueItem } from '@/store/playbackStore';
+import { canPlayQueueItem, parseStoryState } from '@/features/stories/storyLock';
 
 interface QueueSheetProps {
   // Already resolved into ACTIVE order by the caller (shuffled order when
@@ -47,10 +48,15 @@ export const QueueSheet = forwardRef<BottomSheetModal, QueueSheetProps>(
     const renderItem = useCallback(
       ({ item, index }: { item: QueueItem; index: number }) => {
         const isActive = index === currentIndex;
+        // Stories ad-lock: a story row the server sent as next/locked (no
+        // audio) shows a lock; 'locked' rows are greyed. Rows without a
+        // state (lock off, any other content) look exactly as before.
+        const storyState = parseStoryState(item.storyState);
+        const isLockedStory = storyState !== null && !canPlayQueueItem(item);
 
         return (
           <TouchableOpacity
-            style={[styles.row, isActive && styles.rowActive]}
+            style={[styles.row, isActive && styles.rowActive, isLockedStory && storyState === 'locked' && styles.rowLocked]}
             onPress={() => onSelectIndex(index)}
             activeOpacity={0.7}
           >
@@ -76,6 +82,13 @@ export const QueueSheet = forwardRef<BottomSheetModal, QueueSheetProps>(
 
             {isActive && (
               <Ionicons name="volume-medium" size={18} color={designSystemTheme.colors.primary} />
+            )}
+            {!isActive && isLockedStory && (
+              <Ionicons
+                name="lock-closed"
+                size={18}
+                color={storyState === 'next' ? designSystemTheme.colors.primary : goldenTempleTheme.colors.text.secondary}
+              />
             )}
           </TouchableOpacity>
         );
@@ -145,6 +158,9 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 8,
     borderRadius: goldenTempleTheme.borderRadius.md,
+  },
+  rowLocked: {
+    opacity: 0.5,
   },
   rowActive: {
     backgroundColor: designSystemTheme.colors.secondary,
