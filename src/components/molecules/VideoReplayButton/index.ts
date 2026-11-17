@@ -1,0 +1,1 @@
+export { VideoReplayButton } from './VideoReplayButton';

@@ -407,7 +407,8 @@
     "ringtoneSaveTitle": "Ringtone saved",
     "ringtoneSaveMessage": "Saved as \"{{name}}\". To set it, open Sound settings → Phone ringtone and choose it from the list. If it isn't listed, tap Add (+) and look in Music → Ringtones.",
     "ringtoneAlreadySavedMessage": "This ringtone is already on your phone as \"{{name}}\". Open Sound settings → Phone ringtone to set it.",
-    "typeStory": "Story"
+    "typeStory": "Story",
+    "replayVideo": "Replay"
   },
   "maintenance": {
     "title": "We'll be back soon",

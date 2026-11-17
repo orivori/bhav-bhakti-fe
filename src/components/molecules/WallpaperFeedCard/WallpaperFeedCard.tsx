@@ -16,6 +16,8 @@ import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { feedService } from '@/features/feed/services/feedService';
 import { useFeedStore } from '@/store/feedStore';
 import { useWallpaperActions } from './useWallpaperActions';
+import { usePlayOnceVideo } from '@/hooks/usePlayOnceVideo';
+import { VideoReplayButton } from '../VideoReplayButton';
 import { logWallpaperEngaged } from '@/utils/analytics/engagementEvents';
 
 interface WallpaperFeedCardProps {
@@ -82,6 +84,9 @@ export default function WallpaperFeedCard({
   };
 
   const thumbnailUrl = getFeedThumbnailUrl(feed);
+  // Videos play once, then stop with a replay button (usePlayOnceVideo).
+  const isVideo = !!feed.url && feed.mediaType === 'video';
+  const playOnce = usePlayOnceVideo(String(feed.id), shouldMountVideo);
 
   if (variant === 'grid-tile') {
     // Pure visual tile: no title/description,
@@ -96,11 +101,12 @@ export default function WallpaperFeedCard({
         activeOpacity={0.9}
       >
         <View style={styles.gridImageBox}>
-          {feed.url && feed.mediaType === 'video' && !shouldMountVideo ? (
+          {isVideo && !playOnce.shouldMountPlayer ? (
             // Off screen, over the playing cap, or hub not focused: no
             // player at all (an unmounted player frees its memory). The
             // box's own cream background is the placeholder when there's
-            // no thumbnail.
+            // no thumbnail. Also a video that already played once, which
+            // waits for its replay button instead of loading again.
             thumbnailUrl ? (
               <Image
                 source={{ uri: thumbnailUrl }}
@@ -108,18 +114,21 @@ export default function WallpaperFeedCard({
                 resizeMode="contain"
               />
             ) : null
-          ) : feed.url && feed.mediaType === 'video' ? (
-            // Instagram-grid-thumbnail behavior: loops continuously,
+          ) : isVideo ? (
+            // Plays once, then holds its last frame with the replay button
+            // (no loop: each loop downloaded the whole file again).
             // UNCONDITIONALLY silent - deliberately hardcoded `true`, not
             // read from the shared soundPreferenceStore, so the grid can
             // never end up audible regardless of whatever mute preference is
             // set on Home or anywhere else. Mounted only while
             // shouldMountVideo (see above).
             <Video
+              key={playOnce.playerKey}
               source={{ uri: feed.url }}
               style={styles.gridImage}
               resizeMode={ResizeMode.CONTAIN}
-              isLooping
+              isLooping={false}
+              onPlaybackStatusUpdate={playOnce.onPlaybackStatusUpdate}
               shouldPlay
               isMuted={true}
               posterSource={thumbnailUrl ? { uri: thumbnailUrl } : undefined}
@@ -130,6 +139,10 @@ export default function WallpaperFeedCard({
               style={styles.gridImage}
               resizeMode="contain"
             />
+          )}
+
+          {isVideo && playOnce.isFinished && (
+            <VideoReplayButton size="small" onPress={playOnce.replay} />
           )}
 
           <View style={styles.gridActionsOverlay}>
@@ -200,12 +213,16 @@ export default function WallpaperFeedCard({
             // player at all, same as the grid-tile branch - the box's cream
             // background is the placeholder when there's no thumbnail.
             <View style={styles.wallpaperVideoBox}>
-              {shouldMountVideo ? (
+              {playOnce.shouldMountPlayer ? (
+                // Plays once, then holds its last frame with the replay
+                // button (usePlayOnceVideo).
                 <Video
+                  key={playOnce.playerKey}
                   source={{ uri: feed.url }}
                   style={styles.wallpaperVideo}
                   resizeMode={ResizeMode.CONTAIN}
-                  isLooping
+                  isLooping={false}
+                  onPlaybackStatusUpdate={playOnce.onPlaybackStatusUpdate}
                   shouldPlay
                   isMuted={true}
                   posterSource={thumbnailUrl ? { uri: thumbnailUrl } : undefined}
@@ -217,6 +234,7 @@ export default function WallpaperFeedCard({
                   resizeMode="contain"
                 />
               ) : null}
+              {playOnce.isFinished && <VideoReplayButton onPress={playOnce.replay} />}
             </View>
           ) : (
             <FeedMedia
