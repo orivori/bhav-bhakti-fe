@@ -63,7 +63,9 @@ export default function FeedMedia({
             style={styles.media}
             useNativeControls={showControls}
             resizeMode={ResizeMode.COVER}
-            isLooping
+            // Plays once (no loop: each loop downloaded the whole file
+            // again); this player shows native controls, which replay it.
+            isLooping={false}
             shouldPlay={autoPlay}
             posterSource={
               thumbnailUrl
