@@ -18,6 +18,8 @@ import { feedService } from '@/features/feed/services/feedService';
 import { authorizeMediaAction } from '@/features/feed/services/mediaAccess';
 import { useFeedStore } from '@/store/feedStore';
 import { useSoundPreferenceStore } from '@/store/soundPreferenceStore';
+import { usePlayOnceVideo } from '@/hooks/usePlayOnceVideo';
+import { VideoReplayButton } from '../VideoReplayButton';
 import { useUpdatePromptStore } from '@/store/updatePromptStore';
 import { selectIsAdFlowActive, useAdFlowStore } from '@/store/adFlowStore';
 import { formatCount } from '@/utils/formatCount';
@@ -353,14 +355,22 @@ export default function AutoplayFeedCard({ feed, isActive, shouldMountVideo = tr
   // prop diff happens to land. Before the video has loaded, both calls
   // reject harmlessly and `shouldPlay` covers the initial autoplay.
   const videoRef = useRef<Video>(null);
+  // Videos play once, then stop on their last frame with a replay button
+  // (usePlayOnceVideo; each loop used to download the whole file again).
+  // A finished video must never be restarted by becoming the active card
+  // again or by the app coming back from the background - only by replay -
+  // so "should play" is folded in here, for both this effect and the
+  // shouldPlay prop. Story cards use the audio layout and never get here.
+  const playOnce = usePlayOnceVideo(feed.id.toString(), shouldMountVideo);
+  const shouldPlayVideo = isEffectivelyActive && !playOnce.isFinished;
   useEffect(() => {
     if (feed.mediaType !== 'video') return;
     const player = videoRef.current;
     if (!player) return;
-    (isEffectivelyActive ? player.playAsync() : player.pauseAsync()).catch(() => {
+    (shouldPlayVideo ? player.playAsync() : player.pauseAsync()).catch(() => {
       // No-op: not loaded yet, or already unloaded.
     });
-  }, [isEffectivelyActive, feed.mediaType]);
+  }, [shouldPlayVideo, feed.mediaType]);
 
   const feedIdStr = feed.id.toString();
   const usableViewportHeight = windowHeight - insets.top - tabBarHeight;
@@ -865,7 +875,9 @@ export default function AutoplayFeedCard({ feed, isActive, shouldMountVideo = tr
               </View>
             </View>
           </>
-        ) : feed.mediaType === 'video' && !shouldMountVideo ? (
+        ) : feed.mediaType === 'video' && !playOnce.shouldMountPlayer ? (
+          // Not near the active card, or already played once (waits for
+          // the replay button instead of loading again).
           thumbnailUrl ? (
             <Image source={{ uri: thumbnailUrl }} style={StyleSheet.absoluteFill} resizeMode="cover" />
           ) : (
@@ -873,12 +885,14 @@ export default function AutoplayFeedCard({ feed, isActive, shouldMountVideo = tr
           )
         ) : feed.mediaType === 'video' ? (
           <Video
+            key={playOnce.playerKey}
             ref={videoRef}
             source={{ uri: feed.url }}
             style={StyleSheet.absoluteFill}
             resizeMode={ResizeMode.COVER}
-            isLooping
-            shouldPlay={isEffectivelyActive}
+            isLooping={false}
+            onPlaybackStatusUpdate={playOnce.onPlaybackStatusUpdate}
+            shouldPlay={shouldPlayVideo}
             isMuted={isVideoMuted}
             posterSource={thumbnailUrl ? { uri: thumbnailUrl } : undefined}
           />
@@ -888,6 +902,11 @@ export default function AutoplayFeedCard({ feed, isActive, shouldMountVideo = tr
           <View style={[StyleSheet.absoluteFill, styles.audioFallback]}>
             <Ionicons name="image" size={48} color={goldenTempleTheme.colors.primary.DEFAULT} />
           </View>
+        )}
+
+        {/* Replay - a video that has played once (plays it once more) */}
+        {!hasAudioMedia && feed.mediaType === 'video' && playOnce.isFinished && (
+          <VideoReplayButton onPress={playOnce.replay} />
         )}
 
         {/* Mute toggle - video content only */}
