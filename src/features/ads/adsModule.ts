@@ -21,10 +21,10 @@ const PRODUCTION_REWARDED_AD_UNIT_ID = 'ca-app-pub-2045583960519339/8937270797';
 
 // A separate rewarded ad unit for story unlocks, so AdMob revenue splits
 // between stories and wallpapers/ringtones (the AdMob -> BigQuery sync groups
-// by ad unit). EMPTY until the founder creates the unit in AdMob - while
-// empty (or not a real id) stories use PRODUCTION_REWARDED_AD_UNIT_ID.
+// by ad unit). The "Stories" unit in AdMob. If it is ever emptied (or not a
+// real id), stories use PRODUCTION_REWARDED_AD_UNIT_ID.
 // Never put Google's sample id here; .dev always uses the test unit.
-export const STORY_REWARDED_AD_UNIT_ID = '';
+export const STORY_REWARDED_AD_UNIT_ID = 'ca-app-pub-2045583960519339/9002604968';
 
 // Which ad unit a rewarded ad is for.
 export type AdPlacement = 'media' | 'story';
@@ -83,7 +83,8 @@ let initPromise: Promise<boolean> | null = null;
 /**
  * Starts Google's SDK once, with our request settings: never child-directed,
  * not under the age of consent (Play audience 18+), maximum ad content rating
- * G. Resolves false (never throws) if anything fails - the caller then treats
+ * PG (set here, it overrides the AdMob console; applies to both rewarded
+ * units). Resolves false (never throws) if anything fails - the caller then treats
  * it as "no ad".
  */
 export function initializeAds(): Promise<boolean> {
@@ -93,7 +94,7 @@ export function initializeAds(): Promise<boolean> {
   initPromise = (async () => {
     try {
       await lib.default().setRequestConfiguration({
-        maxAdContentRating: lib.MaxAdContentRating.G,
+        maxAdContentRating: lib.MaxAdContentRating.PG,
         tagForChildDirectedTreatment: false,
         tagForUnderAgeOfConsent: false,
         testDeviceIdentifiers: TEST_DEVICE_IDS,
