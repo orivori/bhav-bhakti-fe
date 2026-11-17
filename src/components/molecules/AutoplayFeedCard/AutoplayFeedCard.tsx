@@ -163,13 +163,8 @@ const getAudioFileExtension = (audioUri: string): string => {
 // Deliberately the SAME cache path convention audio-player.tsx uses
 // (`audio_player_${feedId}.<ext>`, not a card-specific prefix) so a mantra
 // played here and later opened via the "Listen" CTA - or vice versa - reuses
-// one cached file on disk instead of downloading it twice. The in-flight
-// download/cancellation bookkeeping below is intentionally NOT shared across
-// the two files (that would mean exporting mutable module state out of a
-// route screen, which is unusual) - worst case on a genuine collision is two
-// components briefly racing to write the same path, the same accepted-low-risk
-// gap RingtoneFeedCard's own ensureLocalFile already documents elsewhere in
-// this codebase. If audio-player.tsx's naming convention ever changes, this
+// one cached file on disk instead of downloading it twice. If
+// audio-player.tsx's naming convention ever changes, this
 // needs to change with it (including which directory it uses - both must
 // agree, or the two screens silently stop sharing a cache hit).
 // cacheDirectory, not documentDirectory - this is a re-downloadable playback
@@ -179,76 +174,18 @@ const getAudioFileExtension = (audioUri: string): string => {
 const getLocalCachePath = (feedId: string, audioUri: string): string =>
   `${FileSystem.cacheDirectory}audio_player_${feedId}.${getAudioFileExtension(audioUri)}`;
 
-const inFlightBackgroundDownloads = new Map<string, FileSystem.DownloadResumable>();
-const inFlightCancellations = new Map<string, Promise<void>>();
-const queuedForBackgroundDownload = new Set<string>();
-
 // Fast, local-only check - mirrors audio-player.tsx/RingtoneFeedCard's
-// identical pattern. Returns the cached URI on a hit, null on a miss, without
-// blocking on a download either way.
+// identical pattern. Returns the cached URI on a hit, null on a miss.
+//
+// Home cards only READ this cache now; they never download the whole file
+// while previewing (they used to, alongside the 30-second stream - the long
+// "108 times" mantras are up to 82.6 MB). The full player (Listen) still
+// saves the file under this same path, so a card plays an item someone
+// already opened from the phone's copy.
 const getCachedLocalUri = async (feedId: string, audioUri: string): Promise<string | null> => {
-  const pendingCancellation = inFlightCancellations.get(feedId);
-  if (pendingCancellation) {
-    await pendingCancellation;
-  }
   const localFileUri = getLocalCachePath(feedId, audioUri);
   const fileInfo = await FileSystem.getInfoAsync(localFileUri);
   return fileInfo.exists ? localFileUri : null;
-};
-
-// Fire-and-forget, non-blocking - primes the cache after a fresh play has
-// already started from the remote URL. Never touches a player instance, so
-// it's safe to keep running (or be cancelled) after this card unmounts.
-const downloadToCacheInBackground = (feedId: string, audioUri: string): void => {
-  if (inFlightBackgroundDownloads.has(feedId) || queuedForBackgroundDownload.has(feedId)) {
-    return;
-  }
-
-  const startDownload = () => {
-    queuedForBackgroundDownload.delete(feedId);
-    const localFileUri = getLocalCachePath(feedId, audioUri);
-    const resumable = FileSystem.createDownloadResumable(audioUri, localFileUri);
-    inFlightBackgroundDownloads.set(feedId, resumable);
-
-    resumable
-      .downloadAsync()
-      .then((result) => {
-        if (!result) return; // cancelled - cancelBackgroundDownload already cleans up
-        if (result.status !== 200) {
-          throw new Error(`Download failed with status ${result.status}`);
-        }
-      })
-      .catch((error) => {
-        console.error('AutoplayFeedCard: background cache download failed:', feedId, error);
-        FileSystem.deleteAsync(localFileUri, { idempotent: true }).catch(() => {});
-      })
-      .finally(() => {
-        inFlightBackgroundDownloads.delete(feedId);
-      });
-  };
-
-  const pendingCancellation = inFlightCancellations.get(feedId);
-  if (pendingCancellation) {
-    queuedForBackgroundDownload.add(feedId);
-    pendingCancellation.then(startDownload);
-    return;
-  }
-  startDownload();
-};
-
-const cancelBackgroundDownload = (feedId: string): void => {
-  const resumable = inFlightBackgroundDownloads.get(feedId);
-  if (!resumable) return;
-
-  inFlightBackgroundDownloads.delete(feedId);
-  const cleanup = resumable
-    .cancelAsync()
-    .catch(() => {})
-    .then(() => FileSystem.deleteAsync(resumable.fileUri, { idempotent: true }).catch(() => {}))
-    .finally(() => {
-      inFlightCancellations.delete(feedId);
-    });
-  inFlightCancellations.set(feedId, cleanup);
 };
 
 // 'See all' target per content type - reuses the exact same hub routes/subTab
@@ -843,7 +780,6 @@ export default function AutoplayFeedCard({ feed, isActive, shouldMountVideo = tr
                     cacheKey={audioCacheKey}
                     audioSourceUri={audioSourceUri}
                     isEffectivelyActive={shouldPlayAudio}
-                    allowBackgroundDownload={!isStoryCard}
                   />
                 ) : (
                   <TouchableOpacity
@@ -1002,9 +938,6 @@ interface AudioPlaybackControllerProps {
   cacheKey: string;
   audioSourceUri: string | undefined;
   isEffectivelyActive: boolean;
-  // False on a story card: a cached copy is still used if one exists, but
-  // the preview file is never downloaded in the background.
-  allowBackgroundDownload?: boolean;
 }
 
 // Owns the actual native player - only ever rendered by the parent while
@@ -1017,7 +950,6 @@ function AudioPlaybackController({
   cacheKey: feedIdStr,
   audioSourceUri,
   isEffectivelyActive,
-  allowBackgroundDownload = true,
 }: AudioPlaybackControllerProps) {
   const player = useAudioPlayer(null);
   const status = useAudioPlayerStatus(player);
@@ -1032,12 +964,11 @@ function AudioPlaybackController({
         if (!hasLoadedSourceRef.current) {
           const cachedUri = await getCachedLocalUri(feedIdStr, audioSourceUri);
           if (!isEffectCurrent) return; // deactivated again while the cache check was in flight
+          // A phone copy if there is one, else the stream. No full
+          // download here (see getCachedLocalUri).
           const sourceUri = cachedUri ?? audioSourceUri;
           player.replace({ uri: sourceUri });
           hasLoadedSourceRef.current = true;
-          if (!cachedUri && allowBackgroundDownload) {
-            downloadToCacheInBackground(feedIdStr, audioSourceUri);
-          }
         }
         player.seekTo(0);
         player.play();
@@ -1046,14 +977,16 @@ function AudioPlaybackController({
       }
     };
 
-    const deactivate = async () => {
+    // Pause only. It used to jump back to the start too, and since the
+    // player keeps nothing behind its position, that jump re-downloaded the
+    // opening ~50 seconds while paused. activate() above already starts
+    // from 0 whenever the card plays again.
+    const deactivate = () => {
       try {
         player.pause();
-        await player.seekTo(0);
       } catch (error) {
         console.error('AutoplayFeedCard: error deactivating audio playback:', error);
       }
-      cancelBackgroundDownload(feedIdStr);
     };
 
     if (isEffectivelyActive) {
@@ -1065,7 +998,7 @@ function AudioPlaybackController({
     return () => {
       isEffectCurrent = false;
     };
-  }, [isEffectivelyActive, audioSourceUri, feedIdStr, player, allowBackgroundDownload]);
+  }, [isEffectivelyActive, audioSourceUri, feedIdStr, player]);
 
   // Shared with handleToggleAudioPlayPause below - both need the exact same
   // "has this track reached its cap" definition, kept as one function so
@@ -1102,9 +1035,8 @@ function AudioPlaybackController({
       } catch (error) {
         console.error('AutoplayFeedCard: error pausing on unmount (player likely already released):', error);
       }
-      cancelBackgroundDownload(feedIdStr);
     };
-  }, [player, feedIdStr]);
+  }, [player]);
 
   // Manual play/pause tap, independent of the isEffectivelyActive-driven
   // autoplay effect above - since neither `isEffectivelyActive` nor any of
