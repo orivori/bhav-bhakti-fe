@@ -1,6 +1,6 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Modal, View, Image, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
-import { Video, ResizeMode } from 'expo-av';
+import { Video, ResizeMode, type AVPlaybackStatus } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 import { designSystemTheme } from '@/styles/designSystemTheme';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
@@ -9,6 +9,8 @@ import { useEffectivelyActive } from '@/hooks/useEffectivelyActive';
 import { useWallpaperActions } from '../WallpaperFeedCard/useWallpaperActions';
 import { getFeedThumbnailUrl } from '@/utils/feedFields';
 import { toScreenshotContentType, useScreenshotContentType } from '@/utils/analytics/screenshotEvents';
+import { useFinishedVideoStore } from '@/store/finishedVideoStore';
+import { VideoReplayButton } from '../VideoReplayButton';
 
 interface ViewingWindowSheetProps {
   visible: boolean;
@@ -35,8 +37,9 @@ interface ViewingWindowSheetProps {
 // Phase 2: real content. Video plays WITH sound (isMuted={false}, hardcoded -
 // NOT read from soundPreferenceStore, deliberately independent of both Home's
 // and the grid's mute state, since this is its own isolated audio context)
-// unlike the grid tile behind it, which stays unconditionally silent. Video
-// looping/stop-on-blur/stop-on-background reuses useEffectivelyActive
+// unlike the grid tile behind it, which stays unconditionally silent. It plays
+// once (see hasFinished below). Video stop-on-blur/stop-on-background reuses
+// useEffectivelyActive
 // (extracted from AutoplayFeedCard.tsx) rather than reimplementing that
 // gating - `visible` stands in for AutoplayFeedCard's FlatList-viewability
 // `isActive`, since there's no list to elect from here. Like/Share/Download
@@ -74,6 +77,32 @@ export default function ViewingWindowSheet({
   // isEffectivelyActive goes false, rather than relying on the prop diff
   // alone. `shouldPlay` is left in place below for the play/resume path,
   // which was never reported broken.
+  // Plays once (with sound), then stops on its last frame with the replay
+  // button - each loop used to download the whole file again. Unlike the
+  // tiles, opening the window always plays the video, even one that already
+  // finished elsewhere: the person asked to see it. Finishing here marks it
+  // finished for the session too, so the tile behind doesn't play it again
+  // by itself once the window closes. Coming back from the background never
+  // restarts a finished video (shouldPlay stays false); only replay does.
+  const [hasFinished, setHasFinished] = useState(false);
+  const [playerKey, setPlayerKey] = useState(0);
+  const markFinished = useFinishedVideoStore((state) => state.markFinished);
+  const feedId = feed ? String(feed.id) : null;
+  // A new opening (or another feed) starts fresh.
+  useEffect(() => {
+    setHasFinished(false);
+  }, [visible, feedId]);
+  const handlePlaybackStatusUpdate = (status: AVPlaybackStatus) => {
+    if (status.isLoaded && status.didJustFinish) {
+      setHasFinished(true);
+      if (feedId) markFinished(feedId);
+    }
+  };
+  const handleReplay = () => {
+    setHasFinished(false);
+    setPlayerKey((key) => key + 1);
+  };
+
   const videoRef = useRef<Video>(null);
   useEffect(() => {
     if (isEffectivelyActive) return;
@@ -108,12 +137,14 @@ export default function ViewingWindowSheet({
 
           {mediaUrl && feed?.mediaType === 'video' ? (
             <Video
+              key={playerKey}
               ref={videoRef}
               source={{ uri: mediaUrl }}
               style={styles.media}
               resizeMode={ResizeMode.CONTAIN}
-              isLooping
-              shouldPlay={isEffectivelyActive}
+              isLooping={false}
+              onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
+              shouldPlay={isEffectivelyActive && !hasFinished}
               isMuted={false}
               posterSource={thumbnailUrl ? { uri: thumbnailUrl } : undefined}
             />
@@ -124,6 +155,10 @@ export default function ViewingWindowSheet({
               resizeMode="contain"
             />
           ) : null}
+
+          {mediaUrl && feed?.mediaType === 'video' && hasFinished && (
+            <VideoReplayButton onPress={handleReplay} />
+          )}
 
           {feed && (
             <View style={styles.actionsOverlay}>
