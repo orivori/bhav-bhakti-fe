@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, Alert, Dimensions, Platform, Linking, AppState, ActivityIndicator } from 'react-native';
-import { Video, ResizeMode } from 'expo-av';
+import { FeedVideo } from '../FeedVideo';
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import * as FileSystem from 'expo-file-system/legacy';
 import { downloadToFileSafely } from '@/utils/safeDownload';
@@ -276,40 +276,21 @@ export default function AutoplayFeedCard({ feed, isActive, shouldMountVideo = tr
 
   const isEffectivelyActive = isActive && isScreenFocused && isAppActive && !isUpdatePromptOpen && !isAdFlowActive;
 
-  // Video: drive the native player imperatively, not only via the
-  // declarative `shouldPlay` prop below. Root cause of an unmuted Home video
-  // wallpaper's sound continuing after the app was backgrounded: the
-  // AppState listener above DID flip isEffectivelyActive to false, but
-  // (1) app/_layout.tsx's global expo-av `staysActiveInBackground: true`
-  // turns off expo-av's own native pause-on-background (AVManager.onHostPause
-  // skips every player when that flag is set), and (2) a `shouldPlay` prop
-  // change is a view-prop update, which Android doesn't reliably apply while
-  // the app is in the background - so nothing actually paused the player.
-  // Muted videos (the default) hid this, since there was nothing to hear.
-  // pauseAsync()/playAsync() are direct native-module calls, which run in
-  // the background - the same fix ViewingWindowSheet.tsx already uses (§33).
-  // playAsync on the way back makes foregrounding deterministic: the video
-  // resumes only if this card is still the elected one on a focused Home,
-  // exactly like the audio cards, rather than depending on whether a queued
-  // prop diff happens to land. Before the video has loaded, both calls
-  // reject harmlessly and `shouldPlay` covers the initial autoplay.
-  const videoRef = useRef<Video>(null);
+  // Video (FeedVideo, expo-video): played and paused from code whenever
+  // shouldPlayVideo changes, so the video follows exactly what the audio
+  // cards follow - the elected card, on a focused Home, app in front, no
+  // update prompt or ad. expo-video also pauses by itself in the background.
   // Videos play once, then stop on their last frame with a replay button
   // (usePlayOnceVideo; each loop used to download the whole file again).
   // A finished video must never be restarted by becoming the active card
   // again or by the app coming back from the background - only by replay -
-  // so "should play" is folded in here, for both this effect and the
-  // shouldPlay prop. Story cards use the audio layout and never get here.
-  const playOnce = usePlayOnceVideo(feed.id.toString(), shouldMountVideo);
+  // so "should play" is folded in here. Story cards use the audio layout and
+  // never get here.
+  // A player exists only near the elected card (shouldMountVideo, +-1) AND
+  // while Home is the screen in front: switching to another tab releases
+  // Home's video players (memory), and coming back mounts them again.
+  const playOnce = usePlayOnceVideo(feed.id.toString(), shouldMountVideo && isScreenFocused);
   const shouldPlayVideo = isEffectivelyActive && !playOnce.isFinished;
-  useEffect(() => {
-    if (feed.mediaType !== 'video') return;
-    const player = videoRef.current;
-    if (!player) return;
-    (shouldPlayVideo ? player.playAsync() : player.pauseAsync()).catch(() => {
-      // No-op: not loaded yet, or already unloaded.
-    });
-  }, [shouldPlayVideo, feed.mediaType]);
 
   const feedIdStr = feed.id.toString();
   const usableViewportHeight = windowHeight - insets.top - tabBarHeight;
@@ -819,18 +800,17 @@ export default function AutoplayFeedCard({ feed, isActive, shouldMountVideo = tr
           ) : (
             <View style={[StyleSheet.absoluteFill, styles.audioFallback]} />
           )
-        ) : feed.mediaType === 'video' ? (
-          <Video
+        ) : feed.mediaType === 'video' && feed.url ? (
+          <FeedVideo
             key={playOnce.playerKey}
-            ref={videoRef}
-            source={{ uri: feed.url }}
+            feedId={feedIdStr}
+            uri={feed.url}
+            posterUri={thumbnailUrl}
             style={StyleSheet.absoluteFill}
-            resizeMode={ResizeMode.COVER}
-            isLooping={false}
-            onPlaybackStatusUpdate={playOnce.onPlaybackStatusUpdate}
+            contentFit="cover"
             shouldPlay={shouldPlayVideo}
-            isMuted={isVideoMuted}
-            posterSource={thumbnailUrl ? { uri: thumbnailUrl } : undefined}
+            muted={isVideoMuted}
+            onFinish={playOnce.onFinish}
           />
         ) : feed.url ? (
           <FeedImage uri={feed.url} style={StyleSheet.absoluteFill} contentFit="cover" />
