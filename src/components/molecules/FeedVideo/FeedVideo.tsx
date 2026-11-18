@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AppState, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useEventListener } from 'expo';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { FeedImage } from '@/components/atoms/FeedImage';
@@ -112,14 +112,37 @@ export default function FeedVideo({
     }
   }, [player, muted]);
 
+  // Ended once: never started again by itself (play-once; Replay remounts).
+  const endedRef = useRef(false);
+  useEffect(() => {
+    endedRef.current = false;
+  }, [player]);
+
   useEffect(() => {
     try {
-      if (shouldPlay) player.play();
+      if (shouldPlay && !endedRef.current) player.play();
       else player.pause();
     } catch {
       // Released player: nothing to do.
     }
   }, [player, shouldPlay]);
+
+  // expo-video pauses its players when the app goes to the background but
+  // never resumes them. Callers whose shouldPlay doesn't follow the app state
+  // (hub tiles, Search) stay `true` throughout, so resume here on return.
+  const shouldPlayRef = useRef(shouldPlay);
+  shouldPlayRef.current = shouldPlay;
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state !== 'active' || !shouldPlayRef.current || endedRef.current) return;
+      try {
+        player.play();
+      } catch {
+        // Released player: nothing to do.
+      }
+    });
+    return () => subscription.remove();
+  }, [player]);
 
   const requestSave = useCallback(
     (positionMs: number, didFinish: boolean) => {
@@ -143,6 +166,7 @@ export default function FeedVideo({
   });
 
   useEventListener(player, 'playToEnd', () => {
+    endedRef.current = true;
     requestSave(player.currentTime * 1000, true);
     onFinish?.();
   });
