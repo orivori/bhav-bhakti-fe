@@ -68,7 +68,7 @@ test('the page restores itself after the player (round trip)', () => {
 
 test('sources and entries', () => {
   for (const source of ['home_card', 'stories_tab', 'player']) assert.equal(parseStoryPageSource(source), source);
-  for (const value of [undefined, '', 'link', 'HOME_CARD']) assert.equal(parseStoryPageSource(value), null);
+  for (const value of [undefined, '', 'deep_link', 'LINK', 'HOME_CARD']) assert.equal(parseStoryPageSource(value), null);
   assert.equal(storyEntryForPageSource('player'), 'player_series_name');
   assert.equal(storyEntryForPageSource('home_card'), 'story_page');
   assert.equal(storyEntryForPageSource(undefined), 'story_page');
@@ -76,4 +76,15 @@ test('sources and entries', () => {
     assert.equal(parseStoryEpisodeEntry(entry), entry);
   }
   assert.equal(parseStoryEpisodeEntry('elsewhere'), null);
+});
+
+test("'link' is a valid story page source (opened by a story page link)", () => {
+  assert.equal(parseStoryPageSource('link'), 'link');
+  assert.deepEqual(buildStoryPageParams({ storyId: 300, source: 'link', returnTo: '/(main)' }), {
+    storyId: '300',
+    source: 'link',
+    returnTo: '/(main)',
+    returnParams: '',
+  });
+  assert.equal(storyEntryForPageSource('link'), 'story_page');
 });

@@ -120,6 +120,29 @@ export function classifyPinnedFeed<T extends PinnableFeed>(linkType: string, fee
   return { kind: 'pin', feed: feed as T };
 }
 
+// --- Story page links (bhavbhakti://story/<id>, v12) ---
+// One decision serves both link forms: the same waits, fetch and keep/delete
+// rules; only what happens with a usable item differs.
+
+export type LinkKind = 'pin' | 'page';
+
+// Whether a pending link is acted on at all. A page link always: the link
+// form is the decision, and no server switch turns it off. A pin link only
+// while the pin is switched on (unchanged since v10).
+export function shouldHandleLink(linkKind: LinkKind, isPinOn: boolean): boolean {
+  return linkKind === 'page' || isPinOn;
+}
+
+export type LinkLanding<T> = { kind: 'pin'; feed: T } | { kind: 'page'; feed: T };
+
+// A usable item becomes a Home pin (pin form) or opens the story page (page
+// form). The page form only ever carries type stories (contentLink.ts), and
+// classifyPinnedFeed already refused anything but a series or single story.
+export function landingFor<T>(linkKind: LinkKind, outcome: PinOutcome<T>): LinkLanding<T> | null {
+  if (outcome.kind !== 'pin') return null;
+  return linkKind === 'page' ? { kind: 'page', feed: outcome.feed } : { kind: 'pin', feed: outcome.feed };
+}
+
 // GET /feed/:id failed. Only a 404 is definitive (the backend answers 404
 // for a missing AND an inactive item); anything else - no network, timeout,
 // 5xx, 401 - keeps the link.

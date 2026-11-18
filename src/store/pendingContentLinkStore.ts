@@ -72,8 +72,10 @@ export async function takePendingContentLink(): Promise<PendingContentLink | nul
 
 export type PendingContentLinkPeek =
   | { status: 'none' }
-  // Older than 7 days, or stored data that isn't a valid link.
-  | { status: 'expired' }
+  // Older than 7 days, or stored data that isn't a valid link. type/kind are
+  // set when the stored type is still a valid one (to tell a story link apart
+  // in analytics); never used to open anything.
+  | { status: 'expired'; type?: ContentLinkType; kind?: ContentLinkKind }
   | { status: 'valid'; link: PendingContentLink };
 
 // Reads the pending link WITHOUT removing it - the caller clears it once it
@@ -82,8 +84,11 @@ export async function peekPendingContentLink(): Promise<PendingContentLinkPeek> 
   try {
     const stored = await AsyncStorage.getItem(STORAGE_KEY);
     if (stored === null) return { status: 'none' };
-    const link = toValidPendingLink(JSON.parse(stored), Date.now());
-    return link ? { status: 'valid', link } : { status: 'expired' };
+    const value: unknown = JSON.parse(stored);
+    const link = toValidPendingLink(value, Date.now());
+    if (link) return { status: 'valid', link };
+    const { type, kind } = (typeof value === 'object' && value !== null ? value : {}) as Record<string, unknown>;
+    return isContentLinkType(type) ? { status: 'expired', type, kind: toContentLinkKind(kind, type) } : { status: 'expired' };
   } catch (error) {
     if (__DEV__) console.warn('pendingContentLinkStore: peek failed', error);
     return { status: 'none' };
