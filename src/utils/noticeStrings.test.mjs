@@ -21,7 +21,24 @@ const NOTICE_KEYS = [
   'common.error',
   'common.saveFailedMessage',
   'feedCard.ok',
+  // Ringtone saved / already saved steps (saveRingtoneToDevice.ts)
+  'feedCard.ringtoneSaveTitle',
+  'feedCard.ringtoneSavedAs',
+  'feedCard.ringtoneAlreadyOnPhone',
+  'feedCard.ringtoneStepsTitle',
+  'feedCard.ringtoneStep1',
+  'feedCard.ringtoneStep2',
+  'feedCard.ringtoneStep3',
+  'feedCard.ringtoneNotListedHint',
+  'feedCard.openSoundSettings',
 ];
+
+test('the ringtone strings that name the file carry {{name}} in both languages', () => {
+  for (const key of ['feedCard.ringtoneSavedAs', 'feedCard.ringtoneAlreadyOnPhone', 'feedCard.ringtoneStep3']) {
+    assert.deepEqual(placeholders(get(en, key)), ['name'], `en: ${key}`);
+    assert.deepEqual(placeholders(get(hi, key)), ['name'], `hi: ${key}`);
+  }
+});
 
 test('every notice string exists in English and Hindi and is not empty', () => {
   for (const key of NOTICE_KEYS) {
