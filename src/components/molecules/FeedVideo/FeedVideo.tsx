@@ -185,7 +185,16 @@ export default function FeedVideo({
   const showPoster = shouldShowPoster({ hasPoster: !!posterUri, firstFrameShown, failed });
 
   return (
-    <View style={style}>
+    // pointerEvents="none": the video never takes a touch, so a tap reaches
+    // whatever the caller wraps it in (the hub/Search tile's press that opens
+    // the Viewing Window, the Viewing Window's own tap catcher) exactly as
+    // with expo-av. expo-video's native view otherwise claims every touch it
+    // receives (VideoView.onTouchEvent always returns true) and the tile's
+    // press never fires. React Native's view with pointerEvents none keeps the
+    // touch from its children and isn't a touch target itself, so the tap
+    // goes to the parent. collapsable={false}: never optimised away, so the
+    // setting can't be lost.
+    <View style={style} pointerEvents="none" collapsable={false}>
       <VideoView
         player={player}
         style={StyleSheet.absoluteFill}
