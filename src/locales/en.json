@@ -410,6 +410,13 @@
     "ringtoneSaveTitle": "Ringtone saved",
     "ringtoneSaveMessage": "Saved as \"{{name}}\". To set it, open Sound settings → Phone ringtone and choose it from the list. If it isn't listed, tap Add (+) and look in Music → Ringtones.",
     "ringtoneAlreadySavedMessage": "This ringtone is already on your phone as \"{{name}}\". Open Sound settings → Phone ringtone to set it.",
+    "ringtoneSavedAs": "Saved as \"{{name}}\"",
+    "ringtoneAlreadyOnPhone": "\"{{name}}\" is already on your phone.",
+    "ringtoneStepsTitle": "To set it:",
+    "ringtoneStep1": "Open Sound settings",
+    "ringtoneStep2": "Tap Phone ringtone",
+    "ringtoneStep3": "Choose \"{{name}}\"",
+    "ringtoneNotListedHint": "Not in the list? Tap + and look in Music → Ringtones.",
     "typeStory": "Story",
     "replayVideo": "Replay"
   },

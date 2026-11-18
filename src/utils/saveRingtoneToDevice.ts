@@ -9,6 +9,7 @@ import {
 } from '@/features/feed/services/mediaAccess';
 import { ensureMediaLibraryPermission } from './mediaLibraryPermission';
 import { openSoundSettings } from './openSoundSettings';
+import { showAppNotice } from './appNotice';
 import { logGateActionTap } from './analytics/gateTapEvents';
 import { requestNotificationPermissionOnce } from '@/utils/notifications/permission';
 
@@ -196,17 +197,27 @@ export async function saveRingtoneToDevice(
 
 // The one alert after a ringtone save (both cards). Nothing to show for
 // 'cancelled' - the permission or premium prompt was already shown.
+// Shown in the centred notice (AppNotice) as short numbered steps instead of
+// one long paragraph; "Open Sound Settings" does exactly what it did before.
 export function showRingtoneSaveAlert(result: SaveRingtoneResult): void {
   if (result.status === 'cancelled') return;
   const saved = result.status === 'saved';
-  Alert.alert(
-    saved ? i18n.t('feedCard.ringtoneSaveTitle') : i18n.t('common.alreadySavedTitle'),
-    i18n.t(saved ? 'feedCard.ringtoneSaveMessage' : 'feedCard.ringtoneAlreadySavedMessage', { name: result.name }),
-    [
-      { text: i18n.t('feedCard.openSoundSettings'), onPress: openSoundSettings },
-      { text: i18n.t('feedCard.ok'), style: 'default' },
-    ]
-  );
+  const name = { name: result.name };
+  void showAppNotice({
+    title: { key: saved ? 'feedCard.ringtoneSaveTitle' : 'common.alreadySavedTitle' },
+    body: { key: saved ? 'feedCard.ringtoneSavedAs' : 'feedCard.ringtoneAlreadyOnPhone', params: name },
+    stepsTitle: { key: 'feedCard.ringtoneStepsTitle' },
+    steps: [
+      { key: 'feedCard.ringtoneStep1' },
+      { key: 'feedCard.ringtoneStep2' },
+      { key: 'feedCard.ringtoneStep3', params: name },
+    ],
+    hint: { key: 'feedCard.ringtoneNotListedHint' },
+    primaryButton: { key: 'feedCard.openSoundSettings' },
+    closeButton: { key: 'feedCard.ok' },
+  }).then((answer) => {
+    if (answer === 'primary') openSoundSettings();
+  });
 }
 
 export function showRingtoneErrorAlert(): void {
