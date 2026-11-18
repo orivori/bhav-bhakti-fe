@@ -1,7 +1,8 @@
 import React, { useCallback } from 'react';
-import { View, StyleSheet, TouchableOpacity, Image, GestureResponderEvent } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, GestureResponderEvent } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Text } from '@/components/atoms';
+import { FeedImage } from '@/components/atoms/FeedImage';
 import { Feed } from '@/types/feed';
 import { useI18nStore } from '@/shared/stores/i18nStore';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
@@ -129,7 +130,7 @@ export default function AudioContentCard({
         </Text>
       )}
       {thumbnailUrl ? (
-        <Image source={{ uri: thumbnailUrl }} style={styles.thumbnail} />
+        <FeedImage uri={thumbnailUrl} style={styles.thumbnail} contentFit="cover" />
       ) : (
         <View style={styles.thumbnailPlaceholder}>
           <Ionicons name="musical-notes" size={22} color={goldenTempleTheme.colors.primary.DEFAULT} />

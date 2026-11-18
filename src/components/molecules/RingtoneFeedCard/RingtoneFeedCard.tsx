@@ -3,7 +3,6 @@ import {
   View,
   TouchableOpacity,
   StyleSheet,
-  Image,
   ActivityIndicator,
   Alert,
   Platform,
@@ -23,6 +22,7 @@ import { createPartDownload, downloadToFileSafely, finishPartDownload } from '@/
 import * as MediaLibrary from 'expo-media-library';
 import { ensureMediaLibraryPermission } from '@/utils/mediaLibraryPermission';
 import { Text } from '@/components/atoms';
+import { FeedImage } from '@/components/atoms/FeedImage';
 import { Feed } from '@/types/feed';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { feedService } from '@/features/feed/services/feedService';
@@ -661,11 +661,7 @@ export default function RingtoneFeedCard({
         {/* Thumbnail */}
         <View style={styles.thumbnailContainer}>
           {thumbnailUrl ? (
-            <Image
-              source={{ uri: thumbnailUrl }}
-              style={styles.thumbnail}
-              resizeMode="cover"
-            />
+            <FeedImage uri={thumbnailUrl} style={styles.thumbnail} contentFit="cover" />
           ) : (
             <View style={styles.defaultThumbnail}>
               <Ionicons

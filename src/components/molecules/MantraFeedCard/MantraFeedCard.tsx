@@ -1,7 +1,8 @@
 import React from 'react';
-import { View, Image, TouchableOpacity, StyleSheet, GestureResponderEvent } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, GestureResponderEvent } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Text } from '@/components/atoms';
+import { FeedImage } from '@/components/atoms/FeedImage';
 import { Feed } from '@/types/feed';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { designSystemTheme } from '@/styles/designSystemTheme';
@@ -58,13 +59,10 @@ export default function MantraFeedCard({ feed, onPress, onLike }: MantraFeedCard
       onPress={handlePress}
       activeOpacity={0.8}
     >
-      <Image
-        source={{
-          uri: getFeedThumbnailUrl(feed) || feed.url || 'https://via.placeholder.com/80x80',
-        }}
-        style={styles.mantraImage}
-        resizeMode="cover"
-      />
+      {/* No thumbnail = the box's own muted background. (The old fallback
+          loaded the mantra's audio link, or an outside placeholder site, as
+          an image - both only ever showed this same empty box.) */}
+      <FeedImage uri={getFeedThumbnailUrl(feed)} style={styles.mantraImage} contentFit="cover" />
 
       {/* height matches mantraImage exactly, so justifyContent:space-between
           pins the title to the top and the label pill to the bottom, flush
