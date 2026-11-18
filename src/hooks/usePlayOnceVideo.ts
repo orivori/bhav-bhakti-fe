@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { AVPlaybackStatus } from 'expo-av';
 import { isVideoFinished, useFinishedVideoStore } from '@/store/finishedVideoStore';
 
 // Play-once rules for a video wallpaper (Home card, hub tile, Search result).
 // See finishedVideoStore.ts for why videos no longer loop.
 //
-// - A video that hasn't finished plays once (the caller renders <Video> with
-//   isLooping={false}, onPlaybackStatusUpdate and key={playerKey}).
+// - A video that hasn't finished plays once (the caller renders FeedVideo
+//   with onFinish and key={playerKey}; FeedVideo never loops).
 // - When it reaches the end, it is remembered as finished; the player that
 //   just finished stays mounted, so its last frame stays on screen with the
 //   replay button over it.
@@ -39,14 +38,6 @@ export function usePlayOnceVideo(feedId: string, canMountPlayer: boolean) {
     setFinishedInThisPlayer(true);
   }, [feedId, markFinished]);
 
-  // expo-av's status callback, for players not yet moved to FeedVideo.
-  const onPlaybackStatusUpdate = useCallback(
-    (status: AVPlaybackStatus) => {
-      if (status.isLoaded && status.didJustFinish) onFinish();
-    },
-    [onFinish]
-  );
-
   const replay = useCallback(() => {
     setFinishedInThisPlayer(false);
     clearFinished(feedId);
@@ -60,7 +51,6 @@ export function usePlayOnceVideo(feedId: string, canMountPlayer: boolean) {
     isFinished,
     playerKey,
     onFinish,
-    onPlaybackStatusUpdate,
     replay,
   };
 }
