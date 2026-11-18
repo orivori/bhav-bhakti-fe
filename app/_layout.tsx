@@ -35,6 +35,7 @@ import {
 import i18n from '@/shared/i18n';
 import { useI18nStore } from '@/shared/stores/i18nStore';
 import { runCacheEviction } from '@/utils/cacheEviction';
+import { initVideoCache } from '@/utils/videoCache/videoCache';
 import { useFeatureFlagStore } from '@/store/featureFlagStore';
 import { useAuthStore } from '@/shared/stores/authStore';
 import { checkSessionOnResume } from '@/shared/services/sessionExpiry';
@@ -127,7 +128,9 @@ export default function RootLayout() {
     // cacheEviction.ts for the full rationale. Fire-and-forget: doesn't gate
     // the splash screen or anything else below, since disk cleanup has no
     // reason to delay the app becoming usable.
-    runCacheEviction();
+    // Then the saved-video index (videoCache.ts) is built from what survived
+    // the sweep - also fire-and-forget; until it's ready videos just stream.
+    void runCacheEviction().finally(() => initVideoCache());
   }, []);
 
   React.useEffect(() => {
