@@ -6,9 +6,10 @@
 export const STORY_PAGE_PATH = '/(main)/story-series';
 
 // Where the story page was opened from (story_page_opened's source).
-export type StoryPageSource = 'home_card' | 'stories_tab' | 'player';
+export type StoryPageSource = 'home_card' | 'stories_tab' | 'player' | 'link';
 
-const SOURCES: readonly string[] = ['home_card', 'stories_tab', 'player'];
+// 'link' = opened by a story page link (bhavbhakti://story/<id>, useHomePin.ts).
+const SOURCES: readonly string[] = ['home_card', 'stories_tab', 'player', 'link'];
 
 export function parseStoryPageSource(value: unknown): StoryPageSource | null {
   return typeof value === 'string' && SOURCES.includes(value) ? (value as StoryPageSource) : null;

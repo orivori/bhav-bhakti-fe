@@ -62,8 +62,9 @@ export default function HomeScreen() {
     filters: { sortBy: 'weighted' },
   });
 
-  // Deferred/content link pin (off unless both switches are on): the linked
-  // feed as the first card - see useHomePin.ts. Off = exactly as before.
+  // Link landing (useHomePin.ts): a pin link puts the linked feed first
+  // (only while the pin is switched on); a story page link opens the story
+  // page over Home. No pending link = Home exactly as before.
   const { pinnedFeed, isDecidingPin, dropPin } = useHomePin();
   const handleRefresh = React.useCallback(() => {
     dropPin();

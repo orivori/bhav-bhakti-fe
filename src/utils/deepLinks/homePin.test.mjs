@@ -11,6 +11,8 @@ import {
   classifyPinFetchError,
   classifyPinnedFeed,
   pinStoryKind,
+  shouldHandleLink,
+  landingFor,
   isFreshInstall,
   isFromOtherInstall,
   placePinnedFeed,
@@ -198,4 +200,36 @@ test("pinStoryKind gives the same answer as the app's storyKind on every case", 
   for (const feed of cases) {
     assert.equal(pinStoryKind(feed), storyKind(feed), JSON.stringify(feed));
   }
+});
+
+// --- Story page links (v12) ---
+
+test('a page link is always handled; a pin link only while the pin is on', () => {
+  assert.equal(shouldHandleLink('page', false), true);
+  assert.equal(shouldHandleLink('page', true), true);
+  assert.equal(shouldHandleLink('pin', true), true);
+  assert.equal(shouldHandleLink('pin', false), false);
+});
+
+test('a usable story becomes a page landing for a page link, a pin for a pin link', () => {
+  const series = { id: 300, type: 'stories', mediaType: null };
+  const outcome = classifyPinnedFeed('stories', series);
+  assert.deepEqual(landingFor('page', outcome), { kind: 'page', feed: series });
+  assert.deepEqual(landingFor('pin', outcome), { kind: 'pin', feed: series });
+});
+
+test('a skipped item never lands, whatever the link form', () => {
+  for (const outcome of [
+    { kind: 'skip', reason: 'type_mismatch', consume: true },
+    { kind: 'skip', reason: 'not_found', consume: true },
+    { kind: 'skip', reason: 'error', consume: false },
+  ]) {
+    assert.equal(landingFor('page', outcome), null);
+    assert.equal(landingFor('pin', outcome), null);
+  }
+});
+
+test('a page link to an episode never opens a page', () => {
+  const episode = { id: 301, type: 'stories', mediaType: 'audio', seriesId: 300, episodeNumber: 1 };
+  assert.equal(landingFor('page', classifyPinnedFeed('stories', episode)), null);
 });
