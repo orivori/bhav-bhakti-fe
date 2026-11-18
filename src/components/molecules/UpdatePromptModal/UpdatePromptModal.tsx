@@ -13,6 +13,7 @@ import { usePremiumStore } from '@/store/premiumStore';
 import { useAuthPromptStore } from '@/store/authPromptStore';
 import { selectIsAdFlowOpen, useAdFlowStore } from '@/store/adFlowStore';
 import { useStoryNoticeStore } from '@/store/storyNoticeStore';
+import { selectIsAppNoticeOpen, useAppNoticeStore } from '@/store/appNoticeStore';
 import { useAuthStore } from '@/shared/stores/authStore';
 import { openStoreForUpdate } from '@/utils/appUpdate/openStoreForUpdate';
 import { shouldShowSoftPrompt } from '@/utils/appUpdate/updateDecision';
@@ -51,7 +52,10 @@ export function UpdatePromptModal() {
   const isAdFlowOpen = useAdFlowStore(selectIsAdFlowOpen);
   // The centred story ad-lock notice (StoryNotice).
   const isStoryNoticeOpen = useStoryNoticeStore((state) => state.messageKey !== null);
-  const isOtherModalOpen = isPaywallOpen || isLoginPromptOpen || isAdFlowOpen || isStoryNoticeOpen;
+  // The general centred notice (AppNotice: saved to gallery, ringtone steps).
+  const isAppNoticeOpen = useAppNoticeStore(selectIsAppNoticeOpen);
+  const isOtherModalOpen =
+    isPaywallOpen || isLoginPromptOpen || isAdFlowOpen || isStoryNoticeOpen || isAppNoticeOpen;
   const { hasHydrated, isFirstSession, hasShownThisSession, isVisible, dismissedForLatest, dismissedAt, show, dismiss } =
     useUpdatePromptStore();
 
