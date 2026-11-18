@@ -1,8 +1,9 @@
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { Text } from '@/components/atoms';
+import { FeedImage } from '@/components/atoms/FeedImage';
 import { Feed } from '@/types/feed';
 import { useI18nStore } from '@/shared/stores/i18nStore';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
@@ -46,7 +47,7 @@ export default function StoryTile({ feed, width, onPress }: StoryTileProps) {
     <TouchableOpacity style={[styles.tile, { width }]} onPress={() => onPress(feed)} activeOpacity={0.85}>
       <View style={[styles.cover, { width, height: width }]}>
         {coverUrl ? (
-          <Image source={{ uri: coverUrl }} style={styles.coverImage} resizeMode="cover" />
+          <FeedImage uri={coverUrl} style={styles.coverImage} contentFit="cover" />
         ) : (
           <View style={styles.coverPlaceholder}>
             <Ionicons name="book-outline" size={36} color={goldenTempleTheme.colors.primary.DEFAULT} />

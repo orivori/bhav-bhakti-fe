@@ -3,7 +3,6 @@ import {
   View,
   StyleSheet,
   FlatList,
-  Image,
   Dimensions,
   ActivityIndicator,
   RefreshControl,
@@ -16,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { Text } from '@/components/atoms';
+import { FeedImage } from '@/components/atoms/FeedImage';
 import AudioContentCard from '@/components/molecules/AudioContentCard';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { useI18nStore } from '@/shared/stores/i18nStore';
@@ -182,7 +182,7 @@ export default function StoryPageScreen() {
       <View style={styles.seriesHeader}>
         <View style={styles.cover}>
           {coverUrl ? (
-            <Image source={{ uri: coverUrl }} style={styles.coverImage} resizeMode="cover" />
+            <FeedImage uri={coverUrl} style={styles.coverImage} contentFit="cover" />
           ) : (
             <Ionicons name="book-outline" size={48} color={goldenTempleTheme.colors.primary.DEFAULT} />
           )}
