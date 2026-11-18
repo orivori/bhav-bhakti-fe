@@ -47,7 +47,7 @@ import ChantHintBubble from '@/components/molecules/ChantHintBubble/ChantHintBub
 import { logFirstContentCompletedIfNewUser } from '@/utils/analytics/activationEvents';
 import { requestNotificationPermissionOnce } from '@/utils/notifications/permission';
 import { logContentProgress, logChantCounterUsed } from '@/utils/analytics/engagementEvents';
-import { logMetaChantCounterUsed } from '@/utils/analytics/metaAppEvents';
+import { logMetaChantCounterUsed, logMetaStoryPlayStarted } from '@/utils/analytics/metaAppEvents';
 import { useChantCounterAnalytics } from '@/hooks/useChantCounterAnalytics';
 import { useSheetBackStack } from '@/hooks/useSheetBackStack';
 import { toScreenshotContentType, useScreenshotContentType } from '@/utils/analytics/screenshotEvents';
@@ -1595,7 +1595,8 @@ export default function AudioPlayerScreen() {
     queue && queue.position < queue.playOrder.length - 1 ? queue.originalItems[queue.playOrder[queue.position + 1]] : null;
   const showUnlockNext = isStory && !isCurrentStoryLocked && !!nextQueueItem && !canPlayQueueItem(nextQueueItem);
 
-  // story_episode_started: once per play request, when audio first plays.
+  // story_episode_started (Firebase) and story_play_started (Meta, production
+  // app only): once per feed id + play request, when audio really plays.
   const storyStartLoggedRef = useRef<string | null>(null);
   useEffect(() => {
     if (!isStory || !status.playing || !feedData || String(feedData.id) !== feedId) return;
@@ -1607,6 +1608,7 @@ export default function AudioPlayerScreen() {
       seriesId: feedData.seriesId ?? null,
       entry: parseStoryEpisodeEntry(params.entry),
     });
+    logMetaStoryPlayStarted();
   }, [isStory, status.playing, feedData, feedId, playRequestId, params.entry]);
 
   const handlePrevious = useCallback(() => {
