@@ -6,7 +6,6 @@ import {
   Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Video, ResizeMode } from 'expo-av';
 import { Text } from '@/components/atoms';
 import { FeedImage } from '@/components/atoms/FeedImage';
 import { Feed } from '@/types/feed';
@@ -17,6 +16,7 @@ interface FeedMediaProps {
   // Renders the feed's single media item (url/mediaType/thumbnail/duration).
   feed: Feed;
   onMediaPress?: () => void;
+  // Unused since the video case was removed; kept so callers don't change.
   autoPlay?: boolean;
   showControls?: boolean;
   showCenterPlayButton?: boolean;
@@ -29,8 +29,6 @@ const MEDIA_HEIGHT = width * 1.2; // 4:5 aspect ratio similar to Instagram
 export default function FeedMedia({
   feed,
   onMediaPress,
-  autoPlay = false,
-  showControls = true,
   showCenterPlayButton = true,
   style,
 }: FeedMediaProps) {
@@ -52,25 +50,9 @@ export default function FeedMedia({
           </TouchableOpacity>
         );
 
-      case 'video':
-        return (
-          <Video
-            source={{ uri: feed.url }}
-            style={styles.media}
-            useNativeControls={showControls}
-            resizeMode={ResizeMode.COVER}
-            // Plays once (no loop: each loop downloaded the whole file
-            // again); this player shows native controls, which replay it.
-            isLooping={false}
-            shouldPlay={autoPlay}
-            posterSource={
-              thumbnailUrl
-                ? { uri: thumbnailUrl }
-                : undefined
-            }
-          />
-        );
-
+      // No video case: no item that reaches FeedMedia has a video (video
+      // wallpapers and thoughts use WallpaperFeedCard). Future story videos
+      // should use FeedVideo (src/components/molecules/FeedVideo).
       case 'audio':
         return (
           <TouchableOpacity onPress={handleMediaPress} activeOpacity={0.9}>
