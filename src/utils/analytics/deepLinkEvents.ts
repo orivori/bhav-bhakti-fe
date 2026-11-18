@@ -1,4 +1,5 @@
 import { logAnalyticsEvent } from './logEvent';
+import { storyLinkLandedParams } from './storyLinkEventParams';
 
 // Deferred-link probe (src/utils/deepLinks/deferredAppLink.ts): does Meta's
 // deferred link reach the app, and on which launch? Production app only.
@@ -14,6 +15,16 @@ export function logDeferredLinkChecked(params: {
   ms: number;
 }): void {
   logAnalyticsEvent('deferred_link_checked', params);
+}
+
+// A story link (pin or page form) was acted on at the Home landing
+// (useHomePin.ts): {kind: pin|page, result: opened|not_found|type_mismatch|
+// expired|error}. Once per link (the link is removed after a definitive
+// result; an error keeps it, so a later launch may report again). Firebase
+// only; story links only (storyLinkLandedParams).
+export function logStoryLinkLanded(link: { type: string; kind: string }, result: string): void {
+  const params = storyLinkLandedParams(link, result);
+  if (params) logAnalyticsEvent('story_link_landed', params);
 }
 
 // A link came back. content_type is from the content-link allow-list, else

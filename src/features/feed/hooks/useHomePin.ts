@@ -26,7 +26,11 @@ import {
   type LinkLanding,
   type PinOutcome,
 } from '@/utils/deepLinks/homePin';
-import { logDeferredLinkPinned, logDeferredLinkPinSkipped } from '@/utils/analytics/deepLinkEvents';
+import {
+  logDeferredLinkPinned,
+  logDeferredLinkPinSkipped,
+  logStoryLinkLanded,
+} from '@/utils/analytics/deepLinkEvents';
 import { openStoryPage } from '@/features/stories/openStoryPage';
 import { storyKind } from '@/features/stories/storyLock';
 
@@ -93,6 +97,7 @@ async function decideLink(run: LinkRun, deadline: number, isPinOn: boolean): Pro
     run.finished = true;
     void clearPendingContentLink();
     if (kind === 'pin') logDeferredLinkPinSkipped({ reason: 'expired' });
+    logStoryLinkLanded(run.link, 'expired');
     return null;
   }
 
@@ -104,6 +109,7 @@ async function decideLink(run: LinkRun, deadline: number, isPinOn: boolean): Pro
     run.finished = true;
     void clearPendingContentLink();
     if (link.kind === 'pin') logDeferredLinkPinSkipped({ reason: 'expired' });
+    logStoryLinkLanded(link, 'expired');
     return null;
   }
 
@@ -123,12 +129,17 @@ async function decideLink(run: LinkRun, deadline: number, isPinOn: boolean): Pro
   const landing = landingFor(link.kind, outcome);
   if (landing) {
     void clearPendingContentLink();
-    if (landing.kind === 'pin') logDeferredLinkPinned({ content_type: link.type });
+    if (landing.kind === 'pin') {
+      logDeferredLinkPinned({ content_type: link.type });
+      logStoryLinkLanded(link, 'opened');
+    }
+    // A page landing reports 'opened' only once the page really opens (below).
     return landing;
   }
   if (outcome.kind === 'skip') {
     if (outcome.consume) void clearPendingContentLink();
     if (link.kind === 'pin') logDeferredLinkPinSkipped({ reason: outcome.reason });
+    logStoryLinkLanded(link, outcome.reason);
   }
   return null;
 }
@@ -145,10 +156,13 @@ async function runLinkDecision(isPinOn: boolean): Promise<LinkLanding<Feed> | nu
   if (run.finished) return decision;
   run.cancelled = true;
   if (run.link?.kind === 'pin') logDeferredLinkPinSkipped({ reason: 'error' });
+  if (run.link) logStoryLinkLanded(run.link, 'error');
   return null;
 }
 
 const HOME_PATH = '/(main)';
+// What a page landing reports in story_link_landed (the page form is always stories).
+const PAGE_LINK = { kind: 'page', type: 'stories' } as const;
 
 export function useHomePin(): { pinnedFeed: Feed | null; isDecidingPin: boolean; dropPin: () => void } {
   // Read once, at mount: a flag that settles or changes later never pins.
@@ -186,10 +200,14 @@ export function useHomePin(): { pinnedFeed: Feed | null; isDecidingPin: boolean;
     if (!pageStory) return;
     const story = pageStory;
     setPageStory(null);
-    if (!isFocused) return;
     const kind = storyKind(story);
-    if (kind !== 'series' && kind !== 'single') return;
+    if (!isFocused || (kind !== 'series' && kind !== 'single')) {
+      // Home was no longer in front (or, defensively, not a story): not opened.
+      logStoryLinkLanded(PAGE_LINK, 'error');
+      return;
+    }
     openStoryPage({ storyId: story.id, source: 'link', isSingle: kind === 'single', returnTo: HOME_PATH });
+    logStoryLinkLanded(PAGE_LINK, 'opened');
   }, [pageStory, isFocused]);
 
   // Pull-to-refresh: back to the normal Home (the link is already used).

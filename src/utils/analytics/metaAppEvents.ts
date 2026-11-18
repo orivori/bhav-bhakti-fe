@@ -1,4 +1,5 @@
 import Constants from 'expo-constants';
+import { STORY_PLAY_STARTED_META_PARAMS } from './storyLinkEventParams';
 
 // Meta (Facebook) App Events for v10 (Bhav_Bhakti_v10_Meta_Events_Plan): the
 // first-session actions Meta's ad delivery can later optimise for. Same
@@ -76,6 +77,19 @@ export function logMetaContentShared(): void {
 }
 
 // Once ever per install - see returnedDay2.ts.
+// A story episode really started playing in the full player - once per feed
+// id + play request (audio-player.tsx, same guard as story_episode_started).
+// content_type 'stories', action 'listen'; never an id or a title.
+export function logMetaStoryPlayStarted(): void {
+  const logger = getMetaLogger() as { logEvent: (name: string, params?: Record<string, string>) => void } | null;
+  if (!logger) return;
+  try {
+    logger.logEvent('story_play_started', { ...STORY_PLAY_STARTED_META_PARAMS });
+  } catch (error) {
+    console.error('Meta event "story_play_started" failed:', error);
+  }
+}
+
 export function logMetaReturnedDay2(): void {
   logMetaEvent('returned_day_2');
 }
