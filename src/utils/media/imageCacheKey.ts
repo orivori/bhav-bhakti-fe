@@ -30,6 +30,14 @@ const MAX_LINK_LENGTH = 4096;
 const KEY_PREFIX = 'img:';
 
 export function imageCacheKey(url: unknown): string | null {
+  const storagePath = storagePathFromSignedLink(url);
+  return storagePath === null ? null : KEY_PREFIX + storagePath;
+}
+
+// The decoded storage path inside a signed Cloud Storage link, or null when
+// the value isn't such a link. Shared by the image key above and the saved
+// video file names (videoCache.ts), so both read a link the same way.
+export function storagePathFromSignedLink(url: unknown): string | null {
   if (typeof url !== 'string' || url.length === 0 || url.length > MAX_LINK_LENGTH) return null;
 
   // The signature lives in the query string; the fragment is never part of the file.
@@ -44,11 +52,10 @@ export function imageCacheKey(url: unknown): string | null {
   const path = rest.slice(slashAt + 1);
   if (path.length === 0) return null;
 
-  let storagePath = path;
   try {
-    storagePath = decodeURIComponent(path);
+    return decodeURIComponent(path);
   } catch {
     // Malformed % - keep the raw path.
+    return path;
   }
-  return KEY_PREFIX + storagePath;
 }
