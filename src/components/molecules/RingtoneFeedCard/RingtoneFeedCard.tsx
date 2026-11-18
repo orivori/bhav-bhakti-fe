@@ -19,6 +19,7 @@ import WhatsAppIcon from '../../../../assets/icons/whatsapp.svg';
 const { width } = Dimensions.get('window');
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import * as FileSystem from 'expo-file-system/legacy';
+import { createPartDownload, downloadToFileSafely, finishPartDownload } from '@/utils/safeDownload';
 import * as MediaLibrary from 'expo-media-library';
 import { ensureMediaLibraryPermission } from '@/utils/mediaLibraryPermission';
 import { Text } from '@/components/atoms';
@@ -68,12 +69,15 @@ const downloadRingtoneInBackground = (cacheKey: string, audioUri: string): void 
   }
 
   console.log('⬇️ Background ringtone download starting:', cacheKey);
-  const resumable = FileSystem.createDownloadResumable(audioUri, cacheKey);
+  // Writes to a temporary .part file (resumable.fileUri); only a complete,
+  // checked download is renamed to cacheKey (safeDownload.ts), so
+  // getCachedRingtoneUri never picks up a file cut short.
+  const resumable = createPartDownload(audioUri, cacheKey);
   inFlightBackgroundDownloads.set(cacheKey, resumable);
 
   resumable
     .downloadAsync()
-    .then((result) => {
+    .then(async (result) => {
       // A cancelled resumable download resolves to `undefined` rather than
       // rejecting (confirmed in expo-file-system's own types) -
       // cancelBackgroundDownload below handles cleanup for that case, so
@@ -82,14 +86,15 @@ const downloadRingtoneInBackground = (cacheKey: string, audioUri: string): void 
         console.log('⏹️ Background ringtone download cancelled:', cacheKey);
         return;
       }
-      if (result.status !== 200) {
-        throw new Error(`Download failed with status ${result.status}`);
-      }
+      // Checks status 200 + size, then renames .part -> cacheKey; throws
+      // (after deleting the .part file) otherwise.
+      await finishPartDownload(result, cacheKey);
       console.log('✅ Background ringtone download complete:', cacheKey);
     })
     .catch((error) => {
       console.error('Background ringtone download failed:', cacheKey, error);
-      FileSystem.deleteAsync(cacheKey, { idempotent: true }).catch((cleanupError) => {
+      // Only the temporary file - a failed download never writes cacheKey.
+      FileSystem.deleteAsync(resumable.fileUri, { idempotent: true }).catch((cleanupError) => {
         console.error('Error cleaning up partial ringtone download:', cleanupError);
       });
     })
@@ -217,11 +222,9 @@ export default function RingtoneFeedCard({
     }
 
     console.log('⬇️ No cached file found, downloading to:', localFileUri);
-    const downloadResult = await FileSystem.downloadAsync(audioSourceUri, localFileUri);
-    if (downloadResult.status !== 200) {
-      throw new Error(`Download failed with status ${downloadResult.status}`);
-    }
-    return downloadResult.uri;
+    // .part then rename (safeDownload.ts): throws unless status 200 and the
+    // size checks out; never leaves a partial file at localFileUri.
+    return downloadToFileSafely(audioSourceUri, localFileUri);
   };
 
   // Fast, local-only check - no network involved. Returns the cached URI if

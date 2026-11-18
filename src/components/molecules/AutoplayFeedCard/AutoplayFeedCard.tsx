@@ -3,6 +3,7 @@ import { View, StyleSheet, Image, TouchableOpacity, Alert, Dimensions, Platform,
 import { Video, ResizeMode } from 'expo-av';
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import * as FileSystem from 'expo-file-system/legacy';
+import { downloadToFileSafely } from '@/utils/safeDownload';
 import * as MediaLibrary from 'expo-media-library';
 import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -583,11 +584,9 @@ export default function AutoplayFeedCard({ feed, isActive, shouldMountVideo = tr
     const fileInfo = await FileSystem.getInfoAsync(localFileUri);
     if (fileInfo.exists) return localFileUri;
 
-    const downloadResult = await FileSystem.downloadAsync(audioSourceUri, localFileUri);
-    if (downloadResult.status !== 200) {
-      throw new Error(`Download failed with status ${downloadResult.status}`);
-    }
-    return downloadResult.uri;
+    // .part then rename (safeDownload.ts): throws unless status 200 and the
+    // size checks out; never leaves a partial file at localFileUri.
+    return downloadToFileSafely(audioSourceUri, localFileUri);
   };
 
   // Same flow as RingtoneFeedCard.tsx's handleSetRingtone - neither platform
