@@ -41,6 +41,8 @@ const MAX_PROBE_LAUNCHES = 3;
 // launch is reported as 'error' rather than never reported at all.
 const FETCH_TIMEOUT_MS = 20000;
 const OPEN_LINK_PREFIX = 'bhavbhakti://open/';
+// The story page form (contentLink.ts) - reported as route 'story'.
+const STORY_LINK_PREFIX = 'bhavbhakti://story/';
 
 interface ProbeRecord {
   launches: number;
@@ -185,7 +187,7 @@ async function probeOnce(): Promise<void> {
       const contentLink = parseContentLink(link);
       logDeferredLinkReceived({
         content_type: contentLink?.type ?? 'other',
-        route: link.startsWith(OPEN_LINK_PREFIX) ? 'open' : 'other',
+        route: link.startsWith(OPEN_LINK_PREFIX) ? 'open' : link.startsWith(STORY_LINK_PREFIX) ? 'story' : 'other',
       });
       if (contentLink) {
         await savePendingContentLink(contentLink, installTime ?? undefined);

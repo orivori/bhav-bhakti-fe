@@ -2,12 +2,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   isContentLinkType,
   isValidFeedId,
+  toContentLinkKind,
   type ContentLink,
+  type ContentLinkKind,
   type ContentLinkType,
 } from '@/utils/deepLinks/contentLink';
 
-// The one content link waiting to be shown (bhavbhakti://open/<type>/<id>,
-// see contentLink.ts) - saved by app/+native-intent.tsx when a link opens the
+// The one content link waiting to be shown (bhavbhakti://open/<type>/<id> or
+// bhavbhakti://story/<id>, see contentLink.ts) - saved by app/+native-intent.tsx when a link opens the
 // app, and by the deferred-link probe. Read by the Home pin (useHomePin.ts)
 // through peekPendingContentLink(), which removes it only after a definitive
 // result.
@@ -29,6 +31,9 @@ const STORAGE_KEY = 'pending-content-link';
 export const PENDING_CONTENT_LINK_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
 export interface PendingContentLink {
+  // 'pin' or 'page' (stories only). A link stored before the page form
+  // existed has no kind and reads back as 'pin' (toContentLinkKind).
+  kind: ContentLinkKind;
   type: ContentLinkType;
   feedId: string;
   receivedAt: number;
@@ -39,6 +44,7 @@ export interface PendingContentLink {
 export async function savePendingContentLink(link: ContentLink, installTime?: number): Promise<void> {
   try {
     const pending: PendingContentLink = {
+      kind: link.kind,
       type: link.type,
       feedId: link.feedId,
       receivedAt: Date.now(),
@@ -95,12 +101,13 @@ export async function clearPendingContentLink(): Promise<void> {
 // Stored data is checked again with the same rules as a fresh link.
 function toValidPendingLink(value: unknown, now: number): PendingContentLink | null {
   if (typeof value !== 'object' || value === null) return null;
-  const { type, feedId, receivedAt, installTime } = value as Record<string, unknown>;
+  const { kind, type, feedId, receivedAt, installTime } = value as Record<string, unknown>;
   if (!isContentLinkType(type) || !isValidFeedId(feedId)) return null;
   if (typeof receivedAt !== 'number' || !Number.isFinite(receivedAt)) return null;
   const age = now - receivedAt;
   if (age < 0 || age > PENDING_CONTENT_LINK_MAX_AGE_MS) return null;
   return {
+    kind: toContentLinkKind(kind, type),
     type,
     feedId,
     receivedAt,

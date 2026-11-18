@@ -17,8 +17,9 @@ export function logDeferredLinkChecked(params: {
 }
 
 // A link came back. content_type is from the content-link allow-list, else
-// 'other'; route is 'open' for a bhavbhakti://open/... link, else 'other'.
-export function logDeferredLinkReceived(params: { content_type: string; route: 'open' | 'other' }): void {
+// 'other'; route is 'open' for a bhavbhakti://open/... link, 'story' for a
+// bhavbhakti://story/... link (the story page form), else 'other'.
+export function logDeferredLinkReceived(params: { content_type: string; route: 'open' | 'story' | 'other' }): void {
   logAnalyticsEvent('deferred_link_received', params);
 }
 
