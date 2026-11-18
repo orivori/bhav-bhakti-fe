@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Modal, View, Image, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { Modal, View, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { FeedImage } from '@/components/atoms/FeedImage';
 import { Video, ResizeMode, type AVPlaybackStatus } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 import { Feed } from '@/types/feed';
@@ -147,11 +148,7 @@ export default function ViewingWindowSheet({
               posterSource={thumbnailUrl ? { uri: thumbnailUrl } : undefined}
             />
           ) : mediaUrl ? (
-            <Image
-              source={{ uri: mediaUrl }}
-              style={styles.media}
-              resizeMode="contain"
-            />
+            <FeedImage uri={mediaUrl} style={styles.media} contentFit="contain" />
           ) : null}
 
           {mediaUrl && feed?.mediaType === 'video' && hasFinished && (
