@@ -110,12 +110,17 @@ export function forgetLocalVideo(localUri: string): void {
 
 // Saves this video in the background (fire-and-forget). Ignored when it is
 // already saved, being saved, waiting, or its link was refused before.
+// Waits for the startup index first, so a tile shown before the index was
+// ready never downloads a video that is already saved.
 export function requestVideoSave(feedId: string | number, url: string | null | undefined): void {
   if (!url || refusedUrls.has(url)) return;
   const name = fileNameFor(feedId, url);
-  if (!name || index.has(name) || inFlight.has(name) || queue.some((item) => item.name === name)) return;
-  queue.push({ name, url });
-  pump();
+  if (!name) return;
+  void initVideoCache().then(() => {
+    if (index.has(name) || inFlight.has(name) || queue.some((item) => item.name === name)) return;
+    queue.push({ name, url });
+    pump();
+  });
 }
 
 function pump(): void {

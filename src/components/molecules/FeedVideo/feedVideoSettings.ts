@@ -8,4 +8,4 @@ export const VIDEO_SURFACE_TYPE: SurfaceType = 'surfaceView';
 // Saving videos on the phone (videoCache.ts): stream the first time, save in
 // the background after ~2 s of play, play the saved file next time. Off =
 // every showing streams, exactly as with expo-av.
-export const VIDEO_SAVING_ENABLED = false;
+export const VIDEO_SAVING_ENABLED = true;
