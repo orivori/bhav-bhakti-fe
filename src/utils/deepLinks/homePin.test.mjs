@@ -10,12 +10,14 @@ import {
   PROBE_WAIT_MAX_MS,
   classifyPinFetchError,
   classifyPinnedFeed,
+  pinStoryKind,
   isFreshInstall,
   isFromOtherInstall,
   placePinnedFeed,
   raceWithTimeout,
   stepBudgetMs,
 } from './homePin.ts';
+import { storyKind } from '../../features/stories/storyLock.ts';
 
 const NOW = 1_800_000_000_000;
 
@@ -131,4 +133,69 @@ test('raceWithTimeout: a rejection before the cap is passed on', async () => {
 test('a timed-out fetch keeps the link, like a network error', () => {
   // useHomePin treats a timeout as classifyPinFetchError(null).
   assert.deepEqual(classifyPinFetchError(null), { kind: 'skip', reason: 'error', consume: false });
+});
+
+// --- Stories (v12) ---
+
+const mismatch = { kind: 'skip', reason: 'type_mismatch', consume: true };
+
+test('a story series is pinnable although it has no url', () => {
+  const series = { id: 300, type: 'stories', url: null, mediaType: null, seriesId: null, episodeNumber: null };
+  assert.deepEqual(classifyPinnedFeed('stories', series), { kind: 'pin', feed: series });
+  const noUrlField = { id: 300, type: 'stories' };
+  assert.deepEqual(classifyPinnedFeed('stories', noUrlField), { kind: 'pin', feed: noUrlField });
+});
+
+test('a single story is pinnable, locked (url null) or not', () => {
+  const locked = { id: 9002, type: 'stories', url: null, mediaType: 'audio', seriesId: null, episodeNumber: null };
+  const free = { ...locked, id: 9001, url: 'https://x/a.mp3' };
+  assert.deepEqual(classifyPinnedFeed('stories', locked), { kind: 'pin', feed: locked });
+  assert.deepEqual(classifyPinnedFeed('stories', free), { kind: 'pin', feed: free });
+});
+
+test('an episode id is the wrong type for a story link', () => {
+  for (const episode of [
+    { id: 301, type: 'stories', url: 'https://x/e.mp3', mediaType: 'audio', seriesId: 300, episodeNumber: 1 },
+    { id: 302, type: 'stories', url: null, mediaType: 'audio', seriesId: 300, episodeNumber: 2 },
+    { id: 303, type: 'stories', url: null, mediaType: 'audio', seriesId: null, episodeNumber: 3 },
+  ]) {
+    assert.deepEqual(classifyPinnedFeed('stories', episode), mismatch, String(episode.id));
+  }
+});
+
+test('a story link to a non-story item, or no item, is the wrong type', () => {
+  assert.deepEqual(classifyPinnedFeed('stories', { id: 7, type: 'aarti', url: 'u', mediaType: 'audio' }), mismatch);
+  assert.deepEqual(classifyPinnedFeed('stories', null), mismatch);
+  assert.deepEqual(classifyPinnedFeed('stories', undefined), mismatch);
+});
+
+test('a story item never pins for another link type', () => {
+  const series = { id: 300, type: 'stories', url: null, mediaType: null };
+  for (const linkType of ['aarti', 'wallpaper', 'status', 'mantra']) {
+    assert.deepEqual(classifyPinnedFeed(linkType, series), mismatch, linkType);
+  }
+});
+
+test('other types still need a matching type and a url (unchanged)', () => {
+  assert.deepEqual(classifyPinnedFeed('aarti', { id: 7, type: 'aarti', url: '' }), mismatch);
+  assert.deepEqual(classifyPinnedFeed('aarti', { id: 7, type: 'aarti', url: null }), mismatch);
+  const ok = { id: 7, type: 'aarti', url: 'u' };
+  assert.deepEqual(classifyPinnedFeed('aarti', ok), { kind: 'pin', feed: ok });
+});
+
+test("pinStoryKind gives the same answer as the app's storyKind on every case", () => {
+  const cases = [
+    { type: 'stories' },
+    { type: 'stories', mediaType: 'audio' },
+    { type: 'stories', mediaType: null },
+    { type: 'stories', seriesId: 3 },
+    { type: 'stories', episodeNumber: 2 },
+    { type: 'stories', mediaType: 'audio', seriesId: 3, episodeNumber: 1 },
+    { type: 'stories', seriesId: 0, episodeNumber: 0 },
+    { type: 'aarti', mediaType: 'audio' },
+    { type: 'wallpaper' },
+  ];
+  for (const feed of cases) {
+    assert.equal(pinStoryKind(feed), storyKind(feed), JSON.stringify(feed));
+  }
 });

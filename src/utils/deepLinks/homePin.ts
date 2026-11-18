@@ -13,7 +13,24 @@ const FEED_TYPE_FOR_LINK: Record<string, string> = {
   aarti: 'aarti',
   bhajan: 'bhajan',
   mantra: 'mantra',
+  stories: 'stories',
 };
+
+// Series / single story / episode - the SAME rule as storyKind() in
+// src/features/stories/storyLock.ts (episode = series id or episode number;
+// single = neither + a media type; series = neither + no media type). Copied
+// because this file must stay import-free for Node's test runner;
+// homePin.test.mjs checks both give the same answer on every case.
+export function pinStoryKind(feed: {
+  type?: unknown;
+  mediaType?: unknown;
+  seriesId?: unknown;
+  episodeNumber?: unknown;
+}): 'series' | 'single' | 'episode' | null {
+  if (feed.type !== 'stories') return null;
+  if (feed.seriesId || feed.episodeNumber) return 'episode';
+  return feed.mediaType ? 'single' : 'series';
+}
 
 // The probe is only waited for on an install this new (the deferred link is
 // only ever delivered to a fresh install).
@@ -63,6 +80,9 @@ interface PinnableFeed {
   id: number | string;
   type?: unknown;
   url?: unknown;
+  mediaType?: unknown;
+  seriesId?: unknown;
+  episodeNumber?: unknown;
 }
 
 export function isFreshInstall(installTime: number | null, now: number): boolean {
@@ -78,8 +98,17 @@ export function isFromOtherInstall(linkInstallTime: number | undefined, installT
 }
 
 // GET /feed/:id answered with a feed.
+// Stories: a series row (it never has audio of its own) and a single story
+// (its url is null while it is ad-locked) are both pinnable - the Home story
+// card handles both. An episode is the wrong type.
+// Every other type: the feed type must match and it must have a media url.
 export function classifyPinnedFeed<T extends PinnableFeed>(linkType: string, feed: T | null | undefined): PinOutcome<T> {
   const expectedType = FEED_TYPE_FOR_LINK[linkType];
+  if (linkType === 'stories') {
+    const kind = typeof feed === 'object' && feed !== null ? pinStoryKind(feed) : null;
+    if (kind === 'series' || kind === 'single') return { kind: 'pin', feed: feed as T };
+    return { kind: 'skip', reason: 'type_mismatch', consume: true };
+  }
   const isUsable =
     typeof feed === 'object' &&
     feed !== null &&
