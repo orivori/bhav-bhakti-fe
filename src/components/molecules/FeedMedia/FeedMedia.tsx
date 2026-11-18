@@ -1,7 +1,6 @@
 import React from 'react';
 import {
   View,
-  Image,
   TouchableOpacity,
   StyleSheet,
   Dimensions,
@@ -9,6 +8,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Video, ResizeMode } from 'expo-av';
 import { Text } from '@/components/atoms';
+import { FeedImage } from '@/components/atoms/FeedImage';
 import { Feed } from '@/types/feed';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { getFeedThumbnailUrl } from '@/utils/feedFields';
@@ -48,11 +48,7 @@ export default function FeedMedia({
       case 'image':
         return (
           <TouchableOpacity onPress={handleMediaPress} activeOpacity={0.9}>
-            <Image
-              source={{ uri: feed.url }}
-              style={styles.media}
-              resizeMode="cover"
-            />
+            <FeedImage uri={feed.url} style={styles.media} contentFit="cover" />
           </TouchableOpacity>
         );
 
@@ -81,11 +77,7 @@ export default function FeedMedia({
             {thumbnailUrl ? (
               // Mantra with thumbnail - show thumbnail with play button overlay (like the user's image)
               <View style={styles.mantraContainer}>
-                <Image
-                  source={{ uri: thumbnailUrl }}
-                  style={styles.media}
-                  resizeMode="cover"
-                />
+                <FeedImage uri={thumbnailUrl} style={styles.media} contentFit="cover" />
 
                 {/* Subtle overlay for better play button visibility */}
                 <View style={styles.mantraOverlay} />

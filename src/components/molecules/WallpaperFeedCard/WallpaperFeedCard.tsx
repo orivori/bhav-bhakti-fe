@@ -1,7 +1,6 @@
 import React from 'react';
 import {
   View,
-  Image,
   TouchableOpacity,
   StyleSheet,
   Dimensions,
@@ -10,6 +9,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Video, ResizeMode } from 'expo-av';
 import FeedMedia from '../FeedMedia/FeedMedia';
+import { FeedImage } from '@/components/atoms/FeedImage';
 import { Feed } from '@/types/feed';
 import { getFeedThumbnailUrl } from '@/utils/feedFields';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
@@ -90,7 +90,7 @@ export default function WallpaperFeedCard({
 
   if (variant === 'grid-tile') {
     // Pure visual tile: no title/description,
-    // a plain <Image> with resizeMode="contain" inside a 9:16 box so the
+    // a FeedImage with contentFit="contain" inside a 9:16 box so the
     // photo scales to fit without cropping (unlike the default variant's
     // FeedMedia, which is hardcoded to resizeMode="cover" - deliberately not
     // reused here rather than risk changing FeedMedia's shared behavior).
@@ -108,11 +108,7 @@ export default function WallpaperFeedCard({
             // no thumbnail. Also a video that already played once, which
             // waits for its replay button instead of loading again.
             thumbnailUrl ? (
-              <Image
-                source={{ uri: thumbnailUrl }}
-                style={styles.gridImage}
-                resizeMode="contain"
-              />
+              <FeedImage uri={thumbnailUrl} style={styles.gridImage} contentFit="contain" />
             ) : null
           ) : isVideo ? (
             // Plays once, then holds its last frame with the replay button
@@ -134,11 +130,7 @@ export default function WallpaperFeedCard({
               posterSource={thumbnailUrl ? { uri: thumbnailUrl } : undefined}
             />
           ) : !!feed.url && (
-            <Image
-              source={{ uri: feed.url }}
-              style={styles.gridImage}
-              resizeMode="contain"
-            />
+            <FeedImage uri={feed.url} style={styles.gridImage} contentFit="contain" />
           )}
 
           {isVideo && playOnce.isFinished && (
@@ -228,11 +220,7 @@ export default function WallpaperFeedCard({
                   posterSource={thumbnailUrl ? { uri: thumbnailUrl } : undefined}
                 />
               ) : thumbnailUrl ? (
-                <Image
-                  source={{ uri: thumbnailUrl }}
-                  style={styles.wallpaperVideo}
-                  resizeMode="contain"
-                />
+                <FeedImage uri={thumbnailUrl} style={styles.wallpaperVideo} contentFit="contain" />
               ) : null}
               {playOnce.isFinished && <VideoReplayButton onPress={playOnce.replay} />}
             </View>
