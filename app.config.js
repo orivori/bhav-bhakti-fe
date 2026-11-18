@@ -48,9 +48,12 @@ module.exports = {
   expo: {
     name: APP_NAME,
     slug: "bhav-bhakti",
-    // 1.1.0 = a new OTA runtime (runtimeVersion follows this): from here on,
-    // updates reach only builds made from 1.1.0 (v9 / .dev 5), never v8.
-    version: "1.1.0",
+    // 1.2.0 = a new OTA runtime (runtimeVersion follows this): updates
+    // published from 1.2.0 code reach only builds made from 1.2.0 (v12 /
+    // .dev 7), never v9-v11 (runtime 1.1.0). v12 adds native modules
+    // (expo-image, expo-video), so its JS can't run on 1.1.0 builds.
+    // History: 1.1.0 = v9-v11 / .dev 5-6.
+    version: "1.2.0",
     orientation: "portrait",
     icon: "./assets/images/icon.png",
     userInterfaceStyle: "light",
@@ -76,7 +79,7 @@ module.exports = {
     },
     android: {
       // Per variant, so this line is the same on dev and production.
-      versionCode: IS_DEV_VARIANT ? 6 : 11,
+      versionCode: IS_DEV_VARIANT ? 7 : 12,
       adaptiveIcon: {
         foregroundImage: "./assets/images/icon.png",
         backgroundColor: "#ffffff",
