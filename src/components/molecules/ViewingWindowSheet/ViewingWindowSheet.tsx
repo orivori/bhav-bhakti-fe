@@ -1,7 +1,7 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Modal, View, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { FeedImage } from '@/components/atoms/FeedImage';
-import { Video, ResizeMode, type AVPlaybackStatus } from 'expo-av';
+import { FeedVideo } from '../FeedVideo';
 import { Ionicons } from '@expo/vector-icons';
 import { Feed } from '@/types/feed';
 import { useEffectivelyActive } from '@/hooks/useEffectivelyActive';
@@ -33,7 +33,7 @@ interface ViewingWindowSheetProps {
 // with justifyContent/alignItems: 'center' instead of that pattern's
 // 'flex-end'.
 //
-// Phase 2: real content. Video plays WITH sound (isMuted={false}, hardcoded -
+// Phase 2: real content. Video plays WITH sound (muted={false}, hardcoded -
 // NOT read from soundPreferenceStore, deliberately independent of both Home's
 // and the grid's mute state, since this is its own isolated audio context)
 // unlike the grid tile behind it, which stays unconditionally silent. It plays
@@ -64,18 +64,10 @@ export default function ViewingWindowSheet({
   const mediaUrl = feed?.url;
   const thumbnailUrl = feed ? getFeedThumbnailUrl(feed) : null;
 
-  // Confirmed root cause: the declarative `shouldPlay` prop alone isn't
-  // enough to stop this specific player on backgrounding. This window's video
-  // plays WITH sound (isMuted={false}, unlike Home's autoplay cards, which
-  // default to muted) under the app's global `staysActiveInBackground: true`
-  // audio session (app/_layout.tsx) - expo-av's native auto-pause-on-
-  // background is disabled app-wide by that setting, and an actually-audible
-  // player's underlying session appears to resist a `shouldPlay=false` prop
-  // diff in a way a muted one doesn't. This imperative call is the
-  // safety-net: explicitly pause the native player the moment
-  // isEffectivelyActive goes false, rather than relying on the prop diff
-  // alone. `shouldPlay` is left in place below for the play/resume path,
-  // which was never reported broken.
+  // FeedVideo (expo-video) plays and pauses from code whenever shouldPlay
+  // changes, so the expo-av workaround that lived here (an extra imperative
+  // pause on backgrounding, CLAUDE.md §112) is no longer needed; expo-video
+  // also pauses by itself in the background.
   // Plays once (with sound), then stops on its last frame with the replay
   // button - each loop used to download the whole file again. Unlike the
   // tiles, opening the window always plays the video, even one that already
@@ -91,24 +83,14 @@ export default function ViewingWindowSheet({
   useEffect(() => {
     setHasFinished(false);
   }, [visible, feedId]);
-  const handlePlaybackStatusUpdate = (status: AVPlaybackStatus) => {
-    if (status.isLoaded && status.didJustFinish) {
-      setHasFinished(true);
-      if (feedId) markFinished(feedId);
-    }
+  const handleFinish = () => {
+    setHasFinished(true);
+    if (feedId) markFinished(feedId);
   };
   const handleReplay = () => {
     setHasFinished(false);
     setPlayerKey((key) => key + 1);
   };
-
-  const videoRef = useRef<Video>(null);
-  useEffect(() => {
-    if (isEffectivelyActive) return;
-    videoRef.current?.pauseAsync().catch(() => {
-      // No-op: player may not be loaded yet, or already paused/unmounted.
-    });
-  }, [isEffectivelyActive]);
 
   return (
     <Modal
@@ -135,17 +117,16 @@ export default function ViewingWindowSheet({
           </TouchableOpacity>
 
           {mediaUrl && feed?.mediaType === 'video' ? (
-            <Video
+            <FeedVideo
               key={playerKey}
-              ref={videoRef}
-              source={{ uri: mediaUrl }}
+              feedId={String(feed.id)}
+              uri={mediaUrl}
+              posterUri={thumbnailUrl}
               style={styles.media}
-              resizeMode={ResizeMode.CONTAIN}
-              isLooping={false}
-              onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
+              contentFit="contain"
               shouldPlay={isEffectivelyActive && !hasFinished}
-              isMuted={false}
-              posterSource={thumbnailUrl ? { uri: thumbnailUrl } : undefined}
+              muted={false}
+              onFinish={handleFinish}
             />
           ) : mediaUrl ? (
             <FeedImage uri={mediaUrl} style={styles.media} contentFit="contain" />
