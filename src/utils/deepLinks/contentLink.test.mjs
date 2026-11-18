@@ -9,24 +9,26 @@ import {
   isContentLinkType,
   isValidFeedId,
   parseContentLink,
+  toContentLinkKind,
 } from './contentLink.ts';
 
 test('accepts every allowed type', () => {
   for (const type of CONTENT_LINK_TYPES) {
-    assert.deepEqual(parseContentLink(`bhavbhakti://open/${type}/123`), { type, feedId: '123' });
+    assert.deepEqual(parseContentLink(`bhavbhakti://open/${type}/123`), { kind: 'pin', type, feedId: '123' });
   }
 });
 
 test('accepts the smallest and largest ids', () => {
-  assert.deepEqual(parseContentLink('bhavbhakti://open/aarti/1'), { type: 'aarti', feedId: '1' });
+  assert.deepEqual(parseContentLink('bhavbhakti://open/aarti/1'), { kind: 'pin', type: 'aarti', feedId: '1' });
   assert.deepEqual(parseContentLink('bhavbhakti://open/aarti/999999999'), {
+    kind: 'pin',
     type: 'aarti',
     feedId: '999999999',
   });
 });
 
 test('ignores the query string and fragment', () => {
-  const expected = { type: 'mantra', feedId: '42' };
+  const expected = { kind: 'pin', type: 'mantra', feedId: '42' };
   assert.deepEqual(parseContentLink('bhavbhakti://open/mantra/42?utm_source=fb&x=1'), expected);
   assert.deepEqual(parseContentLink('bhavbhakti://open/mantra/42#top'), expected);
   assert.deepEqual(parseContentLink('bhavbhakti://open/mantra/42?a=1#b'), expected);
@@ -91,7 +93,6 @@ test('rejects types outside the allow-list', () => {
   for (const type of [
     'Aarti',
     'AARTI',
-    'stories',
     'story',
     'general',
     'audio-player',
@@ -167,4 +168,72 @@ test('isContentLinkType and isValidFeedId', () => {
 test('feedIdForApi returns plain digits', () => {
   assert.equal(feedIdForApi({ type: 'aarti', feedId: '123' }), '123');
   assert.equal(feedIdForApi({ type: 'aarti', feedId: '999999999' }), '999999999');
+});
+
+// --- Stories (v12): the pin form for stories, and the page form ---
+
+test('accepts the stories pin form', () => {
+  assert.deepEqual(parseContentLink('bhavbhakti://open/stories/300'), {
+    kind: 'pin',
+    type: 'stories',
+    feedId: '300',
+  });
+});
+
+test('accepts the story page form, always as type stories', () => {
+  assert.deepEqual(parseContentLink('bhavbhakti://story/300'), { kind: 'page', type: 'stories', feedId: '300' });
+  assert.deepEqual(parseContentLink('bhavbhakti://story/1?utm_source=fb#x'), {
+    kind: 'page',
+    type: 'stories',
+    feedId: '1',
+  });
+});
+
+test('rejects anything else that looks like the page form', () => {
+  for (const raw of [
+    'bhavbhakti://story',
+    'bhavbhakti://story/',
+    'bhavbhakti://story/0',
+    'bhavbhakti://story/012',
+    'bhavbhakti://story/abc',
+    'bhavbhakti://story/1/',
+    'bhavbhakti://story/1/2',
+    'bhavbhakti://story/stories/1',
+    'bhavbhakti://story//1',
+    'bhavbhakti://Story/1',
+    'bhavbhakti://STORY/1',
+    'bhavbhakti://stories/1',
+    'bhavbhakti://storys/1',
+    'bhavbhakti://story%2F1',
+    'bhavbhakti://story/%31',
+    'bhavbhakti:///story/1',
+    'https://story/1',
+    'bhavbhakti://open/1',
+    'bhavbhakti://audio-player/1',
+    'bhavbhakti://story-series/1',
+  ]) {
+    assert.equal(parseContentLink(raw), null, raw);
+  }
+});
+
+test('the page form never carries a type from the link text', () => {
+  // Only an id follows the host; any text in its place is rejected.
+  assert.equal(parseContentLink('bhavbhakti://story/wallpaper'), null);
+  assert.equal(parseContentLink('bhavbhakti://story/aarti/1'), null);
+});
+
+test('a stored kind reads back as pin unless it is exactly page on a story', () => {
+  // Links saved before the page form existed have no kind: pin, as before.
+  assert.equal(toContentLinkKind(undefined, 'aarti'), 'pin');
+  assert.equal(toContentLinkKind(undefined, 'stories'), 'pin');
+  assert.equal(toContentLinkKind('pin', 'stories'), 'pin');
+  assert.equal(toContentLinkKind('page', 'stories'), 'page');
+  // A page kind on any other type is impossible from the parser; never trusted.
+  assert.equal(toContentLinkKind('page', 'aarti'), 'pin');
+  assert.equal(toContentLinkKind('Page', 'stories'), 'pin');
+  assert.equal(toContentLinkKind(1, 'stories'), 'pin');
+});
+
+test('feedIdForApi works for a page link too', () => {
+  assert.equal(feedIdForApi({ kind: 'page', type: 'stories', feedId: '300' }), '300');
 });
