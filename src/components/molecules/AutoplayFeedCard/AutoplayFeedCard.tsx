@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, StyleSheet, Image, TouchableOpacity, Alert, Dimensions, Platform, Linking, AppState, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Alert, Dimensions, Platform, Linking, AppState, ActivityIndicator } from 'react-native';
 import { Video, ResizeMode } from 'expo-av';
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -10,6 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '@/components/atoms';
+import { FeedImage } from '@/components/atoms/FeedImage';
 import { Feed } from '@/types/feed';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
@@ -722,10 +723,10 @@ export default function AutoplayFeedCard({ feed, isActive, shouldMountVideo = tr
                 Falls back to a flat color (no image to blur) when there's no
                 thumbnail at all. */}
             {thumbnailUrl ? (
-              <Image
-                source={{ uri: thumbnailUrl }}
+              <FeedImage
+                uri={thumbnailUrl}
                 style={StyleSheet.absoluteFill}
-                resizeMode="cover"
+                contentFit="cover"
                 blurRadius={AUDIO_BACKGROUND_BLUR_RADIUS}
               />
             ) : (
@@ -748,10 +749,10 @@ export default function AutoplayFeedCard({ feed, isActive, shouldMountVideo = tr
 
               {thumbnailUrl ? (
                 wrapStoryTap(
-                  <Image
-                    source={{ uri: thumbnailUrl }}
+                  <FeedImage
+                    uri={thumbnailUrl}
                     style={[styles.audioThumbnail, { width: audioThumbnailSize, height: audioThumbnailSize }]}
-                    resizeMode="cover"
+                    contentFit="cover"
                   />
                 )
               ) : (
@@ -814,7 +815,7 @@ export default function AutoplayFeedCard({ feed, isActive, shouldMountVideo = tr
           // Not near the active card, or already played once (waits for
           // the replay button instead of loading again).
           thumbnailUrl ? (
-            <Image source={{ uri: thumbnailUrl }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+            <FeedImage uri={thumbnailUrl} style={StyleSheet.absoluteFill} contentFit="cover" />
           ) : (
             <View style={[StyleSheet.absoluteFill, styles.audioFallback]} />
           )
@@ -832,7 +833,7 @@ export default function AutoplayFeedCard({ feed, isActive, shouldMountVideo = tr
             posterSource={thumbnailUrl ? { uri: thumbnailUrl } : undefined}
           />
         ) : feed.url ? (
-          <Image source={{ uri: feed.url }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+          <FeedImage uri={feed.url} style={StyleSheet.absoluteFill} contentFit="cover" />
         ) : (
           <View style={[StyleSheet.absoluteFill, styles.audioFallback]}>
             <Ionicons name="image" size={48} color={goldenTempleTheme.colors.primary.DEFAULT} />
