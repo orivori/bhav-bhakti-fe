@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { Alert } from 'react-native';
-import i18n from 'i18next';
 import { Feed } from '@/types/feed';
 import { feedService } from '@/features/feed/services/feedService';
 import { useFeedStore } from '@/store/feedStore';
 import { shareContent } from '@/utils/shareContent';
 import { saveFeedToGallery } from '@/utils/saveFeedToGallery';
+import { showAlreadySavedNotice, showSaveFailedNotice, showSavedToGalleryNotice } from '@/utils/galleryNotices';
 
 interface UseWallpaperActionsArgs {
   // Nullable so ViewingWindowSheet (Phase 2 of the Viewing Window feature)
@@ -105,17 +105,19 @@ export function useWallpaperActions({ feed, onLike, onShare, onDownload }: UseWa
       const result = await saveFeedToGallery(feed, {
         permissionReasonKey: 'common.permissionReasonDownloadWallpaper',
       });
+      // Centred notices (galleryNotices.ts), translated - these were plain
+      // English-only Alerts before.
       if (result === 'already_saved') {
-        Alert.alert(i18n.t('common.alreadySavedTitle'), i18n.t('common.alreadySavedMessage'));
+        showAlreadySavedNotice();
       } else if (result === 'saved') {
-        Alert.alert('Success', 'Wallpaper saved to your gallery!');
+        showSavedToGalleryNotice();
 
         incrementDownload(feed.id.toString());
         onDownload?.(feed.id.toString());
       }
     } catch (error) {
       console.error('Error downloading wallpaper:', error);
-      Alert.alert('Error', 'Failed to download wallpaper. Please try again.');
+      showSaveFailedNotice();
     } finally {
       if (isMountedRef.current) setIsDownloading(false);
     }
