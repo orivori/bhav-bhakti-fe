@@ -9,6 +9,7 @@ import { AuthProvider } from '@/features/authentication/hooks/useAuth';
 import { PremiumPaywall } from '@/components/molecules/PremiumPaywall';
 import { AdUnlockSheet } from '@/components/molecules/AdUnlockSheet';
 import { StoryNotice } from '@/components/molecules/StoryNotice';
+import { AppNotice } from '@/components/molecules/AppNotice';
 import { MaintenanceScreen } from '@/components/molecules/MaintenanceScreen';
 import { UpdateRequiredScreen } from '@/components/molecules/UpdateRequiredScreen';
 import { UpdatePromptModal } from '@/components/molecules/UpdatePromptModal';
@@ -332,6 +333,10 @@ export default function RootLayout() {
               {!isAppBlocked && <AdUnlockSheet />}
               {/* Centred story ad-lock notice (storyNoticeStore). */}
               {!isAppBlocked && <StoryNotice />}
+              {/* General centred notice: saved to gallery, ringtone steps
+                  (appNoticeStore). Not mounted while blocked - showAppNotice
+                  then falls back to a plain Alert. */}
+              {!isAppBlocked && <AppNotice />}
               {!isAppBlocked && <UpdatePromptModal />}
             </AuthProvider>
           </ToastProvider>
