@@ -9,7 +9,6 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import i18n from 'i18next';
 import { Text } from '@/components/atoms';
 import FeedMedia from '../FeedMedia/FeedMedia';
 import WallpaperFeedCard from '../WallpaperFeedCard/WallpaperFeedCard';
@@ -19,6 +18,7 @@ import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { feedService } from '@/features/feed/services/feedService';
 import { useFeedStore } from '@/store/feedStore';
 import { saveFeedToGallery } from '@/utils/saveFeedToGallery';
+import { showAlreadySavedNotice, showSaveFailedNotice, showSavedToGalleryNotice } from '@/utils/galleryNotices';
 import { shareContent } from '@/utils/shareContent';
 
 interface FeedCardProps {
@@ -93,17 +93,19 @@ export default function FeedCard({
       const result = await saveFeedToGallery(feed, {
         permissionReasonKey: 'common.permissionReasonDownloadMedia',
       });
+      // Centred notices (galleryNotices.ts), translated - these were plain
+      // English-only Alerts before.
       if (result === 'already_saved') {
-        Alert.alert(i18n.t('common.alreadySavedTitle'), i18n.t('common.alreadySavedMessage'));
+        showAlreadySavedNotice();
       } else if (result === 'saved') {
-        Alert.alert('Success', 'Media saved to your gallery!');
+        showSavedToGalleryNotice();
 
         incrementDownload(feed.id.toString());
         onDownload?.(feed.id.toString());
       }
     } catch (error) {
       console.error('Error downloading media:', error);
-      Alert.alert('Error', 'Failed to download media. Please try again.');
+      showSaveFailedNotice();
     } finally {
       setIsDownloading(false);
     }
