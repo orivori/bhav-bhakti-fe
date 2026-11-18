@@ -10,7 +10,7 @@ import {
   requestVideoSave,
 } from '@/utils/videoCache/videoCache';
 import { shouldStartVideoSave } from '@/utils/videoCache/videoCacheRules';
-import { chooseVideoSource, shouldShowPoster } from './feedVideoRules';
+import { chooseVideoSource, frameVisibleAfter, isPlaybackProgress, shouldShowPoster } from './feedVideoRules';
 import { VIDEO_SAVING_ENABLED, VIDEO_SURFACE_TYPE } from './feedVideoSettings';
 
 // One feed video (video wallpapers): expo-video, replacing expo-av's <Video>.
@@ -28,8 +28,9 @@ import { VIDEO_SAVING_ENABLED, VIDEO_SURFACE_TYPE } from './feedVideoSettings';
 // - Never loops; at the end the last frame stays and onFinish() is called.
 // - No native controls, no fullscreen, no picture-in-picture, the screen is
 //   not kept awake, expo-video's own (link-keyed) cache is off.
-// - The thumbnail (FeedImage, cached by storage path) covers the video until
-//   its first frame is drawn, and stays if the video fails.
+// - The thumbnail (FeedImage, cached by storage path) covers the video
+//   whenever no video frame is on screen: until the first frame, again after
+//   a background trip until playback is seen moving, and if the video fails.
 // - Saved videos (videoCache.ts, when VIDEO_SAVING_ENABLED): a saved file is
 //   played if there is one; otherwise the link streams and, after ~2 s of real
 //   playback, a copy is saved for next time. A saved file that fails to play
@@ -49,8 +50,9 @@ export interface FeedVideoProps {
   onFinish?: () => void;
 }
 
-// How often (seconds) a streamed video reports its position, to start saving.
-const SAVE_CHECK_INTERVAL_S = 0.5;
+// How often (seconds) a video reports its position: to see that frames are
+// being drawn again after a background trip, and to start saving.
+const POSITION_CHECK_INTERVAL_S = 0.25;
 
 export default function FeedVideo({
   feedId,
@@ -85,17 +87,22 @@ export default function FeedVideo({
     newPlayer.muted = muted;
     newPlayer.keepScreenOnWhilePlaying = false;
     newPlayer.staysActiveInBackground = false;
-    newPlayer.timeUpdateEventInterval = VIDEO_SAVING_ENABLED && isRemote ? SAVE_CHECK_INTERVAL_S : 0;
+    newPlayer.timeUpdateEventInterval = POSITION_CHECK_INTERVAL_S;
   });
 
-  const [firstFrameShown, setFirstFrameShown] = useState(false);
+  // Whether a video frame is on screen (feedVideoRules.ts); the thumbnail
+  // covers the video whenever it isn't.
+  const [frameVisible, setFrameVisible] = useState(false);
   const [failed, setFailed] = useState(false);
   const [saveRequested, setSaveRequested] = useState(false);
+  // Last reported position, to see playback moving; null = no baseline yet.
+  const lastPositionRef = useRef<number | null>(null);
 
   // A new player (the saved file failed and the link streams instead) starts fresh.
   useEffect(() => {
-    setFirstFrameShown(false);
+    setFrameVisible(false);
     setFailed(false);
+    lastPositionRef.current = null;
   }, [player]);
 
   // While a saved file plays, the cap never removes it.
@@ -130,10 +137,17 @@ export default function FeedVideo({
   // expo-video pauses its players when the app goes to the background but
   // never resumes them. Callers whose shouldPlay doesn't follow the app state
   // (hub tiles, Search) stay `true` throughout, so resume here on return.
+  // Going to the background also drops the video surface: the thumbnail is
+  // shown again until playback is seen moving after the return.
   const shouldPlayRef = useRef(shouldPlay);
   shouldPlayRef.current = shouldPlay;
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'background') {
+        setFrameVisible(frameVisibleAfter('background'));
+        lastPositionRef.current = null;
+        return;
+      }
       if (state !== 'active' || !shouldPlayRef.current || endedRef.current) return;
       try {
         player.play();
@@ -162,6 +176,10 @@ export default function FeedVideo({
   );
 
   useEventListener(player, 'timeUpdate', ({ currentTime }) => {
+    if (isPlaybackProgress(lastPositionRef.current, currentTime, player.playing)) {
+      setFrameVisible(frameVisibleAfter('progress'));
+    }
+    lastPositionRef.current = currentTime;
     requestSave(currentTime * 1000, false);
   });
 
@@ -182,7 +200,7 @@ export default function FeedVideo({
     setFailed(true);
   });
 
-  const showPoster = shouldShowPoster({ hasPoster: !!posterUri, firstFrameShown, failed });
+  const showPoster = shouldShowPoster({ hasPoster: !!posterUri, frameVisible, failed });
 
   return (
     // pointerEvents="none": the video never takes a touch, so a tap reaches
@@ -203,7 +221,7 @@ export default function FeedVideo({
         allowsFullscreen={false}
         allowsPictureInPicture={false}
         surfaceType={VIDEO_SURFACE_TYPE}
-        onFirstFrameRender={() => setFirstFrameShown(true)}
+        onFirstFrameRender={() => setFrameVisible(frameVisibleAfter('first_frame'))}
       />
       {showPoster && <FeedImage uri={posterUri} style={StyleSheet.absoluteFill} contentFit={contentFit} />}
     </View>
