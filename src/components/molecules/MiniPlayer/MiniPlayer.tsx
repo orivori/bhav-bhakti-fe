@@ -1,8 +1,9 @@
 import React from 'react';
-import { View, Image, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useGlobalSearchParams, usePathname } from 'expo-router';
 import { Text } from '@/components/atoms';
+import { FeedImage } from '@/components/atoms/FeedImage';
 import { usePlaybackStore } from '@/store/playbackStore';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
@@ -75,7 +76,7 @@ export default function MiniPlayer() {
 
       <TouchableOpacity style={styles.body} onPress={handleBodyPress} activeOpacity={0.85}>
         {nowPlaying.thumbnailUrl ? (
-          <Image source={{ uri: nowPlaying.thumbnailUrl }} style={styles.thumbnail} />
+          <FeedImage uri={nowPlaying.thumbnailUrl} style={styles.thumbnail} contentFit="cover" />
         ) : (
           <View style={styles.thumbnailFallback}>
             <Ionicons name="musical-notes" size={18} color="#C41E3A" />

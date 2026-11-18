@@ -4,7 +4,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   Dimensions,
-  Image,
   ActivityIndicator,
   Alert,
   AppState,
@@ -24,6 +23,7 @@ import { createPartDownload, finishPartDownload } from '@/utils/safeDownload';
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { Gesture, GestureDetector, Directions } from 'react-native-gesture-handler';
 import { Button, Text } from '@/components/atoms';
+import { FeedImage } from '@/components/atoms/FeedImage';
 import { useQueryClient } from '@tanstack/react-query';
 import { canPlayQueueItem, isStoryStatePlayable, parseStoryState, storyTapAction } from '@/features/stories/storyLock';
 import { isStoryUnlockPlayable, runStoryUnlockFlow, showPreviousEpisodeFirst } from '@/features/stories/storyUnlockFlow';
@@ -2573,10 +2573,10 @@ export default function AudioPlayerScreen() {
               end={{ x: 1, y: 1 }}
             >
               {contentData.thumbnailUrl ? (
-                <Image
-                  source={{ uri: contentData.thumbnailUrl.toString() }}
+                <FeedImage
+                  uri={contentData.thumbnailUrl.toString()}
                   style={styles.lyricsBackground}
-                  resizeMode="cover"
+                  contentFit="cover"
                 />
               ) : (
                 <View style={styles.lyricsDefaultBg}>

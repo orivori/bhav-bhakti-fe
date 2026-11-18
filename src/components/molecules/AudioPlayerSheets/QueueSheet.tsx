@@ -1,6 +1,7 @@
 import React, { forwardRef, useCallback } from 'react';
-import { View, Image, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { Text } from '@/components/atoms';
+import { FeedImage } from '@/components/atoms/FeedImage';
 import {
   BottomSheetModal,
   BottomSheetFlatList,
@@ -61,7 +62,7 @@ export const QueueSheet = forwardRef<BottomSheetModal, QueueSheetProps>(
             activeOpacity={0.7}
           >
             {item.thumbnailUrl ? (
-              <Image source={{ uri: item.thumbnailUrl }} style={styles.thumbnail} />
+              <FeedImage uri={item.thumbnailUrl} style={styles.thumbnail} contentFit="cover" />
             ) : (
               <View style={styles.thumbnailPlaceholder}>
                 <Ionicons name="musical-notes" size={18} color={goldenTempleTheme.colors.primary.DEFAULT} />
