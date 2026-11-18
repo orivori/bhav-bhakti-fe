@@ -2,8 +2,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Modal, View, Image, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { Video, ResizeMode, type AVPlaybackStatus } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
-import { designSystemTheme } from '@/styles/designSystemTheme';
-import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { Feed } from '@/types/feed';
 import { useEffectivelyActive } from '@/hooks/useEffectivelyActive';
 import { useWallpaperActions } from '../WallpaperFeedCard/useWallpaperActions';
@@ -222,8 +220,10 @@ const styles = StyleSheet.create({
   window: {
     width: '80%',
     height: '80%',
-    borderRadius: goldenTempleTheme.borderRadius.xl,
-    backgroundColor: designSystemTheme.colors.surface,
+    // Near-black, so a wallpaper or video shown whole ("contain") gets dark
+    // bars around it instead of white ones; corners match the notice cards.
+    borderRadius: 20,
+    backgroundColor: '#111111',
     overflow: 'hidden',
     position: 'relative',
   },
