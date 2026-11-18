@@ -1,4 +1,5 @@
 import * as FileSystem from 'expo-file-system/legacy';
+import { isPartFileName } from './safeDownloadRules';
 
 // Basic startup eviction policy for FileSystem.cacheDirectory - the OS's own
 // "Clear Cache" already reclaims this directory at will (that's the whole
@@ -53,8 +54,14 @@ export async function runCacheEviction(): Promise<void> {
           // default rather than guessing at recursive-delete correctness.
           if (!info.exists || info.isDirectory) return;
 
+          // A `.part` file is an unfinished download (safeDownload.ts) left
+          // behind by a killed app or a crash. Nothing ever reads one, and
+          // this runs at startup before any download is normally started, so
+          // it goes whatever its age. (Even if a download from this run were
+          // caught, its rename would fail and that one file simply wouldn't
+          // be cached - playback streams regardless.)
           const ageSeconds = nowSeconds - info.modificationTime;
-          if (ageSeconds > CACHE_MAX_AGE_SECONDS) {
+          if (isPartFileName(name) || ageSeconds > CACHE_MAX_AGE_SECONDS) {
             await FileSystem.deleteAsync(fileUri, { idempotent: true });
             deletedCount += 1;
           }

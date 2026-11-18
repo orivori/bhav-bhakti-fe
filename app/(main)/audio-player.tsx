@@ -20,6 +20,7 @@ import type { ParamListBase } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAudioPlayer, useAudioPlayerStatus, setAudioModeAsync } from 'expo-audio';
 import * as FileSystem from 'expo-file-system/legacy';
+import { createPartDownload, finishPartDownload } from '@/utils/safeDownload';
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { Gesture, GestureDetector, Directions } from 'react-native-gesture-handler';
 import { Button, Text } from '@/components/atoms';
@@ -180,12 +181,16 @@ const downloadToCacheInBackground = (feedIdForCache: string, audioUri: string): 
     queuedForBackgroundDownload.delete(feedIdForCache);
     const localFileUri = getLocalCachePath(feedIdForCache, audioUri);
     console.log('⬇️ Background download starting:', localFileUri);
-    const resumable = FileSystem.createDownloadResumable(audioUri, localFileUri);
+    // Writes to a temporary .part file (resumable.fileUri); only a complete,
+    // checked download is renamed to localFileUri (safeDownload.ts). So the
+    // exists-check in getCachedLocalUri can never pick up a file cut short
+    // by a killed app or a dropped connection.
+    const resumable = createPartDownload(audioUri, localFileUri);
     inFlightBackgroundDownloads.set(feedIdForCache, resumable);
 
     resumable
       .downloadAsync()
-      .then((result) => {
+      .then(async (result) => {
         // A cancelled resumable download resolves to `undefined` rather
         // than rejecting (confirmed in expo-file-system's own types) -
         // cancellation is handled entirely by cancelBackgroundDownload
@@ -195,14 +200,16 @@ const downloadToCacheInBackground = (feedIdForCache: string, audioUri: string): 
           console.log('⏹️ Background cache download cancelled for feed:', feedIdForCache);
           return;
         }
-        if (result.status !== 200) {
-          throw new Error(`Download failed with status ${result.status}`);
-        }
+        // Checks status 200 + size, then renames .part -> localFileUri;
+        // throws (after deleting the .part file) otherwise.
+        await finishPartDownload(result, localFileUri);
         console.log('✅ Background cache download complete for feed:', feedIdForCache);
       })
       .catch((error) => {
         console.error('Background cache download failed for feed:', feedIdForCache, error);
-        FileSystem.deleteAsync(localFileUri, { idempotent: true }).catch((cleanupError) => {
+        // Only the temporary file - the final cache file is never written by
+        // a failed download, so there's nothing else to clean up.
+        FileSystem.deleteAsync(resumable.fileUri, { idempotent: true }).catch((cleanupError) => {
           console.error('Error cleaning up partial audio download:', cleanupError);
         });
       })
