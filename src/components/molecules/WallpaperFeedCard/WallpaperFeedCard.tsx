@@ -7,7 +7,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Video, ResizeMode } from 'expo-av';
+import { FeedVideo } from '../FeedVideo';
 import FeedMedia from '../FeedMedia/FeedMedia';
 import { FeedImage } from '@/components/atoms/FeedImage';
 import { Feed } from '@/types/feed';
@@ -118,16 +118,16 @@ export default function WallpaperFeedCard({
             // never end up audible regardless of whatever mute preference is
             // set on Home or anywhere else. Mounted only while
             // shouldMountVideo (see above).
-            <Video
+            <FeedVideo
               key={playOnce.playerKey}
-              source={{ uri: feed.url }}
+              feedId={String(feed.id)}
+              uri={feed.url!}
+              posterUri={thumbnailUrl}
               style={styles.gridImage}
-              resizeMode={ResizeMode.CONTAIN}
-              isLooping={false}
-              onPlaybackStatusUpdate={playOnce.onPlaybackStatusUpdate}
+              contentFit="contain"
               shouldPlay
-              isMuted={true}
-              posterSource={thumbnailUrl ? { uri: thumbnailUrl } : undefined}
+              muted
+              onFinish={playOnce.onFinish}
             />
           ) : !!feed.url && (
             <FeedImage uri={feed.url} style={styles.gridImage} contentFit="contain" />
@@ -208,16 +208,16 @@ export default function WallpaperFeedCard({
               {playOnce.shouldMountPlayer ? (
                 // Plays once, then holds its last frame with the replay
                 // button (usePlayOnceVideo).
-                <Video
+                <FeedVideo
                   key={playOnce.playerKey}
-                  source={{ uri: feed.url }}
+                  feedId={String(feed.id)}
+                  uri={feed.url}
+                  posterUri={thumbnailUrl}
                   style={styles.wallpaperVideo}
-                  resizeMode={ResizeMode.CONTAIN}
-                  isLooping={false}
-                  onPlaybackStatusUpdate={playOnce.onPlaybackStatusUpdate}
+                  contentFit="contain"
                   shouldPlay
-                  isMuted={true}
-                  posterSource={thumbnailUrl ? { uri: thumbnailUrl } : undefined}
+                  muted
+                  onFinish={playOnce.onFinish}
                 />
               ) : thumbnailUrl ? (
                 <FeedImage uri={thumbnailUrl} style={styles.wallpaperVideo} contentFit="contain" />

@@ -33,14 +33,18 @@ export function usePlayOnceVideo(feedId: string, canMountPlayer: boolean) {
     if (!canMountPlayer) setFinishedInThisPlayer(false);
   }, [canMountPlayer]);
 
+  // The player reached the end (FeedVideo's onFinish).
+  const onFinish = useCallback(() => {
+    markFinished(feedId);
+    setFinishedInThisPlayer(true);
+  }, [feedId, markFinished]);
+
+  // expo-av's status callback, for players not yet moved to FeedVideo.
   const onPlaybackStatusUpdate = useCallback(
     (status: AVPlaybackStatus) => {
-      if (status.isLoaded && status.didJustFinish) {
-        markFinished(feedId);
-        setFinishedInThisPlayer(true);
-      }
+      if (status.isLoaded && status.didJustFinish) onFinish();
     },
-    [feedId, markFinished]
+    [onFinish]
   );
 
   const replay = useCallback(() => {
@@ -55,6 +59,7 @@ export function usePlayOnceVideo(feedId: string, canMountPlayer: boolean) {
     // Whether to show the replay button (on the last frame or the still).
     isFinished,
     playerKey,
+    onFinish,
     onPlaybackStatusUpdate,
     replay,
   };
