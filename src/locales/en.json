@@ -454,6 +454,14 @@
     "noEpisodes": "No episodes yet",
     "episodesHeading": "Episodes"
   },
+  "rashifalLock": {
+    "adBody": "Watch a short ad to read today's Rashifal for this sign",
+    "lockedTitle": "Today's Rashifal is locked",
+    "lockedBody": "Watch a short ad to read today's Rashifal for {{sign}}. It stays open for the rest of the day.",
+    "watchToRead": "Watch ad to read",
+    "unlockFailed": "Couldn't unlock, please try again",
+    "locked": "Locked"
+  },
   "storyLock": {
     "adBody": "Watch a short ad to unlock this episode",
     "adBodySingle": "Watch a short ad to unlock this story",
