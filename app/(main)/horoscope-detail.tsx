@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -9,20 +9,24 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useIsFocused } from '@react-navigation/native';
+import { useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import WhatsAppIcon from '../../assets/icons/whatsapp.svg';
 
 import { Text } from '@/components/atoms';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
-import { useHoroscopeBySign } from '@/features/horoscope/hooks/useHoroscope';
+import { useRashifalReading } from '@/features/rashifal/useRashifalReading';
+import { isRashifalLockedError, type RashifalTrigger } from '@/features/rashifal/rashifalLock';
+import { runRashifalUnlockFlow, shouldOpenAfterFlow } from '@/features/rashifal/rashifalUnlockFlow';
+import { invalidateRashifalStatus } from '@/features/rashifal/useRashifalOpener';
+import { showStoryNotice } from '@/store/storyNoticeStore';
 import { useTranslation } from 'react-i18next';
 import { useI18nStore } from '@/shared/stores/i18nStore';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
 import { getZodiacBySign } from '@/data/zodiacData';
 import { LanguageToggle } from '@/components/molecules/LanguageToggle';
-import { getLocalDateString } from '@/shared/utils/dateUtil';
 import { PLAY_STORE_URL } from '@/shared/config/appStoreLink';
 import type { ZodiacSign } from '@/types/horoscope';
 import { logRashifalViewed } from '@/utils/analytics/engagementEvents';
@@ -40,7 +44,9 @@ export default function HoroscopeDetailScreen() {
   // always fell through to the Tabs navigator's implicit fallback (Home),
   // regardless of actual entry point. No returnParams needed here - unlike
   // audio-player.tsx, neither entry point has state to restore on return.
-  const { zodiacSign, returnTo } = useLocalSearchParams<{ zodiacSign: ZodiacSign; returnTo?: string }>();
+  // entry: 'notification' when a push opened this screen (deepLink.ts) - only
+  // the analytics trigger of a Rashifal unlock offered here.
+  const { zodiacSign, returnTo, entry } = useLocalSearchParams<{ zodiacSign: ZodiacSign; returnTo?: string; entry?: string }>();
   const { t } = useTranslation();
   const { language } = useI18nStore();
   const { contentPadding } = useTabBarHeight();
@@ -90,23 +96,57 @@ export default function HoroscopeDetailScreen() {
     }, [handleBack])
   );
 
-  // Rashifal is today-only for MVP - no past/future browsing, so this is a
-  // plain constant now, not state (the date-navigation pill that used to
-  // change it was removed).
+  // Rashifal is today-only - no past/future browsing. "Today" is IST, decided
+  // by the server; the hook pins the served day for the rest of this visit
+  // (features/rashifal/useRashifalReading.ts).
   const selectedDate = new Date();
-
-  // Fetch horoscope data for selected sign and date. Deliberately
-  // getLocalDateString(selectedDate), NOT selectedDate.toISOString().split
-  // ('T')[0] - the latter converts to UTC first and was rolling this back to
-  // the previous calendar day for the first ~5.5 hours of every day in IST,
-  // silently fetching yesterday's horoscope.
-  const dateString = getLocalDateString(selectedDate);
-  const { data: horoscope, isLoading, error, refetch } = useHoroscopeBySign(
-    zodiacSign as ZodiacSign,
-    dateString
-  );
+  const { data: horoscope, isLoading, error, refetch } = useRashifalReading(zodiacSign as ZodiacSign);
 
   const zodiacData = zodiacSign ? getZodiacBySign(zodiacSign) : null;
+
+  // Rashifal ad gate: the server answers 403 + unlock 'ad' for a locked sign
+  // (only while its switches are on and only for this app code). Home's card
+  // and the grid offer the ad before they open this screen; this catches
+  // every other way in (a notification, a failed status check). A reading
+  // already on screen is never replaced by a later refusal.
+  const queryClient = useQueryClient();
+  const isFocused = useIsFocused();
+  const isLocked = !horoscope && isRashifalLockedError(error);
+  const [isUnlocking, setIsUnlocking] = useState(false);
+  const offeredRef = useRef<string | null>(null);
+  const unlockTrigger: RashifalTrigger = entry === 'notification' ? 'notification' : 'reading_screen';
+
+  const startUnlock = useCallback(async () => {
+    if (!zodiacSign || isUnlocking) return;
+    setIsUnlocking(true);
+    try {
+      const result = await runRashifalUnlockFlow({ zodiacSign, trigger: unlockTrigger });
+      if (result === 'unlocked') void invalidateRashifalStatus(queryClient);
+      if (shouldOpenAfterFlow(result)) {
+        await refetch();
+      } else if (result === 'failed') {
+        await showStoryNotice('rashifalLock.unlockFailed');
+      }
+    } finally {
+      setIsUnlocking(false);
+    }
+  }, [zodiacSign, isUnlocking, unlockTrigger, queryClient, refetch]);
+
+  // Offer the ad once per visit and sign when the locked answer arrives.
+  // "Not now" leaves the locked panel with its own button.
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        offeredRef.current = null;
+      };
+    }, [])
+  );
+  useEffect(() => {
+    if (!isLocked || !isFocused || !zodiacSign) return;
+    if (offeredRef.current === zodiacSign) return;
+    offeredRef.current = zodiacSign;
+    void startUnlock();
+  }, [isLocked, isFocused, zodiacSign, startUnlock]);
 
 
   const handleShare = async () => {
@@ -147,7 +187,7 @@ export default function HoroscopeDetailScreen() {
     return selectedDate.toDateString() === today.toDateString();
   };
 
-  if (isLoading) {
+  if (isLoading && !horoscope) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
@@ -160,7 +200,38 @@ export default function HoroscopeDetailScreen() {
     );
   }
 
-  if (error || !horoscope || !zodiacData) {
+  if (isLocked && zodiacData) {
+    const signName = zodiacData.name[language as 'en' | 'hi'] || zodiacData.name.en;
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.lockedHeader}>
+          <TouchableOpacity style={styles.backButton} onPress={handleBack}>
+            <Ionicons name="arrow-back" size={24} color="#374151" />
+          </TouchableOpacity>
+        </View>
+        <View style={styles.errorContainer}>
+          <Ionicons name="lock-closed" size={48} color={goldenTempleTheme.colors.primary[500]} />
+          <Text variant="h5" weight="semibold" style={styles.lockedTitle}>
+            {t('rashifalLock.lockedTitle')}
+          </Text>
+          <Text variant="body" color="secondary" style={styles.lockedBody}>
+            {t('rashifalLock.lockedBody', { sign: signName })}
+          </Text>
+          <TouchableOpacity
+            style={[styles.retryButton, isUnlocking && styles.buttonDisabled]}
+            onPress={startUnlock}
+            disabled={isUnlocking}
+          >
+            <Text variant="body" weight="semibold" style={[styles.retryText, styles.lockedButtonText]}>
+              {t('rashifalLock.watchToRead')}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!horoscope || !zodiacData) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.errorContainer}>
@@ -583,5 +654,29 @@ const styles = StyleSheet.create({
   },
   retryText: {
     color: '#fff',
+  },
+  // Rashifal locked panel. Devanagari floors per CLAUDE.md §71.
+  lockedHeader: {
+    paddingHorizontal: goldenTempleTheme.spacing.md,
+    paddingTop: goldenTempleTheme.spacing.sm,
+  },
+  lockedTitle: {
+    marginTop: goldenTempleTheme.spacing.md,
+    textAlign: 'center',
+    lineHeight: 30,
+    minHeight: 30,
+  },
+  lockedBody: {
+    marginTop: goldenTempleTheme.spacing.sm,
+    textAlign: 'center',
+    lineHeight: 26,
+  },
+  lockedButtonText: {
+    textAlign: 'center',
+    lineHeight: 26,
+    minHeight: 26,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
   },
 });
