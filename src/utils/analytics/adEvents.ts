@@ -26,6 +26,9 @@ export interface AdEventContext {
   content_type: string;
   action: AdEventAction;
   trigger: string;
+  // Rashifal only: the push campaign that opened the app in the last 30
+  // minutes (Firebase only - the Meta ad events send content_type and action).
+  push_campaign?: string;
 }
 
 export type AdUnavailableReason = 'timeout' | 'no_fill' | 'load_error';

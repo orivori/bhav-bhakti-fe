@@ -1,4 +1,5 @@
 import { logAnalyticsEvent } from './logEvent';
+import { pushCampaignParam } from '@/utils/notifications/pushAttribution';
 
 // Engagement bucket - see Bhav_Bhakti_Analytics_Event_Plan.md §3. Unlike
 // activationEvents.ts, these fire on every relevant interaction, for every
@@ -56,8 +57,10 @@ export function logChantCounterUsed(params: { feed_id: string }): void {
 // Fires once per horoscope-detail.tsx mount, covering both real entry points
 // (Home's daily-horoscope card and the 12-sign browsing grid) since both
 // navigate to this one shared screen.
+// push_campaign is added while the app was opened from a push in the last 30
+// minutes (pushAttribution.ts); when and how often this fires is unchanged.
 export function logRashifalViewed(params: { zodiac_sign: string }): void {
-  logAnalyticsEvent('rashifal_viewed', params);
+  logAnalyticsEvent('rashifal_viewed', { ...params, ...pushCampaignParam() });
 }
 
 // Fires from DeityFilterRow's single shared component (reused unchanged by

@@ -1,5 +1,6 @@
 import { logAnalyticsEvent } from './logEvent';
 import { logMetaGateActionTap, type GateTapAction, type GateTapContentType } from './metaAppEvents';
+import { pushCampaignParam } from '@/utils/notifications/pushAttribution';
 
 // Gate-tap events (v10): a user tapped an action the ad gate can lock -
 // wallpaper/thought download or share, Set as Ringtone. Logged at the tap,
@@ -63,7 +64,7 @@ export function logRashifalGateTap(zodiacSign: string): void {
     if (previous !== undefined && now - previous < DOUBLE_TAP_WINDOW_MS) return;
     lastTapAt.set(key, now);
 
-    logAnalyticsEvent('gate_action_tap', { action: 'view', content_type: 'rashifal' });
+    logAnalyticsEvent('gate_action_tap', { action: 'view', content_type: 'rashifal', ...pushCampaignParam() });
     logMetaGateActionTap('rashifal', 'view');
   } catch (error) {
     console.error('gate_action_tap failed:', error);

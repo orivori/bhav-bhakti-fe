@@ -1,4 +1,5 @@
 import { logAnalyticsEvent } from './logEvent';
+import { pushCampaignParam } from '@/utils/notifications/pushAttribution';
 
 // Rashifal ad-unlock events (Firebase only). The shared ad events
 // (ad_unlock_offered, ad_watch_tapped, ad_reward_earned, ...) are logged by
@@ -14,10 +15,13 @@ interface RashifalEventContext {
   isOwnSign?: boolean;
 }
 
+// push_campaign: set while the app was opened from a push in the last 30
+// minutes (pushAttribution.ts).
 function baseParams(context: RashifalEventContext): Record<string, string | number> {
   return {
     trigger: context.trigger,
     ...(context.isOwnSign !== undefined ? { is_own_sign: context.isOwnSign ? 1 : 0 } : {}),
+    ...pushCampaignParam(),
   };
 }
 

@@ -12,6 +12,7 @@ import {
 } from '@/utils/analytics/adEvents';
 import { logMetaAdWatched, logMetaAdWatchTapped } from '@/utils/analytics/metaAdEvents';
 import { logRashifalLockShown, logRashifalUnlockCompleted } from '@/utils/analytics/rashifalEvents';
+import { pushCampaignParam } from '@/utils/notifications/pushAttribution';
 import { pauseMediaForAd, resumeMediaAfterAd } from '@/features/ads/pauseMediaForAd';
 import {
   AD_LOAD_TIMEOUT_MS,
@@ -87,7 +88,12 @@ async function record(target: RashifalUnlockTarget, source: RashifalUnlockSource
 let flowRunning = false;
 
 async function runFlowSteps(target: RashifalUnlockTarget): Promise<RashifalUnlockFlowResult> {
-  const context: AdEventContext = { content_type: 'rashifal', action: 'view', trigger: target.trigger };
+  const context: AdEventContext = {
+    content_type: 'rashifal',
+    action: 'view',
+    trigger: target.trigger,
+    ...pushCampaignParam(),
+  };
   if (useAdFlowStore.getState().phase !== 'idle') return 'busy';
 
   logRashifalLockShown({ trigger: target.trigger, isOwnSign: target.isOwnSign });
