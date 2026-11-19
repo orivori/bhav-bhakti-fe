@@ -24,6 +24,9 @@ const lastTapAt = new Map<string, number>();
 
 function toGateContentType(feedType: string | undefined, action: GateTapAction): GateTapContentType | null {
   if (action === 'set_ringtone') return feedType === 'ringtone' ? 'ringtone' : null;
+  // 'view' is only Rashifal's (logRashifalGateTap below); the enlarged
+  // wallpaper view stays uncounted, as before.
+  if (action === 'view') return null;
   if (feedType === 'wallpaper' || feedType === 'thought') return feedType;
   return null;
 }
@@ -43,6 +46,26 @@ export function logGateActionTap(feed: { id: string | number; type?: string }, a
     logMetaGateActionTap(contentType, action);
   } catch (error) {
     // Analytics must never break a download or share.
+    console.error('gate_action_tap failed:', error);
+  }
+}
+
+// Rashifal (since the Rashifal ad gate): opening a sign's reading from Home's
+// card or the 12-sign grid, logged at the tap before any gate check, so it
+// counts the same with the gate on or off. Firebase gate_action_tap
+// { action: 'view', content_type: 'rashifal' }; Meta the umbrella only.
+// Same 1 s double-tap rule, keyed by sign (never sent).
+export function logRashifalGateTap(zodiacSign: string): void {
+  try {
+    const key = `rashifal:${zodiacSign}:view`;
+    const now = Date.now();
+    const previous = lastTapAt.get(key);
+    if (previous !== undefined && now - previous < DOUBLE_TAP_WINDOW_MS) return;
+    lastTapAt.set(key, now);
+
+    logAnalyticsEvent('gate_action_tap', { action: 'view', content_type: 'rashifal' });
+    logMetaGateActionTap('rashifal', 'view');
+  } catch (error) {
     console.error('gate_action_tap failed:', error);
   }
 }

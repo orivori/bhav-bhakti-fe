@@ -37,8 +37,10 @@ function logMetaEvent(name: string): void {
   }
 }
 
-export type GateTapAction = 'download' | 'share' | 'set_ringtone';
-export type GateTapContentType = 'wallpaper' | 'thought' | 'ringtone';
+export type GateTapAction = 'download' | 'share' | 'set_ringtone' | 'view';
+// 'rashifal' + 'view' (opening a sign's reading) has no specific event below,
+// so Meta gets only the umbrella gate_action_tap for it.
+export type GateTapContentType = 'wallpaper' | 'thought' | 'ringtone' | 'rashifal';
 
 // The specific event for each gateable tap; anything not listed fires only
 // the umbrella gate_action_tap (nothing else reaches here today).
