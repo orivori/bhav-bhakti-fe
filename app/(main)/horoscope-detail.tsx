@@ -18,7 +18,13 @@ import WhatsAppIcon from '../../assets/icons/whatsapp.svg';
 import { Text } from '@/components/atoms';
 import { goldenTempleTheme } from '@/styles/goldenTempleTheme';
 import { useRashifalReading } from '@/features/rashifal/useRashifalReading';
-import { isRashifalLockedError, type RashifalTrigger } from '@/features/rashifal/rashifalLock';
+import {
+  isRashifalLockedError,
+  parseUnlockedVia,
+  rashifalReadingAccess,
+  type RashifalTrigger,
+} from '@/features/rashifal/rashifalLock';
+import { logRashifalReadingShown } from '@/utils/analytics/rashifalEvents';
 import { runRashifalUnlockFlow, shouldOpenAfterFlow } from '@/features/rashifal/rashifalUnlockFlow';
 import { invalidateRashifalStatus } from '@/features/rashifal/useRashifalOpener';
 import { showStoryNotice } from '@/store/storyNoticeStore';
@@ -46,7 +52,14 @@ export default function HoroscopeDetailScreen() {
   // audio-player.tsx, neither entry point has state to restore on return.
   // entry: 'notification' when a push opened this screen (deepLink.ts) - only
   // the analytics trigger of a Rashifal unlock offered here.
-  const { zodiacSign, returnTo, entry } = useLocalSearchParams<{ zodiacSign: ZodiacSign; returnTo?: string; entry?: string }>();
+  // unlockedVia: 'reward' | 'no_fill' when Home's card or the grid unlocked
+  // the sign just before opening (useRashifalOpener) - analytics only.
+  const { zodiacSign, returnTo, entry, unlockedVia } = useLocalSearchParams<{
+    zodiacSign: ZodiacSign;
+    returnTo?: string;
+    entry?: string;
+    unlockedVia?: string;
+  }>();
   const { t } = useTranslation();
   const { language } = useI18nStore();
   const { contentPadding } = useTabBarHeight();
@@ -116,12 +129,24 @@ export default function HoroscopeDetailScreen() {
   const offeredRef = useRef<string | null>(null);
   const unlockTrigger: RashifalTrigger = entry === 'notification' ? 'notification' : 'reading_screen';
 
+  // rashifal_reading_shown: once per visit and sign, when the reading really
+  // shows. The unlock made in this visit (by the opener or by this screen)
+  // turns the server's 'unlocked' into ad / no_fill.
+  const visitUnlockRef = useRef<'reward' | 'no_fill' | null>(null);
+  const shownRef = useRef<string | null>(null);
+  useEffect(() => {
+    visitUnlockRef.current = parseUnlockedVia(unlockedVia);
+  }, [zodiacSign, unlockedVia]);
+
   const startUnlock = useCallback(async () => {
     if (!zodiacSign || isUnlocking) return;
     setIsUnlocking(true);
     try {
-      const result = await runRashifalUnlockFlow({ zodiacSign, trigger: unlockTrigger });
-      if (result === 'unlocked') void invalidateRashifalStatus(queryClient);
+      const { result, source } = await runRashifalUnlockFlow({ zodiacSign, trigger: unlockTrigger });
+      if (result === 'unlocked') {
+        visitUnlockRef.current = source;
+        void invalidateRashifalStatus(queryClient);
+      }
       if (shouldOpenAfterFlow(result)) {
         await refetch();
       } else if (result === 'failed') {
@@ -138,6 +163,7 @@ export default function HoroscopeDetailScreen() {
     useCallback(() => {
       return () => {
         offeredRef.current = null;
+        shownRef.current = null;
       };
     }, [])
   );
@@ -147,6 +173,13 @@ export default function HoroscopeDetailScreen() {
     offeredRef.current = zodiacSign;
     void startUnlock();
   }, [isLocked, isFocused, zodiacSign, startUnlock]);
+
+  useEffect(() => {
+    if (!horoscope || !isFocused || !zodiacSign || horoscope.zodiacSign !== zodiacSign) return;
+    if (shownRef.current === zodiacSign) return;
+    shownRef.current = zodiacSign;
+    logRashifalReadingShown(rashifalReadingAccess(horoscope.rashifalAccess, visitUnlockRef.current));
+  }, [horoscope, isFocused, zodiacSign]);
 
 
   const handleShare = async () => {

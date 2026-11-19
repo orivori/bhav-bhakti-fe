@@ -39,6 +39,12 @@ import type { RashifalTrigger } from './rashifalLock';
 //   busy       - another ad flow is already running
 export type RashifalUnlockFlowResult = 'unlocked' | 'disabled' | 'no_reading' | 'declined' | 'failed' | 'busy';
 
+// The flow's answer plus, when it unlocked, how (for rashifal_reading_shown).
+export interface RashifalUnlockFlowOutcome {
+  result: RashifalUnlockFlowResult;
+  source: RashifalUnlockSource | null;
+}
+
 export function shouldOpenAfterFlow(result: RashifalUnlockFlowResult): boolean {
   return result === 'unlocked' || result === 'disabled' || result === 'no_reading';
 }
@@ -70,11 +76,16 @@ function waitForAdOrAbort(waitForLoad: Promise<AdLoadOutcome>): Promise<LoadWait
   });
 }
 
-async function record(target: RashifalUnlockTarget, source: RashifalUnlockSource): Promise<RashifalUnlockFlowResult> {
+async function record(
+  target: RashifalUnlockTarget,
+  source: RashifalUnlockSource,
+  recorded: { source: RashifalUnlockSource | null }
+): Promise<RashifalUnlockFlowResult> {
   const outcome = await recordRashifalUnlock({ zodiacSign: target.zodiacSign, source });
   switch (outcome) {
     case 'granted':
       logRashifalUnlockCompleted({ trigger: target.trigger, isOwnSign: target.isOwnSign }, source);
+      recorded.source = source;
       return 'unlocked';
     case 'disabled':
       return 'disabled';
@@ -87,7 +98,10 @@ async function record(target: RashifalUnlockTarget, source: RashifalUnlockSource
 
 let flowRunning = false;
 
-async function runFlowSteps(target: RashifalUnlockTarget): Promise<RashifalUnlockFlowResult> {
+async function runFlowSteps(
+  target: RashifalUnlockTarget,
+  recorded: { source: RashifalUnlockSource | null }
+): Promise<RashifalUnlockFlowResult> {
   const context: AdEventContext = {
     content_type: 'rashifal',
     action: 'view',
@@ -101,7 +115,7 @@ async function runFlowSteps(target: RashifalUnlockTarget): Promise<RashifalUnloc
   const ad = prepareRewardedAd();
   if (!ad) {
     logAdUnavailable(context, 'load_error');
-    return await record(target, 'no_fill');
+    return await record(target, 'no_fill', recorded);
   }
 
   logAdUnlockOffered(context);
@@ -124,7 +138,7 @@ async function runFlowSteps(target: RashifalUnlockTarget): Promise<RashifalUnloc
         return 'declined';
       }
       logAdUnavailable(context, loaded.reason);
-      return await record(target, 'no_fill');
+      return await record(target, 'no_fill', recorded);
     }
 
     if (!isAppInForeground()) {
@@ -140,25 +154,27 @@ async function runFlowSteps(target: RashifalUnlockTarget): Promise<RashifalUnloc
     if (outcome === 'rewarded') {
       logAdRewardEarned(context, loaded.loadMs);
       logMetaAdWatched(context);
-      return await record(target, 'reward');
+      return await record(target, 'reward', recorded);
     }
     if (outcome === 'closed_no_reward') {
       logAdClosedNoReward(context, loaded.loadMs);
       return 'declined';
     }
     logAdFailed(context, 'show_error', loaded.loadMs);
-    return await record(target, 'no_fill');
+    return await record(target, 'no_fill', recorded);
   } finally {
     useAdFlowStore.getState().setPhase('idle');
     resumeMediaAfterAd(paused);
   }
 }
 
-export async function runRashifalUnlockFlow(target: RashifalUnlockTarget): Promise<RashifalUnlockFlowResult> {
-  if (flowRunning) return 'busy';
+export async function runRashifalUnlockFlow(target: RashifalUnlockTarget): Promise<RashifalUnlockFlowOutcome> {
+  if (flowRunning) return { result: 'busy', source: null };
   flowRunning = true;
+  const recorded: { source: RashifalUnlockSource | null } = { source: null };
   try {
-    return await runFlowSteps(target);
+    const result = await runFlowSteps(target, recorded);
+    return { result, source: result === 'unlocked' ? recorded.source : null };
   } finally {
     flowRunning = false;
   }
