@@ -55,6 +55,11 @@ export function navigateFromNotificationData(data?: Record<string, string | obje
   }
 
   const { screen, ...params } = data;
+  // Tells the reading screen it was opened by a push, so a Rashifal unlock
+  // offered there is counted with trigger 'notification'. Only that.
+  if (screen === '/(main)/horoscope-detail') {
+    (params as Record<string, string | object>).entry = 'notification';
+  }
 
   try {
     // typedRoutes is enabled (app.config.js), which normally restricts

@@ -32,6 +32,7 @@ import { useTabBarHeight } from '@/hooks/useTabBarHeight';
 import { useScrollToTopOnTabPress } from '@/hooks/useScrollToTopOnTabPress';
 import * as Haptics from 'expo-haptics';
 import { profileService } from '@/features/profile/services/profileService';
+import { useRashifalOpener } from '@/features/rashifal/useRashifalOpener';
 import type { ZodiacSign } from '@/types/horoscope';
 import { logHomeFirstViewedIfNewUser, logZodiacSignSet } from '@/utils/analytics/activationEvents';
 
@@ -218,8 +219,14 @@ export default function HomeScreen() {
   // goes straight to the 12-sign grid). First-ever tap collects a real
   // birthdate via BirthdateModal; once dateOfBirth/zodiacSign already exist
   // on the profile, subsequent taps skip the modal and go straight to the
-  // user's own sign. Rashifal is free for everyone, unconditionally - no
-  // paywall gate exists anywhere in the flow this leads to.
+  // user's own sign. Opening goes through useRashifalOpener: while the
+  // backend's Rashifal ad gate is on, a locked sign offers the ad first (after
+  // the birthdate modal on a first tap); with the gate off it opens exactly as
+  // before. Cancelling the modal does nothing - no ad, still on Home.
+  const openRashifal = useRashifalOpener();
+  const openOwnRashifal = (zodiacSign: string) =>
+    openRashifal({ zodiacSign, trigger: 'home_card', returnTo: '/(main)', isOwnSign: true });
+
   const handleHoroscopeCardPress = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
@@ -229,10 +236,7 @@ export default function HomeScreen() {
     try {
       const profile = await profileService.getProfile();
       if (profile.profile?.dateOfBirth && profile.profile?.zodiacSign) {
-        router.push({
-          pathname: '/(main)/horoscope-detail',
-          params: { zodiacSign: profile.profile.zodiacSign, returnTo: '/(main)' },
-        });
+        await openOwnRashifal(profile.profile.zodiacSign);
       } else {
         wasZodiacUnsetRef.current = true;
         setShowBirthdateModal(true);
@@ -257,10 +261,7 @@ export default function HomeScreen() {
       wasZodiacUnsetRef.current = false;
     }
     setShowBirthdateModal(false);
-    router.push({
-      pathname: '/(main)/horoscope-detail',
-      params: { zodiacSign, returnTo: '/(main)' },
-    });
+    void openOwnRashifal(zodiacSign);
   };
 
   const renderHeader = () => (

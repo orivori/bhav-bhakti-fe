@@ -22,6 +22,9 @@ import { ZODIAC_SIGNS } from '@/data/zodiacData';
 import { LanguageToggle } from '@/components/molecules/LanguageToggle';
 import { useScrollToTopOnTabPress } from '@/hooks/useScrollToTopOnTabPress';
 import type { ZodiacSign } from '@/types/horoscope';
+import { useFocusEffect } from '@react-navigation/native';
+import { useRashifalOpener, useRashifalStatus } from '@/features/rashifal/useRashifalOpener';
+import { isRashifalSignLocked } from '@/features/rashifal/rashifalLock';
 
 const { width } = Dimensions.get('window');
 // Mirrors mantras.tsx's MOOD_ITEM_WIDTH calculation exactly: 2 columns with
@@ -41,20 +44,26 @@ export default function HoroscopeScreen() {
     scrollViewRef.current?.scrollTo({ y: 0, animated: true });
   }, []));
 
-  // Rashifal is free for everyone, unconditionally - no premium gate on this
-  // grid (the app's only Rashifal gate lived here; removed as a deliberate
-  // product decision, not a bug fix).
+  // Rashifal ad gate (features/rashifal): while the backend's switches are on,
+  // a sign not yet unlocked today shows a small lock and tapping it offers
+  // the ad first. Gate off, or the status call failing = no locks, and every
+  // tap opens the reading exactly as before. Status is re-read on focus.
+  const { data: rashifalStatus, refetch: refetchRashifalStatus } = useRashifalStatus();
+  useFocusEffect(
+    useCallback(() => {
+      void refetchRashifalStatus();
+    }, [refetchRashifalStatus])
+  );
+  const openRashifal = useRashifalOpener();
+
   const handleZodiacPress = (zodiacSign: ZodiacSign) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-
-    router.push({
-      pathname: '/(main)/horoscope-detail',
-      params: { zodiacSign, returnTo: '/(main)/horoscope' }
-    });
+    void openRashifal({ zodiacSign, trigger: 'sign_grid', returnTo: '/(main)/horoscope' });
   };
 
   const renderZodiacCard = ({ item }: { item: typeof ZODIAC_SIGNS[0] }) => {
     const gradientColors = getGradientByElement(item.element);
+    const isLocked = isRashifalSignLocked(rashifalStatus, item.zodiacSign);
 
     return (
       <TouchableOpacity
@@ -68,6 +77,14 @@ export default function HoroscopeScreen() {
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
         >
+          {isLocked && (
+            <View
+              style={styles.lockBadge}
+              accessibilityLabel={t('rashifalLock.locked')}
+            >
+              <Ionicons name="lock-closed" size={14} color="#fff" />
+            </View>
+          )}
           {/* Zodiac Info - icon, element label, and corner arrow removed;
               name/dates only, name sized up to fill the space they left. */}
           <View style={styles.zodiacInfo}>
@@ -257,6 +274,18 @@ const styles = StyleSheet.create({
   cardGradient: {
     padding: goldenTempleTheme.spacing.md,
     minHeight: 140,
+    justifyContent: 'center',
+  },
+  // Rashifal ad gate: small lock in the corner of a sign not unlocked today.
+  lockBadge: {
+    position: 'absolute',
+    top: goldenTempleTheme.spacing.sm,
+    right: goldenTempleTheme.spacing.sm,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+    alignItems: 'center',
     justifyContent: 'center',
   },
   zodiacInfo: {
