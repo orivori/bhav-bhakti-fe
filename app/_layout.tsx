@@ -41,6 +41,8 @@ import { useAuthStore } from '@/shared/stores/authStore';
 import { checkSessionOnResume } from '@/shared/services/sessionExpiry';
 import { requestNotificationPermissionOnce } from '@/utils/notifications/permission';
 import { navigateFromNotificationData } from '@/utils/notifications/deepLink';
+import { logNotificationOpened } from '@/utils/analytics/notificationEvents';
+import { syncNotificationPermissionProperty } from '@/utils/notifications/permission';
 import { runDeferredLinkProbe } from '@/utils/deepLinks/deferredAppLink';
 import { logAnalyticsScreenView } from '@/utils/analytics/logEvent';
 import { recordSessionStartForRetention } from '@/utils/analytics/retentionEvents';
@@ -183,6 +185,9 @@ export default function RootLayout() {
     // providers don't unmount on simple backgrounding - see CLAUDE.md §17/§83
     // - so this never re-fires on a background/foreground toggle).
     recordSessionStartForRetention();
+    // Firebase user property notif_permission (granted | denied | not_asked),
+    // read once per cold start; also updated after the permission dialog.
+    void syncNotificationPermissionProperty();
     // Meta returned_day_2 (production only): once ever, on the first open on
     // a later calendar day than the first open - see returnedDay2.ts.
     startReturnedDay2Tracking();
@@ -228,6 +233,7 @@ export default function RootLayout() {
 
     // App was backgrounded, tap brought it back to the foreground.
     const unsubscribeOpenedApp = onNotificationOpenedApp(messagingInstance, (remoteMessage) => {
+      logNotificationOpened(remoteMessage?.data, 'background');
       navigateFromNotificationData(remoteMessage?.data);
     });
 
@@ -249,6 +255,12 @@ export default function RootLayout() {
     if (hasHandledInitialNotificationRef.current) return;
     if (isAppBlocked) {
       hasHandledInitialNotificationRef.current = true;
+      // Still counted (target 'blocked'), never navigated.
+      getInitialNotification(getMessaging())
+        .then((remoteMessage) => {
+          if (remoteMessage) logNotificationOpened(remoteMessage.data, 'cold');
+        })
+        .catch(() => {});
       return;
     }
     if (!isNavigatorMounted) return;
@@ -256,6 +268,7 @@ export default function RootLayout() {
 
     getInitialNotification(getMessaging()).then((remoteMessage) => {
       if (remoteMessage) {
+        logNotificationOpened(remoteMessage.data, 'cold');
         navigateFromNotificationData(remoteMessage.data);
       }
     });

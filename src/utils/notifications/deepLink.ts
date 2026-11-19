@@ -1,6 +1,7 @@
 import { router, Href } from 'expo-router';
 import { useFeatureFlagStore } from '@/store/featureFlagStore';
 import { getUpdateRequirement } from '@/utils/appUpdate/useUpdateRequirement';
+import { ALLOWED_DEEP_LINK_SCREENS } from './pushAttribution';
 
 // The app's first-ever deep-link handler - previously zero <Link>/Linking
 // usage existed anywhere (see CLAUDE.md §10). FCM data payloads are flat,
@@ -30,16 +31,12 @@ import { getUpdateRequirement } from '@/utils/appUpdate/useUpdateRequirement';
 //    Firebase Console field at all - this list is a real safety boundary,
 //    not just a typo-catcher, so it's deliberately a curated subset of the
 //    app's routes, not every registered screen.
-const ALLOWED_DEEP_LINK_SCREENS: readonly string[] = [
-  '/(main)',
-  '/(main)/horoscope',
-  '/(main)/horoscope-detail',
-  '/(main)/ringtones',
-  '/(main)/mantras',
-  '/(main)/daily-status',
-  '/(main)/stories',
-  '/(main)/profile',
-];
+// The list itself lives in pushAttribution.ts (shared with the
+// notification_opened event's target label).
+//
+// Optional `campaign` (e.g. rashifal_daily) is only for analytics
+// (notification_opened, push_campaign) - it passes through as a param like
+// any other key and no screen reads it.
 
 export function navigateFromNotificationData(data?: Record<string, string | object>): void {
   // Maintenance mode swaps the navigator out entirely (app/_layout.tsx), so

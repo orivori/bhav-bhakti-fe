@@ -1,7 +1,39 @@
 import { PermissionsAndroid, Platform } from 'react-native';
-import { getMessaging, subscribeToTopic } from '@react-native-firebase/messaging';
+import { getMessaging, subscribeToTopic, hasPermission, AuthorizationStatus } from '@react-native-firebase/messaging';
+import { getAnalytics, setUserProperty } from '@react-native-firebase/analytics';
 import { FCM_ALL_USERS_TOPIC } from '@/shared/config/notificationChannel';
 import { useNotificationPermissionStore } from '@/store/notificationPermissionStore';
+import { notificationPermissionValue } from './pushAttribution';
+
+function whenPermissionStoreHydrated(): Promise<void> {
+  const persistApi = useNotificationPermissionStore.persist;
+  if (persistApi.hasHydrated()) return Promise.resolve();
+  return new Promise((resolve) => {
+    const unsubscribe = persistApi.onFinishHydration(() => {
+      unsubscribe();
+      resolve();
+    });
+  });
+}
+
+// Firebase user property notif_permission = granted | denied | not_asked
+// (pushAttribution.ts has the rule). Set once per cold start (app/_layout.tsx)
+// and again after the permission dialog is answered. Never throws.
+export async function syncNotificationPermissionProperty(): Promise<void> {
+  if (Platform.OS !== 'android') return;
+  try {
+    await whenPermissionStoreHydrated();
+    const status = await hasPermission(getMessaging());
+    const value = notificationPermissionValue({
+      enabled: status === AuthorizationStatus.AUTHORIZED || status === AuthorizationStatus.PROVISIONAL,
+      hasAsked: useNotificationPermissionStore.getState().hasRequestedPermission,
+      apiLevel: Number(Platform.Version),
+    });
+    await setUserProperty(getAnalytics(), 'notif_permission', value);
+  } catch (error) {
+    console.error('notif_permission user property failed:', error);
+  }
+}
 
 // iOS is entirely out of scope for this app (no native ios/ project exists -
 // see CLAUDE.md §18), so this is Android-only by construction, matching every
@@ -56,6 +88,7 @@ export function requestNotificationPermissionOnce(): void {
     .then((isDone) => {
       if (isDone) {
         markRequested();
+        void syncNotificationPermissionProperty();
       }
     })
     .finally(() => {
