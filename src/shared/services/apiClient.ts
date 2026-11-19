@@ -52,6 +52,12 @@ class ApiClient {
         // (backend §145) - older code never sends it, so it never receives
         // a card it can't display.
         config.headers['X-Stories-Capable'] = '1';
+        // This code can show the Rashifal unlock prompt (features/rashifal).
+        // The backend gates a reading only for requests that carry it AND
+        // X-Ads-Capable AND build >= 12, and only while AD_UNLOCK_ENABLED
+        // and RASHIFAL_AD_GATE_ENABLED are on - older code never sends it,
+        // so it is never shown a lock it can't open.
+        config.headers['X-Rashifal-Unlock'] = '1';
         if (__DEV__) {
           console.log('🚀 API Request:', {
             url: `URL===>${config.baseURL}${config.url}`,
