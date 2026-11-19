@@ -59,8 +59,10 @@ export function useRashifalOpener() {
       busyRef.current = true;
       try {
         logRashifalGateTap(zodiacSign);
-        const open = () =>
-          router.push({ pathname: '/(main)/horoscope-detail', params: { zodiacSign, returnTo } });
+        // unlockedVia ('reward' | 'no_fill', or '' so nothing stale sticks):
+        // only for rashifal_reading_shown's access value on the reading screen.
+        const open = (unlockedVia: string = '') =>
+          router.push({ pathname: '/(main)/horoscope-detail', params: { zodiacSign, returnTo, unlockedVia } });
 
         const decision = decideRashifalOpen(await readStatus(queryClient), zodiacSign);
         if (decision === 'open') {
@@ -73,10 +75,10 @@ export function useRashifalOpener() {
           return;
         }
 
-        const result = await runRashifalUnlockFlow({ zodiacSign, trigger, isOwnSign });
+        const { result, source } = await runRashifalUnlockFlow({ zodiacSign, trigger, isOwnSign });
         if (result === 'unlocked') void invalidateRashifalStatus(queryClient);
         if (shouldOpenAfterFlow(result)) {
-          open();
+          open(source ?? '');
           return;
         }
         if (result === 'failed') await showStoryNotice('rashifalLock.unlockFailed');

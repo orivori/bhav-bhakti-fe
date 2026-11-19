@@ -40,3 +40,11 @@ export function logRashifalUnlockCompleted(context: RashifalEventContext, source
 export function logRashifalOpenedUnlocked(context: RashifalEventContext): void {
   logAnalyticsEvent('rashifal_opened_unlocked', baseParams(context));
 }
+
+// The reading actually showed (not merely the screen opening - that is
+// rashifal_viewed, unchanged). Once per visit and sign. access = gate_off |
+// ad | no_fill | already_unlocked | premium (rashifalReadingAccess in
+// features/rashifal/rashifalLock.ts).
+export function logRashifalReadingShown(access: string): void {
+  logAnalyticsEvent('rashifal_reading_shown', { access, ...pushCampaignParam() });
+}

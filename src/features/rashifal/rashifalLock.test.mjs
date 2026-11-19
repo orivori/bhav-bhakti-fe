@@ -10,6 +10,8 @@ import {
   isRashifalLockedError,
   isRashifalSignLocked,
   parseRashifalStatus,
+  parseUnlockedVia,
+  rashifalReadingAccess,
   shouldRetryRashifalReading,
 } from './rashifalLock.ts';
 
@@ -87,4 +89,24 @@ test('classifyRashifalUnlockResponse', () => {
   assert.equal(classifyRashifalUnlockResponse(429, 'UNKNOWN_ERROR'), 'failed');
   assert.equal(classifyRashifalUnlockResponse(0, 'NETWORK_ERROR'), 'failed');
   assert.equal(classifyRashifalUnlockResponse(undefined, undefined), 'failed');
+});
+
+test('rashifalReadingAccess', () => {
+  assert.equal(rashifalReadingAccess('unlocked', 'reward'), 'ad');
+  assert.equal(rashifalReadingAccess('unlocked', 'no_fill'), 'no_fill');
+  assert.equal(rashifalReadingAccess('unlocked', null), 'already_unlocked');
+  assert.equal(rashifalReadingAccess('unlocked', undefined), 'already_unlocked');
+  assert.equal(rashifalReadingAccess('premium', null), 'premium');
+  assert.equal(rashifalReadingAccess('premium', 'reward'), 'premium');
+  for (const reason of ['gate_off', 'client_not_gated', 'no_user', undefined, null, 'odd']) {
+    assert.equal(rashifalReadingAccess(reason, null), 'gate_off');
+    // An unlock this visit doesn't matter if the server says the gate is off.
+    assert.equal(rashifalReadingAccess(reason, 'reward'), 'gate_off');
+  }
+});
+
+test('parseUnlockedVia', () => {
+  assert.equal(parseUnlockedVia('reward'), 'reward');
+  assert.equal(parseUnlockedVia('no_fill'), 'no_fill');
+  for (const bad of [undefined, '', 'ad', 'REWARD', ['reward']]) assert.equal(parseUnlockedVia(bad), null);
 });

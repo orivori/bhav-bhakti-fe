@@ -90,3 +90,28 @@ export function classifyRashifalUnlockResponse(statusCode: number | undefined, c
   if (statusCode === 401) return 'unauthorized';
   return 'failed';
 }
+
+// rashifal_reading_shown's `access`: how this reading came to be readable.
+//   serverReason      - the reading's rashifalAccess field (backend gate
+//                       reason; missing on an older backend = treated as off)
+//   unlockedThisVisit - the unlock recorded in this visit, if any
+export type RashifalReadingAccess = 'gate_off' | 'ad' | 'no_fill' | 'already_unlocked' | 'premium';
+
+export function rashifalReadingAccess(
+  serverReason: unknown,
+  unlockedThisVisit: 'reward' | 'no_fill' | null | undefined
+): RashifalReadingAccess {
+  if (serverReason === 'premium') return 'premium';
+  if (serverReason === 'unlocked') {
+    if (unlockedThisVisit === 'reward') return 'ad';
+    if (unlockedThisVisit === 'no_fill') return 'no_fill';
+    return 'already_unlocked';
+  }
+  // gate_off, client_not_gated, no_user, missing or unknown: no gate here.
+  return 'gate_off';
+}
+
+// The opener's route param -> an unlock source, or null.
+export function parseUnlockedVia(value: unknown): 'reward' | 'no_fill' | null {
+  return value === 'reward' || value === 'no_fill' ? value : null;
+}

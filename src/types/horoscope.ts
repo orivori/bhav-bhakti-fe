@@ -51,6 +51,10 @@ export interface ZodiacInfo {
 export interface DailyHoroscope {
   id: string;
   date: string;
+  // The backend Rashifal gate's reason for serving this reading (gate_off |
+  // client_not_gated | no_user | unlocked | premium); analytics only. Missing
+  // on an older backend.
+  rashifalAccess?: string;
   zodiacSign: ZodiacSign;
   language: Language;
   overallPrediction: string;
